@@ -19,7 +19,7 @@ pub fn ScreenPoint::from_xy(
   guard finite_coordinate(x) && finite_coordinate(y) else {
     raise CoordinateError::NonFinite
   }
-  { x, y }
+  { x, y, }
 }
 
 ///|
@@ -50,7 +50,7 @@ pub fn WorldPoint::from_xy(
   guard finite_coordinate(x) && finite_coordinate(y) else {
     raise CoordinateError::NonFinite
   }
-  { x, y }
+  { x, y, }
 }
 
 ///|

@@ -13,7 +13,7 @@ fn execute_action(
       match commit_tree_edit(model, op) {
         Ok((cmd, new_model)) => {
           js_set_overlay_open(false)
-          (cmd, { ..new_model, overlay: model.overlay.close() })
+          (cmd, { ..new_model, overlay: model.overlay.close(), })
         }
         Err(err) =>
           match model.overlay.active {
@@ -40,7 +40,7 @@ fn execute_action(
           let result = state.show_name_prompt(action)
           (
             focus_selector_after_render(NAME_PROMPT_SELECTOR),
-            { ..model, overlay: model.overlay.set_state(result.state) },
+            { ..model, overlay: model.overlay.set_state(result.state), },
           )
         }
         None => (none, model)

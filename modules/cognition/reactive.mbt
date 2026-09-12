@@ -29,7 +29,7 @@ fn CognitionReactive::CognitionReactive(
   let dependency_edges_watch = dependency_edges_cell.watch()
   let provider_planning = ProviderPlanningGraph::ProviderPlanningGraph(runtime)
   provider_planning.set_fake_time_ms(0)
-  { revision, dependency_tick, dependency_edges_watch, provider_planning }
+  { revision, dependency_tick, dependency_edges_watch, provider_planning, }
 }
 
 ///|
@@ -177,7 +177,7 @@ fn dependency_edges_from(
   let edges : Array[Dependency] = []
   for from, inputs in dependencies {
     for input in inputs {
-      edges.push({ from, input })
+      edges.push({ from, input, })
     }
   }
   edges.sort_by(fn(a, b) {

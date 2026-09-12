@@ -14,7 +14,7 @@
 
 ///|
 /// Process-wide host. `None` until the JS side injects one via `register_host`.
-let host : Ref[@js.Any?] = { val: None }
+let host : Ref[@js.Any?] = { val: None, }
 
 ///|
 /// Inject the JS host capability: `{ save(content, name), open(handle) }`.

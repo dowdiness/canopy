@@ -8,7 +8,7 @@ pub struct Pan {
 ///|
 /// Capture the viewport and pointer at the beginning of a pan gesture.
 pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Pan {
-  { initial_viewport: viewport, initial_pointer: pointer }
+  { initial_viewport: viewport, initial_pointer: pointer, }
 }
 
 ///|

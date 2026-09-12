@@ -41,8 +41,8 @@ fn begin_delete(
 ) -> (Documents, Array[DocumentsDecision]) {
   let request_id = documents.last_delete_request + 1
   issue_delete(
-    { ..documents, last_delete_request: request_id },
-    { document_id: id, request_id },
+    { ..documents, last_delete_request: request_id, },
+    { document_id: id, request_id, },
     retained,
   )
 }
@@ -56,7 +56,7 @@ fn confirm_or_retry_delete(
     return (documents, [])
   }
   let request_id = documents.last_delete_request + 1
-  let operation = { document_id: id, request_id }
+  let operation = { document_id: id, request_id, }
   match record.save {
     Saving(_, _) =>
       (
@@ -108,12 +108,12 @@ fn finish_delete(
         return (documents, [])
       }
       (
-        { ..documents, saved, records: remove_record(documents.records, id) },
+        { ..documents, saved, records: remove_record(documents.records, id), },
         [],
       )
     }
     DeleteFailed(failure) => {
-      let restored = { ..record, delete: Failed(operation, failure) }
+      let restored = { ..record, delete: Failed(operation, failure), }
       let (restored, decisions) = match record.save {
         Waiting(checkpoint) if checkpoint.eligibility ==
           DocumentsCheckpointEligibility::Eligible &&

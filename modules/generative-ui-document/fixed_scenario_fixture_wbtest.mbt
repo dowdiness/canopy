@@ -228,7 +228,7 @@ fn ScenarioStep::ScenarioStep(
   event~ : FakeShellEvent,
   expectations~ : Array[ScenarioObservation],
 ) -> ScenarioStep {
-  { event, expectations }
+  { event, expectations, }
 }
 
 ///|
@@ -299,7 +299,7 @@ fn FixedScenario::FixedScenario(
   steps~ : Array[ScenarioStep],
   final_expectation~ : ScenarioFinalExpectation,
 ) -> FixedScenario {
-  { invalid_draft_bytes, request_batch, steps, final_expectation }
+  { invalid_draft_bytes, request_batch, steps, final_expectation, }
 }
 
 ///|

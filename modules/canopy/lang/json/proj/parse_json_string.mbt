@@ -13,7 +13,7 @@ fn parse_json_string(raw : String) -> String {
   }
   let inner = raw[1:raw.length() - 1]
   // Process escape sequences
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   let len = inner.length()
   let mut i = 0
   while i < len {

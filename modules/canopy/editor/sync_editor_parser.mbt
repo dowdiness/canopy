@@ -308,7 +308,7 @@ fn prepare_text_admission(
         candidate = candidate[:utf16_start].to_owned() +
           inserted +
           candidate[utf16_start:].to_owned()
-        replay_spans.push({ edit, inserted, source_after: Some(candidate) })
+        replay_spans.push({ edit, inserted, source_after: Some(candidate), })
       }
       @text.TextEffect::Delete(range) => {
         let utf16_start = scalar_position_to_utf16_offset(
@@ -322,11 +322,11 @@ fn prepare_text_admission(
         let edit = @loom_core.Edit::delete(utf16_start, utf16_end)
         candidate = candidate[:utf16_start].to_owned() +
           candidate[utf16_end:].to_owned()
-        replay_spans.push({ edit, inserted: "", source_after: Some(candidate) })
+        replay_spans.push({ edit, inserted: "", source_after: Some(candidate), })
       }
     }
   }
-  { source: candidate, replay_spans }
+  { source: candidate, replay_spans, }
 }
 
 ///|
@@ -412,7 +412,7 @@ fn CommittedTransition::CommittedTransition(
   guard before_version != after_version else {
     raise CommittedTransitionRejection::NoCausalAdvance
   }
-  { before_version, after_version, continuation }
+  { before_version, after_version, continuation, }
 }
 
 ///|

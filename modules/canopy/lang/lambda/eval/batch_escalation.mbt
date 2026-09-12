@@ -108,7 +108,7 @@ fn build_def_states(
             )
         }
         env = env.bind(name, raw)
-        states.push({ name, term: expr, result, raw_value: Some(raw) })
+        states.push({ name, term: expr, result, raw_value: Some(raw), })
       }
       Stuck(_) =>
         // Stuck binding shadows the name but provides no value.
@@ -116,8 +116,8 @@ fn build_def_states(
         // on lookup, which is correct. The egglog escalation path uses
         // blocked_names in run_batch_egglog to exclude this name from
         // partial environments.
-        states.push({ name, term: expr, result, raw_value: None })
-      Suppressed => states.push({ name, term: expr, result, raw_value: None })
+        states.push({ name, term: expr, result, raw_value: None, })
+      Suppressed => states.push({ name, term: expr, result, raw_value: None, })
     }
   }
   // Body

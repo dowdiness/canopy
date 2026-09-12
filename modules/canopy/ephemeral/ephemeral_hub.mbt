@@ -22,7 +22,7 @@ pub fn EphemeralHub::new(local_peer_id : String) -> EphemeralHub {
     stores[ns] = EphemeralStore::new(default_timeout(ns))
   }
   let wire_peer_id = to_wire_peer_id(local_peer_id)
-  { local_peer_id, wire_peer_id, stores }
+  { local_peer_id, wire_peer_id, stores, }
 }
 
 // --- Sync and lifecycle ---

@@ -278,7 +278,7 @@ fn decode_entries(
       EphemeralValue::Null => None
       _ => Some(value)
     }
-    out.push((peer.to_string(), { value: value_opt, clock, updated_at: 0UL }))
+    out.push((peer.to_string(), { value: value_opt, clock, updated_at: 0UL, }))
   }
   out
 }

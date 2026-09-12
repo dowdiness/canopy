@@ -169,17 +169,13 @@ pub fn handle_text_intent(
 ) -> Unit raise {
   js_perf_begin("handleTextIntent")
   js_perf_begin("crdtMutation")
-  try {
-    @ffi.handle_text_intent(handle, from, deleted_len, insert, timestamp_ms)
+  errdefer {
     js_perf_end("crdtMutation")
     js_perf_end("handleTextIntent")
-  } catch {
-    error => {
-      js_perf_end("crdtMutation")
-      js_perf_end("handleTextIntent")
-      raise error
-    }
   }
+  @ffi.handle_text_intent(handle, from, deleted_len, insert, timestamp_ms)
+  js_perf_end("crdtMutation")
+  js_perf_end("handleTextIntent")
 }
 
 ///|
@@ -197,19 +193,17 @@ pub fn handle_text_intent_checked(
 ) -> Bool raise {
   js_perf_begin("handleTextIntentChecked")
   js_perf_begin("crdtMutation")
-  let accepted = try {
+  let accepted = {
+    errdefer {
+      js_perf_end("crdtMutation")
+      js_perf_end("handleTextIntentChecked")
+    }
     let result = @ffi.handle_text_intent_checked(
       handle, from, deleted_len, insert, timestamp_ms,
     )
     js_perf_end("crdtMutation")
     js_perf_end("handleTextIntentChecked")
     result
-  } catch {
-    error => {
-      js_perf_end("crdtMutation")
-      js_perf_end("handleTextIntentChecked")
-      raise error
-    }
   }
   accepted
 }

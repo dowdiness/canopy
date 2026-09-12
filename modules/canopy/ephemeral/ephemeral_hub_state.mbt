@@ -43,7 +43,7 @@ pub fn EphemeralHub::set_drag(
   source_id : String,
   target? : (String, DragPosition)? = None,
 ) -> Unit {
-  let state : DragState = { source_id, target }
+  let state : DragState = { source_id, target, }
   self.stores[Drag].set(self.wire_peer_id, state.to_ephemeral()) catch {
     _ => ()
   }

@@ -72,7 +72,7 @@ fn[T] modify_node_at(
           }
         }
         if found {
-          let updated = { ..node, children: Loaded(children) }
+          let updated = { ..node, children: Loaded(children), }
           let changed_path : Array[InteractiveTreeNode[T]] = [updated]
           for changed in child_path {
             changed_path.push(changed)
@@ -156,7 +156,7 @@ fn[T] apply_selection_edit(
           state.loaded_nodes,
           changed_nodes,
         )
-        { ..state, selection, tree: Some(updated), loaded_nodes }
+        { ..state, selection, tree: Some(updated), loaded_nodes, }
       } else {
         { ..state, selection, }
       }
@@ -195,7 +195,7 @@ fn[T] apply_selection_to_node(
         } else {
           node.children
         }
-        let updated = { ..node, selected: new_selected, children }
+        let updated = { ..node, selected: new_selected, children, }
         let changed_path : Array[InteractiveTreeNode[T]] = [updated]
         for cn in child_path {
           changed_path.push(cn)
@@ -207,7 +207,7 @@ fn[T] apply_selection_to_node(
       if new_selected == node.selected {
         (node, false, [])
       } else {
-        let updated = { ..node, selected: new_selected }
+        let updated = { ..node, selected: new_selected, }
         (updated, true, [updated])
       }
   }

@@ -41,7 +41,7 @@ fn handle_outline(
     }
     // Drag-and-drop
     OutlineDragStart(node_id) =>
-      Some((none, { ..model, drag_source: Some(node_id) }))
+      Some((none, { ..model, drag_source: Some(node_id), }))
     OutlineDragOver(target_id, position) =>
       Some(
         (
@@ -54,7 +54,7 @@ fn handle_outline(
         ),
       )
     OutlineDragLeave =>
-      Some((none, { ..model, drop_target_id: None, drop_position: None }))
+      Some((none, { ..model, drop_target_id: None, drop_position: None, }))
     OutlineDragEnd =>
       Some(
         (

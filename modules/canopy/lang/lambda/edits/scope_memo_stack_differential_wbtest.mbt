@@ -53,7 +53,7 @@ fn LevelBStack::LevelBStack(
     label="level_b_anchor",
   )
   ignore(scope.add_watch(anchor.watch()))
-  { parser, cached_proj_node, registry_memo, source_map_memo, scope }
+  { parser, cached_proj_node, registry_memo, source_map_memo, scope, }
 }
 
 ///|

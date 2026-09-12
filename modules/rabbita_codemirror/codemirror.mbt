@@ -22,7 +22,7 @@ pub struct SelRange {
 /// Create a primary CodeMirror selection range from document offsets.
 #cfg(target="js")
 pub fn SelRange::new(from : Int, to : Int) -> SelRange {
-  { from, to }
+  { from, to, }
 }
 
 ///|
@@ -47,7 +47,7 @@ pub struct ChangeDelta {
 ///|
 /// Construct a `ChangeDelta` from a pre-transaction span and its replacement.
 pub fn ChangeDelta::new(from : Int, to : Int, insert : String) -> ChangeDelta {
-  { from, to, insert }
+  { from, to, insert, }
 }
 
 ///|
@@ -67,7 +67,7 @@ pub fn ChangeEvent::new(
   doc : String,
   source_version? : String = "",
 ) -> ChangeEvent {
-  { changes, doc, source_version }
+  { changes, doc, source_version, }
 }
 
 ///|
@@ -92,7 +92,7 @@ pub fn Shortcut::new(
   command : @cmd.Cmd,
   shift? : @cmd.Cmd,
 ) -> Shortcut {
-  { key, command, shift_command: shift }
+  { key, command, shift_command: shift, }
 }
 
 ///|
@@ -120,7 +120,7 @@ let editors : Map[String, CmEntry] = Map([])
 /// Monotonic mount generations keep retained Rabbita subscriptions from
 /// targeting a replaced CodeMirror view without retaining retired editor ids.
 #cfg(target="js")
-let next_editor_generation : Ref[Int] = { val: 0 }
+let next_editor_generation : Ref[Int] = { val: 0, }
 
 ///|
 priv suberror CmSubscription {
@@ -317,7 +317,7 @@ fn selection_spec(
 ///|
 #cfg(target="js")
 fn selection_from_value(value : @js_value.Value) -> SelRange {
-  { from: value.get_with_string("from"), to: value.get_with_string("to") }
+  { from: value.get_with_string("from"), to: value.get_with_string("to"), }
 }
 
 ///|

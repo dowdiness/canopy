@@ -66,13 +66,13 @@ test "suspended Preview advances Parser and catches up once requested" {
 ///|
 test "older activation completion cannot affect current Preview state" {
   let engine = PreviewEngine::PreviewEngine()
-  let state : State = { phase: Preparing, demanded: true }
+  let state : State = { phase: Preparing, demanded: true, }
   let stale = Input(1, "# Old document\n")
   let current = Input(2, "# Current document\n")
   let (after, _) = engine.update(
     state,
     current,
-    { kind: Prepared(stale, Err(OutOfSync)) },
+    { kind: Prepared(stale, Err(OutOfSync)), },
     lifecycle_emit(),
   )
   assert_true(after == state)
@@ -87,9 +87,9 @@ test "same-activation stale Parser completion cannot affect current Input" {
     fail("candidate A should prepare")
   }
   let (ready, _) = engine.update(
-    { phase: Preparing, demanded: true },
+    { phase: Preparing, demanded: true, },
     input_a,
-    { kind: Prepared(input_a, Ok(output)) },
+    { kind: Prepared(input_a, Ok(output)), },
     lifecycle_emit(),
   )
   let input_b = Input(1, "# Current B\n")
@@ -97,7 +97,7 @@ test "same-activation stale Parser completion cannot affect current Input" {
     let (after, _) = engine.update(
       ready,
       input_b,
-      { kind: ParserAdvanced(input_a, true, result) },
+      { kind: ParserAdvanced(input_a, true, result), },
       lifecycle_emit(),
     )
     assert_true(after == ready)
@@ -112,7 +112,7 @@ test "A-B-A admits an equal-input preparation and Parser completion" {
   guard engine.prepare_owned(1, first_a.document_text) is Some(Ok(output)) else {
     fail("first A should prepare")
   }
-  let preparing : State = { phase: Preparing, demanded: true }
+  let preparing : State = { phase: Preparing, demanded: true, }
   let input_b = Input(1, "# B\n")
   let (after_b, _) = engine.document_changed(
     preparing,
@@ -132,7 +132,7 @@ test "A-B-A admits an equal-input preparation and Parser completion" {
   let (ready, _) = engine.update(
     after_a,
     current_a,
-    { kind: Prepared(first_a, Ok(output)) },
+    { kind: Prepared(first_a, Ok(output)), },
     lifecycle_emit(),
   )
   assert_true(ready.phase is Ready(_))
@@ -140,7 +140,7 @@ test "A-B-A admits an equal-input preparation and Parser completion" {
   let (after_success, _) = engine.update(
     ready,
     current_a,
-    { kind: ParserAdvanced(first_a, false, Ok(())) },
+    { kind: ParserAdvanced(first_a, false, Ok(())), },
     lifecycle_emit(),
   )
   assert_true(after_success == ready)
@@ -148,7 +148,7 @@ test "A-B-A admits an equal-input preparation and Parser completion" {
   let (after_failure, _) = engine.update(
     ready,
     current_a,
-    { kind: ParserAdvanced(first_a, false, Err(TransitionFailed)) },
+    { kind: ParserAdvanced(first_a, false, Err(TransitionFailed)), },
     lifecycle_emit(),
   )
   assert_true(after_failure.phase is Failed(Some(_)))
@@ -164,9 +164,9 @@ test "preparation completed for stale text converges on current Input" {
   }
   let input_b = Input(1, "# Current B\n")
   let (state, _) = engine.update(
-    { phase: Preparing, demanded: true },
+    { phase: Preparing, demanded: true, },
     input_b,
-    { kind: Prepared(input_a, Ok(output)) },
+    { kind: Prepared(input_a, Ok(output)), },
     lifecycle_emit(),
   )
   assert_true(state.phase is Failed(None))
@@ -177,7 +177,7 @@ test "pure reducer decides stale preparation recovery without PreviewEngine" {
   let input_a = Input(1, "# Candidate A\n")
   let current_b = Input(1, "# Current B\n")
   let transition = preview_transition(
-    { phase: Preparing, demanded: true },
+    { phase: Preparing, demanded: true, },
     current_b,
     Complete(Prepared(input_a, Err(OutOfSync))),
   )
@@ -271,7 +271,7 @@ async test "stale preparation command converges current Preview to Ready" {
   let (still_preparing, preparation_command) = engine.update(
     harness.state,
     harness.current,
-    { kind: BeginPreparation(input_a.generation) },
+    { kind: BeginPreparation(input_a.generation), },
     harness.emit(),
   )
   harness.state = still_preparing
@@ -290,7 +290,7 @@ async test "stale preparation command converges current Preview to Ready" {
 
 ///|
 test "Preview view distinguishes initial failure and retained stale Preview" {
-  let failed = render_lifecycle_state({ phase: Failed(None), demanded: true })
+  let failed = render_lifecycle_state({ phase: Failed(None), demanded: true, })
   assert_true(failed.contains("role=\"alert\""))
   assert_true(failed.contains("Preview could not be prepared."))
 

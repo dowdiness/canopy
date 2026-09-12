@@ -133,7 +133,7 @@ fn ResolutionSide::ResolutionSide(
   value_label~ : String,
   binder_label~ : String,
 ) -> ResolutionSide {
-  { graph, registry, source_map, ranges, value_label, binder_label }
+  { graph, registry, source_map, ranges, value_label, binder_label, }
 }
 
 ///|

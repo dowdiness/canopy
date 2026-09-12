@@ -22,12 +22,12 @@ fn parse_fixture(
 
 ///|
 fn generated_binder(id : Int, hint : String) -> @alpha.Binder {
-  { id: @alpha.BinderId(id), hint, origin: @alpha.BinderOrigin::Generated(id) }
+  { id: @alpha.BinderId(id), hint, origin: @alpha.BinderOrigin::Generated(id), }
 }
 
 ///|
 fn source_free(name : String) -> @alpha.AlphaTerm {
-  @alpha.AlphaTerm::Var(Free({ name, origin: @alpha.FreeOrigin::SourceVar }))
+  @alpha.AlphaTerm::Var(Free({ name, origin: @alpha.FreeOrigin::SourceVar, }))
 }
 
 ///|

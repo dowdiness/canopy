@@ -72,7 +72,7 @@ test "evaluation - precision@K and MRR report" {
   let mut total_p_at_k = 0.0
   let mut total_mrr = 0.0
   let mut query_count = 0
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string(
     "\n=== Echo TF-IDF Evaluation (bigram, 30 posts, 6 clusters) ===\n",
   )
@@ -130,7 +130,7 @@ test "evaluation - TinySegmenter precision@K and MRR report" {
   let mut total_p_at_k = 0.0
   let mut total_mrr = 0.0
   let mut query_count = 0
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string(
     "\n=== Echo TF-IDF Evaluation (TinySegmenter, 30 posts, 6 clusters) ===\n",
   )
@@ -193,7 +193,7 @@ test "evaluation - Blended (bigram+segment) precision@K and MRR report" {
   let mut total_p_at_k = 0.0
   let mut total_mrr = 0.0
   let mut query_count = 0
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string(
     "\n=== Echo TF-IDF Evaluation (Blended bigram+segment, 30 posts, 6 clusters) ===\n",
   )

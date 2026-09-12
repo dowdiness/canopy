@@ -1,6 +1,6 @@
 ///|
 fn test_constraints() -> Constraints {
-  { min_w: 50, max_w: 300, min_h: 40, max_h: 220 }
+  { min_w: 50, max_w: 300, min_h: 40, max_h: 220, }
 }
 
 ///|

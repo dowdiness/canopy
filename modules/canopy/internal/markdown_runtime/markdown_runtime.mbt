@@ -314,7 +314,7 @@ fn classify_interrupted_portable_commit(
   if !committed {
     return Err(PortableCommitError::NotCommitted(issue~))
   }
-  let evidence = PortableCommitEvidence::{ before, after: None }
+  let evidence = PortableCommitEvidence::{ before, after: None, }
   Ok(PortableCommitOutcome::Committed(evidence~, issue~))
 }
 

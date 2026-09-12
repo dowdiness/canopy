@@ -2,7 +2,7 @@ import {
   "dowdiness/canopy/core" @canopy_core,
   "dowdiness/event-graph-walker/container",
   "moonbitlang/core/debug",
-  "moonbitlang/core/strconv",
+  "moonbitlang/core/string",
 }
 
 pkgtype(kind: "executable")

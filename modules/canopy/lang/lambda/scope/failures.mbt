@@ -27,7 +27,7 @@ fn ReachableFailure::ReachableFailure(
   location~ : @loomcore.Range?,
   witness~ : Array[ScopeId],
 ) -> ReachableFailure {
-  { name, location, witness }
+  { name, location, witness, }
 }
 
 ///|
@@ -79,7 +79,7 @@ pub fn failures(
 /// injective keys (the standard production path always does).
 fn failure_key(f : ReachableFailure) -> String {
   match f.location {
-    Some({ start, end }) => "\{start}:\{end}:\{f.name}"
+    Some({ start, end, }) => "\{start}:\{end}:\{f.name}"
     None => "?:\{f.name}"
   }
 }
@@ -99,7 +99,7 @@ fn FailureDiff::FailureDiff(
   newly_reachable~ : Array[ReachableFailure],
   resolved~ : Array[ReachableFailure],
 ) -> FailureDiff {
-  { newly_reachable, resolved }
+  { newly_reachable, resolved, }
 }
 
 ///|
@@ -143,7 +143,7 @@ pub fn remap_failures(
   failures.map(fn(f) {
     match f.location {
       None => f
-      Some({ start, end }) =>
+      Some({ start, end, }) =>
         ReachableFailure(
           name=f.name,
           location=Some({

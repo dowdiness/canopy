@@ -40,7 +40,7 @@ fn Model::is_selected(self : Model, index : Int) -> Bool {
 /// `selected` into `[0, tab_count - 1]` (`0` when there are no tabs).
 pub fn Model::new(id~ : String, tab_count~ : Int, selected~ : Int) -> Model {
   let tab_count = normalized_count(tab_count)
-  { id, tab_count, selected: clamp_selected(selected, tab_count) }
+  { id, tab_count, selected: clamp_selected(selected, tab_count), }
 }
 
 ///|

@@ -10,7 +10,7 @@ fn term_freq(tokens : Array[String]) -> TermFreq {
   for token in tokens {
     counts[token] = counts.get(token).unwrap_or(0) + 1
   }
-  { counts, total: tokens.length() }
+  { counts, total: tokens.length(), }
 }
 
 ///|
@@ -21,7 +21,7 @@ priv struct SparseVec {
 
 ///|
 fn SparseVec::zero() -> SparseVec {
-  { entries: Default::default(), norm: 0.0 }
+  { entries: Default::default(), norm: 0.0, }
 }
 
 ///|
@@ -49,7 +49,7 @@ fn to_sparse_vec(
       sum_sq = sum_sq + tfidf * tfidf
     }
   }
-  { entries, norm: sum_sq.sqrt() }
+  { entries, norm: sum_sq.sqrt(), }
 }
 
 ///|

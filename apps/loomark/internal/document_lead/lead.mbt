@@ -226,7 +226,7 @@ fn list_lead_text(
           DocumentLeadForm::Task(task.checked())
         _ => DocumentLeadForm::List(marker_text(node))
       }
-      { form, primary, description }
+      { form, primary, description, }
     }
   }
 }

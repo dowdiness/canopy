@@ -22,22 +22,38 @@ pub extern "js" fn Any::set(self : Any, key : String, value : Any) -> Unit =
 
 ///|
 /// `self[name](...args)` — call the method `name` on `self`.
-pub extern "js" fn Any::call(
-  self : Any,
+extern "js" fn any_call_raw(
+  obj : Any,
   name : String,
-  args : Array[Any],
+  args : FixedArray[Any],
 ) -> Any =
   #|(o, m, args) => o[m](...args)
 
 ///|
+/// `self[name](...args)` — call the method `name` on `self`.
+pub fn Any::call(self : Any, name : String, args : Array[Any]) -> Any {
+  any_call_raw(self, name, FixedArray::from_array(args))
+}
+
+///|
 /// `self(...args)` — call `self` itself as a function.
-pub extern "js" fn Any::invoke(self : Any, args : Array[Any]) -> Any =
+extern "js" fn any_invoke_raw(obj : Any, args : FixedArray[Any]) -> Any =
   #|(f, args) => f(...args)
 
 ///|
+pub fn Any::invoke(self : Any, args : Array[Any]) -> Any {
+  any_invoke_raw(self, FixedArray::from_array(args))
+}
+
+///|
 /// `new self(...args)` — construct via `self` as a class/constructor.
-pub extern "js" fn Any::construct(self : Any, args : Array[Any]) -> Any =
+extern "js" fn any_construct_raw(obj : Any, args : FixedArray[Any]) -> Any =
   #|(c, args) => new c(...args)
+
+///|
+pub fn Any::construct(self : Any, args : Array[Any]) -> Any {
+  any_construct_raw(self, FixedArray::from_array(args))
+}
 
 // ── Globals & builders ──────────────────────────────────────────────────────
 
@@ -95,8 +111,13 @@ pub extern "js" fn equal(a : Any, b : Any) -> Bool =
 
 ///|
 /// `Object.keys(self)`
-pub extern "js" fn Any::keys(self : Any) -> Array[String] =
+extern "js" fn any_keys_raw(obj : Any) -> FixedArray[String] =
   #|(o) => Object.keys(o)
+
+///|
+pub fn Any::keys(self : Any) -> Array[String] {
+  any_keys_raw(self).view().to_owned()
+}
 
 // ── JSON & stringify ────────────────────────────────────────────────────────
 

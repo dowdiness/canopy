@@ -29,7 +29,7 @@ pub fn layout_to_view_tree(
 ) -> ViewNode {
   let cmds = @pretty.resolve(width, layout)
   let children : Array[ViewNode] = []
-  let line_buf = StringBuilder::new()
+  let line_buf = StringBuilder()
   let line_spans : Array[TokenSpan] = []
   let ann_stack : Array[(@pretty.SyntaxCategory, Int)] = []
   let mut offset = 0

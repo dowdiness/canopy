@@ -25,7 +25,7 @@ fn WorkspaceLayout::update_outline_resize(
   self : WorkspaceLayout,
   resize_msg : @resizable.Msg,
 ) -> WorkspaceLayout {
-  { ..self, outline_resize: self.outline_resize.update(resize_msg) }
+  { ..self, outline_resize: self.outline_resize.update(resize_msg), }
 }
 
 ///|

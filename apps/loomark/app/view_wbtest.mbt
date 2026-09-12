@@ -22,9 +22,9 @@ test "Mode tabs use the RUI Tabs trigger contract" {
 ///|
 test "Document sidebar labels disambiguate Source-derived identities" {
   let entries : Array[PresentationRow] = [
-    { document_id: "document-a", name: "Untitled" },
-    { document_id: "document-b", name: "Untitled" },
-    { document_id: "document-c", name: "Body only" },
+    { document_id: "document-a", name: "Untitled", },
+    { document_id: "document-b", name: "Untitled", },
+    { document_id: "document-c", name: "Body only", },
   ]
   assert_eq(
     document_option_label(entries.view(), 0, entries[0]),
@@ -39,7 +39,7 @@ test "Document sidebar labels disambiguate Source-derived identities" {
 
 ///|
 test "Document sidebar presents a placeholder without naming an empty Catalog entry" {
-  let entry = PresentationRow::{ document_id: "document-a", name: "" }
+  let entry = PresentationRow::{ document_id: "document-a", name: "", }
   assert_eq(entry.name(), "")
   assert_eq(document_base_label(entry), "Unnamed document")
 }
@@ -54,7 +54,7 @@ test "Recent documents orders identifiers lexically" {
       _ => abort("invalid id")
     },
   ]).unwrap()
-  let editing = { ..test_editing(), documents: initial_documents(snapshot) }
+  let editing = { ..test_editing(), documents: initial_documents(snapshot), }
   assert_eq(recent_entries(editing).map(entry => entry.document_id()), [
     "a", "z",
   ])

@@ -11,7 +11,7 @@ pub struct GenerativeUiReplaySource {
 pub fn GenerativeUiReplaySource::GenerativeUiReplaySource(
   events~ : Array[GenerativeUiInput],
 ) -> GenerativeUiReplaySource {
-  { events: events.copy(), cursor: 0 }
+  { events: events.copy(), cursor: 0, }
 }
 
 ///|

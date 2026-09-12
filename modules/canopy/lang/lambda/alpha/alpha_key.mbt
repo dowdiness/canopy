@@ -100,7 +100,7 @@ pub impl Hash for AlphaKey with fn hash_combine(self, hasher) {
 pub fn alpha_key(term : AlphaTerm) -> AlphaKey {
   let env : Map[BinderId, Int] = Map([])
   let (key, _) = key_term(term, env, 0)
-  AlphaKey::{ repr: key }
+  AlphaKey::{ repr: key, }
 }
 
 ///|

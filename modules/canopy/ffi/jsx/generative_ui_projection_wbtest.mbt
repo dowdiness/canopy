@@ -189,7 +189,7 @@ impl @quickcheck.Arbitrary for ProjectionCandidateCase with fn arbitrary(
   rs,
 ) {
   let depth = if size < 1 { 1 } else if size > 4 { 4 } else { size }
-  { raw: generate_projection_raw_node(rs, depth) }
+  { raw: generate_projection_raw_node(rs, depth), }
 }
 
 ///|

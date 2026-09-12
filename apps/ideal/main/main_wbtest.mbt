@@ -622,7 +622,7 @@ test "selection characterization: outline structural edit refreshes selection" {
 ///|
 test "selection characterization: structure selection highlights and clears nav" {
   let (initial, node_id) = selected_test_model()
-  let model = { ..initial, mode: Structure }
+  let model = { ..initial, mode: Structure, }
   model.nav_path = Some([0])
   match
     handle_structure_mode(
@@ -643,7 +643,7 @@ test "selection characterization: structure selection highlights and clears nav"
 test "Structure selection clearing removes Inspector and highlight state" {
   let (model, node_id) = selected_test_model()
   let selected = select_with_highlight(
-    { ..model, mode: Structure },
+    { ..model, mode: Structure, },
     Some(node_id),
     false,
   )
@@ -773,7 +773,7 @@ fn history_test_model(
   let original = base.editor.get_text()
   let edited = original + "x"
   base.editor.set_text_and_record(edited, 1)
-  ({ ..base, mode, structure_generation: generation }, original, edited)
+  ({ ..base, mode, structure_generation: generation, }, original, edited)
 }
 
 ///|
@@ -803,7 +803,7 @@ test "Structure history outside Structure mode does not mutate" {
 test "unavailable Structure history is a no-op" {
   let base = init_model()
   let original = base.editor.get_text()
-  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let model = { ..base, mode: Structure, structure_generation: 1, }
   let unchanged = apply_structure_history_for_test(model, 1, UndoHistory)
   inspect(unchanged.editor.get_text(), content=original)
 }
@@ -811,7 +811,7 @@ test "unavailable Structure history is a no-op" {
 ///|
 test "Structure tree edit uses one canonical commit" {
   let (base, node_id) = selected_test_model()
-  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let model = { ..base, mode: Structure, structure_generation: 1, }
   let before = structure_commit_evidence(model)
   let changed = apply_structure_edit_for_test(
     model,
@@ -836,7 +836,7 @@ test "Structure tree edit uses one canonical commit" {
 ///|
 test "stale Structure tree edit does not commit" {
   let (base, node_id) = selected_test_model()
-  let model = { ..base, mode: Structure, structure_generation: 2 }
+  let model = { ..base, mode: Structure, structure_generation: 2, }
   let changed = apply_structure_edit_for_test(
     model,
     1,
@@ -851,7 +851,7 @@ test "stale Structure tree edit does not commit" {
 ///|
 test "unsupported Structure tree edit does not commit" {
   let (base, node_id) = selected_test_model()
-  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let model = { ..base, mode: Structure, structure_generation: 1, }
   let changed = apply_structure_edit_for_test(
     model,
     1,
@@ -866,7 +866,7 @@ test "unsupported Structure tree edit does not commit" {
 ///|
 test "invalid Structure node id does not commit" {
   let base = init_model()
-  let model = { ..base, mode: Structure, structure_generation: 1 }
+  let model = { ..base, mode: Structure, structure_generation: 1, }
   let changed = apply_structure_edit_for_test(
     model,
     1,

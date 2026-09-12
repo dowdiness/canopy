@@ -38,9 +38,9 @@ fn prepend_record(
 fn begin_save(
   record : DocumentRecord,
 ) -> (DocumentRecord, Array[DocumentsDecision]) {
-  let operation = { document: record.document, origin: record.origin }
+  let operation = { document: record.document, origin: record.origin, }
   (
-    { ..record, save: Saving(operation, None) },
+    { ..record, save: Saving(operation, None), },
     [DocumentsDecision::DocumentsPersist(operation)],
   )
 }
@@ -73,7 +73,7 @@ fn allocate_checkpoint(
   let id = documents.last_checkpoint_id + 1
   let revision = documents.last_quiet_revision + 1
   (
-    { ..documents, last_checkpoint_id: id, last_quiet_revision: revision },
+    { ..documents, last_checkpoint_id: id, last_quiet_revision: revision, },
     {
       maximum_id: id,
       quiet_revision: revision,
@@ -90,7 +90,7 @@ fn revise_checkpoint(
 ) -> (Documents, DocumentsCheckpoint) {
   let revision = documents.last_quiet_revision + 1
   (
-    { ..documents, last_quiet_revision: revision },
+    { ..documents, last_quiet_revision: revision, },
     {
       ..checkpoint,
       quiet_revision: revision,

@@ -147,7 +147,7 @@ fn MatchPlan::MatchPlan(
   old_to_new : Array[Int],
   new_to_old : Array[Int],
 ) -> MatchPlan {
-  { old_to_new, new_to_old }
+  { old_to_new, new_to_old, }
 }
 
 ///|

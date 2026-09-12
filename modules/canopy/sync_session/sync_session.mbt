@@ -25,7 +25,7 @@ pub fn SyncIo::SyncIo(
   send~ : (Bytes) -> Unit,
   current_version_json~ : () -> String raise @text.TextError,
 ) -> SyncIo {
-  { send, current_version_json }
+  { send, current_version_json, }
 }
 
 ///|

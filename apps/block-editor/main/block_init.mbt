@@ -1,11 +1,11 @@
 ///|
-let docs : Map[Int, BlockDoc] = Map::default()
+let docs : Map[Int, BlockDoc] = Default::default()
 
 ///|
-let replica_ids : Map[Int, String] = Map::default()
+let replica_ids : Map[Int, String] = Default::default()
 
 ///|
-let next_handle : Ref[Int] = { val: 1 }
+let next_handle : Ref[Int] = { val: 1, }
 
 ///|
 pub fn create_editor(replica_id : String) -> Int {
@@ -33,7 +33,7 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
   guard s.split_once(":") is Some((length_view, rest)) else {
     return @container.root_id
   }
-  let agent_length : Int = @strconv.from_str(length_view) catch {
+  let agent_length : Int = @string.parse_int(length_view) catch {
     _ => return @container.root_id
   }
   guard agent_length > 0 && rest.length() > agent_length else {
@@ -41,7 +41,7 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
   }
   guard rest[agent_length] == ':' else { return @container.root_id }
   let agent = rest[:agent_length].to_owned()
-  let sequence : Int = @strconv.from_str(rest[agent_length + 1:]) catch {
+  let sequence : Int = @string.parse_int(rest[agent_length + 1:]) catch {
     _ => return @container.root_id
   }
   @container.TreeNodeId::TreeNodeId(agent, sequence) catch {
@@ -150,7 +150,7 @@ pub fn get_render_state(handle : Int) -> String {
       ..write_string("{\"block_count\":")
       ..write_string(total.to_string())
       .write_string(",\"blocks\":[")
-      emit_blocks(buf, doc, root_block_id, 0, { val: true })
+      emit_blocks(buf, doc, root_block_id, 0, { val: true, })
       buf..write_string("]}").to_string()
     }
     None => "{\"block_count\":0,\"blocks\":[]}"

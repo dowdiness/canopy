@@ -429,7 +429,7 @@ pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(
   guard boundaries.binary_search(head) is Ok(_) else {
     raise MarkdownDocumentUtf16SelectionError::MidGraphemeBoundary(offset=head)
   }
-  { anchor, head }
+  { anchor, head, }
 }
 
 ///|
@@ -952,7 +952,7 @@ pub fn MarkdownEditor::portable_markdown(self : Self) -> String {
 ///|
 /// Read the current version frontier without exposing editor state.
 pub fn MarkdownEditor::version(self : Self) -> MarkdownDocumentVersion {
-  { value: self.editor.get_version() }
+  { value: self.editor.get_version(), }
 }
 
 ///|
@@ -1305,7 +1305,7 @@ fn MarkdownEditor::commit_recording_transforms(
           let transform = match
             project_portable_transform(
               before,
-              @core.SpanEdit::{ start, delete_len, inserted },
+              @core.SpanEdit::{ start, delete_len, inserted, },
               after,
             ) {
             Ok(transform) => transform
@@ -1527,7 +1527,7 @@ fn committed_editor_error(
   issue : MarkdownPostCommitIssue,
 ) -> MarkdownEditorError {
   MarkdownEditorError::Committed(
-    evidence=MarkdownCommittedEvidence::{ before, after },
+    evidence=MarkdownCommittedEvidence::{ before, after, },
     issue~,
   )
 }
@@ -1583,7 +1583,7 @@ fn span_edit_from_text_change(
 ) -> @core.SpanEdit {
   match change {
     @text_change.TextChange::ReplaceRange(start~, delete_len~, inserted~) =>
-      { start, delete_len, inserted }
+      { start, delete_len, inserted, }
     @text_change.TextChange::ReplaceAll(_) =>
       abort("text diff unexpectedly returned ReplaceAll")
   }
@@ -1591,7 +1591,7 @@ fn span_edit_from_text_change(
 
 ///|
 fn markdown_text_transform(edit : @core.SpanEdit) -> MarkdownTextTransform {
-  MarkdownTextTransform::{ change: edit }
+  MarkdownTextTransform::{ change: edit, }
 }
 
 ///|
@@ -1757,11 +1757,14 @@ fn projection_snapshot(
   editor : @editor.SyncEditor[@md_markdown.Block],
 ) -> MarkdownProjectionSnapshot raise Failure {
   match editor.get_proj_node() {
-    None => { root_id: None, node_ids: @vector.new() }
+    None => { root_id: None, node_ids: @vector.new(), }
     Some(root) => {
       let ids : Array[MarkdownNodeId] = []
-      root.walk_preorder(node => ids.push({ value: node.id() }))
-      { root_id: Some({ value: root.id() }), node_ids: @vector.Vector(ids[:]) }
+      root.walk_preorder(node => ids.push({ value: node.id(), }))
+      {
+        root_id: Some({ value: root.id(), }),
+        node_ids: @vector.Vector(ids[:]),
+      }
     }
   }
 }
@@ -1796,7 +1799,7 @@ fn document_snapshot_from_coordinates(
     projection: projection_snapshot(editor),
     blocks: editable_block_snapshots(editor, canonical, coordinates),
   }
-  { snapshot, coordinates }
+  { snapshot, coordinates, }
 }
 
 ///|
@@ -1996,7 +1999,7 @@ fn append_editable_block_snapshot(
     fence_close_range.map(range => range.end),
   )
   blocks.push({
-    node_id: { value: node.id() },
+    node_id: { value: node.id(), },
     kind,
     text: source[text_span.start:text_span.end].to_owned(),
     source_start,

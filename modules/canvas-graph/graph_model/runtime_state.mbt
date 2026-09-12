@@ -51,7 +51,7 @@ pub fn interaction_with_selection(
 
 ///|
 pub fn idle_drag_preview() -> DragPreview {
-  { positions: [] }
+  { positions: [], }
 }
 
 ///|

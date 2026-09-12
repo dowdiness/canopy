@@ -861,7 +861,7 @@ test "modify_node_at — Elided children are opaque" {
   })
   inspect(found_loaded, content="true")
   // Same child is NOT found when children are Elided
-  let elided_tree = { ..tree, children: Elided(1) }
+  let elided_tree = { ..tree, children: Elided(1), }
   let (_, found_elided, changed_path) = modify_node_at(elided_tree, child_id, fn(
     n,
   ) {

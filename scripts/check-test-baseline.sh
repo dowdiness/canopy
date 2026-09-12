@@ -71,6 +71,7 @@ while IFS= read -r line; do
         *" test "*" failed"* | *" test "*" failed:"*)
             case "$line" in
                 *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
+                *"[dowdiness/pretty]"* | *"/loom/pretty/"*) ;;
                 *"/alga/"*) ;;
                 *"/rle/"*) ;;
                 *"/order-tree/"*) ;;

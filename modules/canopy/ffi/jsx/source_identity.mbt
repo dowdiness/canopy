@@ -1,5 +1,5 @@
 ///|
-let next_jsx_source_identity : Ref[Int] = { val: 0 }
+let next_jsx_source_identity : Ref[Int] = { val: 0, }
 
 ///|
 fn allocate_jsx_source_id() -> @loomcore.SourceId {

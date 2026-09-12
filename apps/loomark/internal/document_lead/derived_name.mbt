@@ -84,7 +84,7 @@ fn certify_reusable_name_prefix(
 ///|
 fn derive_name_with_certificate(source : String) -> DerivedName {
   let (cst, diagnostics) = @markdown.parse_cst(name_source_id, source) catch {
-    _ => return { text: "", reusable_prefix: None }
+    _ => return { text: "", reusable_prefix: None, }
   }
   let root = @seam.SyntaxNode::from_cst(cst)
   let document = @markdown.experimental_markdown_ir_from_syntax_with_diagnostics(
@@ -94,7 +94,7 @@ fn derive_name_with_certificate(source : String) -> DerivedName {
     extensions=@markdown.MarkdownExtensions::task_list(),
   )
   match first_name_candidate(document, source) {
-    None => { text: "", reusable_prefix: None }
+    None => { text: "", reusable_prefix: None, }
     Some((candidate, name)) =>
       {
         text: name,

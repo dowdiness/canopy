@@ -26,7 +26,7 @@ pub fn OverlayState::OverlayState(
   anchor_left~ : Int,
   menu~ : @menu.Model,
 ) -> OverlayState {
-  { mode, actions: actions.copy(), kind, error, anchor_top, anchor_left, menu }
+  { mode, actions: actions.copy(), kind, error, anchor_top, anchor_left, menu, }
 }
 
 ///|

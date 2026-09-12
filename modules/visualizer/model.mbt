@@ -40,7 +40,7 @@ pub fn VisualNode::VisualNode(
   detail? : String,
   status? : VisualNodeStatus = Neutral,
 ) -> VisualNode {
-  { id, label, detail, status }
+  { id, label, detail, status, }
 }
 
 ///|
@@ -50,13 +50,13 @@ pub fn VisualEdge::VisualEdge(
   to : String,
   label? : String,
 ) -> VisualEdge {
-  { from, to, label }
+  { from, to, label, }
 }
 
 ///|
 /// Create an empty visualization graph.
 pub fn VisualGraph::VisualGraph(id? : String) -> VisualGraph {
-  { id, nodes: [], edges: [] }
+  { id, nodes: [], edges: [], }
 }
 
 ///|

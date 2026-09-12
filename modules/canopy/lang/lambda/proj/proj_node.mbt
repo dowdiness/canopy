@@ -265,7 +265,7 @@ fn project_let_def(
     [init],
     counter,
   )
-  { name: def.name(), node, start: def_node.start() }
+  { name: def.name(), node, start: def_node.start(), }
 }
 
 ///|

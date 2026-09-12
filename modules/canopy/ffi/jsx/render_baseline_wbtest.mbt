@@ -202,7 +202,7 @@ fn generate_baseline_event(rs : @splitmix.RandomState) -> BaselineEvent {
     2 => DomFail
     _ => ProjectionFail
   }
-  { kind, structural_transition, outcome }
+  { kind, structural_transition, outcome, }
 }
 
 ///|
@@ -213,7 +213,7 @@ struct BaselineScenario {
 ///|
 impl @quickcheck.Arbitrary for BaselineScenario with fn arbitrary(size, rs) {
   let length = if size > 12 { 12 } else { size }
-  { events: [ for _ in 0..<length => generate_baseline_event(rs.split()) ] }
+  { events: [ for _ in 0..<length => generate_baseline_event(rs.split()) ], }
 }
 
 ///|

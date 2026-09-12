@@ -307,7 +307,7 @@ fn[T] descend(
         let (child_idx, remaining) = find_slot_fn(
           counts, current_pos, updated_total,
         )
-        path.push({ children, counts, child_idx })
+        path.push({ children, counts, child_idx, })
         step(children[child_idx], remaining)
       }
     }
@@ -317,7 +317,7 @@ fn[T] descend(
 
 ///|
 fn[T] copy_path(path : Array[PathFrame[T]], keep : Int) -> Array[PathFrame[T]] {
-  let copied : Array[PathFrame[T]] = Array::new(capacity=keep)
+  let copied : Array[PathFrame[T]] = Array(capacity=keep)
   for i in 0..<keep {
     copied.push(path[i])
   }
@@ -338,10 +338,10 @@ fn[T] descend_leftmost(
         } else {
           path[path.length() - 1].child_idx
         }
-        { path, leaf_elem: elem, leaf_span: span, offset: 0, child_idx }
+        { path, leaf_elem: elem, leaf_span: span, offset: 0, child_idx, }
       }
       Internal(children~, counts~, ..) => {
-        path.push({ children, counts, child_idx: 0 })
+        path.push({ children, counts, child_idx: 0, })
         step(children[0])
       }
     }
@@ -365,11 +365,11 @@ fn[T] descend_rightmost(
         } else {
           path[path.length() - 1].child_idx
         }
-        { path, leaf_elem: elem, leaf_span: span, offset: span, child_idx }
+        { path, leaf_elem: elem, leaf_span: span, offset: span, child_idx, }
       }
       Internal(children~, counts~, ..) => {
         let child_idx = children.length() - 1
-        path.push({ children, counts, child_idx })
+        path.push({ children, counts, child_idx, })
         step(children[child_idx])
       }
     }
@@ -478,6 +478,6 @@ pub fn[T : BTreeElem] BTreeNode::each_slice_in_range(
 ///|
 fn[T] BTreeNode::navigate(self : BTreeNode[T], pos : Int) -> FindResult[T]? {
   descend(self, pos, 0, prepare_noop, find_slot, false).map(fn(cursor) {
-    { elem: cursor.leaf_elem, offset: cursor.offset }
+    { elem: cursor.leaf_elem, offset: cursor.offset, }
   })
 }

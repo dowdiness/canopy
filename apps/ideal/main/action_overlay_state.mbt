@@ -103,7 +103,7 @@ fn open_action_overlay(
   js_set_overlay_open(true)
   (
     initial_state.menu_model().focus_cmd(),
-    { ..model, overlay: model.overlay.mount(ctx, initial_state) },
+    { ..model, overlay: model.overlay.mount(ctx, initial_state), },
   )
 }
 
@@ -112,5 +112,5 @@ fn open_action_overlay(
 /// messages and effects from the prior token are rejected by token checks.
 fn close_action_overlay(model : Model) -> (Cmd, Model) {
   js_set_overlay_open(false)
-  (none, { ..model, overlay: model.overlay.close() })
+  (none, { ..model, overlay: model.overlay.close(), })
 }

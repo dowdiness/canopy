@@ -354,7 +354,7 @@ priv struct FakePublicationShell {
 fn FakePublicationShell::FakePublicationShell(
   state : DiagnosticPublicationState,
 ) -> FakePublicationShell {
-  { state, started: [], cancelled: [] }
+  { state, started: [], cancelled: [], }
 }
 
 ///|

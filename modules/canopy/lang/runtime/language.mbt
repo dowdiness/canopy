@@ -98,7 +98,7 @@ pub fn[T, Op, E] Language::Language(
   edit~ : (Op, EditContext[T]) -> EditResult raise @core.EditError,
   capabilities~ : (E) -> @editor.LanguageCapabilities[T],
 ) -> Language[T, Op, E] {
-  { parse, project, edit, capabilities }
+  { parse, project, edit, capabilities, }
 }
 
 ///|

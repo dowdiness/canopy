@@ -119,7 +119,7 @@ fn recent_entries(editing : EditingState) -> Array[PresentationRow] {
       @document_lead.derive_name(document.text()).text()
     }
     if entry is Some(_) || document.text() != "" {
-      Some({ document_id, name })
+      Some({ document_id, name, })
     } else {
       None
     }

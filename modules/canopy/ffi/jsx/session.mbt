@@ -35,7 +35,7 @@ let session_registry : Map[Int, JsxSession] = Map([])
 let disposed_session_handles : Map[Int, Bool] = Map([])
 
 ///|
-let next_session_handle : Ref[Int] = { val: 1 }
+let next_session_handle : Ref[Int] = { val: 1, }
 
 ///|
 priv struct JsxSessionErrorJson {
@@ -81,7 +81,7 @@ fn render_result_json(
   error : (String, String)?,
 ) -> String {
   let error_json = match error {
-    Some((code, message)) => Some(JsxSessionErrorJson::{ code, message })
+    Some((code, message)) => Some(JsxSessionErrorJson::{ code, message, })
     None => None
   }
   ToJson::to_json(JsxSessionResultJson::{

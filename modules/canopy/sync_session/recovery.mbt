@@ -28,7 +28,7 @@ fn RecoveryContext::new(
   pending_msg : @text.SyncMessage,
   request_id : Int,
 ) -> RecoveryContext {
-  { peer_id, pending_msg, deferred: [], retries: 0, request_id }
+  { peer_id, pending_msg, deferred: [], retries: 0, request_id, }
 }
 
 ///|

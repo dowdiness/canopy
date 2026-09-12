@@ -53,16 +53,16 @@ fn handle_workspace(
       Some(
         (
           @rabbita.batch([js_cmd, publication_cmd]),
-          { ..model, mode, structure_generation },
+          { ..model, mode, structure_generation, },
         ),
       )
     }
     TogglePanel(panel) => {
       let ws = model.workspace
       let workspace = match panel {
-        Outline => { ..ws, outline_visible: !ws.outline_visible }
-        Inspector => { ..ws, inspector_visible: !ws.inspector_visible }
-        Bottom => { ..ws, bottom_visible: !ws.bottom_visible }
+        Outline => { ..ws, outline_visible: !ws.outline_visible, }
+        Inspector => { ..ws, inspector_visible: !ws.inspector_visible, }
+        Bottom => { ..ws, bottom_visible: !ws.bottom_visible, }
       }
       let new_model = { ..model, workspace, }
       Some((none, new_model))
@@ -73,11 +73,15 @@ fn handle_workspace(
     }
     DismissPanels => {
       let ws = model.workspace
-      let workspace = { ..ws, outline_visible: false, inspector_visible: false }
+      let workspace = {
+        ..ws,
+        outline_visible: false,
+        inspector_visible: false,
+      }
       Some((none, { ..model, workspace, }))
     }
     SelectBottomTab(tab) => {
-      let new_model = { ..model, bottom_tab: tab }
+      let new_model = { ..model, bottom_tab: tab, }
       Some((bottom_tab_focus_cmd(tab), new_model))
     }
     SyncStatusChanged(status) => {

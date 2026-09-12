@@ -14,7 +14,7 @@ fn gen_pack_case(rs : @splitmix.RandomState) -> PackCase {
     let height = 1 + rs.split().next_positive_int() % 12
     sizes.push(try! Size(width~, height~))
   }
-  { bin_width, sizes }
+  { bin_width, sizes, }
 }
 
 ///|

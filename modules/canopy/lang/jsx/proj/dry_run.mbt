@@ -18,7 +18,7 @@ pub enum DryRunNode {
 
 ///|
 pub fn DryRunModel::empty() -> DryRunModel {
-  { children: [] }
+  { children: [], }
 }
 
 ///|
@@ -171,7 +171,7 @@ pub fn DryRunModel::apply(
 
 ///|
 fn DryRunModel::copy(self : DryRunModel) -> DryRunModel {
-  { children: self.children.map(copy_node) }
+  { children: self.children.map(copy_node), }
 }
 
 ///|

@@ -21,7 +21,7 @@ fn parse_uint(s : String) -> Int {
 fn truncate(text : String, max_len : Int) -> String {
   let mut clean = text
   if text.contains("\n") || text.contains("\r") {
-    let buf = StringBuilder::new()
+    let buf = StringBuilder()
     for ch in text {
       buf.write_char(if ch == '\n' || ch == '\r' { ' ' } else { ch })
     }
@@ -127,7 +127,7 @@ fn main {
 fn cmd_post(text : String) -> Unit {
   let posts = load_posts()
   let id = posts.length()
-  posts.push({ text, ts: now_iso() })
+  posts.push({ text, ts: now_iso(), })
   if !save_posts(posts) {
     return
   }

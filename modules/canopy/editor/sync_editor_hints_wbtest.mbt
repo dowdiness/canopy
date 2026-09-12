@@ -17,8 +17,8 @@ test "apply_span_edits with Wrap hint pushes hint" {
   editor.set_text("a")
   let inner_id = @core.NodeId::from_int(42)
   let edits : Array[@core.SpanEdit] = [
-    { start: 0, delete_len: 0, inserted: "x(" },
-    { start: 2, delete_len: 0, inserted: ")" },
+    { start: 0, delete_len: 0, inserted: "x(", },
+    { start: 2, delete_len: 0, inserted: ")", },
   ]
   editor.apply_span_edits(
     edits,
@@ -41,7 +41,7 @@ test "apply_span_edits without hint leaves pending_transforms unchanged" {
   let editor = try! @probe.new_test_editor("test")
   editor.set_text("a")
   let edits : Array[@core.SpanEdit] = [
-    { start: 0, delete_len: 0, inserted: "x" },
+    { start: 0, delete_len: 0, inserted: "x", },
   ]
   editor.apply_span_edits(edits, @core.FocusHint::RestoreCursor, 0)
   inspect(editor.projection.pending_transforms.val.is_empty(), content="true")
@@ -71,7 +71,7 @@ test "apply_span_edits with net-no-op edits does not push hint (T4)" {
   editor.set_text("x")
   let replace_id = @core.NodeId::from_int(5)
   let edits : Array[@core.SpanEdit] = [
-    { start: 0, delete_len: 1, inserted: "x" },
+    { start: 0, delete_len: 1, inserted: "x", },
   ]
   editor.apply_span_edits(
     edits,
@@ -131,10 +131,10 @@ test "multiple structural hints accumulate in order" {
   let id2 = @core.NodeId::from_int(20)
   let id3 = @core.NodeId::from_int(30)
   let edits1 : Array[@core.SpanEdit] = [
-    { start: 0, delete_len: 0, inserted: "w(" },
+    { start: 0, delete_len: 0, inserted: "w(", },
   ]
   let edits2 : Array[@core.SpanEdit] = [
-    { start: 4, delete_len: 0, inserted: ")" },
+    { start: 4, delete_len: 0, inserted: ")", },
   ]
   editor.apply_span_edits(
     edits1,
@@ -217,8 +217,8 @@ test "multi-span authority batch replays once and matches fresh parse" {
     () => {
       editor.apply_span_edits(
         [
-          { start: 0, delete_len: 0, inserted: "x" },
-          { start: 2, delete_len: 0, inserted: "y" },
+          { start: 0, delete_len: 0, inserted: "x", },
+          { start: 2, delete_len: 0, inserted: "y", },
         ],
         @core.FocusHint::RestoreCursor,
         0,
@@ -246,8 +246,8 @@ test "multi-span parser failure preserves accepted final causal version" {
   let result : Result[Unit, Error] = Ok(
     editor.apply_span_edits(
       [
-        { start: 0, delete_len: 0, inserted: "x" },
-        { start: 2, delete_len: 0, inserted: "y" },
+        { start: 0, delete_len: 0, inserted: "x", },
+        { start: 2, delete_len: 0, inserted: "y", },
       ],
       @core.FocusHint::RestoreCursor,
       0,

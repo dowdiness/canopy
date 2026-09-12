@@ -753,7 +753,7 @@ fn select_context_items(
     Some(max_chars) =>
       select_context_items_with_char_budget(candidates, options, max_chars)
     None =>
-      { items: select_context_items_by_count(candidates, options.max_items) }
+      { items: select_context_items_by_count(candidates, options.max_items), }
   }
 }
 
@@ -782,7 +782,7 @@ fn select_context_items_with_char_budget(
   max_chars : Int,
 ) -> ContextPackSelection {
   if options.max_items <= 0 || max_chars <= 0 {
-    { items: [] }
+    { items: [], }
   } else {
     let selected : Array[ContextItem] = []
     let mut used_chars = 0
@@ -800,7 +800,7 @@ fn select_context_items_with_char_budget(
         break
       }
     }
-    { items: selected }
+    { items: selected, }
   }
 }
 

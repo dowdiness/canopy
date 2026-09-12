@@ -56,7 +56,7 @@
 // recommendation update).
 
 ///|
-let next_probe_source_identity : Ref[Int] = { val: 0 }
+let next_probe_source_identity : Ref[Int] = { val: 0, }
 
 ///|
 fn json_parser_on(
@@ -107,8 +107,8 @@ test "P0a gate #1 §A — set_on_change is single-slot; second registrar clobber
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
   ignore(parser_b)
-  let count_a : Ref[Int] = { val: 0 }
-  let count_b : Ref[Int] = { val: 0 }
+  let count_a : Ref[Int] = { val: 0, }
+  let count_b : Ref[Int] = { val: 0, }
   shared_rt.set_on_change(fn() { count_a.val = count_a.val + 1 })
   shared_rt.set_on_change(fn() { count_b.val = count_b.val + 1 })
 
@@ -131,7 +131,7 @@ test "P0a gate #1 §A — set_on_change is single-slot; second registrar clobber
 test "P0a gate #1 §A control — single registered callback fires once per bump" {
   let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
-  let count : Ref[Int] = { val: 0 }
+  let count : Ref[Int] = { val: 0, }
   shared_rt.set_on_change(fn() { count.val = count.val + 1 })
   parser_a.set_source("[11]")
   inspect(count.val, content="1")

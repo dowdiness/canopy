@@ -102,7 +102,7 @@ pub fn TextSelection::TextSelection(
   end : Int,
   direction : TextSelectionDirection,
 ) -> TextSelection {
-  { start, end, direction }
+  { start, end, direction, }
 }
 
 ///|
@@ -125,7 +125,7 @@ fn ElementMeasurement::ElementMeasurement(
   offset_width : Double,
   offset_height : Double,
 ) -> ElementMeasurement {
-  { offset_width, offset_height }
+  { offset_width, offset_height, }
 }
 
 ///|

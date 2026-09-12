@@ -23,7 +23,7 @@ pub struct SourceMap {
 ///|
 /// Create an empty SourceMap
 pub fn SourceMap::new() -> SourceMap {
-  { node_to_range: Map([]), ranges: [], token_spans: Map([]) }
+  { node_to_range: Map([]), ranges: [], token_spans: Map([]), }
 }
 
 ///|

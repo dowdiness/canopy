@@ -142,7 +142,7 @@ fn binding_rewrite_source(
         ValueBinding
       }
   }
-  { def, binding_start, binding_end, kind }
+  { def, binding_start, binding_end, kind, }
 }
 
 ///|

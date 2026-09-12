@@ -11,7 +11,7 @@ fn RegisteredDiagnosticFix::RegisteredDiagnosticFix(
   id : Int,
   fix : @loom_core.DiagnosticFix,
 ) -> RegisteredDiagnosticFix {
-  { id, fix }
+  { id, fix, }
 }
 
 ///|
@@ -29,7 +29,7 @@ fn PublishedDiagnostic::PublishedDiagnostic(
   rendered_message : String?,
   fixes : Array[RegisteredDiagnosticFix],
 ) -> PublishedDiagnostic {
-  { id, diagnostic, rendered_message, fixes: fixes.copy() }
+  { id, diagnostic, rendered_message, fixes: fixes.copy(), }
 }
 
 ///|

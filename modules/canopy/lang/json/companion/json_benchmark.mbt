@@ -7,7 +7,7 @@ fn json_bench_object(member_count : Int) -> String {
   if member_count == 0 {
     return "{}"
   }
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("{\n")
   for i = 0; i < member_count; i = i + 1 {
     if i > 0 {
@@ -28,7 +28,7 @@ fn json_bench_array(element_count : Int) -> String {
   if element_count == 0 {
     return "[]"
   }
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("[\n")
   for i = 0; i < element_count; i = i + 1 {
     if i > 0 {

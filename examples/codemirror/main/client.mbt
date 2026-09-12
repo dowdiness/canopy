@@ -63,7 +63,7 @@ fn capped_prepend(
 
 ///|
 fn with_status(model : Model, line : String) -> Model {
-  { ..model, status_log: capped_prepend(model.status_log, line, 8) }
+  { ..model, status_log: capped_prepend(model.status_log, line, 8), }
 }
 
 ///|
@@ -110,17 +110,20 @@ fn mount_cmd(emit : Emit[Msg], model : Model) -> Cmd {
 fn update(model : Model, msg : Msg, emit : Emit[Msg]) -> (Cmd, Model) {
   match msg {
     Mounted =>
-      (@rabbita.none, with_status({ ..model, mounted: true }, "mounted editor"))
+      (
+        @rabbita.none,
+        with_status({ ..model, mounted: true, }, "mounted editor"),
+      )
     MountFailed(message) =>
       (
         @rabbita.none,
-        with_status({ ..model, mounted: false }, "failed: \{message}"),
+        with_status({ ..model, mounted: false, }, "failed: \{message}"),
       )
     DocChangedA(text) =>
       (
         @rabbita.none,
         with_status(
-          { ..model, last_doc: text, last_variant: "A" },
+          { ..model, last_doc: text, last_variant: "A", },
           "doc changed through A",
         ),
       )
@@ -128,7 +131,7 @@ fn update(model : Model, msg : Msg, emit : Emit[Msg]) -> (Cmd, Model) {
       (
         @rabbita.none,
         with_status(
-          { ..model, last_doc: text, last_variant: "B" },
+          { ..model, last_doc: text, last_variant: "B", },
           "doc changed through B",
         ),
       )
@@ -136,7 +139,7 @@ fn update(model : Model, msg : Msg, emit : Emit[Msg]) -> (Cmd, Model) {
       (
         @cm.set_doc(model.cm_id, "fresh text from the demo"),
         with_status(
-          { ..model, last_doc: "fresh text from the demo" },
+          { ..model, last_doc: "fresh text from the demo", },
           "set_doc requested",
         ),
       )
@@ -145,7 +148,7 @@ fn update(model : Model, msg : Msg, emit : Emit[Msg]) -> (Cmd, Model) {
       (
         @cm.set_readonly(model.cm_id, next_readonly),
         with_status(
-          { ..model, read_only: next_readonly },
+          { ..model, read_only: next_readonly, },
           "readonly -> \{readonly_label(next_readonly)}",
         ),
       )
@@ -153,12 +156,12 @@ fn update(model : Model, msg : Msg, emit : Emit[Msg]) -> (Cmd, Model) {
     UnmountClicked =>
       (
         @cm.unmount(model.cm_id),
-        with_status({ ..model, mounted: false }, "unmount requested"),
+        with_status({ ..model, mounted: false, }, "unmount requested"),
       )
     MountClicked =>
       (
         mount_cmd(emit, model),
-        with_status({ ..model, mounted: false }, "mount requested"),
+        with_status({ ..model, mounted: false, }, "mount requested"),
       )
     SwapTagger => {
       let next_use_variant_b = !model.use_variant_b
@@ -166,7 +169,7 @@ fn update(model : Model, msg : Msg, emit : Emit[Msg]) -> (Cmd, Model) {
       (
         @rabbita.none,
         with_status(
-          { ..model, use_variant_b: next_use_variant_b },
+          { ..model, use_variant_b: next_use_variant_b, },
           "listen tagger -> \{next_variant}",
         ),
       )

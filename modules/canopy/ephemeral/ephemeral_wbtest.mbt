@@ -170,8 +170,14 @@ test "encode_entries and apply roundtrip" {
   // Instead, test via apply: encode from a store, apply to another, check keys.
   // Use a store where we control the data directly.
   let bytes = encode_entries([
-    ("1", { value: Some(EphemeralValue::I64(42L)), clock: 1L, updated_at: 0UL }),
-    ("2", { value: Some(EphemeralValue::I64(99L)), clock: 1L, updated_at: 0UL }),
+    (
+      "1",
+      { value: Some(EphemeralValue::I64(42L)), clock: 1L, updated_at: 0UL, },
+    ),
+    (
+      "2",
+      { value: Some(EphemeralValue::I64(99L)), clock: 1L, updated_at: 0UL, },
+    ),
   ])
   let store2 = EphemeralStore::new(1000UL)
   store2.apply(bytes)
@@ -192,7 +198,7 @@ test "encode_entries keeps non-numeric keys by hashing them" {
   let bytes = encode_entries([
     (
       "alice",
-      { value: Some(EphemeralValue::I64(42L)), clock: 1L, updated_at: 0UL },
+      { value: Some(EphemeralValue::I64(42L)), clock: 1L, updated_at: 0UL, },
     ),
   ])
   let decoded = decode_entries(bytes)

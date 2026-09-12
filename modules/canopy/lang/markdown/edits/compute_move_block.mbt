@@ -192,7 +192,7 @@ fn compute_root_move_source(
         node_id=siblings[siblings.length() - 1].id(),
       )
   }
-  let buffer = StringBuilder::new()
+  let buffer = StringBuilder()
   for idx, node in reordered {
     if idx > 0 {
       buffer.write_string(
@@ -246,7 +246,7 @@ fn compute_list_item_move_source(
       ordered_list_marker_seed(source, siblings[0], source_map)
     _ => None
   }
-  let buffer = StringBuilder::new()
+  let buffer = StringBuilder()
   let mut marker = ordered_seed.unwrap_or("")
   for idx, node in reordered {
     if idx > 0 {
@@ -446,7 +446,7 @@ fn reindent_ordered_item_continuations(
   if old_marker_width == new_marker_width || !content.contains("\n") {
     return content
   }
-  let buffer = StringBuilder::new()
+  let buffer = StringBuilder()
   let mut line_start = 0
   let mut idx = 0
   while idx < content.length() {

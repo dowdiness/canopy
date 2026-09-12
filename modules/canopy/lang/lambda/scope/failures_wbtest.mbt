@@ -139,10 +139,10 @@ test "remap_failures: pure insertion before failure shifts positions stably" {
     inserted: "let w = 0\n",
   }
   let before = [
-    ReachableFailure(name="y", location=Some({ start: 3, end: 4 }), witness=[]),
+    ReachableFailure(name="y", location=Some({ start: 3, end: 4, }), witness=[]),
   ]
   let after = [
-    ReachableFailure(name="y", location=Some({ start: 13, end: 14 }), witness=[]),
+    ReachableFailure(name="y", location=Some({ start: 13, end: 14, }), witness=[]),
   ]
   let d_naive = diff(before, after)
   inspect(d_naive.newly_reachable.length(), content="1") // spurious without remap
@@ -153,7 +153,7 @@ test "remap_failures: pure insertion before failure shifts positions stably" {
 
 ///|
 test "remap_failures: None-location failures pass through unchanged" {
-  let edit : @core.SpanEdit = { start: 0, delete_len: 0, inserted: "abc" }
+  let edit : @core.SpanEdit = { start: 0, delete_len: 0, inserted: "abc", }
   let f = ReachableFailure(name="z", location=None, witness=[])
   let remapped = remap_failures([f], [edit])
   inspect(remapped[0].location is None, content="true")
@@ -162,7 +162,7 @@ test "remap_failures: None-location failures pass through unchanged" {
 
 ///|
 test "remap_failures: empty edit list returns failures unchanged" {
-  let f = ReachableFailure(name="x", location=Some({ start: 5, end: 6 }), witness=[])
+  let f = ReachableFailure(name="x", location=Some({ start: 5, end: 6, }), witness=[])
   let remapped = remap_failures([f], [])
   guard remapped[0].location is Some(loc) else {
     fail("expected Some location")

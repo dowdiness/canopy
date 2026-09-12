@@ -1417,7 +1417,7 @@ test "headless facade rejects list item split atomically" {
   match
     editor.commit(
       MarkdownEditRequest::SplitBlock(
-        node_id={ value: list_item_id.value },
+        node_id={ value: list_item_id.value, },
         offset=2,
       ),
     ) {

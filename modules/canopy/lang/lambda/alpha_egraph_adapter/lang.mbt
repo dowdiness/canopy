@@ -245,7 +245,7 @@ impl @egraph.ENodeRepr for AlphaLang with fn from_op(tag, payload, children) {
     ("Num", Some(s), []) => Some(AInt(@string.parse_int(s))) catch { _ => None }
     ("Unit", None, []) => Some(AUnit)
     ("Var", Some(name), []) =>
-      Some(AVar(Free({ name, origin: @alpha.FreeOrigin::GeneratedFree })))
+      Some(AVar(Free({ name, origin: @alpha.FreeOrigin::GeneratedFree, })))
     ("Add", None, [lhs, rhs]) => Some(ABop(Plus, lhs, rhs))
     ("Minus", None, [lhs, rhs]) => Some(ABop(Minus, lhs, rhs))
     ("App", None, [func, arg]) => Some(AApp(func, arg))

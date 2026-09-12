@@ -270,7 +270,7 @@ fn[T] attach_projection(
   projection : ProjectionState[T],
 ) -> SyncEditor[T] raise Failure {
   free.interaction.activate_cursor_view()
-  { authority: free.authority, projection, interaction: free.interaction }
+  { authority: free.authority, projection, interaction: free.interaction, }
 }
 
 ///|
@@ -301,12 +301,11 @@ fn[R] InteractionState::observe_projection_during(
     emitting: false,
   }
   self.projection_observation_scope = Some(scope)
-  let result = action() catch {
-    error => {
-      self.projection_observation_scope = None
-      raise error
-    }
+  errdefer {
+    self.projection_observation_scope = None
+    ()
   }
+  let result = action()
   self.projection_observation_scope = None
   (result, scope.accepted)
 }
@@ -965,7 +964,8 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   sorted.sort_by(fn(a, b) { b.start.compare(a.start) })
   let replay_spans : Array[ProjectionReplaySpan] = []
   self.begin_projection_observation_batch()
-  try {
+  let _ = {
+    errdefer self.end_projection_observation_batch(succeeded=false)
     for edit in sorted {
       let current_source = self.authority.doc.text()
       match
@@ -997,11 +997,6 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
         new_source,
         clamp_utf16_offset(new_source, self.interaction.cursor),
       )
-    }
-  } catch {
-    error => {
-      self.end_projection_observation_batch(succeeded=false)
-      raise error
     }
   }
   self.end_projection_observation_batch(succeeded=true)
@@ -1204,7 +1199,7 @@ pub fn[T : @pretty.Pretty] compute_pretty_patches(
 /// counter shared across all `T`. Single-threaded under the MoonBit
 /// web/native runtime; if multi-thread editor construction is ever added,
 /// this must be made atomic.
-let editor_identity_counter : Ref[Int] = { val: 0 }
+let editor_identity_counter : Ref[Int] = { val: 0, }
 
 ///|
 /// Allocate the next construction identity. Called once per

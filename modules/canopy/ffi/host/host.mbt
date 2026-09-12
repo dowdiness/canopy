@@ -20,7 +20,7 @@ pub struct HostRegistry[H] {
 
 ///|
 pub fn[H] HostRegistry::HostRegistry() -> HostRegistry[H] {
-  { handles: Map::default(), view_states: Map::default() }
+  { handles: Default::default(), view_states: Default::default(), }
 }
 
 ///|

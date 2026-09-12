@@ -9,18 +9,18 @@ fn[T] split_internal(
   counts : Array[Int],
 ) -> (BTreeNode[T], BTreeNode[T]) {
   let mid = children.length() / 2
-  let left_children : Array[BTreeNode[T]] = Array::new(capacity=mid)
-  let left_counts : Array[Int] = Array::new(capacity=mid)
+  let left_children : Array[BTreeNode[T]] = Array(capacity=mid)
+  let left_counts : Array[Int] = Array(capacity=mid)
   let mut left_total = 0
   for i in 0..<mid {
     left_children.push(children[i])
     left_counts.push(counts[i])
     left_total = add_spans_or_abort(left_total, counts[i])
   }
-  let right_children : Array[BTreeNode[T]] = Array::new(
+  let right_children : Array[BTreeNode[T]] = Array(
     capacity=children.length() - mid,
   )
-  let right_counts : Array[Int] = Array::new(capacity=children.length() - mid)
+  let right_counts : Array[Int] = Array(capacity=children.length() - mid)
   let mut right_total = 0
   for i in mid..<children.length() {
     right_children.push(children[i])
@@ -168,7 +168,7 @@ fn[T] propagate(
     initial_segment,
     min_degree,
   )
-  { segment, leaf_delta }
+  { segment, leaf_delta, }
 }
 
 ///|
@@ -194,5 +194,5 @@ fn[T] propagate_node_splice(
     initial_segment,
     min_degree,
   )
-  { segment, leaf_delta: splice.leaf_delta }
+  { segment, leaf_delta: splice.leaf_delta, }
 }

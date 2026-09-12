@@ -258,13 +258,13 @@ pub fn RecomputeTap::snapshot(self : RecomputeTap) -> RecomputeSnapshot {
           verified_at: info.verified_at,
         })
         for dep in info.dependencies {
-          edges.push({ from: dep, to: id })
+          edges.push({ from: dep, to: id, })
         }
       }
       None => ()
     }
   }
-  { nodes, edges, events: self.events.values().to_array() }
+  { nodes, edges, events: self.events.values().to_array(), }
 }
 
 ///|

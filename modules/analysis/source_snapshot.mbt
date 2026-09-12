@@ -12,7 +12,7 @@ pub fn SourceSnapshot::SourceSnapshot(
   version~ : Int,
   source~ : String,
 ) -> SourceSnapshot {
-  { doc_id, version, text_hash: source.hash(), utf16_len: source.length() }
+  { doc_id, version, text_hash: source.hash(), utf16_len: source.length(), }
 }
 
 ///|

@@ -68,7 +68,7 @@ fn make_edit_ctx(
   registry : Map[NodeId, ProjNode[@ast.Term]],
   root : ProjNode[@ast.Term],
 ) -> EditContext[@ast.Term] {
-  { source_text: text, source_map, registry, proj_node: root }
+  { source_text: text, source_map, registry, proj_node: root, }
 }
 
 ///|

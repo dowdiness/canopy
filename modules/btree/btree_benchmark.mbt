@@ -29,7 +29,7 @@ impl @rle.Sliceable for BItem with fn slice(self, start~ : Int, end~ : Int) -> R
   @rle.RleError,
 ] {
   if start == 0 && end == 1 {
-    Ok({ value: self.value })
+    Ok({ value: self.value, })
   } else {
     Err(@rle.RleError::InvalidSlice(reason=@rle.SliceError::InvalidIndex))
   }
@@ -61,12 +61,12 @@ impl @rle.Mergeable for MergeBenchItem with fn can_merge(self, other) -> Bool {
 
 ///|
 impl @rle.Mergeable for MergeBenchItem with fn merge(self, other) -> MergeBenchItem {
-  { value: self.value, span: self.span + other.span }
+  { value: self.value, span: self.span + other.span, }
 }
 
 ///|
 fn bi(v : Int) -> BItem {
-  { value: v }
+  { value: v, }
 }
 
 ///|
@@ -113,7 +113,7 @@ fn build_boundary_merge_root(
     } else {
       variant * n + i + 1
     }
-    let item : MergeBenchItem = { value, span: 1 }
+    let item : MergeBenchItem = { value, span: 1, }
     (item, 1)
   })
   let t : BTree[MergeBenchItem] = BTree::from_sorted(items, min_degree=10)

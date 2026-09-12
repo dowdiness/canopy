@@ -112,7 +112,7 @@ fn collect_history_data(
     agent_color[a] = idx % 7 + 1
     idx += 1
   }
-  { frontier, agent_color }
+  { frontier, agent_color, }
 }
 
 ///|
@@ -234,7 +234,7 @@ fn chain_compress(
       }
     }
   }
-  { nodes, parents }
+  { nodes, parents, }
 }
 
 ///|
@@ -275,7 +275,7 @@ fn emit_dot_string(
   data : HistoryData,
   local_agent : String,
 ) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string("digraph {\n")
   buf.write_string("  rankdir=TB;\n")
   buf.write_string(
@@ -387,7 +387,7 @@ pub fn legend_html(
   local_agent : String,
 ) -> String {
   let data = collect_history_data(snap, local_agent)
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   buf.write_string(
     "<div class=\"history-legend\" role=\"list\" aria-label=\"Causal history color legend\">",
   )
@@ -478,7 +478,7 @@ fn display_name(agent : String, local_agent : String) -> String {
 /// callers above never put user strings inside attribute values, but
 /// keeping it complete avoids a footgun if the legend grows tooltips.
 pub fn escape_html_string(s : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s {
     match ch {
       '<' => buf.write_string("&lt;")
@@ -497,7 +497,7 @@ pub fn escape_html_string(s : String) -> String {
 /// escaped; newline / carriage-return are replaced with a single space (a
 /// raw newline inside a `"..."` literal is rejected by the DOT parser).
 fn escape_dot_string(s : String) -> String {
-  let buf = StringBuilder::new()
+  let buf = StringBuilder()
   for ch in s {
     match ch {
       '\\' => buf.write_string("\\\\")

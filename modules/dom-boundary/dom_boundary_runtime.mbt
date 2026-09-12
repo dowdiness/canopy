@@ -387,7 +387,7 @@ fn listen_custom_event_target(
   let handle = run_dom_operation(ListenCustomEvent, target, () => {
     @js.any(js_listen_custom_event(element, event_type, on_event))
   })
-  { handle: handle.cast() }
+  { handle: handle.cast(), }
 }
 
 ///|

@@ -125,7 +125,7 @@ fn canvas_node_to_wire(node : CanvasNode) -> CanvasNodeWire {
 
 ///|
 fn node_position_to_wire(position : NodePosition) -> NodePositionWire {
-  { node_id: position.id, x: position.point.x(), y: position.point.y() }
+  { node_id: position.id, x: position.point.x(), y: position.point.y(), }
 }
 
 ///|

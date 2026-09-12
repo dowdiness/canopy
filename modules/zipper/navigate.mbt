@@ -28,7 +28,7 @@ pub fn[T] RoseZipper::go_down(
   for i = children.length() - 1; i > index; i = i - 1 {
     right = @list.cons(children[i], right)
   }
-  let ctx : RoseCtx[T] = { data: self.focus.data, left, right, index }
+  let ctx : RoseCtx[T] = { data: self.focus.data, left, right, index, }
   Some({
     focus: children[index],
     path: @list.cons(ctx, self.path),
@@ -47,7 +47,7 @@ pub fn[T] RoseZipper::go_up(self : RoseZipper[T]) -> RoseZipper[T]? {
       children.push(self.focus)
       ctx.right.each(fn(n) { children.push(n) })
       let parent = RoseNode(data=ctx.data, children~)
-      Some({ focus: parent, path: rest, depth: self.depth - 1 })
+      Some({ focus: parent, path: rest, depth: self.depth - 1, })
     }
   }
 }
@@ -119,7 +119,7 @@ pub fn[T] RoseZipper::replace(
   self : RoseZipper[T],
   new_focus : RoseNode[T],
 ) -> RoseZipper[T] {
-  { ..self, focus: new_focus }
+  { ..self, focus: new_focus, }
 }
 
 ///|
@@ -127,7 +127,7 @@ pub fn[T] RoseZipper::modify(
   self : RoseZipper[T],
   f : (RoseNode[T]) -> RoseNode[T],
 ) -> RoseZipper[T] {
-  { ..self, focus: f(self.focus) }
+  { ..self, focus: f(self.focus), }
 }
 
 ///|

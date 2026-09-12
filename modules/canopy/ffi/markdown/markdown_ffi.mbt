@@ -51,7 +51,7 @@ fn assemble_markdown_handle(agent_id : String) -> @workspace.EditorId raise {
     agent_id,
     cells.to_protected_reads(),
   )
-  markdown_registry.insert(editor_id.0, { editor, editor_id, cells })
+  markdown_registry.insert(editor_id.0, { editor, editor_id, cells, })
   editor_id
 }
 

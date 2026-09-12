@@ -136,7 +136,7 @@ fn compute_insert_child(
       }
       Some(
         (
-          [{ start: insert_pos, delete_len: 0, inserted: insert_text }],
+          [{ start: insert_pos, delete_len: 0, inserted: insert_text, }],
           RestoreCursor,
         ),
       )

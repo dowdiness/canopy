@@ -5,7 +5,7 @@ pub struct InMemoryRoom {
 
 ///|
 pub fn InMemoryRoom::new() -> InMemoryRoom {
-  { peers: Map::default() }
+  { peers: Default::default(), }
 }
 
 ///|
@@ -48,7 +48,7 @@ pub fn InMemoryTransport::new(
   room : InMemoryRoom,
 ) -> InMemoryTransport {
   room.register(peer_id)
-  { peer_id, room }
+  { peer_id, room, }
 }
 
 ///|

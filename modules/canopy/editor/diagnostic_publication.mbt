@@ -95,7 +95,7 @@ fn DiagnosticPublicationChannel::new(
   producer : DiagnosticProducerId,
   name : String,
 ) -> DiagnosticPublicationChannel {
-  { producer, name }
+  { producer, name, }
 }
 
 ///|
@@ -125,7 +125,7 @@ fn DiagnosticSourceRevision::new(
   source : DiagnosticSourceId,
   revision : Int,
 ) -> DiagnosticSourceRevision {
-  { source, revision }
+  { source, revision, }
 }
 
 ///|
@@ -139,7 +139,7 @@ pub fn DiagnosticDependencyRevision::DiagnosticDependencyRevision(
   dependency : DiagnosticDependencyId,
   identity : String,
 ) -> DiagnosticDependencyRevision {
-  { dependency, identity }
+  { dependency, identity, }
 }
 
 ///|
@@ -205,14 +205,14 @@ fn DiagnosticPublicationState::new(
 ) -> DiagnosticPublicationState {
   {
     next_ticket: 0,
-    sources: Map::default(),
-    dependencies: Map::default(),
+    sources: Default::default(),
+    dependencies: Default::default(),
     configuration,
-    generations: Map::default(),
-    active: Map::default(),
-    requests: Map::default(),
-    consumed: Set::default(),
-    publications: Map::default(),
+    generations: Default::default(),
+    active: Default::default(),
+    requests: Default::default(),
+    consumed: Default::default(),
+    publications: Default::default(),
   }
 }
 
