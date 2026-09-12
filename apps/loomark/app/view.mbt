@@ -59,7 +59,6 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 priv struct PresentationRow {
   document_id : String
   name : String
-  change_order : @source_repository.ChangeOrder
 }
 
 ///|
@@ -70,16 +69,6 @@ fn PresentationRow::document_id(self : Self) -> String {
 ///|
 fn PresentationRow::name(self : Self) -> String {
   self.name
-}
-
-///|
-fn document_row_order(left : PresentationRow, right : PresentationRow) -> Int {
-  let by_newest = right.change_order.value().compare(left.change_order.value())
-  if by_newest != 0 {
-    by_newest
-  } else {
-    left.document_id.lexical_compare(right.document_id)
-  }
 }
 
 ///|
@@ -112,34 +101,29 @@ fn document_option_label(
 
 ///|
 fn recent_entries(editing : EditingState) -> Array[PresentationRow] {
-  let persisted = editing.documents.snapshot().catalog().entries()
-  let entries = editing.documents
-    .current_sources()
-    .filter_map(source => {
-      let document_id = source.document_id()
-      let persisted_entry = match
-        persisted.search_by(entry => entry.document_id() == document_id) {
-        Some(index) => persisted.get(index)
-        None => None
-      }
-      let visible = persisted_entry is Some(_) ||
-        source.text() != "" ||
-        source.change_order().value() > 0L
-      if visible {
-        Some({
-          document_id,
-          name: match persisted_entry {
-            Some(entry) => entry.name()
-            None => ""
-          },
-          change_order: source.change_order(),
-        })
-      } else {
-        None
-      }
-    })
-  entries.sort_by(document_row_order)
-  entries
+  let catalog = editing.documents.snapshot().catalog().entries()
+  editing.documents
+  .current_documents()
+  .filter_map(document => {
+    let document_id = document.id()
+    let entry = catalog
+      .search_by(e => e.document_id() == document_id)
+      .map(i => catalog[i])
+    let same = match editing.documents.snapshot().find(document_id) {
+      Some(saved) => saved.text() == document.text()
+      None => false
+    }
+    let name = if same {
+      entry.map(e => e.name()).unwrap_or("")
+    } else {
+      @document_lead.derive_name(document.text()).text()
+    }
+    if entry is Some(_) || document.text() != "" {
+      Some({ document_id, name })
+    } else {
+      None
+    }
+  })
 }
 
 ///|
@@ -148,7 +132,7 @@ fn document_sidebar(
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
-  let available = can_activate(editing)
+  let available = editing.can_activate()
   let entry_values = recent_entries(editing)
   let entries = entry_values.view()
   let compact = editing.compact
@@ -200,16 +184,14 @@ fn document_sidebar(
                     editing.documents.delete_status(document_id) {
                     Some(Available) => (true, None)
                     Some(Failed(_, _)) => (true, Some("Delete failed"))
-                    Some(Waiting(_)) | Some(Deleting(_)) | Some(Probing(_)) =>
+                    Some(Waiting(_)) | Some(Deleting(_)) =>
                       (false, Some("Deleting"))
-                    Some(Unknown(_)) =>
-                      (false, Some("Unknown deletion outcome"))
                     None => (false, None)
                   }
                   @sidebar.sidebar_menu_sub_item([
                     @sidebar.sidebar_menu_sub_button(
                       is_active=selected,
-                      disabled=!can_select(editing, document_id),
+                      disabled=!editing.can_select(document_id),
                       aria_label=label,
                       title=label,
                       class="pr-10 hover:opacity-70 active:opacity-50",
@@ -377,12 +359,6 @@ fn creation_failure_view(
   let reason = match failure {
     @source_repository.CreateFailure::DocumentIdentityUnavailable =>
       "This browser cannot create a document identity."
-    @source_repository.CreateFailure::StorageUnavailable =>
-      "Browser storage is unavailable."
-    @source_repository.CreateFailure::QuotaExceeded =>
-      "Browser storage is full."
-    @source_repository.CreateFailure::WriteFailed =>
-      "Browser storage failed while creating the document."
   }
   failure_notice(
     "A new document could not be created. " + reason,
@@ -432,8 +408,6 @@ fn save_failure_view(
   let reason = match failure {
     @source_repository.SaveFailure::InvalidSource =>
       " The document identity is invalid."
-    @source_repository.SaveFailure::ChangeOrderExhausted =>
-      " This browser has run out of change ordering space."
     @source_repository.SaveFailure::StorageUnavailable =>
       " Browser storage is unavailable."
     @source_repository.SaveFailure::QuotaExceeded => " Browser storage is full."
@@ -474,12 +448,6 @@ fn view(
               "Browser storage is unavailable."
             @source_repository.OpenFailure::ReadFailed =>
               "Browser storage failed while reading the document."
-            @source_repository.OpenFailure::DocumentIdentityUnavailable =>
-              "This browser cannot create a document identity."
-            @source_repository.OpenFailure::QuotaExceeded =>
-              "Browser storage is full."
-            @source_repository.OpenFailure::WriteFailed =>
-              "Browser storage failed while preparing the document."
           }
           @html.div(
             class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6] [&_p]:text-lm-muted",

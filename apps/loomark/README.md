@@ -16,8 +16,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 ```
 
 `apps/loomark/main/main.mbt` mounts that application. Browser integration is
-split between `apps/loomark/app/internal/source_repository`, which reconciles versioned Source
-records and derives an in-memory Catalog through `open`, `save`, and `delete`,
+split between `apps/loomark/app/internal/source_repository`, which reconciles exact-text Documents
+and derives an in-memory Catalog through `open`, `save`, and `delete`,
 and `apps/loomark/internal/text_area`, which converts native textarea
 input sequences into shared `TextChange` operations.
 
@@ -36,30 +36,30 @@ becomes processable, or when the page becomes hidden. The maximum is application
 policy rather than a wall-clock acknowledgment guarantee. IME composition
 defers persistence until its committed result.
 
-For each document, at most one Source write and one newer text-free checkpoint
+For each document, at most one Source write and one newer pending checkpoint
 exist; different documents may persist independently. Transaction completion
-starts a latest follow-up only when that checkpoint is already eligible. Checkpoint epoch and quiet revision reject delayed work even when
-text follows an equal-value ABA path. Exact return to the acknowledged Source
+starts a latest follow-up only when that checkpoint is already eligible. A
+maximum-window identity and per-edit quiet revision reject delayed work even
+when text follows an equal-value ABA path. Exact return to the acknowledged Source
 restores `Saved` without a redundant write, including after a failed attempt;
 other failures require explicit Retry.
 
-Each `source/v1/<document-id>` record contains `document_id`, `text`, and its
-Change order and is the durable authority for that document. Opening scans the
-complete store, isolates malformed or unsupported records, derives names from
-the first non-empty readable line in parser-recognized Markdown into an in-memory
-Catalog, and orders valid Sources by newest Change order
-with a Document ID tie break. The independent `editing-document` string record
-selects an exact valid Source after that reconciliation; a missing, malformed,
-or stale value uses the deterministic Catalog selection instead. Opening never
-repairs or rewrites it.
+Each `source/v1/<document-id>` record contains exactly `document_id` and `text`;
+the text is the only durable content authority. Opening scans the complete
+store, isolates malformed or unsupported records, derives names into a
+rebuildable in-memory Catalog, and orders valid Documents lexically by ID.
+The independent `editing-document` string record selects an exact valid
+Document after reconciliation; otherwise the lexical first Document is
+selected. Opening never repairs or rewrites it. Recent-document recency is
+page-local: changed, imported, or promoted Documents move first immediately,
+while merely opening one does not reorder the list; reload is deterministic
+lexical order.
 
 An empty repository opens an ephemeral New document without writing a Source.
-The legacy `active` record is moved atomically when safe; collisions preserve
-both records. A normal save writes only the accepted Source and applies its
-acknowledgment to the latest in-memory Snapshot. Activating a saved Source writes
-its Document ID to `editing-document` on a best-effort basis without adding
-application state, retry, or a Source durability claim. Source save failures
-preserve current text and present Retry. A confirmed Delete is ordered within
+Legacy records are unsupported and remain in IndexedDB. A normal save writes
+only the accepted Document and applies its acknowledgment to in-memory state.
+Activating a saved Document writes its ID to `editing-document` best-effort.
+Source save failures preserve current text and present Retry. A confirmed Delete is ordered within
 the target document's persistence lane; deleting the Editing Document activates
 and remembers a saved fallback, or opens an ephemeral New document when none
 remains. Hidden-page persistence is best effort because the browser may freeze

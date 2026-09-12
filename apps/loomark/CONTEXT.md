@@ -52,9 +52,8 @@ _Avoid_: ordinary content, paragraph
 
 **Recent documents**:
 The place for choosing a Loomark document as one continuous, ungrouped list,
-with the most recently changed first. A Document text change moves its document
-first immediately, even before Autosave succeeds; reopening reflects only Saved
-text and its saved change order.
+with the most recently changed first within the current page lifetime. A Document text change moves its document
+first immediately, even before Autosave succeeds; reopening restores deterministic lexical Document ID order; recency is never persisted.
 On sufficiently wide screens it starts open as a fixed-width, collapsible pane
 beside the editor; it is not resizable. On narrow screens it starts closed. An
 18rem pane and 64rem breakpoint are prototype starting values, not accepted
@@ -104,12 +103,6 @@ The actions for one Recent documents entry, opened from its context-menu gesture
 keyboard command, or overflow control. Delete document is a destructive action
 in this menu.
 _Avoid_: row buttons, right-click-only menu
-
-**Change order**:
-An opaque comparable value assigned when Document text changes and saved with
-that document. It orders Recent documents but is neither displayed nor treated
-as a trustworthy wall-clock time across Uncoordinated tabs.
-_Avoid_: modified date, timestamp, global sequence
 
 **Document switch**:
 Choosing another Loomark document without waiting for the current document to
@@ -227,14 +220,8 @@ _Avoid_: deletion warning, delete prompt
 A confirmed Delete document awaiting Browser storage acknowledgment. A non-open
 target shows its progress in Recent documents while editing continues; an open
 target remains visible and permits neither editing nor Document switch.
+Failure restores the target to retryable availability.
 _Avoid_: loading document, optimistic deletion
-
-**Unknown deletion outcome**:
-A Pending deletion whose Browser storage acknowledgment and follow-up check did
-not arrive within bounded intervals. Loomark isolates that target from editing
-and Autosave while other work continues; a late failure restores its availability
-without changing the currently open document.
-_Avoid_: delete failure, timed-out deletion
 
 **Recovery**:
 The state shown for a Loomark document whose Browser storage record cannot be

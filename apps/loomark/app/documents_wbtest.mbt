@@ -1,54 +1,66 @@
 ///|
-fn documents_test_snapshot() -> @source_repository.RepositorySnapshot {
-  @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::from_parts("one", "one").unwrap(),
-    @source_repository.SourceRecord::from_parts("two", "two").unwrap(),
+fn documents_test_snapshot() -> @source_repository.SavedDocuments {
+  @source_repository.SavedDocuments::from_documents([
+    @source_repository.Document::create("one", "one") catch {
+      _ => abort("invalid id")
+    },
+    @source_repository.Document::create("two", "two") catch {
+      _ => abort("invalid id")
+    },
   ]).unwrap()
 }
 
 ///|
-fn documents_test_order(value : Int64) -> @source_repository.ChangeOrder {
-  @source_repository.ChangeOrder::from_int64(value).unwrap()
+fn documents_test_document(
+  id : String,
+  text : String,
+) -> @source_repository.Document {
+  @source_repository.Document::create(id, text) catch {
+    _ => abort("invalid id")
+  }
 }
 
 ///|
-fn documents_test_current_order(
-  documents : Documents,
-  document_id : String,
-) -> @source_repository.ChangeOrder {
-  find_record(documents.records, document_id).unwrap().source.change_order()
+test "activation target preserves current text and parsed resume eligibility" {
+  let documents = initial_documents(documents_test_snapshot())
+  let (documents, _) = documents.reduce(DocumentsTextChanged("one", "one!"))
+  guard documents.activation_target("one") is Some(saved) else {
+    fail("saved activation target")
+  }
+  assert_eq(saved.document.text(), "one!")
+  assert_true(saved.resume_hint is Some(_))
+  let (documents, _) = documents.reduce(DocumentsNew("new"))
+  guard documents.activation_target("new") is Some(ephemeral) else {
+    fail("ephemeral activation target")
+  }
+  assert_eq(ephemeral.document.text(), "")
+  assert_eq(ephemeral.resume_hint, None)
+  assert_true(documents.activation_target("missing") is None)
 }
 
 ///|
 test "Import accepts empty text and persists it immediately as New" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(
-    DocumentsImported("imported", "", documents_test_order(7L)),
+    DocumentsImported("imported", ""),
   )
   assert_eq(documents.text("imported"), Some(""))
   guard decisions is [DocumentsDecision::DocumentsPersist(operation)] &&
-    operation.origin == DocumentOrigin::New else {
-    fail("expected one New persistence decision")
+    operation.origin == DocumentOrigin::ImportedNew else {
+    fail("expected one ImportedNew persistence decision")
   }
-  assert_eq(
-    operation.source,
-    @source_repository.SourceRecord::from_parts(
-      "imported",
-      "",
-      change_order=documents_test_order(7L),
-    ).unwrap(),
-  )
+  assert_eq(operation.document, documents_test_document("imported", ""))
 }
 
 ///|
 test "failed Import remains available through the existing Retry" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(
-    DocumentsImported("imported", "text", documents_test_order(7L)),
+    DocumentsImported("imported", "text"),
   )
   guard decisions is [DocumentsPersist(operation)] else { fail("persist") }
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(operation, Failed(WriteFailed))),
+    DocumentsFeedbackReceived(SaveCompleted(operation, SaveFailed(WriteFailed))),
   )
   assert_eq(documents.text("imported"), Some("text"))
   guard documents.save_status("imported") is Some(Failed(WriteFailed)) else {
@@ -56,27 +68,58 @@ test "failed Import remains available through the existing Retry" {
   }
   let (_, decisions) = documents.reduce(DocumentsRetrySave("imported"))
   guard decisions is [DocumentsPersist(retry)] else { fail("retry") }
-  assert_eq(retry.source, operation.source)
+  assert_eq(retry.document, operation.document)
+}
+
+///|
+test "failed Import deletion is local because it was never saved" {
+  let documents = initial_documents(documents_test_snapshot())
+  let before = documents.snapshot()
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "text"),
+  )
+  guard decisions is [DocumentsPersist(operation)] else { fail("persist") }
+  let (documents, _) = documents.reduce(
+    DocumentsFeedbackReceived(SaveCompleted(operation, SaveFailed(WriteFailed))),
+  )
+  let (documents, decisions) = documents.reduce(DeleteConfirmed("imported"))
+  assert_true(decisions.is_empty())
+  assert_eq(documents.snapshot(), before)
+  assert_eq(documents.text("imported"), None)
 }
 
 ///|
 test "a second document persists while the first document is in flight" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "one!", documents_test_order(0L)),
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("one", "one!"),
   )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("initial timers")
+  }
   let (documents, first) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
   )
   guard first.length() == 1 &&
     first[0] is DocumentsDecision::DocumentsPersist(first_operation) else {
     fail("first document should persist")
   }
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("two", "two!", documents_test_order(0L)),
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("two", "two!"),
   )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_two),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("two timers")
+  }
   let (documents, second) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("two", documents_test_order(2L))),
+    DocumentsFeedbackReceived(QuietElapsed("two", quiet_two)),
   )
   guard second.length() == 1 &&
     second[0] is DocumentsDecision::DocumentsPersist(second_operation) else {
@@ -94,78 +137,98 @@ test "a second document persists while the first document is in flight" {
 ///|
 test "reverse save acknowledgments merge into the latest snapshot" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "one!", documents_test_order(0L)),
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("one", "one!"),
   )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_one),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("one timers")
+  }
   let (documents, one_decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet_one)),
   )
   guard one_decisions[0] is DocumentsPersist(one) else { fail("one save") }
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("two", "two!", documents_test_order(0L)),
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("two", "two!"),
   )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_two),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("two timers")
+  }
   let (documents, two_decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("two", documents_test_order(2L))),
+    DocumentsFeedbackReceived(QuietElapsed("two", quiet_two)),
   )
   guard two_decisions[0] is DocumentsPersist(two) else { fail("two save") }
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(two, Stored(two.source))),
+    DocumentsFeedbackReceived(SaveCompleted(two, Stored(two.document))),
   )
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(one, Stored(one.source))),
+    DocumentsFeedbackReceived(SaveCompleted(one, Stored(one.document))),
   )
-  assert_eq(documents.snapshot().source("one").unwrap().text(), "one!")
-  assert_eq(documents.snapshot().source("two").unwrap().text(), "two!")
+  assert_eq(documents.snapshot().find("one").unwrap().text(), "one!")
+  assert_eq(documents.snapshot().find("two").unwrap().text(), "two!")
 }
 
 ///|
 test "inactive save completion updates the latest snapshot" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("two", "two!", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("two", documents_test_order(1L))),
+    DocumentsTextChanged("two", "two!"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("two", quiet)),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(operation) else {
     fail("expected persist")
   }
   let (documents, decisions) = documents.reduce(
     DocumentsFeedbackReceived(
-      SaveCompleted(
-        operation,
-        @source_repository.SaveResult::Stored(operation.source),
-      ),
+      SaveCompleted(operation, Stored(operation.document)),
     ),
   )
   assert_true(decisions.is_empty())
-  assert_eq(documents.snapshot().source("two").unwrap().text(), "two!")
+  assert_eq(documents.snapshot().find("two").unwrap().text(), "two!")
   assert_eq(documents.text("one"), Some("one"))
 }
 
 ///|
-test "composition blocks persistence but keeps fresh order" {
+test "composition blocks persistence but keeps fresh revision" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, _) = documents.reduce(DocumentsCompositionStarted("one"))
   let (documents, decisions) = documents.reduce(
-    DocumentsTextChanged("one", "one!", documents_test_order(3L)),
+    DocumentsTextChanged("one", "one!"),
   )
   assert_true(decisions.is_empty())
-  assert_eq(documents_test_current_order(documents, "one").value(), 3L)
+  guard find_record(documents.records, "one").unwrap().save
+    is Waiting(checkpoint) else {
+    fail("waiting checkpoint")
+  }
+  assert_eq(checkpoint.quiet_revision, 1)
   let (_, decisions) = documents.reduce(DocumentsCompositionEnded("one"))
   assert_eq(decisions.length(), 2)
-  guard decisions[0] is DocumentsDecision::DocumentsArmQuiet(_, order) else {
+  guard decisions[0] is DocumentsDecision::DocumentsArmQuiet(_, rev) else {
     fail("quiet timer")
   }
-  assert_eq(order.value(), 3L)
+  assert_eq(rev, 1)
 }
 
 ///|
 test "checkpoint quiet identity changes while maximum identity stays fresh" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, first) = documents.reduce(
-    DocumentsTextChanged("one", "b", documents_test_order(0L)),
-  )
+  let (documents, first) = documents.reduce(DocumentsTextChanged("one", "b"))
   guard first
     is [
       DocumentsDecision::DocumentsArmQuiet(_, quiet),
@@ -173,22 +236,20 @@ test "checkpoint quiet identity changes while maximum identity stays fresh" {
     ] else {
     fail("initial timers")
   }
-  assert_eq(quiet.value(), 1L)
+  assert_eq(quiet, 1)
   assert_eq(maximum, 1)
-  let (_, second) = documents.reduce(
-    DocumentsTextChanged("one", "c", documents_test_order(1L)),
-  )
+  let (_, second) = documents.reduce(DocumentsTextChanged("one", "c"))
   guard second is [DocumentsDecision::DocumentsArmQuiet(_, quiet)] else {
     fail("only quiet is rearmed")
   }
-  assert_eq(quiet.value(), 2L)
+  assert_eq(quiet, 2)
 }
 
 ///|
 test "maximum eligibility persists latest text during uninterrupted editing" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(
-    DocumentsTextChanged("one", "b", documents_test_order(0L)),
+    DocumentsTextChanged("one", "b"),
   )
   guard decisions
     is [
@@ -197,177 +258,214 @@ test "maximum eligibility persists latest text during uninterrupted editing" {
     ] else {
     fail("initial timers")
   }
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "c", documents_test_order(1L)),
-  )
+  let (documents, _) = documents.reduce(DocumentsTextChanged("one", "c"))
   let (_, decisions) = documents.reduce(
     DocumentsFeedbackReceived(MaximumElapsed("one", maximum)),
   )
   guard decisions is [DocumentsDecision::DocumentsPersist(operation)] else {
     fail("maximum persist")
   }
-  assert_eq(operation.source.text(), "c")
-  assert_eq(operation.source.change_order().value(), 2L)
+  assert_eq(operation.document.text(), "c")
+  guard find_record(documents.records, "one").unwrap().save is Waiting(_) ||
+    find_record(documents.records, "one").unwrap().save is Saving(_, _) else {
+    fail("pending")
+  }
 }
 
 ///|
-test "returning to operation text while saving preserves final fresh order" {
+test "returning to operation text while saving preserves final fresh revision" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "b", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsTextChanged("one", "b"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(operation) else {
     fail("expected persist")
   }
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "one", documents_test_order(1L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(2L))),
+    DocumentsTextChanged("one", "one"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_two),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("new save window timers")
+  }
+  assert_eq(quiet_two, 2)
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet_two)),
   )
   assert_true(decisions.is_empty())
   let (documents, decisions) = documents.reduce(
     DocumentsFeedbackReceived(
-      SaveCompleted(
-        operation,
-        @source_repository.SaveResult::Stored(operation.source),
-      ),
+      SaveCompleted(operation, Stored(operation.document)),
     ),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(next) else {
     fail("latest candidate must persist")
   }
-  assert_eq(next.source.text(), "one")
-  assert_eq(next.source.change_order().value(), 2L)
-  assert_eq(documents.snapshot().source("one").unwrap().text(), "b")
+  assert_eq(next.document.text(), "one")
+  assert_eq(next.document.id(), "one")
+  assert_eq(documents.snapshot().find("one").unwrap().text(), "b")
 }
 
 ///|
 test "deferred and eligible failures preserve or promote pending checkpoint" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "b", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsTextChanged("one", "b"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(operation) else {
     fail("expected persist")
   }
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "c", documents_test_order(1L)),
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("one", "c"),
   )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_two),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("pending save window timers")
+  }
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      SaveCompleted(
-        operation,
-        @source_repository.SaveResult::Failed(
-          @source_repository.SaveFailure::WriteFailed,
-        ),
-      ),
-    ),
+    DocumentsFeedbackReceived(SaveCompleted(operation, SaveFailed(WriteFailed))),
   )
   guard documents.save_status("one") is Some(Waiting(_)) else {
     fail("deferred failure waits")
   }
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(2L))),
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet_two)),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(retry_operation) else {
     fail("waiting retry")
   }
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "d", documents_test_order(2L)),
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("one", "d"),
   )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(3L))),
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_three),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("latest save window timers")
+  }
+  let (documents, eligible) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet_three)),
   )
+  assert_true(eligible.is_empty())
   let (_, retry) = documents.reduce(
     DocumentsFeedbackReceived(
-      SaveCompleted(
-        retry_operation,
-        @source_repository.SaveResult::Failed(
-          @source_repository.SaveFailure::WriteFailed,
-        ),
-      ),
+      SaveCompleted(retry_operation, SaveFailed(WriteFailed)),
     ),
   )
   guard retry[0] is DocumentsDecision::DocumentsPersist(latest) else {
     fail("eligible failure promotes")
   }
-  assert_eq(latest.source.text(), "d")
+  assert_eq(latest.document.text(), "d")
 }
 
 ///|
 test "stale timers and mismatched stored records are ignored" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "b", documents_test_order(0L)),
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("one", "b"),
   )
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "c", documents_test_order(1L)),
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, _),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsTextChanged("one", "c"),
   )
+  guard decisions is [DocumentsDecision::DocumentsArmQuiet(_, quiet_two)] else {
+    fail("second")
+  }
   let (documents, stale_max) = documents.reduce(
     DocumentsFeedbackReceived(MaximumElapsed("one", 99)),
   )
   assert_true(stale_max.is_empty())
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(2L))),
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet_two)),
   )
   guard decisions is [DocumentsDecision::DocumentsPersist(operation)] else {
     fail("latest quiet")
   }
-  let bogus = @source_repository.SourceRecord::from_parts(
-    "one",
-    "c",
-    change_order=documents_test_order(99L),
-  ).unwrap()
+  let bogus = documents_test_document("one", "not-the-operation-text")
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      SaveCompleted(operation, @source_repository.SaveResult::Stored(bogus)),
-    ),
+    DocumentsFeedbackReceived(SaveCompleted(operation, Stored(bogus))),
   )
-  assert_eq(documents.snapshot().source("one").unwrap().text(), "one")
+  assert_eq(documents.snapshot().find("one").unwrap().text(), "one")
 }
 
 ///|
-test "the global floor orders edits across old documents" {
-  let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::from_parts(
-      "one",
-      "one",
-      change_order=documents_test_order(100L),
-    ).unwrap(),
-    @source_repository.SourceRecord::from_parts(
-      "two",
-      "two",
-      change_order=documents_test_order(5L),
-    ).unwrap(),
-  ]).unwrap()
-  let documents = initial_documents(snapshot)
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("two", "two!", documents_test_order(10L)),
+test "page-local revision orders edits across documents" {
+  let saved = documents_test_snapshot()
+  let documents = initial_documents(saved)
+  let (documents, first_decisions) = documents.reduce(
+    DocumentsTextChanged("two", "two!"),
   )
-  assert_eq(documents_test_current_order(documents, "two").value(), 101L)
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "one!", documents_test_order(0L)),
+  guard first_decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_two),
+      DocumentsDecision::DocumentsArmMaximum(_, max_two),
+    ] else {
+    fail("two timers")
+  }
+  assert_eq(quiet_two, 1)
+  assert_eq(max_two, 1)
+  let (documents, second_decisions) = documents.reduce(
+    DocumentsTextChanged("one", "one!"),
   )
-  assert_eq(documents_test_current_order(documents, "one").value(), 102L)
+  guard second_decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet_one),
+      DocumentsDecision::DocumentsArmMaximum(_, max_one),
+    ] else {
+    fail("one independent timers")
+  }
+  assert_eq(quiet_one, 2)
+  assert_eq(max_one, 2)
+  guard find_record(documents.records, "two").unwrap().save is Waiting(cp_two) else {
+    fail("two waiting")
+  }
+  assert_eq(cp_two.quiet_revision, 1)
+  guard find_record(documents.records, "one").unwrap().save is Waiting(cp_one) else {
+    fail("one waiting")
+  }
+  assert_eq(cp_one.quiet_revision, 2)
+  assert_eq(cp_one.maximum_id, 2)
 }
 
 ///|
 test "duplicate text changes preserve documents and decisions" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "one!", documents_test_order(0L)),
-  )
+  let (documents, _) = documents.reduce(DocumentsTextChanged("one", "one!"))
   let before = documents
-  let (after, decisions) = documents.reduce(
-    DocumentsTextChanged("one", "one!", documents_test_order(99L)),
-  )
+  let (after, decisions) = documents.reduce(DocumentsTextChanged("one", "one!"))
   assert_true(after == before)
   assert_true(decisions.is_empty())
 }
@@ -375,18 +473,25 @@ test "duplicate text changes preserve documents and decisions" {
 ///|
 test "composition defers timers for an in-flight save until it ends" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "one!", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsTextChanged("one", "one!"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
   )
   guard decisions[0] is DocumentsDecision::DocumentsPersist(_) else {
     fail("expected in-flight save")
   }
   let (documents, _) = documents.reduce(DocumentsCompositionStarted("one"))
   let (documents, decisions) = documents.reduce(
-    DocumentsTextChanged("one", "one!!", documents_test_order(1L)),
+    DocumentsTextChanged("one", "one!!"),
   )
   assert_true(decisions.is_empty())
   guard documents.save_status("one") is Some(Saving(_, Some(_))) else {
@@ -397,52 +502,68 @@ test "composition defers timers for an in-flight save until it ends" {
 }
 
 ///|
-test "delete success removes only the target record" {
+test "visibility makes an in-flight save's latest checkpoint eligible" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions is [DeleteSource(operation), ArmDeleteWatchdog(_)] else {
-    fail("delete should issue immediately")
+  let (documents, timers) = documents.reduce(
+    DocumentsTextChanged("one", "first"),
+  )
+  guard timers
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("initial timers")
   }
-  let (documents, _) = documents.reduce(
+  let (documents, persist) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
+  )
+  guard persist is [DocumentsDecision::DocumentsPersist(operation)] else {
+    fail("first save")
+  }
+  let (documents, _) = documents.reduce(DocumentsTextChanged("one", "latest"))
+  let (documents, flush) = documents.reduce(DocumentsVisibilityFlush("one"))
+  assert_true(flush.is_empty())
+  let (_, follow_up) = documents.reduce(
     DocumentsFeedbackReceived(
-      DeleteCompleted(
-        operation,
-        @source_repository.DeleteResult::Deleted("one"),
-      ),
+      SaveCompleted(operation, Stored(operation.document)),
     ),
   )
-  assert_eq(documents.text("one"), None)
-  assert_eq(documents.text("two"), Some("two"))
-  assert_eq(documents.snapshot().source("one"), None)
+  guard follow_up is [DocumentsDecision::DocumentsPersist(latest)] else {
+    fail("eligible follow-up")
+  }
+  assert_eq(latest.document.text(), "latest")
 }
 
 ///|
-test "delete watchdog probes and missing confirms deletion" {
+test "delete success removes only the target record" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions is [DeleteSource(operation), ArmDeleteWatchdog(_)] else {
+  guard decisions is [DeleteDocument(operation)] else {
     fail("delete should issue immediately")
   }
-  let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  guard decisions is [ProbeDelete(_), ArmProbeWatchdog(_)] else {
-    fail("watchdog should probe")
-  }
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteProbeCompleted(operation, Missing)),
+    DocumentsFeedbackReceived(DeleteCompleted(operation, Deleted("one"))),
   )
   assert_eq(documents.text("one"), None)
+  assert_eq(documents.text("two"), Some("two"))
+  assert_eq(documents.snapshot().find("one"), None)
 }
 
 ///|
 test "confirmation waits for the matching save and then deletes" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "new", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsTextChanged("one", "new"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
   )
   guard decisions is [DocumentsDecision::DocumentsPersist(save)] else {
     fail("expected save")
@@ -453,9 +574,9 @@ test "confirmation waits for the matching save and then deletes" {
     fail("confirmation must wait")
   }
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(save, Stored(save.source))),
+    DocumentsFeedbackReceived(SaveCompleted(save, Stored(save.document))),
   )
-  guard decisions is [DeleteSource(_), ArmDeleteWatchdog(_)] else {
+  guard decisions is [DeleteDocument(_)] else {
     fail("stored save must release delete")
   }
   guard documents.delete_status("one") is Some(Deleting(current)) &&
@@ -468,18 +589,25 @@ test "confirmation waits for the matching save and then deletes" {
 ///|
 test "failed existing save still releases a waiting delete" {
   let documents = initial_documents(documents_test_snapshot())
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "new", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsTextChanged("one", "new"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
   )
   guard decisions[0] is DocumentsPersist(save) else { fail("save") }
   let (documents, _) = documents.reduce(DeleteConfirmed("one"))
   let (_, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(save, Failed(WriteFailed))),
+    DocumentsFeedbackReceived(SaveCompleted(save, SaveFailed(WriteFailed))),
   )
-  guard decisions is [DeleteSource(_), ArmDeleteWatchdog(_)] else {
+  guard decisions is [DeleteDocument(_)] else {
     fail("failed existing save must still delete")
   }
 }
@@ -499,19 +627,26 @@ test "new document deletion is local and does not change snapshot" {
 test "new in-flight stored save promotes before deletion" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, _) = documents.reduce(DocumentsNew("new"))
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("new", "hello", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("new", documents_test_order(1L))),
+    DocumentsTextChanged("new", "hello"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("new", quiet)),
   )
   guard decisions[0] is DocumentsPersist(save) else { fail("save") }
   let (documents, _) = documents.reduce(DeleteConfirmed("new"))
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(save, Stored(save.source))),
+    DocumentsFeedbackReceived(SaveCompleted(save, Stored(save.document))),
   )
-  guard decisions[0] is DeleteSource(_) else { fail("delete") }
-  guard documents.snapshot().source("new") is Some(_) else {
+  guard decisions[0] is DeleteDocument(_) else { fail("delete") }
+  guard documents.snapshot().find("new") is Some(_) else {
     fail("stored new document must be acknowledged first")
   }
 }
@@ -520,42 +655,54 @@ test "new in-flight stored save promotes before deletion" {
 test "new in-flight failed save is removed locally" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, _) = documents.reduce(DocumentsNew("new"))
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("new", "hello", documents_test_order(0L)),
-  )
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("new", documents_test_order(1L))),
+    DocumentsTextChanged("new", "hello"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("new", quiet)),
   )
   guard decisions[0] is DocumentsPersist(save) else { fail("save") }
   let (documents, _) = documents.reduce(DeleteConfirmed("new"))
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(save, Failed(WriteFailed))),
+    DocumentsFeedbackReceived(SaveCompleted(save, SaveFailed(WriteFailed))),
   )
   assert_true(decisions.is_empty())
   assert_eq(documents.text("new"), None)
-  assert_eq(documents.snapshot().source("new"), None)
+  assert_eq(documents.snapshot().find("new"), None)
 }
 
 ///|
 test "retry allocates a fresh operation and fences an active save" {
   let documents = initial_documents(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(first) else { fail("delete") }
+  guard decisions[0] is DeleteDocument(first) else { fail("delete") }
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeleteCompleted(
-        first,
-        @source_repository.DeleteResult::Failed(
-          @source_repository.DeleteFailure::WriteFailed,
-        ),
-      ),
-    ),
+    DocumentsFeedbackReceived(DeleteCompleted(first, DeleteFailed(WriteFailed))),
   )
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "edited", documents_test_order(0L)),
+  let (documents, stale) = documents.reduce(
+    DocumentsFeedbackReceived(DeleteCompleted(first, Deleted("one"))),
   )
+  assert_true(stale.is_empty())
+  assert_eq(documents.text("one"), Some("one"))
   let (documents, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(QuietElapsed("one", documents_test_order(1L))),
+    DocumentsTextChanged("one", "edited"),
+  )
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, quiet),
+      DocumentsDecision::DocumentsArmMaximum(_, _),
+    ] else {
+    fail("timers")
+  }
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", quiet)),
   )
   guard decisions[0] is DocumentsPersist(save) else { fail("save") }
   let (documents, decisions) = documents.reduce(RetryDelete("one"))
@@ -565,139 +712,50 @@ test "retry allocates a fresh operation and fences an active save" {
   }
   assert_true(second != first)
   let (_, decisions) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(save, Failed(WriteFailed))),
+    DocumentsFeedbackReceived(SaveCompleted(save, SaveFailed(WriteFailed))),
   )
-  guard decisions[0] is DeleteSource(third) else { fail("release retry") }
+  guard decisions[0] is DeleteDocument(third) else { fail("release retry") }
   assert_true(third != first && third == second)
 }
 
 ///|
-test "probe outcomes and timeout become unknown while unrelated work proceeds" {
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeleteProbeCompleted(
-        operation,
-        @source_repository.ProbeResult::Present(
-          documents_test_snapshot().source("one").unwrap(),
-        ),
-      ),
-    ),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("present probe")
-  }
-  let (_, decisions) = documents.reduce(
-    DocumentsTextChanged("two", "two!", documents_test_order(0L)),
-  )
-  assert_true(decisions.length() > 0)
-}
-
-///|
-test "unsupported failed and timed out probes become unknown" {
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteProbeCompleted(operation, Unsupported)),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("unsupported probe")
-  }
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeleteProbeCompleted(
-        operation,
-        @source_repository.ProbeResult::Failed(
-          @source_repository.ProbeFailure::ReadFailed,
-        ),
-      ),
-    ),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("failed probe")
-  }
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteProbeElapsed(operation)),
-  )
-  guard documents.delete_status("one") is Some(Unknown(_)) else {
-    fail("probe timeout")
-  }
-}
-
-///|
-test "late delete failure restores availability and late success empties snapshot" {
-  let documents = initial_documents(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("one"))
-  guard decisions[0] is DeleteSource(operation) else { fail("delete") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteWatchdogElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(DeleteProbeElapsed(operation)),
-  )
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeleteCompleted(
-        operation,
-        @source_repository.DeleteResult::Failed(
-          @source_repository.DeleteFailure::WriteFailed,
-        ),
-      ),
-    ),
-  )
-  guard documents.delete_status("one") is Some(Failed(_, _)) else {
-    fail("late failure restores")
-  }
-  let (documents, decisions) = documents.reduce(RetryDelete("one"))
-  guard decisions[0] is DeleteSource(next) else { fail("retry") }
-  let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(
-      DeleteCompleted(next, @source_repository.DeleteResult::Deleted("one")),
-    ),
-  )
-  assert_eq(documents.snapshot().source("one"), None)
-}
-
-///|
-test "change order exhaustion keeps authority unchanged and fails" {
-  let max = documents_test_order(9_007_199_254_740_991L)
-  let snapshot = @source_repository.RepositorySnapshot::from_sources([
-    @source_repository.SourceRecord::from_parts("one", "one", change_order=max).unwrap(),
+test "page-local revision retains authority unchanged and re-arms after stale timers" {
+  let saved = @source_repository.SavedDocuments::from_documents([
+    documents_test_document("one", "one"),
   ]).unwrap()
-  let documents = initial_documents(snapshot)
-  let (documents, _) = documents.reduce(
-    DocumentsTextChanged("one", "changed", max),
-  )
-  assert_eq(documents.text("one"), Some("one"))
-  assert_eq(documents_test_current_order(documents, "one").value(), max.value())
-  guard documents.save_status("one")
-    is Some(Failed(@source_repository.SaveFailure::ChangeOrderExhausted)) else {
-    fail("exhaustion fails")
-  }
+  let documents = initial_documents(saved)
   let (documents, decisions) = documents.reduce(
-    DocumentsImported("imported", "text", max),
+    DocumentsTextChanged("one", "changed"),
   )
-  assert_eq(documents.text("imported"), None)
-  assert_true(decisions.is_empty())
+  guard decisions
+    is [
+      DocumentsDecision::DocumentsArmQuiet(_, rev),
+      DocumentsDecision::DocumentsArmMaximum(_, mid),
+    ] else {
+    fail("timers")
+  }
+  assert_eq(rev, 1)
+  assert_eq(mid, 1)
+  // Stale quiet revision is ignored
+  let (documents, stale) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", 99)),
+  )
+  assert_true(stale.is_empty())
+  // Correct revision still arms persist
+  let (documents, decisions) = documents.reduce(
+    DocumentsFeedbackReceived(QuietElapsed("one", rev)),
+  )
+  guard decisions[0] is DocumentsDecision::DocumentsPersist(operation) else {
+    fail("persist")
+  }
+  assert_eq(operation.document.text(), "changed")
+  // Import with same saved still persists via page-local revision
+  let (documents, decisions) = documents.reduce(
+    DocumentsImported("imported", "text"),
+  )
+  guard decisions is [DocumentsDecision::DocumentsPersist(op2)] else {
+    fail("imported persist")
+  }
+  assert_eq(op2.document.text(), "text")
+  assert_eq(documents.text("imported"), Some("text"))
 }

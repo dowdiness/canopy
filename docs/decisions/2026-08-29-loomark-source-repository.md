@@ -23,8 +23,8 @@ Markdown import/export.
 
 Loomark needs stable identities and independently replaceable Saved text for
 several Editing Documents. One malformed or unsupported record must not hide
-other valid documents, and migration from the legacy `active` record must not
-delete recoverable data when ownership is uncertain.
+other valid documents, and the legacy `active` record must remain preserved
+when its ownership is uncertain.
 
 Document names are presentation derived from Canonical Markdown. Opening must
 scan every Source to discover valid documents, isolate corruption, and preserve
@@ -41,16 +41,10 @@ The `loomark` IndexedDB database remains at version `1` with object store
 - `source/v1/<document-id>` is one independently authoritative Source;
 - `editing-document` is an optional Document ID string used only to choose the
   initial Editing Document after Source reconciliation;
-- `active` is read only as the legacy migration source;
+- legacy `active` and old record shapes are unsupported and remain preserved;
 - every other key is preserved and reported as unknown or unsupported.
 
-No Catalog record is persisted. A Source value contains `document_id`, `text`,
-and Change order, and the key suffix must equal the payload identity. Opening
-scans the complete store through Rabbita's IndexedDB cursor provider, decodes
-each Source independently, derives a name from the first non-empty readable
-line of the first qualifying parsed Markdown block, sorts valid Sources by
-newest Change order with a Document ID tie break, and returns a
-deterministic in-memory Catalog. Only after that Snapshot is accepted does a
+No Catalog record is persisted. A Source value contains exactly `document_id` and `text`, and the key suffix must equal the payload identity. Opening scans the complete store through Rabbita's IndexedDB provider, decodes each Source independently, derives a name from parsed text, sorts valid Documents lexically by ID, and returns a deterministic in-memory Catalog. Only after that `SavedDocuments` value is accepted does a
 valid `editing-document` value select its exact Source. Missing, empty,
 non-string, stale, or unknown values use the deterministic first Source without
 repair or storage writes. Malformed values, identity mismatches, unsupported
@@ -70,16 +64,12 @@ existing Retry action. An accepted Import supersedes an unfinished ephemeral New
 action; Loomark does not queue either operation or bind file-read completion to
 the prior Activation.
 
-A valid legacy `active` value is moved with one atomic transaction containing a
-Source put and legacy delete. If a valid target Source exists, that Source wins
-and only `active` is deleted. A corrupt target preserves both records and is
-reported as a migration collision. Mutation failure rolls back the target put
-and preserves `active`.
+Legacy `active` values and old three-field records are not readable or migrated; they remain in IndexedDB and are reported as observed repository issues.
 
 A normal save commits only the accepted Source and applies its acknowledged
-change to the latest immutable RepositorySnapshot after transaction completion.
+change to the latest immutable SavedDocuments after transaction completion.
 New document creation reserves an identity without storage. Occupied keys
-prevent overwrite of records observed by the Snapshot; concurrent-tab
+prevent overwrite of records observed by `SavedDocuments`; concurrent-tab
 coordination remains out of scope. Save completions are fenced by Document ID
 and exact Source candidate before they update durability state.
 
@@ -88,10 +78,10 @@ Document ID. The write has no application state, queue, retry, or completion
 message and makes no Source durability claim. Startup, ephemeral New document
 activation, and the first save of a New document do not write the record.
 
-The JS-only repository uses the browser's native JSON encoder for the fixed
-`document_id`/`text` Source object. The strict MoonBit decoder remains the schema
-and identity authority; serialized byte spelling is not a public or canonical
-hash contract.
+The JS-only repository uses MoonBit core Json construction/stringification for
+the fixed `document_id`/`text` Source object. The strict MoonBit decoder remains
+the schema and identity authority; serialized byte spelling is not a public or
+canonical hash contract.
 
 Name derivation uses only parser-recognized Markdown structure. It flattens
 readable heading, paragraph, quote, list, task, code, image-label, and supported
@@ -99,21 +89,15 @@ inline content, takes the first non-empty readable line, and skips structures
 without readable text. It does not parse raw HTML, scan raw lines as a fallback,
 or infer frontmatter when the Markdown parser has no frontmatter extension.
 
-A normal save may parse only the previous Source's first terminated line to
-derive an ephemeral prefix certificate. It reuses the current Catalog name only
-when that prefix parses to the same name without diagnostics or CST
-error/incomplete metadata and is exactly equal in the new Source. The complete
-candidate may also be certified when it is the first direct Document child,
-starts at offset zero, and ends in a line terminator. Recovered readable content
-may still produce the same Catalog name while receiving no certificate. Every
-uncertified case runs complete Markdown derivation and preserves its fail-closed
-behavior. No certificate is retained or persisted, so it cannot become Source
-authority.
+`SavedDocuments` derives its Catalog from accepted Document text. The
+application may derive a temporary name from current unsaved text for Recent
+documents presentation, but that projection is neither persisted nor another
+Source authority.
 
-Repository issues describe currently observed conditions rather than an
-append-only incident history. A name-derivation issue for a document disappears
-after a later committed Source derives safely. Storage failures remain operation
-results rather than permanent repository issues.
+Repository issues describe malformed, unsupported, or unknown records observed
+by the latest complete scan rather than an append-only incident history.
+Storage failures remain operation results rather than permanent repository
+issues.
 
 ## Consequences
 
@@ -123,21 +107,17 @@ results rather than permanent repository issues.
   authority path.
 - No missing, stale, malformed, or unwritable metadata record can hide a Source.
 - The open path still pays the essential complete-scan and name-derivation cost.
-- Suffix-only saves after a certified first readable line avoid redundant
-  complete Markdown name derivation; changed, uncertified, recovered, or EOF
-  prefixes retain the full path.
-- Fixed-schema Source encoding uses the deployment target's mature JSON escaping
-  while strict decode and exact text round trips remain covered in MoonBit.
-- The legacy record cannot shadow a successfully migrated Source indefinitely.
-- A blocked migration may open a fresh baseline while preserving both collision
-  records for later recovery.
-- Text input continues to update only Browser-draft state; complete-source name
-  derivation, serialization, and IndexedDB work begin at `SaveRequested`.
+- Fixed-schema Source encoding uses MoonBit core JSON escaping while strict
+  decode and exact text round trips remain covered in MoonBit.
+- Unsupported legacy records cannot shadow a valid two-field Source and remain
+  preserved for explicit future recovery.
+- Text input updates only page-local Document state; serialization and IndexedDB
+  work begin when the Autosave lane emits a persistence decision.
 - The best-effort Editing Document record cannot become a second in-memory
   selection authority or a Source durability claim.
 - Import adds no second persistence path: accepted text uses the existing
   New-origin save, failure, and Retry behavior.
-- RepositorySnapshots retain the exact observed `source/v1` keys, including
+- SavedDocuments reconciliation observes the exact observed `source/v1` keys, including
   malformed and unsupported records.
 - A persisted discovery accelerator requires a separate measured decision and a
   validation protocol that cannot become document authority.

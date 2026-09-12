@@ -126,7 +126,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   text_area,
                   editing.activation,
                   disabled=editing.creation == Creating,
-                  read_only=deletion_blocks_document_changes(editing),
+                  read_only=editing.deletion_blocks_document_changes(),
                 ),
               ),
               @rui.resizable_handle(

@@ -5,19 +5,12 @@ const AUTOSAVE_QUIET_MS : Int = 250
 const AUTOSAVE_MAXIMUM_MS : Int = 2000
 
 ///|
-const DELETE_WATCHDOG_MS : Int = 4000
-
-///|
 const COMPACT_MAX_WIDTH : Double = 640.0
 
 ///|
 fn compact_viewport(width : Double) -> Bool {
   width <= COMPACT_MAX_WIDTH
 }
-
-///|
-extern "js" fn observed_change_order() -> Int64 =
-  #| () => BigInt(Date.now())
 
 ///|
 fn preview_input(editing : EditingState) -> @preview.Input {
@@ -57,16 +50,13 @@ async fn download_export(filename : String, text : String) -> Unit noraise {
 }
 
 ///|
-fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
-  let document_id = editing.activation.document_id
-  let persistence_blocks = match editing.documents.delete_status(document_id) {
+fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
+  let document_id = self.activation.document_id
+  let persistence_blocks = match self.documents.delete_status(document_id) {
     Some(Available) | Some(Failed(_, _)) | None => false
-    Some(Waiting(_))
-    | Some(Deleting(_))
-    | Some(Probing(_))
-    | Some(Unknown(_)) => true
+    Some(Waiting(_)) | Some(Deleting(_)) => true
   }
-  let confirmation_blocks = match editing.deletion {
+  let confirmation_blocks = match self.deletion {
     DeleteDeferred(target) | DeleteConfirmation(target) => target == document_id
     NoDeletion => false
   }
@@ -74,21 +64,32 @@ fn deletion_blocks_document_changes(editing : EditingState) -> Bool {
 }
 
 ///|
-fn can_activate(editing : EditingState) -> Bool {
-  editing.creation != Creating &&
-  !editing.documents.is_composing(editing.activation.document_id) &&
-  !deletion_blocks_document_changes(editing)
+fn EditingState::can_activate(self : Self) -> Bool {
+  self.creation != Creating &&
+  !self.documents.is_composing(self.activation.document_id) &&
+  !self.deletion_blocks_document_changes()
 }
 
 ///|
-fn can_select(editing : EditingState, document_id : String) -> Bool {
-  can_activate(editing) &&
-  document_id != editing.activation.document_id &&
-  editing.documents.text(document_id) is Some(_) &&
-  (match editing.documents.delete_status(document_id) {
+fn EditingState::selectable_activation(
+  self : Self,
+  document_id : String,
+) -> ActivationTarget? {
+  guard self.can_activate() && document_id != self.activation.document_id else {
+    return None
+  }
+  guard (match self.documents.delete_status(document_id) {
     Some(Available) | Some(Failed(_, _)) => true
     _ => false
-  })
+  }) else {
+    return None
+  }
+  self.documents.activation_target(document_id)
+}
+
+///|
+fn EditingState::can_select(self : Self, document_id : String) -> Bool {
+  self.selectable_activation(document_id) is Some(_)
 }
 
 ///|
@@ -103,40 +104,17 @@ fn run_decision(
     DocumentsArmMaximum(document_id, id) =>
       @cmd.delay(emit(MaximumElapsed(document_id, id)), AUTOSAVE_MAXIMUM_MS)
     DocumentsPersist(operation) =>
-      match operation.origin {
-        New =>
-          @source_repository.store_new(
-            documents.snapshot(),
-            operation.source.document_id(),
-            operation.source.text(),
-            operation.source.change_order(),
-            result=emit.map(result => SaveCompleted(operation, result)),
-          )
-        Existing =>
-          @source_repository.save(
-            documents.snapshot(),
-            operation.source.document_id(),
-            operation.source.text(),
-            change_order=operation.source.change_order(),
-            result=emit.map(result => SaveCompleted(operation, result)),
-          )
-      }
-    DeleteSource(operation) =>
+      @source_repository.save(
+        documents.snapshot(),
+        operation.document,
+        emit.map(result => SaveCompleted(operation, result)),
+      )
+    DeleteDocument(operation) =>
       @source_repository.delete(
         documents.snapshot(),
         operation.document_id,
-        result=emit.map(result => DeleteCompleted(operation, result)),
+        emit.map(result => DeleteCompleted(operation, result)),
       )
-    ArmDeleteWatchdog(operation) =>
-      @cmd.delay(emit(DeleteWatchdogElapsed(operation)), DELETE_WATCHDOG_MS)
-    ProbeDelete(operation) =>
-      @source_repository.probe(
-        documents.snapshot(),
-        operation.document_id,
-        result=emit.map(result => DeleteProbeCompleted(operation, result)),
-      )
-    ArmProbeWatchdog(operation) =>
-      @cmd.delay(emit(DeleteProbeElapsed(operation)), DELETE_WATCHDOG_MS)
   }
 }
 
@@ -176,31 +154,31 @@ fn activate_surface(
 }
 
 ///|
-fn activate(
-  editing : EditingState,
-  document_id : String,
+fn EditingState::activate(
+  self : Self,
+  target : ActivationTarget,
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
 ) -> (EditingState, @rabbita.Cmd) {
-  let text = editing.documents.text(document_id).unwrap_or("")
+  let document = target.document
   let activation = {
-    document_id,
-    generation: editing.activation.generation + 1,
+    document_id: document.id(),
+    generation: self.activation.generation + 1,
   }
   let (preview, surface) = activate_surface(
     activation,
-    text,
-    editing.mode,
+    document.text(),
+    self.mode,
     emit,
     text_area,
     preview_engine,
   )
-  let remember = @source_repository.remember_editing_document(
-    editing.documents.snapshot(),
-    document_id,
-  )
-  ({ ..editing, activation, preview }, @cmd.batch([surface, remember]))
+  let remember = match target.resume_hint {
+    Some(hint) => hint.remember()
+    None => @cmd.none
+  }
+  ({ ..self, activation, preview }, @cmd.batch([surface, remember]))
 }
 
 ///|
@@ -227,7 +205,7 @@ fn initial_state(
 ) -> (Model, @rabbita.Cmd) {
   (
     Loading(compact),
-    @source_repository.open(result=emit.map(result => Opened(result))),
+    @source_repository.open(emit.map(result => Opened(result))),
   )
 }
 
@@ -240,14 +218,14 @@ fn update(
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   match (model, msg) {
-    (Loading(compact), Opened(Ready(snapshot, initial))) =>
+    (Loading(compact), Opened(Ready(saved, initial))) =>
       match initial {
-        Some(source) => {
-          let documents = initial_documents(snapshot)
-          let activation = { document_id: source.document_id(), generation: 0 }
+        Some(document) => {
+          let documents = initial_documents(saved)
+          let activation = { document_id: document.id(), generation: 0 }
           let (preview, command) = activate_surface(
             activation,
-            source.text(),
+            document.text(),
             Text,
             emit,
             text_area,
@@ -269,7 +247,7 @@ fn update(
           )
         }
         None => {
-          let documents = initial_documents(snapshot)
+          let documents = initial_documents(saved)
           let preparing : PreparingNewState = {
             documents,
             mode: Text,
@@ -280,20 +258,20 @@ fn update(
           (
             PreparingNew(preparing),
             @source_repository.create(
-              snapshot,
-              result=emit.map(result => EmptyCreateCompleted(1, result)),
+              saved,
+              emit.map(result => EmptyCreateCompleted(1, result)),
             ),
           )
         }
       }
-    (Loading(compact), Opened(Failed(failure))) =>
+    (Loading(compact), Opened(OpenFailed(failure))) =>
       (Recovery(failure, compact), @cmd.none)
     (PreparingNew(preparing), EmptyCreateCompleted(request_id, result)) =>
       if preparing.request_id != request_id {
         (model, @cmd.none)
       } else {
         match result {
-          Failed(failure) =>
+          CreateFailed(failure) =>
             (
               Recovery(creation_open_failure(failure), preparing.compact),
               @cmd.none,
@@ -335,7 +313,7 @@ fn update(
       if owner != editing.activation {
         (Editing(editing), @cmd.none)
       } else if editing.creation == Creating ||
-        deletion_blocks_document_changes(editing) {
+        editing.deletion_blocks_document_changes() {
         (
           Editing(editing),
           text_area.initialize(
@@ -355,7 +333,7 @@ fn update(
       if owner != editing.activation {
         (Editing(editing), @cmd.none)
       } else if editing.creation == Creating ||
-        deletion_blocks_document_changes(editing) {
+        editing.deletion_blocks_document_changes() {
         (
           Editing(editing),
           text_area.initialize(
@@ -377,12 +355,9 @@ fn update(
           Some(text) if editing.documents.text(owner.document_id) == Some(text) =>
             (Editing(editing), @cmd.none)
           Some(text) => {
-            let observed = @source_repository.ChangeOrder::from_int64(
-              observed_change_order(),
-            ).unwrap()
             let (editing, command) = reduce_documents(
               editing,
-              DocumentsTextChanged(owner.document_id, text, observed),
+              DocumentsTextChanged(owner.document_id, text),
               emit,
             )
             if editing.documents.text(owner.document_id) != Some(text) {
@@ -410,7 +385,7 @@ fn update(
     (Editing(editing), CompositionStarted(owner)) =>
       if owner != editing.activation ||
         editing.creation == Creating ||
-        deletion_blocks_document_changes(editing) {
+        editing.deletion_blocks_document_changes() {
         (Editing(editing), @cmd.none)
       } else {
         let (editing, command) = reduce_documents(
@@ -477,32 +452,32 @@ fn update(
             Editing(editing),
             @source_repository.create(
               editing.documents.snapshot(),
-              result=emit.map(result => ImportCreateCompleted(text, result)),
+              emit.map(result => ImportCreateCompleted(text, result)),
             ),
           )
       }
-    (Editing(editing), ImportCreateCompleted(_, Failed(_))) =>
+    (Editing(editing), ImportCreateCompleted(_, CreateFailed(_))) =>
       (Editing({ ..editing, import_failed: true }), @cmd.none)
     (Editing(editing), ImportCreateCompleted(text, Created(document_id))) => {
-      let observed = @source_repository.ChangeOrder::from_int64(
-        observed_change_order(),
-      ).unwrap()
       let (next, persist) = reduce_documents(
         editing,
-        DocumentsImported(document_id, text, observed),
+        DocumentsImported(document_id, text),
         emit,
       )
-      if next.documents.text(document_id) is None {
-        (Editing({ ..editing, import_failed: true }), @cmd.none)
-      } else {
-        let (next, surface) = activate(
-          { ..next, creation: Idle, deletion: NoDeletion, import_failed: false },
-          document_id,
-          emit,
-          text_area,
-          preview_engine,
-        )
-        (Editing(next), @cmd.batch([persist, surface]))
+      match next.documents.activation_target(document_id) {
+        None => (Editing({ ..editing, import_failed: true }), @cmd.none)
+        Some(target) => {
+          let ready = {
+            ..next,
+            creation: Idle,
+            deletion: NoDeletion,
+            import_failed: false,
+          }
+          let (next, surface) = ready.activate(
+            target, emit, text_area, preview_engine,
+          )
+          (Editing(next), @cmd.batch([persist, surface]))
+        }
       }
     }
     (Editing(editing), DismissImportFailure) =>
@@ -539,7 +514,7 @@ fn update(
     (Editing(editing), ViewportChanged(width)) =>
       (Editing({ ..editing, compact: compact_viewport(width) }), @cmd.none)
     (Editing(editing), CreateRequested) =>
-      if !can_activate(editing) {
+      if !editing.can_activate() {
         (Editing(editing), @cmd.none)
       } else {
         let owner = editing.activation.document_id
@@ -547,7 +522,7 @@ fn update(
           Editing({ ..editing, creation: Creating }),
           @source_repository.create(
             editing.documents.snapshot(),
-            result=emit.map(result => CreateCompleted(owner, result)),
+            emit.map(result => CreateCompleted(owner, result)),
           ),
         )
       }
@@ -560,29 +535,32 @@ fn update(
           DocumentsNew(document_id),
           emit,
         )
-        let (next, command) = activate(
-          { ..editing, creation: Idle },
-          document_id,
-          emit,
-          text_area,
-          preview_engine,
-        )
-        (Editing(next), command)
+        match editing.documents.activation_target(document_id) {
+          None => (Editing(editing), @cmd.none)
+          Some(target) => {
+            let ready = { ..editing, creation: Idle }
+            let (next, command) = ready.activate(
+              target, emit, text_area, preview_engine,
+            )
+            (Editing(next), command)
+          }
+        }
       }
-    (Editing(editing), CreateCompleted(owner, Failed(failure))) =>
+    (Editing(editing), CreateCompleted(owner, CreateFailed(failure))) =>
       if editing.creation == Creating && owner == editing.activation.document_id {
         (Editing({ ..editing, creation: CreationFailed(failure) }), @cmd.none)
       } else {
         (Editing(editing), @cmd.none)
       }
     (Editing(editing), DocumentSelected(document_id)) =>
-      if !can_select(editing, document_id) {
-        (Editing(editing), @cmd.none)
-      } else {
-        let (editing, command) = activate(
-          editing, document_id, emit, text_area, preview_engine,
-        )
-        (Editing(editing), command)
+      match editing.selectable_activation(document_id) {
+        None => (Editing(editing), @cmd.none)
+        Some(target) => {
+          let (editing, command) = editing.activate(
+            target, emit, text_area, preview_engine,
+          )
+          (Editing(editing), command)
+        }
       }
     (Editing(editing), DeleteRequested(document_id)) =>
       if editing.deletion != NoDeletion ||
@@ -706,18 +684,20 @@ fn reconcile_active(
   prior : @rabbita.Cmd,
 ) -> (Model, @rabbita.Cmd) {
   let active_id = editing.activation.document_id
-  let active_unknown = editing.documents.delete_status(active_id)
-    is Some(Unknown(_))
-  if !active_unknown && editing.documents.text(active_id) is Some(_) {
+  if editing.documents.text(active_id) is Some(_) {
     (Editing(editing), prior)
   } else {
     match editing.documents.fallback_document(active_id) {
-      Some(document_id) => {
-        let (editing, command) = activate(
-          editing, document_id, emit, text_area, preview_engine,
-        )
-        (Editing(editing), @cmd.batch([prior, command]))
-      }
+      Some(document_id) =>
+        match editing.documents.activation_target(document_id) {
+          None => (Editing(editing), prior)
+          Some(target) => {
+            let (editing, command) = editing.activate(
+              target, emit, text_area, preview_engine,
+            )
+            (Editing(editing), @cmd.batch([prior, command]))
+          }
+        }
       None => {
         let request_id = editing.new_preparation_request_id + 1
         (
@@ -732,7 +712,7 @@ fn reconcile_active(
             prior,
             @source_repository.create(
               editing.documents.snapshot(),
-              result=emit.map(result => EmptyCreateCompleted(request_id, result)),
+              emit.map(result => EmptyCreateCompleted(request_id, result)),
             ),
           ]),
         )
@@ -746,9 +726,6 @@ fn creation_open_failure(
   failure : @source_repository.CreateFailure,
 ) -> @source_repository.OpenFailure {
   match failure {
-    DocumentIdentityUnavailable => DocumentIdentityUnavailable
-    StorageUnavailable => StorageUnavailable
-    QuotaExceeded => QuotaExceeded
-    WriteFailed => WriteFailed
+    DocumentIdentityUnavailable => StorageUnavailable
   }
 }
