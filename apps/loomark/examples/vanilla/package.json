@@ -5,7 +5,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.standalone.json",
     "test": "node ./run-standalone-tests.mjs",
-    "test:retention": "LOOMARK_PLAYWRIGHT_CONFIG=playwright.retention.config.ts node ./run-standalone-tests.mjs"
+    "test:retention": "LOOMARK_PLAYWRIGHT_CONFIG=playwright.retention.config.ts node ./run-standalone-tests.mjs",
+    "test:demand": "../../../../scripts/build-loomark-demand-artifact.sh ../../../../.loomark-demand-dist && LOOMARK_STANDALONE_DIST=../../../../.loomark-demand-dist LOOMARK_PLAYWRIGHT_CONFIG=playwright.demand.config.ts node ./run-standalone-tests.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

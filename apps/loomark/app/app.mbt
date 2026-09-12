@@ -1,71 +1,75 @@
 ///|
-fn delete_dialog(
-  model : @rabbita.Val[Model],
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Val[@rabbita.Html] {
-  let target = model.map(model => {
-    match model {
-      Editing(editing) if editing.deletion is DeleteConfirmation(document_id) => {
-        let entry_values = recent_entries(editing)
-        let entries = entry_values.view()
-        match entries.search_by(entry => entry.document_id() == document_id) {
-          Some(index) =>
-            entries
-            .get(index)
-            .map(entry => {
-              (document_id, document_option_label(entries, index, entry))
-            })
-          None => None
-        }
-      }
-      Loading(_) | PreparingNew(_) | Editing(_) | Recovery(_, _) => None
-    }
+const LEAD_DELAY_MS : Int = 250
+
+///|
+priv suberror PendingEditSub {
+  Apply(String, Int, () -> @rabbita.Cmd)
+}
+
+///|
+fn start_pending_edit_subscription(
+  payload : Error,
+  scheduler : &@cmd.Scheduler,
+  schedule_timeout : (() -> Unit, Int) -> Int,
+  cancel_timeout : (Int) -> Unit,
+) -> @sub.RunningSub? {
+  guard payload is PendingEditSub::Apply(_, _, command) else { return None }
+  let mut tagger = command
+  let mut active = true
+  let timer = schedule_timeout(
+    () => if active { scheduler.add(tagger()) },
+    LEAD_DELAY_MS,
+  )
+  Some({
+    unload: _ => {
+      active = false
+      cancel_timeout(timer)
+    },
+    update_tagger: next => {
+      guard next is PendingEditSub::Apply(_, _, new_emit) else { return }
+      tagger = new_emit
+    },
   })
-  target.switch_by(
-    target => {
-      match target {
-        None => @rabbita.Val::constant(@html.nothing)
-        Some((document_id, label)) =>
-          @rui.alert_dialog(
-            id="loomark-delete-document",
-            default_open=true,
-            on_open_change=@cmd.Emit(open => {
-              if open {
-                @cmd.none
-              } else {
-                emit(DeleteCancelled)
-              }
-            }),
-            scope => {
-              @rui.alert_dialog_portal([
-                @rui.alert_dialog_content(scope, [
-                  @rui.alert_dialog_header([
-                    @rui.alert_dialog_title(scope, "Delete \"\{label}\"?"),
-                    @rui.alert_dialog_description(
-                      scope, "This permanently removes the document from this browser.",
-                    ),
-                  ]),
-                  @rui.alert_dialog_footer([
-                    @rui.alert_dialog_cancel(scope, "Cancel"),
-                    @rui.alert_dialog_action(
-                      scope,
-                      on_click=emit(DeleteConfirmed(document_id)),
-                      class="[--rui-button-bg:var(--color-lm-danger)] [--rui-button-fg:white]",
-                      "Delete document",
-                    ),
-                  ]),
-                ]),
-              ])
-            },
+}
+
+///|
+fn pending_edit_sub_loader(
+  payload : Error,
+  scheduler : &@cmd.Scheduler,
+) -> @sub.RunningSub? {
+  let window = @dom.window()
+  start_pending_edit_subscription(
+    payload,
+    scheduler,
+    (callback, ms) => window.set_timeout(callback, ms),
+    timer => window.clear_timeout(timer),
+  )
+}
+
+///|
+fn lead_subscriptions(model : Model, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
+  let records = match model {
+    Editing(editing) => editing.documents.records
+    PreparingNew(preparing) => preparing.documents.records
+    Loading(_) | Recovery(_, _) => []
+  }
+  @sub.batch(
+    records.filter_map(record => {
+      match record.edit {
+        Waiting(revision) if !delete_is_active(record.delete) =>
+          Some(
+            @sub.custom_sub(
+              "loomark.pending-edit.\{record.document.id()}-\{revision}",
+              @sub.Scope::Local,
+              PendingEditSub::Apply(record.document.id(), revision, () => {
+                emit(ApplyPendingEdit(record.document.id(), revision))
+              }),
+              pending_edit_sub_loader,
+            ),
           )
+        _ => None
       }
-    },
-    by=target => {
-      match target {
-        Some((document_id, _)) => "confirm-\{document_id}"
-        None => "closed"
-      }
-    },
+    }),
   )
 }
 
@@ -80,10 +84,11 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     update=(model, msg, emit) => {
       update(model, msg, emit, text_area, preview_engine)
     },
-    subscriptions=(_, emit) => {
+    subscriptions=(current, emit) => {
       @sub.batch([
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
+        lead_subscriptions(current, emit),
       ])
     },
   )
@@ -185,19 +190,62 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     },
     by=compact => if compact { "compact" } else { "wide" },
   )
-  let dialog = delete_dialog(model, emit)
-  let layout_input = model.map3(selected_panels, dialog, (
-    model,
-    editor_panels,
-    dialog,
-  ) => (model, editor_panels, dialog))
-  @sidebar.sidebar_provider_with_input(
+  let feature_input = model.map(model => {
+    match model {
+      Editing(editing) => recent_document_seeds(editing)
+      Loading(_) | PreparingNew(_) | Recovery(_, _) => @vector.Vector([])
+    }
+  })
+  let feature_delete_target = model.map(model => {
+    match model {
+      Editing(editing) =>
+        match editing.deletion {
+          DeleteConfirmation(id) | DeleteDeferred(id) => Some(id)
+          NoDeletion => None
+        }
+      Loading(_) | PreparingNew(_) | Recovery(_, _) => None
+    }
+  })
+  let sidebar_state = @sidebar.SidebarProviderState::SidebarProviderState(
+    initial_compact,
+  )
+  let recent_feature = @recent_documents.build(
+    input=feature_input,
+    visible=sidebar_state.visible(),
+    can_create=model.map(model => {
+      match model {
+        Editing(editing) => editing.can_activate()
+        _ => false
+      }
+    }),
+    compact~,
+    delete_target=feature_delete_target,
+    on_intent=@cmd.Emit(intent => {
+      match intent {
+        Create => emit(CreateRequested)
+        Select(id) => emit(DocumentSelected(id))
+        RequestDelete(id) => emit(DeleteRequested(id))
+        CancelDelete => emit(DeleteCancelled)
+        ConfirmDelete(id) => emit(DeleteConfirmed(id))
+      }
+    }),
+    close_after_action=sidebar_state.collapse(),
+  )
+  let layout_input = model.map4(
+    selected_panels,
+    recent_feature.dialog(),
+    recent_feature.navigation(),
+    (model, editor_panels, dialog, recent_navigation) => {
+      (model, editor_panels, dialog, recent_navigation)
+    },
+  )
+  @sidebar.sidebar_provider_with_state(
+    state=sidebar_state,
     input=layout_input,
-    default_collapsed=initial_compact,
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
     (sidebar, layout) => {
-      let (model, editor_panels, dialog) = layout
-      view(sidebar, model, emit, editor_panels, dialog)
+      let (model, editor_panels, dialog, recent_navigation) = layout
+      view(sidebar, model, emit, editor_panels, dialog, recent_navigation)
     },
   )
 }

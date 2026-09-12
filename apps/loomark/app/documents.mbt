@@ -14,8 +14,9 @@ fn Documents::reduce(
       let record = {
         document,
         origin: EphemeralNew,
-        composing: false,
+        edit: Idle,
         save: Saved,
+        lead_source: Unlisted,
         delete: Available,
       }
       ({ ..self, records: prepend_record(self.records, record), }, [])
@@ -32,7 +33,14 @@ fn Documents::reduce(
             if delete_is_active(r.delete) {
               r
             } else {
-              { ..r, composing: true, }
+              {
+                ..r,
+                edit: match r.edit {
+                  Waiting(revision) => ComposingWaiting(revision)
+                  Idle => ComposingIdle
+                  ComposingIdle | ComposingWaiting(_) | ComposingReady => r.edit
+                },
+              }
             }
           }),
         },
@@ -43,105 +51,28 @@ fn Documents::reduce(
         return (self, [])
       }
       guard !delete_is_active(record.delete) else { return (self, []) }
-      let record = { ..record, composing: false, }
-      match record.save {
-        Waiting(checkpoint) if checkpoint.eligibility ==
-          DocumentsCheckpointEligibility::Eligible => {
-          let (next, decisions) = begin_save(record)
-          (
-            {
-              ..self,
-              records: replace_record(self.records, document_id, _ => next),
-            },
-            decisions,
-          )
-        }
-        Waiting(checkpoint) =>
-          (
-            {
-              ..self,
-              records: replace_record(self.records, document_id, _ => record),
-            },
-            if checkpoint.maximum_armed {
-              [DocumentsArmQuiet(document_id, checkpoint.quiet_revision)]
-            } else {
-              checkpoint_effect(document_id, checkpoint, false)
-            },
-          )
-        Saving(_, Some(checkpoint)) if checkpoint.eligibility ==
-          DocumentsCheckpointEligibility::Deferred =>
-          (
-            {
-              ..self,
-              records: replace_record(self.records, document_id, _ => record),
-            },
-            checkpoint_effect(document_id, checkpoint, false),
-          )
-        _ =>
-          (
-            {
-              ..self,
-              records: replace_record(self.records, document_id, _ => record),
-            },
-            [],
-          )
+      let (record, decisions) = match record.edit {
+        ComposingReady => accept_pending(record)
+        ComposingIdle =>
+          finish_composition(document_id, { ..record, edit: Idle, })
+        ComposingWaiting(revision) =>
+          finish_composition(document_id, { ..record, edit: Waiting(revision), })
+        Idle | Waiting(_) => return (self, [])
       }
+      (
+        {
+          ..self,
+          records: replace_record(self.records, document_id, _ => record),
+        },
+        decisions,
+      )
     }
+    ApplyPendingEdit(document_id, revision) =>
+      apply_pending_edit(self, document_id, revision)
     DocumentsFeedbackReceived(feedback) =>
       match feedback {
-        QuietElapsed(id, checkpoint) => eligible_quiet(self, id, checkpoint)
         MaximumElapsed(id, checkpoint) => eligible_maximum(self, id, checkpoint)
-        SaveCompleted(operation, result) =>
-          match find_record(self.records, operation.document.id()) {
-            Some(record) if record.delete is Waiting(delete_operation) &&
-              record.save is Saving(current, _) &&
-              current == operation =>
-              match result {
-                Stored(document) => {
-                  let (next, decisions) = complete(
-                    self,
-                    operation,
-                    Stored(document),
-                  )
-                  let (next, delete_decisions) = issue_delete(
-                    next,
-                    delete_operation,
-                    find_record(next.records, operation.document.id()).unwrap().save,
-                  )
-                  (next, decisions + delete_decisions)
-                }
-                SaveFailed(failure) =>
-                  match operation.origin {
-                    Existing => {
-                      let failed = DocumentsSaveStatus::Failed(failure)
-                      issue_delete(
-                        {
-                          ..self,
-                          records: replace_record(
-                            self.records,
-                            operation.document.id(),
-                            r => { ..r, save: failed, },
-                          ),
-                        },
-                        delete_operation,
-                        failed,
-                      )
-                    }
-                    EphemeralNew | ImportedNew =>
-                      (
-                        {
-                          ..self,
-                          records: remove_record(
-                            self.records,
-                            operation.document.id(),
-                          ),
-                        },
-                        [],
-                      )
-                  }
-              }
-            _ => complete(self, operation, result)
-          }
+        SaveCompleted(operation, result) => complete(self, operation, result)
         DeleteCompleted(operation, result) =>
           finish_delete(self, operation, result)
       }
@@ -165,7 +96,8 @@ fn Documents::reduce(
         return (self, [])
       }
       match record.save {
-        Failed(_) if !record.composing && !delete_is_active(record.delete) => {
+        Failed(_) if !is_composing(record.edit) &&
+          !delete_is_active(record.delete) => {
           let (next, decisions) = begin_save(record)
           (
             { ..self, records: replace_record(self.records, id, _ => next), },
@@ -181,8 +113,13 @@ fn Documents::reduce(
       }
       guard !delete_is_active(record.delete) else { return (self, []) }
       match record.save {
-        Waiting(checkpoint) => mark_eligible(self, id, checkpoint)
-        Saving(_, Some(checkpoint)) => mark_eligible(self, id, checkpoint)
+        Waiting(_) | Saving(_, Some(_)) => {
+          let (record, decisions) = mark_eligible(record)
+          (
+            { ..self, records: replace_record(self.records, id, _ => record), },
+            decisions,
+          )
+        }
         Saved | Saving(_, None) | Failed(_) => (self, [])
       }
     }
@@ -202,7 +139,7 @@ fn Documents::activation_target(
 
 ///|
 fn Documents::is_composing(self : Self, id : String) -> Bool {
-  find_record(self.records, id).map(r => r.composing).unwrap_or(false)
+  find_record(self.records, id).map(r => is_composing(r.edit)).unwrap_or(false)
 }
 
 ///|
@@ -220,13 +157,6 @@ fn Documents::fallback_document(self : Self, excluding : String) -> String? {
 ///|
 fn Documents::snapshot(self : Self) -> @source_repository.SavedDocuments {
   self.saved
-}
-
-///|
-fn Documents::current_documents(
-  self : Self,
-) -> Array[@source_repository.Document] {
-  self.records.map(r => r.document)
 }
 
 ///|

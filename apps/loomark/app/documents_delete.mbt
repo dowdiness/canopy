@@ -15,35 +15,14 @@ fn remove_record(
 }
 
 ///|
-fn issue_delete(
-  documents : Documents,
+fn issue_delete_record(
+  record : DocumentRecord,
   operation : DeleteOperation,
   retained : DocumentsSaveStatus,
-) -> (Documents, Array[DocumentsDecision]) {
+) -> (DocumentRecord, DocumentsDecision) {
   (
-    {
-      ..documents,
-      records: replace_record(documents.records, operation.document_id, r => {
-        ..r,
-        save: retained,
-        delete: Deleting(operation),
-      }),
-    },
-    [DeleteDocument(operation)],
-  )
-}
-
-///|
-fn begin_delete(
-  documents : Documents,
-  id : String,
-  retained : DocumentsSaveStatus,
-) -> (Documents, Array[DocumentsDecision]) {
-  let request_id = documents.last_delete_request + 1
-  issue_delete(
-    { ..documents, last_delete_request: request_id, },
-    { document_id: id, request_id, },
-    retained,
+    { ..record, save: retained, delete: Deleting(operation), },
+    DeleteDocument(operation),
   )
 }
 
@@ -55,6 +34,7 @@ fn confirm_or_retry_delete(
   guard find_record(documents.records, id) is Some(record) else {
     return (documents, [])
   }
+  guard !delete_is_active(record.delete) else { return (documents, []) }
   let request_id = documents.last_delete_request + 1
   let operation = { document_id: id, request_id, }
   match record.save {
@@ -79,7 +59,21 @@ fn confirm_or_retry_delete(
         },
         [],
       )
-    _ => begin_delete(documents, id, record.save)
+    _ => {
+      let (record, decision) = issue_delete_record(
+        record,
+        operation,
+        record.save,
+      )
+      (
+        {
+          ..documents,
+          last_delete_request: request_id,
+          records: replace_record(documents.records, id, _ => record),
+        },
+        [decision],
+      )
+    }
   }
 }
 
@@ -117,9 +111,18 @@ fn finish_delete(
       let (restored, decisions) = match record.save {
         Waiting(checkpoint) if checkpoint.eligibility ==
           DocumentsCheckpointEligibility::Eligible &&
-          !record.composing => begin_save(restored)
-        Waiting(checkpoint) =>
-          (restored, checkpoint_effect(operation.document_id, checkpoint, true))
+          !is_composing(record.edit) => begin_save(restored)
+        Waiting(checkpoint) => {
+          let (checkpoint, decisions) = checkpoint_effect(
+            operation.document_id,
+            checkpoint,
+            true,
+          )
+          (
+            { ..restored, save: DocumentsSaveStatus::Waiting(checkpoint), },
+            decisions,
+          )
+        }
         _ => (restored, [])
       }
       (

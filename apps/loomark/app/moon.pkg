@@ -1,6 +1,7 @@
 import {
   "dowdiness/loomark/app/internal/source_repository",
   "dowdiness/loomark/internal/document_lead",
+  "dowdiness/loomark/internal/recent_documents",
   "dowdiness/loomark/internal/view",
   "dowdiness/loomark/internal/sidebar",
   "dowdiness/loomark/internal/preview",
@@ -13,6 +14,7 @@ import {
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/immut/vector",
   "Yoorkin/rui",
 }
 

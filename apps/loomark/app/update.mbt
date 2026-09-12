@@ -1,7 +1,4 @@
 ///|
-const AUTOSAVE_QUIET_MS : Int = 250
-
-///|
 const AUTOSAVE_MAXIMUM_MS : Int = 2000
 
 ///|
@@ -99,8 +96,6 @@ fn run_decision(
   emit : @rabbita.Emit[DocumentsFeedback],
 ) -> @rabbita.Cmd {
   match decision {
-    DocumentsArmQuiet(document_id, order) =>
-      @cmd.delay(emit(QuietElapsed(document_id, order)), AUTOSAVE_QUIET_MS)
     DocumentsArmMaximum(document_id, id) =>
       @cmd.delay(emit(MaximumElapsed(document_id, id)), AUTOSAVE_MAXIMUM_MS)
     DocumentsPersist(operation) =>
@@ -500,6 +495,27 @@ fn update(
     }
     (Loading(_), ViewportChanged(width)) =>
       (Loading(compact_viewport(width)), @cmd.none)
+    (Editing(editing), ApplyPendingEdit(document_id, revision)) => {
+      let (editing, command) = reduce_documents(
+        editing,
+        DocumentsEvent::ApplyPendingEdit(document_id, revision),
+        emit,
+      )
+      reconcile_active(editing, emit, text_area, preview_engine, command)
+    }
+    (PreparingNew(preparing), ApplyPendingEdit(document_id, revision)) => {
+      let (documents, decisions) = preparing.documents.reduce(
+        DocumentsEvent::ApplyPendingEdit(document_id, revision),
+      )
+      (
+        PreparingNew({ ..preparing, documents, }),
+        run_decisions(
+          documents,
+          decisions,
+          emit.map(feedback => DocumentsLifecycle(feedback)),
+        ),
+      )
+    }
     (model, DocumentsLifecycle(feedback)) =>
       reduce_documents_feedback(
         model, feedback, emit, text_area, preview_engine,
@@ -563,7 +579,8 @@ fn update(
         }
       }
     (Editing(editing), DeleteRequested(document_id)) =>
-      if editing.deletion != NoDeletion ||
+      if editing.creation == Creating ||
+        editing.deletion != NoDeletion ||
         editing.documents.text(document_id) is None {
         (Editing(editing), @cmd.none)
       } else {

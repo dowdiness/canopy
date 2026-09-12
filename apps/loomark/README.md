@@ -21,6 +21,8 @@ and derives an in-memory Catalog through `open`, `save`, and `delete`,
 and `apps/loomark/internal/text_area`, which converts native textarea
 input sequences into shared `TextChange` operations.
 
+Recent documents are a demand-driven keyed projection: DocumentLead extraction is retained per document and visible row rendering is disposable while the sidebar is collapsed.
+
 See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md) and the accepted decisions:
 
 - [Current and saved text](../../docs/decisions/2026-08-24-loomark-source-first-interactive-contract.md)
@@ -100,6 +102,12 @@ MoonBit are the sources of truth.
 ```bash
 ./scripts/test-loomark-standalone-e2e.sh
 ```
+
+Demand tests use `npm run test:demand` from `examples/vanilla`. That command
+copies the workspace to a temporary directory, adds a test-only JS FFI counter
+at the named `document_lead.extract` entry point, builds a separate artifact,
+and serves it through the same standalone Playwright harness. Production
+sources and `dist` are never instrumented.
 
 This performs a clean Warren production build, rejects removed Worker and
 private-control artifacts, and runs Playwright against the release output.

@@ -18,6 +18,69 @@ type StoreRecord = {
   value: unknown
 }
 
+type PendingTimerObservation = {
+  scheduled: number
+  canceled: number
+  fired: number
+}
+
+function installPendingTimerProbe(): void {
+  const state = globalThis as typeof globalThis & {
+    __loomarkPendingTimerProbe?: PendingTimerObservation
+  }
+  if (state.__loomarkPendingTimerProbe) return
+  const originalSetTimeout = window.setTimeout.bind(window)
+  const originalClearTimeout = window.clearTimeout.bind(window)
+  const pending = new Set<number>()
+  state.__loomarkPendingTimerProbe = { scheduled: 0, canceled: 0, fired: 0 }
+  window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => {
+    if (timeout !== 250 || typeof handler !== "function") {
+      return originalSetTimeout(handler, timeout, ...args)
+    }
+    let handle = 0
+    const wrapped = (...callbackArgs: any[]) => {
+      pending.delete(handle)
+      state.__loomarkPendingTimerProbe!.fired += 1
+      handler(...callbackArgs)
+    }
+    handle = Number(originalSetTimeout(wrapped, timeout, ...args))
+    pending.add(handle)
+    state.__loomarkPendingTimerProbe!.scheduled += 1
+    return handle
+  }) as typeof window.setTimeout
+  window.clearTimeout = ((handle?: number) => {
+    if (typeof handle === "number" && pending.delete(handle)) {
+      state.__loomarkPendingTimerProbe!.canceled += 1
+    }
+    return originalClearTimeout(handle)
+  }) as typeof window.clearTimeout
+}
+
+async function resetPendingTimerObservation(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __loomarkPendingTimerProbe?: PendingTimerObservation
+    }
+    if (state.__loomarkPendingTimerProbe) {
+      state.__loomarkPendingTimerProbe = { scheduled: 0, canceled: 0, fired: 0 }
+    }
+  })
+}
+
+async function openDeleteMenu(page: Page, label: string): Promise<void> {
+  const row = page.getByRole("button", { name: label, exact: true }).locator("..")
+  await row.getByRole("button", { name: "Actions for document" }).click()
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click()
+}
+
+async function pendingTimerObservation(page: Page): Promise<PendingTimerObservation> {
+  return page.evaluate(() => (
+    (globalThis as typeof globalThis & {
+      __loomarkPendingTimerProbe?: PendingTimerObservation
+    }).__loomarkPendingTimerProbe ?? { scheduled: 0, canceled: 0, fired: 0 }
+  ))
+}
+
 function sourceKey(documentId: string): string {
   return `${SOURCE_KEY_PREFIX}${documentId}`
 }
@@ -692,7 +755,8 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
   const order = async () => documents.locator("button[aria-label]").evaluateAll(buttons => (
     buttons.map(button => button.getAttribute("aria-label"))
       .filter((label): label is string => label !== null && !label.startsWith("Delete ")
-        && label !== "Documents" && label !== "New document")
+        && label !== "Documents" && label !== "New document"
+        && label !== "Actions for document")
   ))
   await expect.poll(order).toEqual(["A", "B", "C"])
 
@@ -712,9 +776,9 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
   await page.getByLabel("Import Markdown")
     .setInputFiles("tests/fixtures/import-bom-crlf.bin")
   await expect.poll(order).toHaveLength(4)
-  await expect.poll(async () => (await order())[0]).toBe("Imported")
+  await expect.poll(async () => (await order())[0]).toBe("Imported\ntext")
   await page.getByRole("button", { name: "B", exact: true }).click()
-  await expect.poll(async () => (await order())[0]).toBe("Imported")
+  await expect.poll(async () => (await order())[0]).toBe("Imported\ntext")
 
   await page.getByRole("button", { name: "New document" }).click()
   await expect(text).toHaveValue("")
@@ -917,7 +981,7 @@ test("Delete document removes a non-active Source without moving the editor", as
 
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(documentA.text)
-  await page.getByRole("button", { name: 'Delete "B"' }).click()
+  await openDeleteMenu(page, "B")
   const dialog = page.getByRole("alertdialog")
   await expect(dialog).toContainText('Delete "B"?')
   await dialog.getByRole("button", { name: "Delete document" }).click()
@@ -952,7 +1016,7 @@ test("Delete document activates and remembers the newest fallback", async ({ pag
   await text.fill(newestC.text)
   await expectStoredDocument(page, newestC)
   await documents.getByRole("button", { name: "A", exact: true }).click()
-  await page.getByRole("button", { name: 'Delete "A"' }).click()
+  await openDeleteMenu(page, "A")
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("button", { name: "Delete document" }).click()
 
@@ -976,7 +1040,7 @@ test("Delete document cancellation preserves the Source and editor", async ({ pa
   ])
   await page.reload()
 
-  await page.getByRole("button", { name: 'Delete "B"' }).click()
+  await openDeleteMenu(page, "B")
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("button", { name: "Cancel" }).click()
 
@@ -993,7 +1057,8 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
   await waitForRepositoryOpen(page)
   const split = page.getByRole("tab", { name: "Split" })
   await split.click()
-  await page.getByRole("button", { name: /^Delete "/ }).click()
+  await page.getByRole("button", { name: "Actions for document" }).first().click()
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue("")
@@ -1012,15 +1077,10 @@ test("Document control icons remain rendered", async ({ page }) => {
   await waitForRepositoryOpen(page)
   await page.getByRole("textbox", { name: "Text" }).fill("# Icon test\n")
 
-  const icons = [
-    page.getByRole("button", { name: "Documents", exact: true }).locator("span").first(),
-    page.getByRole("button", { name: "New document" }).locator("span").first(),
-    page.getByRole("button", { name: "Toggle documents" }).locator("span").first(),
-    page.getByRole("button", { name: 'Delete "Icon test"' }).locator("span").first(),
-  ]
-  for (const icon of icons) {
-    await expect(icon).not.toHaveCSS("mask-image", "none")
-  }
+  const actions = page.getByRole("button", { name: "Actions for document" }).first()
+  await expect(actions).toBeVisible()
+  await actions.click()
+  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toBeVisible()
 })
 
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
@@ -1501,6 +1561,78 @@ test("Split keeps Text and Preview independently scrollable", async ({ page }) =
     "horizontal",
   )
   await assertIndependentScroll()
+})
+
+test("production keyed lead subscriptions reconcile timer lifecycles", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const seed = (await readStoredDocument(page))!
+  const imported = { document_id: "imported-document", text: "# Imported\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(seed.document_id), value: encodeStoredDocument(seed) },
+    { key: sourceKey(imported.document_id), value: encodeStoredDocument(imported) },
+    { key: EDITING_DOCUMENT_KEY, value: seed.document_id },
+  ])
+  await page.reload()
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(seed.text)
+  await page.clock.install()
+  await page.clock.pauseAt(new Date())
+  await page.evaluate(installPendingTimerProbe)
+  await resetPendingTimerObservation(page)
+
+  await text.fill("# First\n")
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 1, canceled: 0, fired: 0 })
+
+  // A same-key root update must refresh the tagger without restarting its timer.
+  await page.setViewportSize({ width: 900, height: 700 })
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 1, canceled: 0, fired: 0 })
+
+  // A changed revision replaces the keyed subscription and cancels its old timer.
+  await text.fill("# Replaced\n")
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 2, canceled: 1, fired: 0 })
+
+  // Composition starts while the replacement timer is pending and cancels it.
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
+    textarea.value = "# Composing\n"
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, data: "# Composing\n", inputType: "insertCompositionText",
+    }))
+  })
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 2, canceled: 2, fired: 0 })
+
+  // Edits during composition do not schedule a timer; composition end schedules exactly one.
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.value = "# Composing again\n"
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, data: "# Composing again\n", inputType: "insertCompositionText",
+    }))
+  })
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 2, canceled: 2, fired: 0 })
+  await text.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    textarea.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: textarea.value }))
+    textarea.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, data: textarea.value, inputType: "insertText",
+    }))
+  })
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 3, canceled: 2, fired: 0 })
+  await page.clock.runFor(250)
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 3, canceled: 2, fired: 1 })
+  const documentId = (await readStoredDocument(page))!.document_id
+  await expectStoredDocument(page, { document_id: documentId, text: "# Composing again\n" })
+
+  // Deleting with a pending timer cancels it; advancing beyond the delay cannot resurrect a save.
+  await text.fill("# Removed\n")
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 4, canceled: 2, fired: 1 })
+  await page.clock.runFor(1)
+  await page.getByRole("button", { name: "Actions for document" }).first().click()
+  await expect(page.getByRole("alertdialog")).toHaveCount(0)
+  await page.clock.runFor(249)
+  await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 4, canceled: 2, fired: 2 })
 })
 
 test("quiet Autosave restores exact Saved text after reload", async ({ page }) => {

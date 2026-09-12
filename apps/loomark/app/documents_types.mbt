@@ -14,7 +14,6 @@ priv enum DocumentsCheckpointEligibility {
 ///|
 priv struct DocumentsCheckpoint {
   maximum_id : Int
-  quiet_revision : Int
   maximum_armed : Bool
   eligibility : DocumentsCheckpointEligibility
 } derive(Eq)
@@ -28,11 +27,27 @@ priv enum DocumentsSaveStatus {
 } derive(Eq)
 
 ///|
+priv enum LeadSource {
+  Unlisted
+  Available(String)
+} derive(Eq)
+
+///|
+priv enum EditState {
+  Idle
+  Waiting(Int)
+  ComposingIdle
+  ComposingWaiting(Int)
+  ComposingReady
+} derive(Eq)
+
+///|
 priv struct DocumentRecord {
   document : @source_repository.Document
   origin : DocumentOrigin
-  composing : Bool
+  edit : EditState
   save : DocumentsSaveStatus
+  lead_source : LeadSource
   delete : DocumentsDeletePhase
 } derive(Eq)
 
@@ -58,7 +73,6 @@ priv enum DocumentsDeletePhase {
 
 ///|
 priv enum DocumentsFeedback {
-  QuietElapsed(String, Int)
   MaximumElapsed(String, Int)
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
   DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
@@ -74,6 +88,7 @@ priv enum DocumentsEvent {
   DocumentsFeedbackReceived(DocumentsFeedback)
   DocumentsRetrySave(String)
   DocumentsVisibilityFlush(String)
+  ApplyPendingEdit(String, Int)
   DeleteConfirmed(String)
   RetryDelete(String)
   DismissDeleteFailure(String)
@@ -81,7 +96,6 @@ priv enum DocumentsEvent {
 
 ///|
 priv enum DocumentsDecision {
-  DocumentsArmQuiet(String, Int)
   DocumentsArmMaximum(String, Int)
   DocumentsPersist(SaveOperation)
   DeleteDocument(DeleteOperation)
@@ -92,6 +106,6 @@ priv struct Documents {
   saved : @source_repository.SavedDocuments
   records : Array[DocumentRecord]
   last_checkpoint_id : Int
-  last_quiet_revision : Int
+  last_pending_edit_revision : Int
   last_delete_request : Int
 } derive(Eq)

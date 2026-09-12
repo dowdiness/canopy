@@ -78,6 +78,7 @@ priv enum Msg {
   PreviewEvent(@preview.Event)
   ViewportChanged(Double)
   DocumentsLifecycle(DocumentsFeedback)
+  ApplyPendingEdit(String, Int)
   VisibilityChanged(Bool)
   RetrySave
   DocumentSelected(String)
