@@ -174,7 +174,7 @@ jobs:
           submodules: recursive
 
       - name: Install just
-        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        uses: taiki-e/install-action@fa23953489c080190314742a9b907f8e97c6767c
         with:
           tool: just@1.58.0
 
