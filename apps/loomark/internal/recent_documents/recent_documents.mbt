@@ -161,51 +161,11 @@ fn status_view(
 }
 
 ///|
-fn action_menu(
-  key : String,
-  deletion : DeletionAvailability,
-  emit : @cmd.Emit[Intent],
-) -> @rabbita.Val[@html.Html] {
-  let can_delete = match deletion {
-    Available | Failed => true
-    Blocked | Pending => false
-  }
-  @rui.dropdown_menu(id="loomark-document-actions-\{key}", scope => {
-    @html.fragment([
-      @rui.dropdown_menu_trigger(
-        scope,
-        aria_label="Actions for document",
-        title="Actions",
-        class="loomark-document-actions",
-        style=["height:2rem;min-height:2rem;padding:0 .5rem"],
-        "Actions",
-      ),
-      @rui.dropdown_menu_portal([
-        @rui.dropdown_menu_content(scope, align=@rui.End, [
-          @rui.dropdown_menu_item(
-            scope,
-            disabled=!can_delete,
-            destructive=true,
-            on_select=if can_delete {
-              emit(Intent::RequestDelete(key))
-            } else {
-              @cmd.none
-            },
-            "Delete",
-          ),
-        ]),
-      ]),
-    ])
-  })
-}
-
-///|
 fn render_row(
   key : String,
   presented : PresentedRow,
   emit : @cmd.Emit[Intent],
   close : @cmd.Cmd,
-  menu : @html.Html,
 ) -> @html.Html {
   let row = presented.row
   let seed = row.seed
@@ -251,7 +211,18 @@ fn render_row(
       ],
       @html.div(class="min-w-0", children),
     ),
-    menu,
+    @sidebar.sidebar_menu_action(
+      disabled=match seed.deletion {
+        Available | Failed => false
+        Blocked | Pending => true
+      },
+      aria_label="Delete \"\{label}\"",
+      title="Delete \"\{label}\"",
+      class="loomark-sidebar-action loomark-delete-action",
+      style=["width:2rem;height:2rem"],
+      on_click=emit(Intent::RequestDelete(key)),
+      @view.trash_icon(),
+    ),
   ])
 }
 
@@ -298,29 +269,16 @@ pub fn build(
         presented
         .assoc_by(
           (key, row) => {
-            let deletion = row.map(row => row.row.seed.deletion)
-            let menu = deletion.switch_by(
-              deletion => action_menu(key, deletion, on_intent),
-              by=deletion => {
-                match deletion {
-                  Available | Failed => "allowed"
-                  Blocked | Pending => "blocked"
-                }
-              },
-            )
-            row
-            .map2(compact, (row, compact) => (row, compact))
-            .map2(menu, (pair, menu) => {
+            row.map2(compact, (row, compact) => {
               render_row(
                 key,
-                pair.0,
+                row,
                 on_intent,
-                if pair.1 {
+                if compact {
                   close_after_action
                 } else {
                   @cmd.none
                 },
-                menu,
               )
             })
           },

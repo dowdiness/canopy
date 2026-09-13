@@ -53,11 +53,11 @@ acknowledged change.
 Delete requests carry an identity separate from the editor `Activation`.
 Unknown Document IDs fail before IndexedDB work.
 
-Delete confirmation starts only after active IME composition ends and identifies
-the target with the same content presentation as its Recent documents entry.
-Saved and unsaved targets use the same confirmation. The row context menu uses
-Rabbita `context_menu`; its overflow control uses `dropdown_menu`; both share one
-actions view and emit the same target-specific message. Confirmation uses
+An accepted delete request opens confirmation without a separate IME-waiting
+state and identifies the target with the same content presentation as its
+Recent documents entry. Saved and unsaved targets use the same confirmation.
+The row's trash-icon button emits the target-specific delete request directly.
+Confirmation uses
 Rabbita `alert_dialog` only to obtain consent and closes when accepted. Pending,
 failure, and retry state live in the Application Model rather than in the
 modal.

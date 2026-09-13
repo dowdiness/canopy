@@ -21,7 +21,7 @@ and derives an in-memory Catalog through `open`, `save`, and `delete`,
 and `apps/loomark/internal/text_area`, which converts native textarea
 input sequences into shared `TextChange` operations.
 
-Recent documents are a demand-driven keyed projection: DocumentLead extraction is retained per document and visible row rendering is disposable while the sidebar is collapsed.
+Recent documents are a demand-driven keyed projection: DocumentLead extraction is retained per document and visible row rendering is disposable while the sidebar is collapsed. Each row provides a direct icon-only Delete button; there is no Actions menu.
 
 See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md) and the accepted decisions:
 
