@@ -265,7 +265,7 @@ fn complete_waiting_delete(
   record : DocumentRecord,
   delete_operation : DeleteOperation,
   retained : DocumentsSaveStatus,
-  saved : @source_repository.SavedDocuments?,
+  saved : @source_repository.SavedDocuments,
 ) -> (Documents, Array[DocumentsDecision]) {
   let document_id = record.document.id()
   let (deleting, decision) = issue_delete_record(
@@ -274,7 +274,7 @@ fn complete_waiting_delete(
   (
     {
       ..documents,
-      saved: saved.unwrap_or(documents.saved),
+      saved,
       records: replace_record(documents.records, document_id, _ => deleting),
     },
     [decision],
@@ -298,65 +298,28 @@ fn complete_stored(
         _ => Saved
       }
       complete_waiting_delete(
-        documents,
-        completed,
-        delete_operation,
-        retained,
-        Some(saved),
+        documents, completed, delete_operation, retained, saved,
       )
     }
-    Deleting(_) | Available | Failed(_, _) =>
-      match pending {
+    Deleting(_) | Available | Failed(_, _) => {
+      let (next, decisions) = match pending {
         Some(_) if saved.find(document_id) == Some(record.document) =>
-          (
-            {
-              ..documents,
-              saved,
-              records: replace_record(documents.records, document_id, _ => {
-                ..completed,
-                save: Saved,
-              }),
-            },
-            [],
-          )
+          ({ ..completed, save: Saved, }, [])
         Some(checkpoint) if checkpoint.eligibility ==
           DocumentsCheckpointEligibility::Eligible &&
-          !is_composing(record.edit) => {
-          let (next, decisions) = begin_save(completed)
-          (
-            {
-              ..documents,
-              saved,
-              records: replace_record(documents.records, document_id, _ => next),
-            },
-            decisions,
-          )
-        }
-        Some(checkpoint) =>
-          (
-            {
-              ..documents,
-              saved,
-              records: replace_record(documents.records, document_id, _ => {
-                ..completed,
-                save: Waiting(checkpoint),
-              }),
-            },
-            [],
-          )
-        None =>
-          (
-            {
-              ..documents,
-              saved,
-              records: replace_record(documents.records, document_id, _ => {
-                ..completed,
-                save: Saved,
-              }),
-            },
-            [],
-          )
+          !is_composing(record.edit) => begin_save(completed)
+        Some(checkpoint) => ({ ..completed, save: Waiting(checkpoint), }, [])
+        None => ({ ..completed, save: Saved, }, [])
       }
+      (
+        {
+          ..documents,
+          saved,
+          records: replace_record(documents.records, document_id, _ => next),
+        },
+        decisions,
+      )
+    }
   }
 }
 
@@ -376,7 +339,7 @@ fn complete_failed(
           record,
           delete_operation,
           Failed(failure),
-          None,
+          documents.saved,
         )
       } else {
         (
@@ -387,46 +350,23 @@ fn complete_failed(
           [],
         )
       }
-    Deleting(_) | Available | Failed(_, _) =>
-      match pending {
+    Deleting(_) | Available | Failed(_, _) => {
+      let (next, decisions) = match pending {
         Some(checkpoint) if checkpoint.eligibility ==
           DocumentsCheckpointEligibility::Eligible &&
-          !is_composing(record.edit) => {
-          let (next, decisions) = begin_save({
-            ..record,
-            save: Waiting(checkpoint),
-          })
-          (
-            {
-              ..documents,
-              records: replace_record(documents.records, document_id, _ => next),
-            },
-            decisions,
-          )
-        }
-        Some(checkpoint) =>
-          (
-            {
-              ..documents,
-              records: replace_record(documents.records, document_id, _ => {
-                ..record,
-                save: Waiting(checkpoint),
-              }),
-            },
-            [],
-          )
-        None =>
-          (
-            {
-              ..documents,
-              records: replace_record(documents.records, document_id, _ => {
-                ..record,
-                save: Failed(failure),
-              }),
-            },
-            [],
-          )
+          !is_composing(record.edit) =>
+          begin_save({ ..record, save: Waiting(checkpoint), })
+        Some(checkpoint) => ({ ..record, save: Waiting(checkpoint), }, [])
+        None => ({ ..record, save: Failed(failure), }, [])
       }
+      (
+        {
+          ..documents,
+          records: replace_record(documents.records, document_id, _ => next),
+        },
+        decisions,
+      )
+    }
   }
 }
 
