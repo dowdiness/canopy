@@ -166,24 +166,25 @@ test "delete is rejected while creation is in flight and completion still activa
 }
 
 ///|
-test "active delete is accepted and composition defers confirmation" {
+test "delete request only opens confirmation for its target" {
   let initial = test_editing()
-  let (model, _) = test_update(Editing(initial), DeleteRequested("one"))
-  guard model is Editing({ deletion: DeleteConfirmation("one"), .. }) else {
-    fail("active delete confirmation")
-  }
-  let (documents, _) = initial.documents.reduce(
-    DocumentsCompositionStarted("one"),
+  let (model, command) = test_update(Editing(initial), DeleteRequested("one"))
+  assert_true(
+    model == Editing({ ..initial, deletion: DeleteConfirmation("one"), }),
   )
-  let composing = { ..initial, documents, }
-  let (model, _) = test_update(Editing(composing), DeleteRequested("one"))
-  guard model is Editing({ deletion: DeleteDeferred("one"), .. }) else {
-    fail("deferred active confirmation")
-  }
-  let (model, _) = test_update(Editing(composing), DeleteRequested("two"))
-  guard model is Editing({ deletion: DeleteDeferred("two"), .. }) else {
-    fail("active composition also defers a non-active target")
-  }
+  assert_eq(@debug.to_string(command), "[]")
+}
+
+///|
+test "cancelling delete only closes confirmation" {
+  let initial = test_editing()
+  let (requested, _) = test_update(Editing(initial), DeleteRequested("two"))
+  assert_true(
+    requested == Editing({ ..initial, deletion: DeleteConfirmation("two"), }),
+  )
+  let (model, command) = test_update(requested, DeleteCancelled)
+  assert_true(model == Editing(initial))
+  assert_eq(@debug.to_string(command), "[]")
 }
 
 ///|
@@ -408,22 +409,6 @@ test "active pending deletion prevents document switch" {
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_eq(editing.activation.document_id, "one")
-}
-
-///|
-test "composition end opens deferred active deletion confirmation" {
-  let initial = test_editing()
-  let (documents, _) = initial.documents.reduce(
-    DocumentsCompositionStarted("one"),
-  )
-  let state = { ..initial, documents, deletion: DeleteDeferred("one"), }
-  let (model, _) = test_update(
-    Editing(state),
-    CompositionEnded(initial.activation),
-  )
-  guard model is Editing(editing) else { fail("editing") }
-  assert_true(editing.deletion == DeleteConfirmation("one"))
-  assert_false(editing.documents.is_composing("one"))
 }
 
 ///|

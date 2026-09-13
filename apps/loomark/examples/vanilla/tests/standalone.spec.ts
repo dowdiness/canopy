@@ -67,10 +67,9 @@ async function resetPendingTimerObservation(page: Page): Promise<void> {
   })
 }
 
-async function openDeleteMenu(page: Page, label: string): Promise<void> {
+async function openDeleteConfirmation(page: Page, label: string): Promise<void> {
   const row = page.getByRole("button", { name: label, exact: true }).locator("..")
-  await row.getByRole("button", { name: "Actions for document" }).click()
-  await page.getByRole("menuitem", { name: "Delete", exact: true }).click()
+  await row.getByRole("button", { name: `Delete "${label}"`, exact: true }).click()
 }
 
 async function pendingTimerObservation(page: Page): Promise<PendingTimerObservation> {
@@ -756,8 +755,7 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
     buttons.map(button => button.getAttribute("aria-label"))
       .filter((label): label is string => label !== null && !label.startsWith("Delete ")
         && label !== "Documents" && label !== "New document"
-        && label !== "Actions for document")
-  ))
+  )))
   await expect.poll(order).toEqual(["A", "B", "C"])
 
   const text = page.getByRole("textbox", { name: "Text" })
@@ -981,7 +979,7 @@ test("Delete document removes a non-active Source without moving the editor", as
 
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(documentA.text)
-  await openDeleteMenu(page, "B")
+  await openDeleteConfirmation(page, "B")
   const dialog = page.getByRole("alertdialog")
   await expect(dialog).toContainText('Delete "B"?')
   await dialog.getByRole("button", { name: "Delete document" }).click()
@@ -992,6 +990,47 @@ test("Delete document removes a non-active Source without moving the editor", as
   await page.reload()
   await expect(text).toHaveValue(documentA.text)
   await expect(page.getByRole("button", { name: "B", exact: true })).toHaveCount(0)
+})
+
+test("Delete icon is disabled while deletion is pending", async ({ page }) => {
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentB = { document_id: "document-b", text: "# B\n" }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+  await page.addInitScript(() => {
+    const prototype = IDBObjectStore.prototype as any
+    const originalDelete = prototype.delete
+    prototype.delete = function(this: IDBObjectStore, key: IDBValidKey) {
+      const request = originalDelete.call(this, key)
+      if (typeof key === "string" && key.startsWith("source/v1/")) {
+        const store = this
+        let released = false
+        ;(window as any).releasePendingDelete = () => { released = true }
+        const keepAlive = () => {
+          if (released) return
+          const request = store.get("__loomark_delete_keepalive__")
+          request.addEventListener("success", keepAlive, { once: true })
+          request.addEventListener("error", keepAlive, { once: true })
+        }
+        keepAlive()
+      }
+      return request
+    }
+  })
+  await page.reload()
+
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await openDeleteConfirmation(page, "B")
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
+  await expect(documents.getByRole("button", { name: 'Delete "B"', exact: true }))
+    .toHaveAttribute("aria-disabled", "true")
+  await page.evaluate(() => (window as any).releasePendingDelete())
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
+    .toBeUndefined()
 })
 
 test("Delete document activates and remembers the newest fallback", async ({ page }) => {
@@ -1016,7 +1055,7 @@ test("Delete document activates and remembers the newest fallback", async ({ pag
   await text.fill(newestC.text)
   await expectStoredDocument(page, newestC)
   await documents.getByRole("button", { name: "A", exact: true }).click()
-  await openDeleteMenu(page, "A")
+  await openDeleteConfirmation(page, "A")
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("button", { name: "Delete document" }).click()
 
@@ -1040,7 +1079,7 @@ test("Delete document cancellation preserves the Source and editor", async ({ pa
   ])
   await page.reload()
 
-  await openDeleteMenu(page, "B")
+  await openDeleteConfirmation(page, "B")
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("button", { name: "Cancel" }).click()
 
@@ -1057,8 +1096,7 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
   await waitForRepositoryOpen(page)
   const split = page.getByRole("tab", { name: "Split" })
   await split.click()
-  await page.getByRole("button", { name: "Actions for document" }).first().click()
-  await page.getByRole("menuitem", { name: "Delete", exact: true }).click()
+  await page.getByRole("button", { name: /^Delete "/ }).first().click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue("")
@@ -1072,15 +1110,21 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
 // The browser's crypto.randomUUID property is non-configurable in the supported
 // Playwright runtime, so the obsolete identity-retry browser case is covered by
 // the pure repository tests instead of attempting to patch the platform API.
-test("Document control icons remain rendered", async ({ page }) => {
+test("Document delete icon is directly accessible and keyboard operable", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  await page.getByRole("textbox", { name: "Text" }).fill("# Icon test\n")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Icon test\n")
 
-  const actions = page.getByRole("button", { name: "Actions for document" }).first()
-  await expect(actions).toBeVisible()
-  await actions.click()
-  await expect(page.getByRole("menuitem", { name: "Delete", exact: true })).toBeVisible()
+  const deleteButton = page.getByRole("button", { name: 'Delete "Icon test"', exact: true })
+  await expect(deleteButton).toHaveAttribute("title", 'Delete "Icon test"')
+  await deleteButton.focus()
+  await page.keyboard.press("Enter")
+  const dialog = page.getByRole("alertdialog")
+  await expect(dialog).toContainText('Delete "Icon test"?')
+  await dialog.getByRole("button", { name: "Cancel" }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(text).toHaveValue("# Icon test\n")
 })
 
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
@@ -1629,8 +1673,8 @@ test("production keyed lead subscriptions reconcile timer lifecycles", async ({ 
   await text.fill("# Removed\n")
   await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 4, canceled: 2, fired: 1 })
   await page.clock.runFor(1)
-  await page.getByRole("button", { name: "Actions for document" }).first().click()
-  await expect(page.getByRole("alertdialog")).toHaveCount(0)
+  await page.getByRole("button", { name: /^Delete "/ }).first().click()
+  await page.keyboard.press("Escape")
   await page.clock.runFor(249)
   await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 4, canceled: 2, fired: 2 })
 })

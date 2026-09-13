@@ -54,7 +54,7 @@ fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
     Some(Waiting(_)) | Some(Deleting(_)) => true
   }
   let confirmation_blocks = match self.deletion {
-    DeleteDeferred(target) | DeleteConfirmation(target) => target == document_id
+    DeleteConfirmation(target) => target == document_id
     NoDeletion => false
   }
   persistence_blocks || confirmation_blocks
@@ -399,11 +399,7 @@ fn update(
           DocumentsCompositionEnded(owner.document_id),
           emit,
         )
-        let deletion = match editing.deletion {
-          DeleteDeferred(document_id) => DeleteConfirmation(document_id)
-          other => other
-        }
-        (Editing({ ..editing, deletion, }), command)
+        (Editing(editing), command)
       }
     (Editing(editing), ModeSelected(mode)) => {
       let entering_preview = editing.mode == Text && mode != Text
@@ -585,30 +581,19 @@ fn update(
         (Editing(editing), @cmd.none)
       } else {
         match editing.documents.delete_status(document_id) {
-          Some(Available) | Some(Failed(_, _)) => {
-            let deferred = editing.documents.is_composing(
-              editing.activation.document_id,
-            )
+          Some(Available) | Some(Failed(_, _)) =>
             (
-              Editing({
-                ..editing,
-                deletion: if deferred {
-                  DeleteDeferred(document_id)
-                } else {
-                  DeleteConfirmation(document_id)
-                },
-              }),
+              Editing({ ..editing, deletion: DeleteConfirmation(document_id), }),
               @cmd.none,
             )
-          }
           _ => (Editing(editing), @cmd.none)
         }
       }
     (Editing(editing), DeleteCancelled) =>
       match editing.deletion {
-        DeleteDeferred(_) | DeleteConfirmation(_) =>
+        DeleteConfirmation(_) =>
           (Editing({ ..editing, deletion: NoDeletion, }), @cmd.none)
-        _ => (Editing(editing), @cmd.none)
+        NoDeletion => (Editing(editing), @cmd.none)
       }
     (Editing(editing), DeleteConfirmed(document_id)) =>
       if editing.deletion != DeleteConfirmation(document_id) {

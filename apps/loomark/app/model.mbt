@@ -57,7 +57,6 @@ priv enum DocumentCreation {
 ///|
 priv enum DocumentDeletion {
   NoDeletion
-  DeleteDeferred(String)
   DeleteConfirmation(String)
 } derive(Eq)
 

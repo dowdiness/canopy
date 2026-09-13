@@ -200,7 +200,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     match model {
       Editing(editing) =>
         match editing.deletion {
-          DeleteConfirmation(id) | DeleteDeferred(id) => Some(id)
+          DeleteConfirmation(id) => Some(id)
           NoDeletion => None
         }
       Loading(_) | PreparingNew(_) | Recovery(_, _) => None

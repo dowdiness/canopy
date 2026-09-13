@@ -1,6 +1,7 @@
 import {
   "dowdiness/loomark/internal/document_lead",
   "dowdiness/loomark/internal/sidebar",
+  "dowdiness/loomark/internal/view",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/html",

@@ -211,9 +211,10 @@ _Avoid_: archive, trash, soft delete
 
 **Delete confirmation**:
 Approval to delete one saved or unsaved Loomark document, identified with the
-same content presentation used in Recent documents. It begins after any active
-IME composition ends and closes when accepted, superseding the target's pending
-Autosave without interrupting another document's Autosave.
+same content presentation used in Recent documents. An accepted delete request
+opens confirmation without a separate IME-waiting state. Cancellation leaves
+the document unchanged. Acceptance closes confirmation and supersedes the
+target's pending Autosave without interrupting another document's Autosave.
 _Avoid_: deletion warning, delete prompt
 
 **Pending deletion**:
