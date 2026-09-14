@@ -103,11 +103,22 @@ MoonBit are the sources of truth.
 ./scripts/test-loomark-standalone-e2e.sh
 ```
 
-Demand tests use `npm run test:demand` from `examples/vanilla`. That command
-copies the workspace to a temporary directory, adds a test-only JS FFI counter
-at the named `document_lead.extract` entry point, builds a separate artifact,
-and serves it through the same standalone Playwright harness. Production
-sources and `dist` are never instrumented.
-
 This performs a clean Warren production build, rejects removed Worker and
 private-control artifacts, and runs Playwright against the release output.
+
+Demand tests use `npm run test:demand` from `examples/vanilla`. Its
+[artifact builder](../../scripts/build-loomark-demand-artifact.sh) copies the
+workspace to a temporary directory and adds a test-only JS FFI extraction
+counter plus a small query-selected static public-feature
+[fixture](examples/vanilla/fixtures/recent-dialog-demand.mbt) only there; no
+production source or `dist` is instrumented. The [fixture check](examples/vanilla/tests/demand.spec.ts)
+exercises hidden navigation with a dialog-only consumer: its cold dialog needs
+all three leads to disambiguate duplicate labels, but it is not reachable from
+the current modal user path.
+
+The same app tests cover hiding during pending deletion and reopening without
+resurrecting the row, as well as replacing row DOM while retaining leads. That
+DOM check is not direct reactive-scope or memory proof; the feature's visible
+[`switch_by`](internal/recent_documents/recent_documents.mbt) source establishes
+its ownership boundary, and Rabbita's [`assoc`/`switch_by` cleanup tests](../../deps/rabbita/rabbita/internal/duplix/duplix_test.mbt)
+cover the framework disposal behavior.
