@@ -4,7 +4,8 @@ glob_matcher: doublestar
 
 pre-commit:
   parallel: false
-  fail_on_changes: always
+  # The preparation job checks its outputs; Lefthook's generic hash guard
+  # treats staged gitlinks as files and fails before running any job.
   jobs:
     - name: moonbit-prepare
       run: just hook-moonbit-prepare

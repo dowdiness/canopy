@@ -224,6 +224,20 @@ test_renamed_moonbit_with_deleted_route() {
   git -C "$FIXTURE" rm --quiet modules/canopy/core/deleted.mbt
 }
 
+test_gitlink() {
+  mkdir -p "$FIXTURE/deps/linked"
+  git -C "$FIXTURE/deps/linked" init --quiet
+  git -C "$FIXTURE/deps/linked" config user.email lefthook-routing@example.invalid
+  git -C "$FIXTURE/deps/linked" config user.name lefthook-routing-test
+  printf '%s\n' 'dependency' > "$FIXTURE/deps/linked/source.txt"
+  git -C "$FIXTURE/deps/linked" add source.txt
+  git -C "$FIXTURE/deps/linked" -c core.hooksPath=/dev/null commit --quiet -m dependency
+  dependency_head=$(git -C "$FIXTURE/deps/linked" rev-parse HEAD)
+  git -C "$FIXTURE" update-index --add --cacheinfo "160000,$dependency_head,deps/linked"
+}
+
+run_case 'staged gitlink' test_gitlink
+
 run_case 'unrelated text only' test_unrelated
 run_case 'AGENTS.md only' test_agent_docs
 run_case 'root MoonBit file' test_root_moonbit
