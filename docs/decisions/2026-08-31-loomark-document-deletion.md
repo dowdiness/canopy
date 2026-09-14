@@ -8,6 +8,11 @@
 
 **Partially supersedes:** [Loomark persists authoritative Sources and derives its Catalog in memory](2026-08-29-loomark-source-repository.md)
 
+**Consent UI amendment:** [#1428](https://github.com/dowdiness/canopy/pull/1428)
+clarifies the interaction requirements in the
+[Loomark vocabulary and behaviour contract](../../apps/loomark/CONTEXT.md).
+Per-document persistence ordering is unchanged.
+
 ## Context
 
 Loomark must permanently delete any valid document without first opening it,
@@ -53,14 +58,13 @@ acknowledged change.
 Delete requests carry an identity separate from the editor `Activation`.
 Unknown Document IDs fail before IndexedDB work.
 
-An accepted delete request opens confirmation without a separate IME-waiting
-state and identifies the target with the same content presentation as its
-Recent documents entry. Saved and unsaved targets use the same confirmation.
-The row's trash-icon button emits the target-specific delete request directly.
-Confirmation uses
-Rabbita `alert_dialog` only to obtain consent and closes when accepted. Pending,
-failure, and retry state live in the Application Model rather than in the
-modal.
+Consent behavior follows the
+[Loomark vocabulary and behaviour contract](../../apps/loomark/CONTEXT.md).
+The confirmation modal obtains consent only; opening or cancelling it does not
+start deletion. Pending, failure, and retry state live in the Application Model
+rather than in the modal. Consent presentation and routing remain independent
+of text composition, saving, lead acceptance, and per-document persistence
+ordering.
 
 A non-open Pending deletion is shown on its Recent documents entry while the
 open document remains editable. If the target is open, it remains visible but
@@ -92,8 +96,8 @@ and remain preserved.
   documents.
 - A pending deletion blocks only its target; unrelated Documents remain
   editable and retain independent persistence lanes.
-- Context-menu and overflow entry points reuse Rabbita's high-level components;
-  Loomark does not add DOM or command escape hatches.
+- Consent presentation and routing can change without changing save/delete
+  operation ordering.
 
 ## Rejected alternatives
 
