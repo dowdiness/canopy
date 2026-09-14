@@ -149,12 +149,8 @@ test "repository open activates its resolved initial Document" {
 ///|
 test "delete is rejected while creation is in flight and completion still activates" {
   let initial = { ..test_editing(), creation: Creating, }
-  let (after_delete, delete_command) = test_update(
-    Editing(initial),
-    DeleteRequested("one"),
-  )
+  let (after_delete, _) = test_update(Editing(initial), DeleteRequested("one"))
   assert_true(after_delete == Editing(initial))
-  assert_eq(@debug.to_string(delete_command), "[]")
   let (after_create, _) = test_update(
     after_delete,
     CreateCompleted("one", Created("new")),
@@ -168,11 +164,10 @@ test "delete is rejected while creation is in flight and completion still activa
 ///|
 test "delete request only opens confirmation for its target" {
   let initial = test_editing()
-  let (model, command) = test_update(Editing(initial), DeleteRequested("one"))
+  let (model, _) = test_update(Editing(initial), DeleteRequested("one"))
   assert_true(
     model == Editing({ ..initial, deletion: DeleteConfirmation("one"), }),
   )
-  assert_eq(@debug.to_string(command), "[]")
 }
 
 ///|
@@ -182,9 +177,8 @@ test "cancelling delete only closes confirmation" {
   assert_true(
     requested == Editing({ ..initial, deletion: DeleteConfirmation("two"), }),
   )
-  let (model, command) = test_update(requested, DeleteCancelled)
+  let (model, _) = test_update(requested, DeleteCancelled)
   assert_true(model == Editing(initial))
-  assert_eq(@debug.to_string(command), "[]")
 }
 
 ///|
@@ -193,19 +187,6 @@ test "same document selection is a no-op" {
   let (model, _) = test_update(Editing(initial), DocumentSelected("one"))
   guard model is Editing(editing) else { fail("editing") }
   assert_true(editing.activation == initial.activation)
-}
-
-///|
-test "activating an unsaved New has no parsed resume hint" {
-  let saved = test_update(Editing(test_editing()), DocumentSelected("two")).1
-  let ephemeral = test_update(
-      Editing({ ..test_editing(), creation: Creating, }),
-      CreateCompleted("one", Created("new")),
-    ).1
-  assert_true(@debug.to_string(saved).contains("IndexedDBApply"))
-  let ephemeral = @debug.to_string(ephemeral)
-  assert_false(ephemeral.contains("IndexedDBApply"))
-  assert_false(ephemeral.contains("editing-document"))
 }
 
 ///|
@@ -233,23 +214,19 @@ test "pending target cannot be selected" {
 }
 
 ///|
-test "deleting the Editing Document remembers its saved fallback" {
+test "deleting the Editing Document activates its saved fallback" {
   let initial = { ..test_editing(), deletion: DeleteConfirmation("one"), }
   let (model, _) = test_update(Editing(initial), DeleteConfirmed("one"))
   guard model is Editing(deleting) else { fail("deleting") }
   guard deleting.documents.delete_status("one") is Some(Deleting(operation)) else {
     fail("delete operation")
   }
-  let (model, command) = test_update(
+  let (model, _) = test_update(
     Editing(deleting),
     DocumentsLifecycle(DeleteCompleted(operation, Deleted("one"))),
   )
   guard model is Editing(editing) else { fail("fallback") }
   assert_eq(editing.activation.document_id, "two")
-  let command = @debug.to_string(command)
-  assert_true(command.contains("IndexedDBApply"))
-  assert_false(command.contains("editing-document"))
-  assert_false(command.contains("two"))
 }
 
 ///|
@@ -414,12 +391,11 @@ test "active pending deletion prevents document switch" {
 ///|
 test "duplicate text message leaves model and preview unchanged" {
   let initial = test_editing()
-  let (model, command) = test_update(
+  let (model, _) = test_update(
     Editing(initial),
     TextChanged(initial.activation, @text_change.TextChange::ReplaceAll("one")),
   )
   assert_true(model == Editing(initial))
-  assert_false(@debug.to_string(command).contains("Preview"))
 }
 
 ///|

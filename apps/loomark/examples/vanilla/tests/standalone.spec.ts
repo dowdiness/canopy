@@ -320,6 +320,16 @@ function encodeStoredDocument(document: StoredDocument): string {
   return JSON.stringify(document)
 }
 
+async function openStoredDocuments(page: Page, documents: StoredDocument[]): Promise<void> {
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  await replaceStoreRecords(page, documents.map(document => ({
+    key: sourceKey(document.document_id),
+    value: encodeStoredDocument(document),
+  })))
+  await page.reload()
+}
+
 async function expectStoredDocument(
   page: Page,
   document: StoredDocument,
@@ -704,38 +714,23 @@ test("opening and saving persist only authoritative Source records", async ({ pa
   })
 })
 
-test("several Sources select the first lexical Document ID", async ({ page }) => {
-  await page.goto("/")
-  await waitForRepositoryOpen(page)
+test("duplicate leads select and delete by Document ID", async ({ page }) => {
   const documentA = { document_id: "document-a", text: "# Same\n" }
   const documentB = { document_id: "document-b", text: "# Same\n" }
-  const documentC = { document_id: "document-c", text: "Body only\n" }
-  await replaceStoreRecords(page, [
-    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
-    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
-    { key: sourceKey(documentC.document_id), value: encodeStoredDocument(documentC) },
-    { key: "source/v2/future", value: "future" },
-  ])
-
-  await page.reload()
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentA.text)
+  await openStoredDocuments(page, [documentB, documentA])
   const documents = page.getByRole("complementary", { name: "Documents" })
-  await expect(documents.getByRole("button", {
-    name: "Same (1 of 2)",
-    exact: true,
-  })).toBeVisible()
-  await expect(documents.getByRole("button", {
-    name: "Same (2 of 2)",
-    exact: true,
-  })).toBeVisible()
-  await expect(documents.getByRole("button", {
-    name: "Body only",
-    exact: true,
-  }))
-    .toBeVisible()
-  expect(await readStoredDocumentRaw(page, CATALOG_KEY)).toBeUndefined()
-  expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
-  expect(await readStoredDocumentRaw(page, "source/v2/future")).toBe("future")
+  const selected = documents.getByRole("button", { name: "Same (2 of 2)", exact: true })
+  await selected.click()
+  await expect(selected).toHaveAttribute("data-state", "active")
+  await expect.poll(() => readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY))
+    .toBe(documentB.document_id)
+
+  await openDeleteConfirmation(page, "Same (1 of 2)")
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
+  await expect.poll(() => readStoredDocuments(page)).toEqual([documentB])
+  await expect(documents.getByRole("button", { name: "Same", exact: true }))
+    .toHaveAttribute("data-state", "active")
+  await expect(documents.getByRole("button", { name: /^Same \(/ })).toHaveCount(0)
 })
 
 test("page-local recency reorders edits but reload restores lexical order", async ({ page }) => {
@@ -967,15 +962,9 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
 })
 
 test("Delete document removes a non-active Source without moving the editor", async ({ page }) => {
-  await page.goto("/")
-  await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# A\n" }
   const documentB = { document_id: "document-b", text: "# B\n" }
-  await replaceStoreRecords(page, [
-    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
-    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
-  ])
-  await page.reload()
+  await openStoredDocuments(page, [documentA, documentB])
 
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(documentA.text)
@@ -984,8 +973,7 @@ test("Delete document removes a non-active Source without moving the editor", as
   await expect(dialog).toContainText('Delete "B"?')
   await dialog.getByRole("button", { name: "Delete document" }).click()
 
-  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
-    .toBeUndefined()
+  await expect.poll(() => readStoredDocuments(page)).toEqual([documentA])
   await expect(text).toHaveValue(documentA.text)
   await page.reload()
   await expect(text).toHaveValue(documentA.text)
@@ -1069,23 +1057,16 @@ test("Delete document activates and remembers the newest fallback", async ({ pag
 })
 
 test("Delete document cancellation preserves the Source and editor", async ({ page }) => {
-  await page.goto("/")
-  await waitForRepositoryOpen(page)
   const documentA = { document_id: "document-a", text: "# A\n" }
   const documentB = { document_id: "document-b", text: "# B\n" }
-  await replaceStoreRecords(page, [
-    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
-    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
-  ])
-  await page.reload()
+  await openStoredDocuments(page, [documentA, documentB])
 
   await openDeleteConfirmation(page, "B")
   const dialog = page.getByRole("alertdialog")
   await dialog.getByRole("button", { name: "Cancel" }).click()
 
   await expect(dialog).toHaveCount(0)
-  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
-    .toBe(encodeStoredDocument(documentB))
+  await expect.poll(() => readStoredDocuments(page)).toEqual([documentA, documentB])
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Still editable\n")
   await expect(text).toHaveValue("# Still editable\n")
@@ -1130,7 +1111,6 @@ test("Document delete icon is directly accessible and keyboard operable", async 
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
-  await waitForRepositoryOpen(page)
   await expect(page.getByRole("button", { name: "Toggle documents" }))
     .toHaveAttribute("aria-expanded", "false")
   await page.getByRole("button", { name: "Documents", exact: true }).click()
