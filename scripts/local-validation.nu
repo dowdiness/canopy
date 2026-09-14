@@ -287,6 +287,21 @@ def resolve-base [base: string] {
   $sha
 }
 
+# Only MoonBit source files and generated interfaces can be written by preparation.
+# In particular, a staged gitlink is not a file to pass to git hash-object.
+def preparation-fingerprints [paths: list<string>] {
+  $paths | each {|path|
+    {
+      path: $path,
+      hash: (if ($path | path exists) {
+        git-output ["hash-object" "--" $path]
+      } else {
+        null
+      })
+    }
+  }
+}
+
 def prepare-commit [] {
   let root = (git-output ["rev-parse" "--show-toplevel"] | str trim)
   cd $root
@@ -301,13 +316,29 @@ def prepare-commit [] {
     | uniq
     | sort
   )
+  let packages = (affected-info-packages $root $changes)
+  let outputs = (
+    [$format_paths ($packages | each {|package| $package | path join "pkg.generated.mbti" })]
+    | flatten
+    | uniq
+    | sort
+  )
+  let before = (preparation-fingerprints $outputs)
   if ($format_paths | is-not-empty) {
     ^moon fmt ...$format_paths
+    if $env.LAST_EXIT_CODE != 0 {
+      fail "moon fmt failed"
+    }
   }
 
-  let packages = (affected-info-packages $root $changes)
   if ($packages | is-not-empty) {
     ^moon info ...$packages
+    if $env.LAST_EXIT_CODE != 0 {
+      fail "moon info failed"
+    }
+  }
+  if (preparation-fingerprints $outputs) != $before {
+    fail "MoonBit preparation changed files; review and stage them before retrying the commit"
   }
 }
 

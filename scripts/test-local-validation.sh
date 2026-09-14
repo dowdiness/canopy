@@ -42,6 +42,17 @@ fi
 printf 'moon' >>"$LOCAL_VALIDATION_TEST_LOG"
 printf ' %s' "$@" >>"$LOCAL_VALIDATION_TEST_LOG"
 printf '\n' >>"$LOCAL_VALIDATION_TEST_LOG"
+if [ "${LOCAL_VALIDATION_FAIL_MOON:-}" = "$1" ]; then
+  exit 42
+fi
+case "${LOCAL_VALIDATION_MUTATE:-}:$1" in
+  source:fmt)
+    printf 'pub fn answer() -> Int { 45 }\n' >pkg/main.mbt
+    ;;
+  interface:info)
+    printf 'pub fn answer() -> Int64\n' >pkg/pkg.generated.mbti
+    ;;
+esac
 FAKE_MOON
 chmod +x "$fake_bin/moon"
 
@@ -67,6 +78,50 @@ moon info pkg
 EXPECTED
 
 diff -u "$expected" "$log" || fail "prepare-commit did not target the staged source and owning package"
+
+# Preparation must reject rewrites without silently staging them, including
+# partially staged sources and interfaces not yet tracked by Git.
+for mutation in source interface new-interface untracked-interface; do
+  git -C "$fixture" reset --hard --quiet HEAD
+  printf 'pub fn answer() -> Int { 43 }\n' >"$fixture/pkg/main.mbt"
+  git -C "$fixture" add pkg/main.mbt
+  mode=$mutation
+  case "$mutation" in
+    source)
+      printf 'pub fn answer() -> Int { 44 }\n' >"$fixture/pkg/main.mbt"
+      ;;
+    new-interface)
+      git -C "$fixture" rm --quiet pkg/pkg.generated.mbti
+      mode=interface
+      ;;
+    untracked-interface)
+      git -C "$fixture" rm --cached --quiet pkg/pkg.generated.mbti
+      mode=interface
+      ;;
+  esac
+  if (
+    cd "$fixture"
+    PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" LOCAL_VALIDATION_MUTATE="$mode" \
+      nu scripts/local-validation.nu prepare-commit >"$tmp_dir/rewrite.out" 2>&1
+  ); then
+    fail "preparation accepted a $mutation rewrite"
+  fi
+  [ "$(git -C "$fixture" show :pkg/main.mbt)" = 'pub fn answer() -> Int { 43 }' ] ||
+    fail "preparation changed the staged source"
+done
+
+for phase in fmt info; do
+  git -C "$fixture" reset --hard --quiet HEAD
+  printf 'pub fn answer() -> Int { 43 }\n' >"$fixture/pkg/main.mbt"
+  git -C "$fixture" add pkg/main.mbt
+  if (
+    cd "$fixture"
+    PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" LOCAL_VALIDATION_FAIL_MOON="$phase" \
+      nu scripts/local-validation.nu prepare-commit >"$tmp_dir/failed-prepare.out" 2>&1
+  ); then
+    fail "preparation accepted a failed moon $phase"
+  fi
+done
 
 git -C "$fixture" reset --hard --quiet HEAD
 : >"$log"
