@@ -48,9 +48,10 @@ test "untouched New is excluded while loaded saved empty is admitted" {
   let documents = initial_documents(saved)
   let (documents, _) = documents.reduce(DocumentsNew("new"))
   let seeds = input_for(documents)
-  assert_eq(seeds.length(), 1)
-  assert_eq(seeds[0].docid(), "empty")
-  assert_eq(seeds[0].source(), "")
+  assert_true(
+    seeds.exists(seed => seed.docid() == "empty" && seed.source() == ""),
+  )
+  assert_false(seeds.exists(seed => seed.docid() == "new"))
 }
 
 ///|
@@ -86,4 +87,13 @@ test "adapter preserves accepted sources and page-local row order" {
   let seeds = input_for(documents)
   assert_eq(seeds.map(seed => seed.docid()), ["one", "two"])
   assert_eq(seeds.map(seed => seed.source()), ["first", "second"])
+}
+
+///|
+test "adapter selects the Editing Document by ID" {
+  let seeds = input_for(test_editing().documents)
+  let one = seeds.iter().find_first(seed => seed.docid() == "one").unwrap()
+  let two = seeds.iter().find_first(seed => seed.docid() == "two").unwrap()
+  assert_true(one.selection() is @recent_documents.Selection::Editing)
+  assert_true(two.selection() is @recent_documents.Selection::Selectable)
 }

@@ -18,11 +18,6 @@ import {
   "Yoorkin/rui",
 }
 
-import {
-  "moonbit-community/rabbita/testing" @rabbita_testing,
-  "moonbitlang/core/debug",
-} for "wbtest"
-
 supported_targets = "js"
 
 options(
