@@ -1124,6 +1124,21 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   }))).toEqual({ viewport: 390, scrollWidth: 390 })
 })
 
+test("Sidebar visibility survives breakpoints but resets on reload", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/")
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await page.reload()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+})
+
 test("Document switch does not wait for the active Source to save", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
