@@ -98,12 +98,6 @@ from the newer text replaces it after a short pause; a document entering Recent
 documents for the first time uses its current text for its first lead.
 _Avoid_: Document list, catalog, title list, file browser
 
-**Document actions menu**:
-The actions for one Recent documents entry, opened from its context-menu gesture,
-keyboard command, or overflow control. Delete document is a destructive action
-in this menu.
-_Avoid_: row buttons, right-click-only menu
-
 **Document switch**:
 Choosing another Loomark document without waiting for the current document to
 finish saving. The current document remains visible until its IME input has
@@ -204,17 +198,23 @@ from the Document lead and is never a stored document name.
 _Avoid_: backup, saved copy, publish
 
 **Delete document**:
-Permanently removing any one Loomark document without first opening it. Deleting
-the open document opens the most recently changed remainder, or a New document
-when none remains; Loomark keeps no Trash.
+Permanently removing any one Loomark document without first opening it. Each
+Recent documents entry exposes a direct icon-only trash button with a
+target-specific accessible name and tooltip. Pointer or keyboard activation
+opens Delete confirmation; there is no Actions, context, or overflow menu.
+Deleting the Editing Document opens the most recently changed remainder, or a
+New document when none remains; Loomark keeps no Trash.
 _Avoid_: archive, trash, soft delete
 
 **Delete confirmation**:
-Approval to delete one saved or unsaved Loomark document, identified with the
-same content presentation used in Recent documents. An accepted delete request
-opens confirmation without a separate IME-waiting state. Cancellation leaves
+Approval to delete one saved or unsaved Loomark document, identified by the
+bounded, duplicate-disambiguated label used for its Recent documents entry,
+not a second rendering of the lead. An accepted delete request opens
+confirmation without a separate IME-waiting state. Cancellation leaves
 the document unchanged. Acceptance closes confirmation and supersedes the
 target's pending Autosave without interrupting another document's Autosave.
+See the [deletion decision](../../docs/decisions/2026-08-31-loomark-document-deletion.md)
+for consent and persistence ordering.
 _Avoid_: deletion warning, delete prompt
 
 **Pending deletion**:

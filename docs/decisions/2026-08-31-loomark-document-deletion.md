@@ -8,6 +8,10 @@
 
 **Partially supersedes:** [Loomark persists authoritative Sources and derives its Catalog in memory](2026-08-29-loomark-source-repository.md)
 
+**Consent UI clarification:** [#1428](https://github.com/dowdiness/canopy/pull/1428)
+restores the direct trash-icon button and removes IME-dependent confirmation
+routing. Per-document persistence ordering is unchanged.
+
 ## Context
 
 Loomark must permanently delete any valid document without first opening it,
@@ -54,13 +58,18 @@ Delete requests carry an identity separate from the editor `Activation`.
 Unknown Document IDs fail before IndexedDB work.
 
 An accepted delete request opens confirmation without a separate IME-waiting
-state and identifies the target with the same content presentation as its
-Recent documents entry. Saved and unsaved targets use the same confirmation.
-The row's trash-icon button emits the target-specific delete request directly.
-Confirmation uses
-Rabbita `alert_dialog` only to obtain consent and closes when accepted. Pending,
-failure, and retry state live in the Application Model rather than in the
-modal.
+state. Each Recent documents entry exposes a direct trash-icon button with a
+target-specific accessible name and tooltip, operable by pointer and keyboard.
+There is no Actions, context, or overflow menu. Confirmation identifies the
+target by the same bounded, duplicate-disambiguated label as its entry rather
+than rendering a second lead preview. Saved and unsaved targets use the same
+confirmation.
+
+Rabbita `alert_dialog` obtains consent only and closes when accepted. Opening or
+cancelling confirmation does not start deletion. Pending, failure, and retry
+state live in the Application Model rather than in the modal. The absence of
+IME-dependent confirmation routing does not change IME handling for text,
+saving, or lead acceptance.
 
 A non-open Pending deletion is shown on its Recent documents entry while the
 open document remains editable. If the target is open, it remains visible but
@@ -92,8 +101,8 @@ and remain preserved.
   documents.
 - A pending deletion blocks only its target; unrelated Documents remain
   editable and retain independent persistence lanes.
-- Context-menu and overflow entry points reuse Rabbita's high-level components;
-  Loomark does not add DOM or command escape hatches.
+- A direct Delete button replaces context-menu and overflow entry points;
+  confirmation remains separate from save/delete operation ordering.
 
 ## Rejected alternatives
 
