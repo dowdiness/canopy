@@ -162,6 +162,10 @@ test "lead equality ignores clipped text but distinguishes truncation flags" {
   let clipped_description = @document_lead.extract(
     "# \{primary}\n\n\{description}x\n",
   )
+  assert_true(clipped_primary.primary_truncated())
+  assert_false(clipped_primary.description_truncated())
+  assert_false(clipped_description.primary_truncated())
+  assert_true(clipped_description.description_truncated())
   assert_true(at_limit != clipped_primary)
   assert_true(at_limit != clipped_description)
 }
