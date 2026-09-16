@@ -377,7 +377,7 @@ def validate-push [base: string] {
   for package in $packages {
     let target = (module-package-target $root $package)
     # Match the example jobs' existing CI policy; the module runner owns its flags.
-    if $target.module in ["apps/ideal" "apps/block-editor" "apps/canvas" "examples/codemirror_demo"] {
+    if $target.module in ["apps/ideal" "apps/block-editor" "apps/canvas" "examples/codemirror"] {
       ^$module_runner ci-lenient $target.module $target.package
     } else {
       do {
