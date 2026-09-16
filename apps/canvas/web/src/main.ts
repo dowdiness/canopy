@@ -9,6 +9,7 @@ import {
   type NodeParamData,
   type RenderState,
   type SourceGraphOperationResult,
+  type SourceNoticeReporter,
 } from './graph-adapter';
 
 export { GraphAdapter } from './graph-adapter';
@@ -38,6 +39,7 @@ type SourceDemoModule = CanvasModule &
 
 let adapter: GraphAdapter;
 let rafPending = false;
+let sourceNoticeReporter: SourceNoticeReporter | null = null;
 
 const root       = document.getElementById('canvas-root') as HTMLDivElement;
 const search     = document.getElementById('node-search') as HTMLInputElement;
@@ -117,11 +119,7 @@ function commitSourceRename(nodeId: string, currentName: string, nextName: strin
   if (trimmed === currentName || trimmed.length === 0) return;
   const result = adapter.renameNode(nodeId, trimmed);
   if (!result) return;
-  updateSourceOperationStatus(
-    result,
-    'Renamed node binding through graph-dsl source.',
-    'Source rename rejected',
-  );
+  reportSourceOperation('rename', '', result);
   adapter.clearSelectedEdge();
   scheduleRender();
 }
@@ -135,11 +133,7 @@ function commitSourceParam(
   if (trimmed === param.value || trimmed.length === 0) return;
   const result = adapter.setNodeParam(nodeId, param.name, trimmed);
   if (!result) return;
-  updateSourceOperationStatus(
-    result,
-    `Updated ${param.name} through graph-dsl source.`,
-    'Source parameter edit rejected',
-  );
+  reportSourceOperation('set-param', param.name, result);
   adapter.clearSelectedEdge();
   scheduleRender();
 }
@@ -313,7 +307,8 @@ function addNodeAt(kindKey: string, point: [number, number]): void {
   }
   adapter.clearSelectedEdge();
   if (adapter.isSourceBacked) {
-    adapter.insertUniqueNode(kindKey, kindKey);
+    const result = adapter.insertUniqueNode(kindKey, kindKey);
+    reportSourceOperation('insert', kindKey, result);
   } else {
     adapter.addNode(kindKey, point[0], point[1]);
   }
@@ -328,35 +323,12 @@ function editableKeyboardTarget(target: EventTarget | null): boolean {
   return editable != null;
 }
 
-function sourceOperationDetail(result: SourceGraphOperationResult): string {
-  return result.message ?? (result.diagnostics.length > 0 ? result.diagnostics.join('; ') : 'operation was rejected');
-}
-
-function updateSourceOperationStatus(
+function reportSourceOperation(
+  operation: string,
+  detail: string,
   result: SourceGraphOperationResult,
-  successMessage: string,
-  failurePrefix: string,
 ): void {
-  const status = document.getElementById('source-status');
-  if (!status) return;
-  status.setAttribute('data-tone', result.applied ? 'success' : 'error');
-  status.textContent = result.applied
-    ? successMessage
-    : `${failurePrefix}: ${sourceOperationDetail(result)}`;
-}
-
-function reportContextSourceFeedback(resultJson: string): void {
-  const result = JSON.parse(resultJson) as SourceGraphOperationResult;
-  // Rejections and explicit operation messages are reported immediately.
-  // Message-less success is announced when the source panel synchronizes its
-  // editor from the canonical graph; success does not promise operation-specific copy.
-  if (!result.applied || result.message != null) {
-    updateSourceOperationStatus(
-      result,
-      result.message ?? 'Context operation applied through graph-dsl source.',
-      'Source context operation rejected',
-    );
-  }
+  sourceNoticeReporter?.(operation, detail, JSON.stringify(result));
 }
 
 function renderLibrary(filter = ''): void {
@@ -383,18 +355,10 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
     !editableKeyboardTarget(e.target)
   ) {
     const result = adapter.deleteSelection();
+    const sourceResult = result.sourceResult;
     if (result.handled) {
-      const sourceResult = result.sourceResult;
-      if (
-        adapter.isSourceBacked &&
-        sourceResult &&
-        (sourceResult.applied || sourceResult.message != null)
-      ) {
-        updateSourceOperationStatus(
-          sourceResult,
-          sourceResult.message ?? 'Deleted selection through graph-dsl source.',
-          'Source delete rejected',
-        );
+      if (adapter.isSourceBacked && sourceResult) {
+        reportSourceOperation('delete', '', sourceResult);
       }
       adapter.dismissContextMenu();
       e.preventDefault();
@@ -468,15 +432,23 @@ async function init(): Promise<void> {
       return undefined;
     },
     resultJson => {
-      reportContextSourceFeedback(resultJson);
+      sourceNoticeReporter?.('context', '', resultJson);
       return undefined;
     },
   );
   sourceDemoModule.mount_canvas_render_layer();
-  sourceDemoModule.mount_source_demo(adapter.handleId, sourceMode, () => {
-    scheduleRender();
-    return undefined;
-  });
+  sourceDemoModule.mount_source_demo(
+    adapter.handleId,
+    sourceMode,
+    () => {
+      scheduleRender();
+      return undefined;
+    },
+    reporter => {
+      sourceNoticeReporter = reporter;
+      return undefined;
+    },
+  );
   sourceDemoModule.mount_canvas_pointer_session(
     adapter.handleId,
     () => {

@@ -48,7 +48,7 @@ pub fn mount_canvas_pointer_session(Int, () -> Unit) -> Unit
 
 pub fn mount_canvas_render_layer() -> Unit
 
-pub fn mount_source_demo(Int, Bool, () -> Unit) -> Unit
+pub fn mount_source_demo(Int, Bool, () -> Unit, ((String, String, String) -> Unit) -> Unit) -> Unit
 
 pub fn publish_render_state(Int) -> String
 
