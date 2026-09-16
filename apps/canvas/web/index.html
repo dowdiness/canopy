@@ -549,6 +549,21 @@
       background: var(--surface-soft);
       outline: none;
     }
+    .context-menu-status {
+      position: fixed;
+      inset-inline-start: 50%;
+      inset-block-end: 24px;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: min(36rem, calc(100vw - 32px));
+      box-sizing: border-box;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: var(--surface);
+      color: oklch(82% 0.08 18);
+      box-shadow: 0 8px 24px oklch(8% 0.012 276 / 0.34);
+      overflow-wrap: anywhere;
+    }
 
     @media (max-width: 1200px) {
       .library-panel {

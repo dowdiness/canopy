@@ -1,16 +1,18 @@
 # Rabbita Context Menu
 
 Headless context-menu behavior for Rabbita apps. The package owns open/closed
-state, client-coordinate anchoring, menu ARIA attrs, keyboard navigation, and
-focus commands. It composes over `dowdiness/rabbita-menu/menu`; consumers still
-own item data, rendering, hit-testing, styling, and action execution.
+state, client-coordinate anchoring, menu ARIA attrs, keyboard navigation,
+focus commands, and the items supplied when opening. It copies the input items,
+so callers may safely reuse or mutate their source array after `open`. This is a
+shallow copy: item values should themselves be immutable when used as reactive
+state. `Model[T]` implements value equality when `T` implements `Eq`.
 
 ## Use
 
 ```mbt nocheck
 struct Model {
-  context_menu : @context_menu.Model
-}
+  context_menu : @context_menu.Model[String]
+} derive(Eq)
 
 fn new_model() -> Model {
   {
@@ -49,13 +51,13 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @rabbita.Html {
   ])
 }
 
-fn subscriptions(emit : @rabbita.Emit[Msg], model : Model) -> @sub.Sub {
+fn subscriptions(model : Model, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
   model.context_menu.subscriptions(emit.map(msg => ContextMenu(msg)))
 }
 ```
 
-Open with `model.context_menu.open(anchor=point, item_count=items.length())`,
-then return `@rabbita.batch([model.context_menu.position_cmd(), model.context_menu.focus_cmd()])`.
+Open with `model.context_menu.open(anchor=point, items=items[:])`, then return
+`@rabbita.batch([model.context_menu.position_cmd(), model.context_menu.focus_cmd()])`.
 Handle `Activate(index)`, `Close`, `Dismiss(reason)`, and `Key(key)` in the
 consumer. For navigation messages, call `Model::update`; when
 `Msg::requests_focus()` is true, return `Model::focus_cmd()` after updating the
@@ -67,9 +69,10 @@ shadow-root-ready: `position_cmd()` and `subscriptions()` still resolve the pane
 from `document.getElementById(self.id)`, so context-menu panels should remain
 document-visible until scoped positioning and dismissal APIs exist.
 
-Return `model.context_menu.subscriptions(...)` from the owning cell's
-subscriptions callback to install reusable dismissal behavior while the menu is
-open. The subscription emits `Dismiss(PointerOutside)` for outside pointer
+Pass the subscriptions function to `create_state(..., subscriptions~)`.
+Rabbita calls it with `(model, emit)` and maintains its lifetime as state changes.
+The subscription is present only while the menu is open. It emits
+`Dismiss(PointerOutside)` for outside pointer
 presses and `Dismiss(EscapeKey)` for Escape when focus is outside the menu panel;
 Escape inside the panel is handled by `panel_attrs` as `Close`.
 
@@ -89,6 +92,42 @@ measure the rendered panel after render and apply `Positioning` options:
 - `viewport_margin` controls the minimum gap from viewport edges.
 - `collision=ClampToViewport` keeps the measured panel visible; use
   `NoCollisionHandling` to keep raw anchor positioning.
+
+## State and action ownership
+
+`Model[T]` owns one closed/open state. An open model contains its anchor, copied
+items, and roving focus; a closed model contains none of them. Item count is
+derived from the items rather than supplied separately. Render with `items()`
+and resolve raw `Activate(index)` input with `item(index)` **before** closing.
+An invalid index is an input rejection, not a successful domain operation.
+
+Consumers still own action meaning, hit testing, styling, and mutation. Put a
+complete operation in each item instead of pairing a separate optional target
+with a generic action. Keep callbacks and mutable hosts outside reactive models.
+Use `create_state` updates to return `(next_model, Cmd)`, execute mutations in
+commands, and send their results back through `Emit`.
+
+Canvas is a consumer example in `apps/canvas/main/context_menu.mbt` and
+`context_menu_operations.mbt`:
+
+- Runtime and Source operations carry only capabilities valid for that backing.
+  Runtime insertion captures a world point; arrangement captures at least two
+  node IDs. Current viewport or selection changes do not retarget the operation.
+- An opening generation binds events to their emitting menu. Closing consumes
+  that generation; delayed activation cannot execute against a reopened menu.
+  Navigation is applied to current state, not a captured focus snapshot.
+- Domain owners resolve liveness at execution. A removed target is an explicit
+  expired outcome; source rejection and applied changes are distinct outcomes.
+  Source failure DTOs remain failures, including raised graph errors. Disconnect
+  also clears ephemeral selection on rejection; that change requests a redraw,
+  not a successful source-edit notification.
+- Completion of a committed change is still published if a newer menu has
+  opened. Feedback from the older operation does not overwrite the newer menu.
+- Invalid opening input reports a problem without consuming the existing menu
+  or its selected target.
+
+Dismissal of an already closed menu and unhandled keys remain normal
+no-change transitions. They are not error suppression.
 
 ## Verified Rabbita APIs
 

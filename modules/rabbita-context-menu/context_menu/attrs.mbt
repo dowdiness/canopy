@@ -13,7 +13,7 @@ fn bool_attr(value : Bool) -> String {
 }
 
 ///|
-fn Model::base_trigger_attrs(self : Model) -> @html.Attrs {
+fn[T] Model::base_trigger_attrs(self : Model[T]) -> @html.Attrs {
   @html.Attrs::build()
   .aria_haspopup("menu")
   .aria_expanded(bool_attr(self.is_open()))
@@ -39,8 +39,8 @@ fn Point::from_mouse_event(event : @dom.MouseEvent) -> Point {
 
 ///|
 #cfg(target="js")
-pub fn Model::trigger_attrs(
-  self : Model,
+pub fn[T] Model::trigger_attrs(
+  self : Model[T],
   on_open : (Point) -> @rabbita.Cmd,
 ) -> @html.Attrs {
   self
@@ -53,8 +53,8 @@ pub fn Model::trigger_attrs(
 
 ///|
 #cfg(not(target="js"))
-pub fn Model::trigger_attrs(
-  self : Model,
+pub fn[T] Model::trigger_attrs(
+  self : Model[T],
   on_open : (Point) -> @rabbita.Cmd,
 ) -> @html.Attrs {
   ignore(on_open)
@@ -66,29 +66,34 @@ pub fn Model::trigger_attrs(
 ///
 /// The panel is positioned with fixed `left`/`top` styles when the model is
 /// open. Consumers may append styling and labeling attributes after this call.
-pub fn Model::panel_attrs(
-  self : Model,
+pub fn[T] Model::panel_attrs(
+  self : Model[T],
   dispatch : (Msg) -> @rabbita.Cmd,
 ) -> @html.Attrs {
-  let attrs = self.menu.panel_attrs(menu_msg => {
-    dispatch(Msg::from_menu_msg(menu_msg))
-  })
-  match self.anchor {
-    Some(point) =>
+  match self.state {
+    Closed => @html.Attrs::build()
+    Open(anchor~, menu~, ..) => {
+      let attrs = menu.panel_attrs(menu_msg => {
+        dispatch(Msg::from_menu_msg(menu_msg))
+      })
       attrs
       .style("position", "fixed")
-      .style("left", px(point.x))
-      .style("top", px(point.y))
-    None => attrs
+      .style("left", px(anchor.x))
+      .style("top", px(anchor.y))
+    }
   }
 }
 
 ///|
 /// Attributes for one context-menu item.
-pub fn Model::item_attrs(
-  self : Model,
+pub fn[T] Model::item_attrs(
+  self : Model[T],
   index : Int,
   dispatch : (Msg) -> @rabbita.Cmd,
 ) -> @html.Attrs {
-  self.menu.item_attrs(index, menu_msg => dispatch(Msg::from_menu_msg(menu_msg)))
+  match self.state {
+    Closed => @html.Attrs::build()
+    Open(menu~, ..) =>
+      menu.item_attrs(index, menu_msg => dispatch(Msg::from_menu_msg(menu_msg)))
+  }
 }

@@ -3,7 +3,7 @@ pub struct Model {
   priv id : String
   priv item_count : Int
   priv focused : Int?
-}
+} derive(Eq)
 
 ///|
 pub(all) enum Msg {

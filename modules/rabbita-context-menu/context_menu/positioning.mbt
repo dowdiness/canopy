@@ -38,11 +38,11 @@ extern "js" fn apply_panel_position(
 /// `Point` anchors are client/viewport coordinates. The command measures the
 /// rendered panel and applies viewport clamping when requested.
 #cfg(target="js")
-pub fn Model::position_cmd(
-  self : Model,
+pub fn[T] Model::position_cmd(
+  self : Model[T],
   positioning? : Positioning = Positioning::default(),
 ) -> @rabbita.Cmd {
-  match self.anchor {
+  match self.anchor() {
     Some(anchor) =>
       @cmd.custom_cmd(
         _ => {
@@ -64,8 +64,8 @@ pub fn Model::position_cmd(
 
 ///|
 #cfg(not(target="js"))
-pub fn Model::position_cmd(
-  self : Model,
+pub fn[T] Model::position_cmd(
+  self : Model[T],
   positioning? : Positioning = Positioning::default(),
 ) -> @rabbita.Cmd {
   ignore((self, positioning))

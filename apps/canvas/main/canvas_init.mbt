@@ -174,14 +174,14 @@ impl ToJson for RenderStateJson with fn to_json(self) {
   fields["selected_nodes"] = self.selected_nodes.to_json()
   match self.connecting {
     None => ()
-    Some(connecting) => fields["connecting"] = connecting.to_json()
+    Some(connecting) => fields["connecting"] = ToJson::to_json(connecting)
   }
   fields["input_compatibility"] = self.input_compatibility.to_json()
   fields["validation"] = self.validation.to_json()
   fields["action_count"] = self.action_count.to_json()
   match self.inspector {
     None => ()
-    Some(inspector) => fields["inspector"] = inspector.to_json()
+    Some(inspector) => fields["inspector"] = ToJson::to_json(inspector)
   }
   Json::object(fields)
 }

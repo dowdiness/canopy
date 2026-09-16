@@ -14,7 +14,7 @@ pub fn scrim_attrs(@cmd.Cmd) -> @html.Attrs
 // Types and methods
 pub struct Model {
   // private fields
-}
+} derive(Eq)
 pub fn Model::focus_cmd(Self) -> @cmd.Cmd
 pub fn Model::focus_cmd_within(Self, root_id~ : String) -> @cmd.Cmd
 pub fn Model::item_attrs(Self, Int, (Msg) -> @cmd.Cmd) -> @html.Attrs

@@ -85,8 +85,8 @@ fn dismissable_layer_sub(id : String, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
 /// `Escape` pressed inside the panel is handled by `panel_attrs`, which also
 /// prevents the default key action.
 #cfg(target="js")
-pub fn Model::subscriptions(
-  self : Model,
+pub fn[T] Model::subscriptions(
+  self : Model[T],
   emit : @rabbita.Emit[Msg],
 ) -> @sub.Sub {
   if self.is_open() {
@@ -98,8 +98,8 @@ pub fn Model::subscriptions(
 
 ///|
 #cfg(not(target="js"))
-pub fn Model::subscriptions(
-  self : Model,
+pub fn[T] Model::subscriptions(
+  self : Model[T],
   emit : @rabbita.Emit[Msg],
 ) -> @sub.Sub {
   ignore((self, emit))
