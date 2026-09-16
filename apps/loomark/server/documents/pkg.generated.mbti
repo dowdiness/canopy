@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/server/documents"
+
+import {
+  "dowdiness/worker_platform/d1",
+  "dowdiness/worker_platform/http",
+  "moonbitlang/async/js_async",
+}
+
+// Values
+pub fn document_request(@http.Request, @d1.Database, String, String) -> @js_async.Promise[@http.Response]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

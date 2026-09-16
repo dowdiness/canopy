@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/worker_platform/http"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror BodyError {
+  TooLarge
+  InvalidBody
+  InvalidLimit
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+#external
+pub type Request
+pub fn Request::header(Self, String) -> String? raise
+pub fn Request::path(Self) -> String
+pub fn Request::query(Self, String) -> String?
+pub async fn Request::read_text(Self, max_bytes~ : Int) -> String
+pub fn Request::verb(Self) -> String
+
+#external
+pub type Response
+pub fn Response::json(Json, status? : Int) -> Self raise
+
+// Type aliases
+
+// Traits

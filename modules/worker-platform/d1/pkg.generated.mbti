@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/worker_platform/d1"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror DatabaseError {
+  OperationFailed
+  InvalidResult
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+#external
+pub type Database
+pub async fn Database::batch(Self, ArrayView[Statement]) -> Array[Array[Json]]
+pub fn Database::prepare(Self, String, ArrayView[Value]) -> Statement raise DatabaseError
+
+#external
+pub type Statement
+pub async fn Statement::all(Self) -> Array[Json]
+pub async fn Statement::first(Self) -> Json?
+
+pub(all) enum Value {
+  Text(String)
+  Number(Double)
+  Null
+}
+
+// Type aliases
+
+// Traits

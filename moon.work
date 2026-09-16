@@ -37,6 +37,7 @@ members = [
   "./modules/rabbita-treeview",
   "./modules/dom-boundary",
   "./modules/js-ffi",
+  "./modules/worker-platform",
   "./modules/visualizer",
   "./modules/analysis",
   "./modules/semantic",

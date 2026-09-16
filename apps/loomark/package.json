@@ -1,15 +1,30 @@
 {
   "name": "loomark-web",
   "private": true,
+  "type": "module",
   "scripts": {
     "build:styles": "tailwindcss -i ./styles/tailwind.css -o ./public/styles.css --minify",
-    "dev:styles": "tailwindcss -i ./styles/tailwind.css -o ./public/styles.css --watch"
+    "dev:styles": "tailwindcss -i ./styles/tailwind.css -o ./public/styles.css --watch",
+    "build:server": "NEW_MOON_MOD=0 moon build server/documents --target js --release",
+    "test:server": "npm run build:server && vitest run --config vitest.server.config.ts",
+    "typecheck:server": "npm run build:server && tsc --noEmit -p server/tsconfig.json",
+    "auth:schema": "node server/generate-auth-schema.mts",
+    "db:migrate:local": "wrangler d1 migrations apply AUTH_DB --local"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.1.10",
+    "@cloudflare/workers-types": "5.20260916.1",
     "@egoist/tailwindcss-icons": "^1.9.2",
     "@iconify-json/lucide": "^1.2.127",
     "@tailwindcss/cli": "4.3.3",
     "@tailwindcss/typography": "0.5.20",
-    "tailwindcss": "4.3.3"
+    "@types/node": "24.13.5",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.132.0"
+  },
+  "dependencies": {
+    "better-auth": "1.7.5"
   }
 }

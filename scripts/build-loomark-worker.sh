@@ -20,5 +20,6 @@ scripts/install-local-warren.sh "$WARREN_BIN_DIR"
 
 cd "$PROJECT_ROOT/apps/loomark"
 npm ci
+npm run build:server
 npm run build:styles
 "$WARREN_BIN_DIR/warren" build

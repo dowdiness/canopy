@@ -97,6 +97,39 @@ work, run `npm run dev:styles` in a second terminal so
 stylesheet is ignored; `styles/tailwind.css` and static utility bundles in
 MoonBit are the sources of truth.
 
+### Account service (integration in progress)
+
+Google authentication uses Better Auth. Its configuration and Worker dispatch
+stay in TypeScript. MoonBit's `server/documents/` owns HTTP admission and wire
+encoding; `server/internal/document_store/` owns typed document results, SQL,
+revision-checked writes, tombstones, and durable retry receipts. Neither
+package uses dynamic JavaScript handles. The reusable
+[worker-platform module](../../modules/worker-platform/README.md) owns typed
+HTTP, D1, and Web Crypto bindings over the existing `js_ffi` bridge.
+The server builds separately from the browser bundle.
+Authentication and documents share one D1 database, with document access scoped
+to the authenticated user.
+
+From `apps/loomark`:
+
+```bash
+npm run test:server
+npm run typecheck:server
+NEW_MOON_MOD=0 moon test --target js -p dowdiness/loomark/server/documents dowdiness/loomark/server/internal/document_store
+```
+
+The npm commands build the server's MoonBit artifact before consuming it.
+Integration tests use disposable local D1 storage and Better Auth's test
+utilities, not real Google credentials or a production login bypass. The
+Worker build also builds this artifact. Database schema generation is a
+development tool, never a public endpoint.
+
+The editor has not yet been connected to these APIs. Passing server tests does
+not establish the phone-to-PC editing experience, real Google callback flow,
+or persistence across a server process restart. The remaining work is tracked
+in the [account sync plan](../../docs/plans/2026-09-16-loomark-account-document-sync.md).
+No shared database or deployment is provisioned by these test commands.
+
 ## Production validation
 
 ```bash

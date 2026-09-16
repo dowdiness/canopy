@@ -1,0 +1,14 @@
+import {
+  "dowdiness/worker_platform/http",
+  "dowdiness/worker_platform/d1",
+  "moonbitlang/core/encoding/utf8",
+  "dowdiness/loomark/server/internal/document_store" @store,
+  "moonbitlang/async/js_async",
+  "moonbitlang/core/json",
+}
+
+supported_targets = "js"
+
+options(
+  link: { "js": { "exports": [ "document_request" ], "format": "esm" } },
+)

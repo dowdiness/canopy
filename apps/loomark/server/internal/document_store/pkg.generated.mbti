@@ -1,0 +1,56 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/server/internal/document_store"
+
+import {
+  "dowdiness/worker_platform/d1",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub async fn commit(@d1.Database, String, String, Mutation) -> CommitResult
+
+pub async fn list(@d1.Database, String, String?) -> Page
+
+pub async fn open(@d1.Database, String, String) -> Document?
+
+pub fn valid_identity(String) -> Bool
+
+// Errors
+pub(all) suberror StoreError {
+  InvalidMutation
+  InvalidStoredData
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub enum CommitResult {
+  Saved(revision~ : Double)
+  Conflict
+  OperationReused
+}
+
+pub struct Document {
+  metadata : Metadata
+  text : String?
+}
+
+pub struct Metadata {
+  id : String
+  revision : Double
+  deleted : Bool
+}
+
+pub struct Mutation {
+  operation_id : String
+  base_revision : Double
+  text : String?
+}
+pub fn Mutation::Mutation(String, Double, String?) -> Self raise StoreError
+
+pub struct Page {
+  documents : ArrayView[Metadata]
+  next : String?
+}
+
+// Type aliases
+
+// Traits

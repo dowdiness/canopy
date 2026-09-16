@@ -1,0 +1,11 @@
+import {
+  "dowdiness/js_ffi" @js,
+}
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/quickcheck",
+  "moonbitlang/core/encoding/utf8",
+} for "test"
+
+supported_targets = "js"
