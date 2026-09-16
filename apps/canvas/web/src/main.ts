@@ -9,6 +9,7 @@ import {
   type NodeParamData,
   type RenderState,
   type SourceGraphOperationResult,
+  type SourceNoticeOperation,
   type SourceNoticeReporter,
 } from './graph-adapter';
 
@@ -324,7 +325,7 @@ function editableKeyboardTarget(target: EventTarget | null): boolean {
 }
 
 function reportSourceOperation(
-  operation: string,
+  operation: SourceNoticeOperation,
   detail: string,
   result: SourceGraphOperationResult,
 ): void {

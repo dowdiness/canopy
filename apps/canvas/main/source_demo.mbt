@@ -78,6 +78,15 @@ impl Eq for SourceDemoModel with fn equal(self, other) {
 const SOURCE_CM_EDITOR_ID = "source-editor-cm"
 
 ///|
+enum SourceNoticeOperation {
+  Renamed
+  ParameterUpdated(String)
+  Inserted(String)
+  Deleted
+  ContextOperation
+}
+
+///|
 enum SourceDemoMsg {
   // Full post-change CodeMirror document; tracks the editor's text so `Apply`
   // and `SyncFromGraph` reason against what the user actually sees, even when
@@ -92,7 +101,8 @@ enum SourceDemoMsg {
   SyncFromGraph
   Mounted
   MountFailed(String)
-  ExternalOperation(String, String, String)
+  ExternalOperation(SourceNoticeOperation, SourceGraphOperationResultJson)
+  InvalidExternalOperation
 }
 
 ///|
@@ -162,48 +172,56 @@ fn source_demo_status_from_result(
 }
 
 ///|
-fn decode_source_graph_operation_result(
-  json_text : String,
-) -> SourceGraphOperationResultJson? {
-  let json = @json.parse(json_text) catch { _ => return None }
-  Some(@json.from_json(json)) catch {
-    _ => None
+fn decode_source_notice(
+  operation : String,
+  detail : String,
+  result_json : String,
+) -> SourceDemoMsg {
+  let operation : SourceNoticeOperation = match (operation, detail) {
+    ("rename", "") => Renamed
+    ("set-param", parameter) => ParameterUpdated(parameter)
+    ("insert", constructor_name) => Inserted(constructor_name)
+    ("delete", "") => Deleted
+    ("context", "") => ContextOperation
+    _ => return InvalidExternalOperation
   }
+  let json = @json.parse(result_json) catch {
+    _ => return InvalidExternalOperation
+  }
+  let result : SourceGraphOperationResultJson = @json.from_json(json) catch {
+    _ => return InvalidExternalOperation
+  }
+  ExternalOperation(operation, result)
 }
 
 ///|
 fn source_demo_external_status(
   result : SourceGraphOperationResultJson,
-  operation : String,
-  detail : String,
+  operation : SourceNoticeOperation,
 ) -> (String, @status.Tone) {
   let (success_message, failure_prefix) = match operation {
-    "rename" =>
+    Renamed =>
       (
         "Renamed node binding through graph-dsl source.", "Source rename rejected",
       )
-    "set-param" =>
+    ParameterUpdated(detail) =>
       (
         "Updated \{detail} through graph-dsl source.",
         "Source parameter edit rejected",
       )
-    "insert" =>
+    Inserted(detail) =>
       ("Inserted \{detail} through graph-dsl source.", "Source insert rejected")
-    "delete" =>
+    Deleted =>
       (
         result.message.unwrap_or("Deleted selection through graph-dsl source."),
         "Source delete rejected",
       )
-    "context" =>
+    ContextOperation =>
       (
         result.message.unwrap_or(
           "Source synchronized from graph-dsl backing store.",
         ),
         "Source context operation rejected",
-      )
-    _ =>
-      (
-        "Source operation applied through graph-dsl source.", "Source operation rejected",
       )
   }
   source_demo_status_from_result(result, success_message, failure_prefix)
@@ -329,30 +347,25 @@ fn source_demo_update_healthy(
         dirty_on_reject=model.dirty,
       )
     }
-    ExternalOperation(operation, detail, result_json) =>
-      match decode_source_graph_operation_result(result_json) {
-        Some(result) => {
-          let (status, status_tone) = source_demo_external_status(
-            result, operation, detail,
-          )
-          source_demo_result_step(
-            model,
-            result,
-            status,
-            status_tone,
-            dirty_on_reject=model.dirty,
-          )
-        }
-        None =>
-          (
-            @rabbita.none,
-            {
-              ..model,
-              status: "Source operation result could not be decoded.",
-              status_tone: @status.Error,
-            },
-          )
-      }
+    ExternalOperation(operation, result) => {
+      let (status, status_tone) = source_demo_external_status(result, operation)
+      source_demo_result_step(
+        model,
+        result,
+        status,
+        status_tone,
+        dirty_on_reject=model.dirty,
+      )
+    }
+    InvalidExternalOperation =>
+      (
+        @rabbita.none,
+        {
+          ..model,
+          status: "Source operation notification could not be decoded.",
+          status_tone: @status.Error,
+        },
+      )
     SyncFromGraph => {
       // Keep out of the way while the editor holds unapplied edits, so an
       // out-of-band graph notification never overwrites in-progress typing.
@@ -536,7 +549,7 @@ fn source_notice_sub_loader(
       let mut current_tagger = tagger
       register(fn(operation, detail, result_json) {
         scheduler.add(
-          current_tagger(ExternalOperation(operation, detail, result_json)),
+          current_tagger(decode_source_notice(operation, detail, result_json)),
         )
       })
       Some({

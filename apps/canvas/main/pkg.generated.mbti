@@ -95,6 +95,8 @@ type SourceGraphOperationResultJson derive(ToJson, @json.FromJson)
 
 type SourceNodePosition
 
+type SourceNoticeOperation
+
 type ValidatedCanvas derive(Eq)
 
 type ValidationJson derive(Eq, ToJson, @json.FromJson)
