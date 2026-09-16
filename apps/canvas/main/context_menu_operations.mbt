@@ -351,17 +351,7 @@ fn apply_menu_operation(
           // Disconnect consumes ephemeral selection even when source lowering
           // rejects the edit. Report that redraw separately from edit success.
           let selection_changed = graph.selected_edge is Some(_)
-          graph.clear_selected_edge()
-          let result = graph.apply_operation(
-            GraphOperation(
-              DisconnectPorts(
-                op.source,
-                op.source_port,
-                op.target,
-                op.target_port,
-              ),
-            ),
-          ) catch {
+          let result = graph.disconnect_edge(op.edge) catch {
             Failure::Failure(detail) =>
               return SourceRejected(
                 source_graph_result_json_for_graph(graph, false, Some(detail)),

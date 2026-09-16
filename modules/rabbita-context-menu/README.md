@@ -121,6 +121,8 @@ Canvas is a consumer example in `apps/canvas/main/context_menu.mbt` and
   Source failure DTOs remain failures, including raised graph errors. Disconnect
   also clears ephemeral selection on rejection; that change requests a redraw,
   not a successful source-edit notification.
+  Source context-menu disconnect delegates to `SourceBackedGraph::disconnect_edge`,
+  shared with keyboard deletion, after checking the captured edge's endpoints.
 - Operation results update feedback and notify the host. There is no opening
   generation or special routing for delayed results.
 - Invalid opening input reports a problem without consuming the existing menu
