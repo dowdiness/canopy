@@ -219,10 +219,7 @@ test "source-backed render snapshot owns input compatibility" {
     compatibility_for(entries, meter.to_string(), "input"),
     content="true",
   )
-  inspect(
-    compatibility_for(entries, osc.to_string(), "input"),
-    content="false",
-  )
+  inspect(compatibility_for(entries, osc.to_string(), "input"), content="false")
   destroy_source_graph(handle)
 }
 
@@ -445,10 +442,12 @@ test "source-backed RenameNode preserves layout keyed by binding" {
   let handle = create_source_graph(source)
   match source_graph_by_handle(handle) {
     Some(graph) =>
-      graph.layout = [{
-        binding: "osc",
-        position: try! @spatial.WorldPoint::from_xy(x=42.0, y=24.0),
-      }]
+      graph.layout = [
+        {
+          binding: "osc",
+          position: try! @spatial.WorldPoint::from_xy(x=42.0, y=24.0),
+        },
+      ]
     None => abort("expected source graph handle")
   }
   let rename = GraphOperation(RenameNode(handle_token(handle, "osc"), "lfo"))

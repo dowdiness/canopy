@@ -10,15 +10,19 @@ priv struct CanvasNodeCatalogItem {
 ///|
 fn workflow_node_catalog() -> Array[CanvasNodeCatalogItem] {
   [
-    { key: "timer", label: "Timer trigger", description: "Start on a schedule" },
-    { key: "http", label: "HTTP request", description: "Call an external API" },
+    {
+      key: "timer",
+      label: "Timer trigger",
+      description: "Start on a schedule",
+    },
+    { key: "http", label: "HTTP request", description: "Call an external API", },
     {
       key: "formatter",
       label: "Format data",
       description: "Map and reshape payloads",
     },
-    { key: "condition", label: "Condition", description: "Branch by a rule" },
-    { key: "loop", label: "Loop", description: "Repeat over records" },
+    { key: "condition", label: "Condition", description: "Branch by a rule", },
+    { key: "loop", label: "Loop", description: "Repeat over records", },
     {
       key: "parallel",
       label: "Parallel split",

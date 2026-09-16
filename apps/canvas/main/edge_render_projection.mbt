@@ -37,10 +37,8 @@ fn render_port_offset(
 
 ///|
 fn render_world_point(x : Double, y : Double) -> @spatial.WorldPoint? {
-  guard finite_render_number(x) && finite_render_number(y) else {
-    return None
-  }
-  let point = @spatial.WorldPoint::from_xy(x=x, y=y) catch {
+  guard finite_render_number(x) && finite_render_number(y) else { return None }
+  let point = @spatial.WorldPoint::from_xy(x~, y~) catch {
     @spatial.CoordinateError::NonFinite => return None
   }
   Some(point)
@@ -87,9 +85,7 @@ fn render_bezier_path(
 }
 
 ///|
-fn edge_render_node_index(
-  nodes : Array[NodeJson],
-) -> Map[String, NodeJson] {
+fn edge_render_node_index(nodes : Array[NodeJson]) -> Map[String, NodeJson] {
   Map::from_array(nodes.map(fn(node) { (node.id, node) }))
 }
 

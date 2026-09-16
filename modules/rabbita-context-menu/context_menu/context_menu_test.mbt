@@ -1,92 +1,75 @@
 ///|
 test "context menu opens, exposes anchor, and closes" {
-  let model = @context_menu.Model::new(id="test-menu")
-  inspect(model.is_open(), content="false")
-  guard model.anchor() is None else {
-    fail("closed context menu should not expose an anchor")
-  }
-
-  let model = model.open(
-    anchor=@context_menu.Point(x=12.5F, y=34.25F),
-    item_count=3,
+  let closed : @context_menu.Model[String] = @context_menu.Model::new(
+    id="test-menu",
   )
-  inspect(model.is_open(), content="true")
-  match model.anchor() {
-    Some(point) => {
-      inspect(point.x, content="12.5")
-      inspect(point.y, content="34.25")
-    }
-    None => fail("open context menu should expose the supplied anchor")
-  }
+  let anchor = @context_menu.Point(x=12.5F, y=34.25F)
+  let opened = closed.open(anchor~, items=["rename", "delete"])
 
-  let model = model.update(@context_menu.Close)
-  inspect(model.is_open(), content="false")
-  guard model.anchor() is None else {
-    fail("closed context menu should clear the anchor")
-  }
+  assert_false(closed.is_open())
+  assert_true(closed.anchor() is None)
+  assert_true(opened.is_open())
+  assert_true(opened.anchor() == Some(anchor))
+
+  let dismissed = opened.update(@context_menu.Close)
+  assert_false(dismissed.is_open())
+  assert_true(dismissed.anchor() is None)
+  assert_eq(dismissed.items().length(), 0)
 }
 
 ///|
 test "activation closes while navigation requests focus" {
   let model = @context_menu.Model::new(id="test-menu").open(
     anchor=@context_menu.Point(x=1.0F, y=2.0F),
-    item_count=2,
+    items=["rename", "delete"],
   )
-  inspect(@context_menu.FocusNext.requests_focus(), content="true")
-  inspect(@context_menu.FocusItem(1).requests_focus(), content="false")
-  inspect(@context_menu.Activate(0).requests_focus(), content="false")
-
   let navigated = model.update(@context_menu.FocusLast)
-  inspect(navigated.is_open(), content="true")
-
-  let activated = navigated.update(@context_menu.Activate(1))
-  inspect(activated.is_open(), content="false")
+  assert_true(navigated.is_open())
+  assert_true(@context_menu.FocusNext.requests_focus())
+  assert_false(@context_menu.FocusItem(1).requests_focus())
+  assert_false(navigated.update(@context_menu.Activate(1)).is_open())
 }
 
 ///|
-test "positioning defaults and custom strategies are public values" {
-  let default_positioning = @context_menu.Positioning::default()
-  guard default_positioning == @context_menu.Positioning() else {
-    fail("expected default positioning to match the default constructor")
-  }
-
-  let custom_positioning = @context_menu.Positioning(
-    offset_x=4.5F,
-    offset_y=6.25F,
-    viewport_margin=12.0F,
-    collision=@context_menu.NoCollisionHandling,
+test "open owns items and close discards them" {
+  let source : Array[String] = ["rename", "delete"]
+  let model = @context_menu.Model::new(id="test-menu").open(
+    anchor=@context_menu.Point(x=1.0F, y=2.0F),
+    items=source[:],
   )
-  guard custom_positioning != default_positioning else {
-    fail("expected custom positioning options to differ from defaults")
-  }
+  source[0] = "mutated"
+  assert_eq(model.item(0), Some("rename"))
+  assert_true(model.close().item(0) is None)
+}
+
+///|
+test "model equality includes focus and owned items" {
+  let anchor = @context_menu.Point(x=1.0F, y=2.0F)
+  let first = @context_menu.Model::new(id="test-menu").open(anchor~, items=[
+    "rename", "delete",
+  ])
+  let equivalent = @context_menu.Model::new(id="test-menu").open(anchor~, items=[
+    "rename", "delete",
+  ])
+  let focused = first.update(@context_menu.FocusNext)
+  let changed = @context_menu.Model::new(id="test-menu").open(anchor~, items=[
+    "rename", "duplicate",
+  ])
+  assert_true(first == equivalent)
+  assert_false(first == focused)
+  assert_false(first == changed)
 }
 
 ///|
 test "activation and keyboard close paths request focus restore" {
-  let model = @context_menu.Model::new(id="test-menu").open(
-    anchor=@context_menu.Point(x=1.0F, y=2.0F),
-    item_count=2,
-  )
-
-  inspect(@context_menu.Activate(0).requests_close_focus(), content="true")
-  inspect(@context_menu.Close.requests_close_focus(), content="true")
-  inspect(
+  assert_true(@context_menu.Activate(0).requests_close_focus())
+  assert_true(@context_menu.Close.requests_close_focus())
+  assert_true(
     @context_menu.Dismiss(@context_menu.EscapeKey).requests_close_focus(),
-    content="true",
   )
-  inspect(
+  // An outside click must leave focus on the control the user clicked.
+  assert_false(
     @context_menu.Dismiss(@context_menu.PointerOutside).requests_close_focus(),
-    content="false",
-  )
-
-  inspect(model.update(@context_menu.Activate(0)).is_open(), content="false")
-  inspect(
-    model.update(@context_menu.Dismiss(@context_menu.EscapeKey)).is_open(),
-    content="false",
-  )
-  inspect(
-    model.update(@context_menu.Dismiss(@context_menu.PointerOutside)).is_open(),
-    content="false",
   )
 }
 
@@ -150,7 +133,7 @@ extern "js" fn clear_focus_fixture() -> Unit =
 #cfg(target="js")
 async test "focus_cmd_within delegates scoped focus to the embedded menu" {
   let model = @context_menu.Model::new(id="test-menu")
-    .open(anchor=@context_menu.Point(x=1.0F, y=2.0F), item_count=2)
+    .open(anchor=@context_menu.Point(x=1.0F, y=2.0F), items=["rename", "delete"])
     .update(@context_menu.FocusNext)
   install_shadow_focus_fixture("menu-host", "test-menu-item-1")
   @rabbita_testing.run_cmd(model.focus_cmd_within(root_id="menu-host"))

@@ -184,7 +184,7 @@ fn source_node_to_json(
   let base = node_to_json(node)
   match node_index.get(node.id.to_string()) {
     Some(graph_node) =>
-      { ..base, params: graph_node.params().map(graph_param_json) }
+      { ..base, params: graph_node.params().map(graph_param_json), }
     None => base
   }
 }
@@ -317,7 +317,7 @@ fn SourceBackedGraph::state_for_doc(
 fn source_graph_base_canvas_state(graph : SourceBackedGraph) -> CanvasState {
   match source_graph_doc_for_render(graph) {
     Some(doc) => graph.state_for_doc(doc)
-    None => { ..empty_source_canvas_state(), viewport: graph.viewport }
+    None => { ..empty_source_canvas_state(), viewport: graph.viewport, }
   }
 }
 
@@ -335,7 +335,7 @@ fn source_graph_canvas_state(graph : SourceBackedGraph) -> CanvasState {
 fn source_graph_validation(graph : SourceBackedGraph) -> Array[ValidationJson] {
   let messages : Array[ValidationJson] = []
   for message in graph.attachment.diagnostics() {
-    messages.push({ severity: "error", message, node_id: None })
+    messages.push({ severity: "error", message, node_id: None, })
   }
   messages
 }
@@ -357,7 +357,7 @@ fn source_graph_operation_result_json(
   action_count : Int,
   message : String?,
 ) -> SourceGraphOperationResultJson {
-  { applied, source, diagnostics, action_count, message }
+  { applied, source, diagnostics, action_count, message, }
 }
 
 ///|
@@ -368,11 +368,11 @@ fn source_graph_operation_result(
   action_count : Int,
   message : String?,
 ) -> String {
-  source_graph_operation_result_json(
-    applied, source, diagnostics, action_count, message,
-  )
-  .to_json()
-  .stringify()
+  ToJson::to_json(
+    source_graph_operation_result_json(
+      applied, source, diagnostics, action_count, message,
+    ),
+  ).stringify()
 }
 
 ///|
@@ -396,9 +396,7 @@ fn source_graph_result_for_graph(
   applied : Bool,
   message : String?,
 ) -> String {
-  source_graph_result_json_for_graph(graph, applied, message)
-  .to_json()
-  .stringify()
+  ToJson::to_json(source_graph_result_json_for_graph(graph, applied, message)).stringify()
 }
 
 ///|
@@ -655,7 +653,7 @@ fn realized_source_operation(
           GraphOperation(
             AddNode(
               @graph_model.CanvasNode::from_parts(
-                id=id,
+                id~,
                 position=node.position(),
                 size=node.size(),
                 kind=node.kind,
@@ -827,7 +825,7 @@ fn SourceBackedGraph::rename_selection_token(
     Some(id) if id == old => Some(new)
     other => other
   }
-  self.interaction = { ..self.interaction, selected, selected_nodes }
+  self.interaction = { ..self.interaction, selected, selected_nodes, }
 }
 
 ///|
@@ -838,7 +836,7 @@ fn SourceBackedGraph::rename_layout_binding(
 ) -> Unit {
   self.layout = self.layout.map(fn(position) {
     if position.binding == old_binding {
-      { ..position, binding: new_binding }
+      { ..position, binding: new_binding, }
     } else {
       position
     }
@@ -885,7 +883,7 @@ fn SourceBackedGraph::sync_layout_from_state(
 ) -> Unit {
   let layout : Array[SourceNodePosition] = []
   for node in state.nodes {
-    layout.push({ binding: node.title, position: node.position() })
+    layout.push({ binding: node.title, position: node.position(), })
   }
   self.layout = layout
 }
@@ -930,11 +928,7 @@ fn SourceBackedGraph::pointer_down(
     @spatial.CoordinateError::NonFinite => return false
   }
   let before = source_graph_base_canvas_state(self)
-  let state = @graph_model.update_pointer_down(
-    before,
-    target,
-    screen,
-  ) catch {
+  let state = @graph_model.update_pointer_down(before, target, screen) catch {
     @spatial.CoordinateError::NonFinite => return false
   }
   if state.interaction != before.interaction {
@@ -975,10 +969,7 @@ fn SourceBackedGraph::pointer_move(
           try {
             let preview = @graph_model.drag_preview_from_move(drag, world)
             self.drag_preview = preview
-            self.interaction = {
-              ..state.interaction,
-              did_move: true,
-            }
+            self.interaction = { ..state.interaction, did_move: true, }
           } catch {
             @spatial.CoordinateError::NonFinite => ()
           }
@@ -1044,19 +1035,12 @@ fn SourceBackedGraph::complete_connection(
   let operation = match target {
     Some((target_node_id, target_port_id)) =>
       if @graph_model.can_commit_edge(
-        state,
-        source_node_id,
-        source_port_id,
-        target_node_id,
-        target_port_id,
-      ) {
+          state, source_node_id, source_port_id, target_node_id, target_port_id,
+        ) {
         Some(
           GraphOperation(
             ConnectPorts(
-              source_node_id,
-              source_port_id,
-              target_node_id,
-              target_port_id,
+              source_node_id, source_port_id, target_node_id, target_port_id,
             ),
           ),
         )
@@ -1089,22 +1073,21 @@ fn SourceBackedGraph::zoom(
   let screen = ScreenPoint::from_xy(x=cx, y=cy) catch {
     @spatial.CoordinateError::NonFinite => return
   }
-  let absolute_scale = match canvas_wheel_target_scale(
-    before.viewport.scale(),
-    delta_y,
-    delta_mode,
-    ctrl_key,
-    canvas_pointer_is_mac_like(),
-    min_scale=CANVAS_MIN_SCALE,
-    max_scale=CANVAS_MAX_SCALE,
-  ) {
+  let absolute_scale = match
+    canvas_wheel_target_scale(
+      before.viewport.scale(),
+      delta_y,
+      delta_mode,
+      ctrl_key,
+      canvas_pointer_is_mac_like(),
+      min_scale=CANVAS_MIN_SCALE,
+      max_scale=CANVAS_MAX_SCALE,
+    ) {
     Some(scale) => scale
     None => return
   }
   let next = @graph_model.update_viewport_scale_around(
-    before,
-    absolute_scale,
-    screen,
+    before, absolute_scale, screen,
   )
   if next.viewport != before.viewport || next.action_log != before.action_log {
     self.viewport = next.viewport
@@ -1145,6 +1128,26 @@ fn next_source_binding(doc : @graph_dsl.GraphDoc, base : String) -> String {
 }
 
 ///|
+/// Build and apply a unique source insertion after the caller has resolved the
+/// live graph. Keeping this receiver-based avoids looking up the handle twice.
+fn SourceBackedGraph::insert_unique_result(
+  self : SourceBackedGraph,
+  binding_base : String,
+  constructor_name : String,
+) -> SourceGraphOperationResultJson raise Failure {
+  let doc = match source_graph_current_doc(self) {
+    Ok(doc) => doc
+    Err(message) =>
+      return source_graph_result_json_for_graph(self, false, Some(message))
+  }
+  let binding = next_source_binding(doc, binding_base)
+  let operation = GraphOperation(
+    AddNode(source_graph_node_payload(binding, constructor_name)),
+  )
+  self.apply_operation(operation)
+}
+
+///|
 fn source_graph_insert_unique_result(
   handle : Int,
   binding_base : String,
@@ -1161,16 +1164,7 @@ fn source_graph_insert_unique_result(
         Some("source graph handle not found"),
       )
   }
-  let doc = match source_graph_current_doc(graph) {
-    Ok(doc) => doc
-    Err(message) =>
-      return source_graph_result_json_for_graph(graph, false, Some(message))
-  }
-  let binding = next_source_binding(doc, binding_base)
-  let operation = GraphOperation(
-    AddNode(source_graph_node_payload(binding, constructor_name)),
-  )
-  graph.apply_operation(operation)
+  graph.insert_unique_result(binding_base, constructor_name)
 }
 
 ///|
@@ -1214,9 +1208,9 @@ pub fn source_graph_insert_unique(
   binding_base : String,
   constructor_name : String,
 ) -> String raise Failure {
-  source_graph_insert_unique_result(handle, binding_base, constructor_name)
-  .to_json()
-  .stringify()
+  ToJson::to_json(
+    source_graph_insert_unique_result(handle, binding_base, constructor_name),
+  ).stringify()
 }
 
 ///|
@@ -1317,7 +1311,7 @@ pub fn set_source_graph_source_result(
   handle : Int,
   source : String,
 ) -> String raise Failure {
-  set_source_graph_source_checked(handle, source).to_json().stringify()
+  ToJson::to_json(set_source_graph_source_checked(handle, source)).stringify()
 }
 
 ///|
@@ -1336,11 +1330,7 @@ fn source_graph_pointer_down(
 
 ///|
 #warnings("-unused_value")
-fn source_graph_pointer_move(
-  handle : Int,
-  sx : Double,
-  sy : Double,
-) -> Unit {
+fn source_graph_pointer_move(handle : Int, sx : Double, sy : Double) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_move(sx, sy)
     None => ()
@@ -1383,10 +1373,17 @@ pub fn delete_source_graph_selection(handle : Int) -> String raise Failure {
   match source_graph_by_handle(handle) {
     Some(graph) =>
       match graph.delete_selection() {
-        Some(result) => result.to_json().stringify()
+        Some(result) => ToJson::to_json(result).stringify()
         None => "null"
       }
-    None => source_graph_operation_result(false, "", [], 0, Some("source graph handle not found"))
+    None =>
+      source_graph_operation_result(
+        false,
+        "",
+        [],
+        0,
+        Some("source graph handle not found"),
+      )
   }
 }
 
@@ -1477,7 +1474,8 @@ fn SourceBackedGraph::apply_operation(
       self.append_operation(realized_source_operation(new_doc, operation))
       source_graph_result_json_for_graph(self, true, None)
     }
-    Err(message) => source_graph_result_json_for_graph(self, false, Some(message))
+    Err(message) =>
+      source_graph_result_json_for_graph(self, false, Some(message))
   }
 }
 
@@ -1502,5 +1500,5 @@ pub fn apply_source_graph_operation(
     Err(message) =>
       return source_graph_result_for_graph(graph, false, Some(message))
   }
-  graph.apply_operation(operation).to_json().stringify()
+  ToJson::to_json(graph.apply_operation(operation)).stringify()
 }

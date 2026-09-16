@@ -100,7 +100,7 @@ fn deletion_span_for_graph_node(
   source : String,
   node : @graph_dsl.GraphNode,
 ) -> SourceDeletionSpan {
-  { start: node.start(), end: source_line_delete_end(source, node.end()) }
+  { start: node.start(), end: source_line_delete_end(source, node.end()), }
 }
 
 ///|
@@ -145,7 +145,7 @@ fn merged_deletion_spans(
       let last = merged[last_index]
       if span.start <= last.end {
         if span.end > last.end {
-          merged[last_index] = { ..last, end: span.end }
+          merged[last_index] = { ..last, end: span.end, }
         }
       } else {
         merged.push(span)

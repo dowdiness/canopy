@@ -111,15 +111,12 @@ test "runtime contract: pointermove previews before one durable MoveNodes commit
   contract_assert_close(after_node.position().y(), -95.0)
   let operations = contract_runtime_operations(runtime)
   assert_eq(operations.length(), 1)
-  contract_expect_move_nodes(
-    operations[0],
-    [
-      @spatial.ItemPosition::from_id_and_point(
-        id=node_id,
-        point=try! @spatial.WorldPoint::from_xy(x=-390.0, y=-95.0),
-      ),
-    ],
-  )
+  contract_expect_move_nodes(operations[0], [
+    @spatial.ItemPosition::from_id_and_point(
+      id=node_id,
+      point=try! @spatial.WorldPoint::from_xy(x=-390.0, y=-95.0),
+    ),
+  ])
 }
 
 ///|
@@ -224,8 +221,14 @@ test "source-backed runtime contract: pointermove previews before one local Move
     source_graph_base_canvas_state(graph),
     osc,
   )
-  contract_assert_close(durable_during.position().x(), before_node.position().x())
-  contract_assert_close(durable_during.position().y(), before_node.position().y())
+  contract_assert_close(
+    durable_during.position().x(),
+    before_node.position().x(),
+  )
+  contract_assert_close(
+    durable_during.position().y(),
+    before_node.position().y(),
+  )
   assert_eq(ok_operation_log(get_source_graph_action_log(handle)).length(), 0)
   let mid_preview = contract_state_node(source_graph_canvas_state(graph), osc)
   contract_assert_close(mid_preview.position().x(), 80.0)
@@ -247,15 +250,12 @@ test "source-backed runtime contract: pointermove previews before one local Move
   contract_assert_close(after_node.position().y(), 60.0)
   let operations = ok_operation_log(get_source_graph_action_log(handle))
   assert_eq(operations.length(), 1)
-  contract_expect_move_nodes(
-    operations[0],
-    [
-      @spatial.ItemPosition::from_id_and_point(
-        id=osc,
-        point=try! @spatial.WorldPoint::from_xy(x=90.0, y=60.0),
-      ),
-    ],
-  )
+  contract_expect_move_nodes(operations[0], [
+    @spatial.ItemPosition::from_id_and_point(
+      id=osc,
+      point=try! @spatial.WorldPoint::from_xy(x=90.0, y=60.0),
+    ),
+  ])
   destroy_source_graph(handle)
 }
 

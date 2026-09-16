@@ -48,7 +48,7 @@ fn edge_projection_test_connecting(
   cursor_x : Double,
   cursor_y : Double,
 ) -> ConnectingJson {
-  { from, from_port, cursor_x, cursor_y, path_d: None }
+  { from, from_port, cursor_x, cursor_y, path_d: None, }
 }
 
 ///|
@@ -81,13 +81,7 @@ test "edge projection derives anchors and exact horizontal cubic paths" {
     [@graph_model.port("in", "in", Any)],
     [],
   )
-  let edge = edge_projection_test_edge(
-    "edge",
-    "source",
-    "out",
-    "target",
-    "in",
-  )
+  let edge = edge_projection_test_edge("edge", "source", "out", "target", "in")
   let nodes = [source, target]
   let node_index = edge_render_node_index(nodes)
   let projected = edge_projection_test_required(
@@ -97,7 +91,7 @@ test "edge projection derives anchors and exact horizontal cubic paths" {
   assert_eq(projected.aria_label, "Connection source.out → target.in")
   assert_true(!projected.selected)
 
-  let nearby_target = { ..target, x: 130.0 }
+  let nearby_target = { ..target, x: 130.0, }
   let nearby = edge_projection_test_required(
     project_edge_render(
       edge_render_node_index([source, nearby_target]),
@@ -128,13 +122,7 @@ test "edge projection captures selection and omits missing graph targets" {
     [@graph_model.port("in", "in", Any)],
     [],
   )
-  let edge = edge_projection_test_edge(
-    "edge",
-    "source",
-    "out",
-    "target",
-    "in",
-  )
+  let edge = edge_projection_test_edge("edge", "source", "out", "target", "in")
   let selected = edge_projection_test_required(
     project_edge_render(
       edge_render_node_index([source, target]),
@@ -144,12 +132,12 @@ test "edge projection captures selection and omits missing graph targets" {
   )
   assert_true(selected.selected)
 
-  let missing_source = { ..edge, source: NodeId("missing") }
+  let missing_source = { ..edge, source: NodeId("missing"), }
   let node_index = edge_render_node_index([source, target])
   assert_true(project_edge_render(node_index, missing_source, None) is None)
-  let missing_target = { ..edge, target: NodeId("missing") }
+  let missing_target = { ..edge, target: NodeId("missing"), }
   assert_true(project_edge_render(node_index, missing_target, None) is None)
-  let missing_port = { ..edge, target_port: "missing" }
+  let missing_port = { ..edge, target_port: "missing", }
   assert_true(project_edge_render(node_index, missing_port, None) is None)
 }
 
@@ -173,31 +161,27 @@ test "edge projection rejects anchor and control-point overflow" {
     [@graph_model.port("in", "in", Any)],
     [],
   )
-  let edge = edge_projection_test_edge(
-    "edge",
-    "source",
-    "out",
-    "target",
-    "in",
-  )
+  let edge = edge_projection_test_edge("edge", "source", "out", "target", "in")
 
-  let overflowing_anchor = { ..source, x: 1.0e308, w: 1.0e308 }
+  let overflowing_anchor = { ..source, x: 1.0e308, w: 1.0e308, }
   assert_true(
     project_edge_render(
       edge_render_node_index([overflowing_anchor, target]),
       edge,
       None,
-    ) is None,
+    )
+    is None,
   )
 
-  let far_source = { ..source, x: 1.0e308, w: 0.0 }
-  let far_target = { ..target, x: -1.0e308, w: 0.0 }
+  let far_source = { ..source, x: 1.0e308, w: 0.0, }
+  let far_target = { ..target, x: -1.0e308, w: 0.0, }
   assert_true(
     project_edge_render(
       edge_render_node_index([far_source, far_target]),
       edge,
       None,
-    ) is None,
+    )
+    is None,
   )
 }
 
@@ -229,22 +213,22 @@ test "pending edge projection follows the same source anchor and rejects invalid
     Some("M 110 60 C 205 60, 205 80, 300 80"),
   )
   assert_true(
-    project_pending_path(
-      node_index,
-      Some({ ..connecting, from: "missing" }),
-    ) is None,
+    project_pending_path(node_index, Some({ ..connecting, from: "missing", }))
+    is None,
   )
   assert_true(
     project_pending_path(
       node_index,
-      Some({ ..connecting, from_port: "missing" }),
-    ) is None,
+      Some({ ..connecting, from_port: "missing", }),
+    )
+    is None,
   )
   assert_true(
     project_pending_path(
       node_index,
-      Some({ ..connecting, cursor_x: 1.0 / 0.0 }),
-    ) is None,
+      Some({ ..connecting, cursor_x: 1.0 / 0.0, }),
+    )
+    is None,
   )
   assert_true(project_pending_path(node_index, None) is None)
 }

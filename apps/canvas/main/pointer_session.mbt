@@ -215,7 +215,10 @@ fn canvas_pointer_set_panning(root : @dom.Element, active : Bool) -> Unit {
 }
 
 ///|
-fn canvas_pointer_release_capture(root : @dom.Element, pointer_id : Int) -> Unit {
+fn canvas_pointer_release_capture(
+  root : @dom.Element,
+  pointer_id : Int,
+) -> Unit {
   root.release_pointer_capture(pointer_id) catch {
     @dom.DOMExceptionError(..) => ()
   }
@@ -238,12 +241,9 @@ fn canvas_pointer_target_port(hit : CanvasPointerHit) -> String {
 }
 
 ///|
-fn canvas_pointer_source_target(
-  hit : CanvasPointerHit,
-) -> (NodeId, String)? {
+fn canvas_pointer_source_target(hit : CanvasPointerHit) -> (NodeId, String)? {
   match hit {
-    Handle(node_id~, side=Input, port_id~) =>
-      Some((NodeId(node_id), port_id))
+    Handle(node_id~, side=Input, port_id~) => Some((NodeId(node_id), port_id))
     _ => None
   }
 }
@@ -364,7 +364,7 @@ fn canvas_pointer_start(
     canvas_pointer_release_capture(root, pointer_id)
     return model
   }
-  let next = { ..model, session: next_session }
+  let next = { ..model, session: next_session, }
   canvas_clear_selected_edge(model.handle)
   match hit {
     Background => canvas_pointer_set_panning(root, true)
@@ -453,7 +453,7 @@ fn canvas_pointer_finish(
       }
       let hit = canvas_pointer_release_hit(input.root, event)
       canvas_pointer_set_panning(input.root, false)
-      let next = { ..model, session: Idle }
+      let next = { ..model, session: Idle, }
       let node_id = canvas_pointer_node_id(hit, down_node_id)
       let target_port_id = canvas_pointer_target_port(hit)
       match canvas_backing(model.handle) {
@@ -470,7 +470,7 @@ fn canvas_pointer_finish(
       }
       let hit = canvas_pointer_release_hit(input.root, event)
       canvas_pointer_set_panning(input.root, false)
-      let next = { ..model, session: Idle }
+      let next = { ..model, session: Idle, }
       canvas_pointer_complete_source_connection(
         next, source_node_id, source_port_id, hit,
       )
@@ -495,7 +495,7 @@ fn canvas_pointer_interrupt(
         return model
       }
       canvas_pointer_set_panning(input.root, false)
-      let next = { ..model, session: Idle }
+      let next = { ..model, session: Idle, }
       match canvas_backing(model.handle) {
         Some(backing) => backing.pointer_interrupt()
         None => ()
@@ -509,7 +509,7 @@ fn canvas_pointer_interrupt(
         return model
       }
       canvas_pointer_set_panning(input.root, false)
-      let next = { ..model, session: Idle }
+      let next = { ..model, session: Idle, }
       match canvas_backing(model.handle) {
         Some(backing) => backing.pointer_interrupt()
         None => ()
@@ -555,7 +555,7 @@ fn canvas_pointer_message(
                 }
               }
           }
-          Some(Wheel({ delta_y, delta_mode, ctrl_key, screen }))
+          Some(Wheel({ delta_y, delta_mode, ctrl_key, screen, }))
         }
       }
     "click" =>
@@ -733,7 +733,7 @@ pub fn mount_canvas_pointer_session(
 ) -> Unit {
   @rabbita.new(fn() {
     let (model, _emit) = @rabbita.create_state(
-      { handle, session: Idle },
+      { handle, session: Idle, },
       update=fn(model, message, _emit) {
         (canvas_pointer_update(model, message, on_change), @rabbita.none)
       },
