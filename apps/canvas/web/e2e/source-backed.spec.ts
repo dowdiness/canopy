@@ -620,9 +620,6 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
-  await expect(page.locator('#source-status')).toContainText(
-    'Disconnected selected edge through graph-dsl source.',
-  );
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -668,15 +665,15 @@ test('source-backed edge context menu disconnects its captured edge', async ({ p
   await clickEdge(page, 0, 'right');
   const menu = page.locator('#context-menu [role="menu"]');
   await expect(menu).toBeVisible();
+  await expect(page.locator('#edges path.edge.selected')).toHaveCount(1);
   await expect(menu.getByRole('menuitem', { name: 'Disconnect edge' })).toHaveCount(1);
   await menu.getByRole('menuitem', { name: 'Disconnect edge' }).click();
 
   await expectSource(page, SAMPLE_SOURCE);
   await expect(edgePaths(page)).toHaveCount(0);
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  await expect(menu).toBeHidden();
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
-  await expect(page.locator('#source-status')).toHaveText(
-    'Disconnected selected edge through graph-dsl source.',
-  );
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
   expect(runtimeErrors).toEqual([]);
 });

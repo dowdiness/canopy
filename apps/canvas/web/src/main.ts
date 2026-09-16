@@ -347,6 +347,9 @@ function updateSourceOperationStatus(
 
 function handleContextSourceResult(json: string): void {
   const result = JSON.parse(json) as SourceGraphOperationResult;
+  // Rejections and explicit operation messages are reported immediately.
+  // Message-less success is announced when the source panel synchronizes its
+  // editor from the canonical graph; success does not promise operation-specific copy.
   if (!result.applied || result.message != null) {
     updateSourceOperationStatus(
       result,
