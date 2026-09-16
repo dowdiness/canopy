@@ -151,7 +151,7 @@ fn canvas_render_layer_update(
   match message {
     RenderState(json) =>
       match parse_canvas_render_layer_snapshot(json) {
-        Some(snapshot) => { snapshot: Some(snapshot) }
+        Some(snapshot) => { snapshot: Some(snapshot), }
         None => model
       }
   }
@@ -245,13 +245,9 @@ fn canvas_handle_view(
   let top = ((index + 1).to_double() * 100.0 / (port_count + 1).to_double()).to_string() +
     "%"
   let attrs = @html.Attrs::build()
-    .class(canvas_handle_class(
-      node,
-      side,
-      port,
-      connecting_active,
-      compatibility,
-    ))
+    .class(
+      canvas_handle_class(node, side, port, connecting_active, compatibility),
+    )
     .data_set("handle", side)
     .data_set("node-id", node.id)
     .data_set("port-id", port.id)
@@ -505,7 +501,7 @@ fn canvas_render_layer_subscriptions(
 pub fn mount_canvas_render_layer() -> Unit {
   @rabbita.new(fn() {
     let (model, _emit) = @rabbita.create_state(
-      { snapshot: None },
+      { snapshot: None, },
       update=fn(model, message, _emit) {
         (canvas_render_layer_update(model, message), @rabbita.none)
       },

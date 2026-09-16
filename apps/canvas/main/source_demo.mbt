@@ -186,12 +186,12 @@ fn source_demo_result_step(
         source_demo_notify(model),
         @codemirror.set_doc(SOURCE_CM_EDITOR_ID, result.source),
       ]),
-      { ..model, editor: result.source, dirty: false, status, status_tone },
+      { ..model, editor: result.source, dirty: false, status, status_tone, },
     )
   } else {
     (
       source_demo_notify(model),
-      { ..model, dirty: dirty_on_reject, status, status_tone },
+      { ..model, dirty: dirty_on_reject, status, status_tone, },
     )
   }
 }
@@ -203,7 +203,7 @@ fn source_demo_update_healthy(
   model : SourceDemoModel,
 ) -> (Cmd, SourceDemoModel) raise Failure {
   match msg {
-    EditorSynced(source) => (@rabbita.none, { ..model, editor: source })
+    EditorSynced(source) => (@rabbita.none, { ..model, editor: source, })
     SourceChanged(changes) => {
       // The editor is the source of truth for text. Lower the change
       // incrementally, passing the editor's post-change buffer (`model.editor`,
@@ -226,7 +226,7 @@ fn source_demo_update_healthy(
       )
       (
         source_demo_notify(model),
-        { ..model, dirty: !result.applied, status, status_tone },
+        { ..model, dirty: !result.applied, status, status_tone, },
       )
     }
     ApplySource => {
@@ -301,7 +301,7 @@ fn source_demo_update_healthy(
         )
       }
     }
-    Mounted => (@rabbita.none, { ..model, mounted: true })
+    Mounted => (@rabbita.none, { ..model, mounted: true, })
     MountFailed(message) =>
       // `mounted` stays at its prior value (false): mount fires once via
       // the init command, so a failure can only arrive while `mounted` is still
@@ -328,7 +328,7 @@ fn source_demo_update(
 ) -> (Cmd, SourceDemoModel) {
   if model.parser_failed {
     return match msg {
-      EditorSynced(source) => (@rabbita.none, { ..model, editor: source })
+      EditorSynced(source) => (@rabbita.none, { ..model, editor: source, })
       _ => (@rabbita.none, model)
     }
   }

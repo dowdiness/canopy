@@ -64,7 +64,7 @@ fn CanvasHostPolicy::validate_canvas_document(
     edges: document.edges.copy(),
     next_node_id: document.next_node_id,
   }
-  { document: snapshot, validation: (self.validate_document)(snapshot) }
+  { document: snapshot, validation: (self.validate_document)(snapshot), }
 }
 
 ///|
@@ -114,7 +114,7 @@ fn render_node_with_preview(node : NodeJson, preview : DragPreview) -> NodeJson 
     None => node
     Some(pos) => {
       let point = pos.point
-      { ..node, x: point.x(), y: point.y() }
+      { ..node, x: point.x(), y: point.y(), }
     }
   }
 }
@@ -143,10 +143,8 @@ fn connecting_to_json_with_path(
 ) -> ConnectingJson? {
   match connecting_to_json(connecting) {
     None => None
-    Some(value) => Some({
-      ..value,
-      path_d: project_pending_path(node_index, Some(value)),
-    })
+    Some(value) =>
+      Some({ ..value, path_d: project_pending_path(node_index, Some(value)), })
   }
 }
 
@@ -239,11 +237,9 @@ fn CanvasHostPolicy::render_state_json(
   {
     viewport: state.viewport,
     nodes: rendered_nodes.copy(),
-    edges: project_edge_renders(
-      node_index,
-      state.edges,
-      selected_edge,
-    ).map(edge_render_to_json),
+    edges: project_edge_renders(node_index, state.edges, selected_edge).map(
+      edge_render_to_json,
+    ),
     selected,
     selected_edge: match selected_edge {
       None => None

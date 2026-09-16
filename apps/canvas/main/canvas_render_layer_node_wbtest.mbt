@@ -21,7 +21,7 @@ test "render layer view renders keyed nodes, handles, edges, and connection stat
   )
   let model : CanvasRenderLayerState = {
     snapshot: Some({
-      viewport: { x: 10.0, y: 20.0, scale: 1.5 },
+      viewport: { x: 10.0, y: 20.0, scale: 1.5, },
       nodes: [source, target],
       edges: [],
       selected_nodes: ["target"],
@@ -33,10 +33,10 @@ test "render layer view renders keyed nodes, handles, edges, and connection stat
         path_d: Some("M 0 0 C 40 0, 40 10, 80 10"),
       }),
       input_compatibility: [
-        { node_id: "target", port_id: "in", compatible: true },
+        { node_id: "target", port_id: "in", compatible: true, },
       ],
       validation: [
-        { severity: "error", message: "broken", node_id: Some("target") },
+        { severity: "error", message: "broken", node_id: Some("target"), },
       ],
     }),
   }
@@ -79,18 +79,12 @@ test "missing compatibility is incompatible only during a connection" {
   let explicitly_incompatible : Map[(String, String), Bool] = Map([])
   explicitly_incompatible[("target", "in")] = false
   assert_eq(
-    canvas_handle_class(
-      target,
-      "input",
-      input,
-      true,
-      explicitly_incompatible,
-    ),
+    canvas_handle_class(target, "input", input, true, explicitly_incompatible),
     "handle input incompatible-target",
   )
   let active : CanvasRenderLayerState = {
     snapshot: Some({
-      viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+      viewport: { x: 0.0, y: 0.0, scale: 1.0, },
       nodes: [target],
       edges: [],
       selected_nodes: [],
@@ -107,7 +101,7 @@ test "missing compatibility is incompatible only during a connection" {
   }
   let idle : CanvasRenderLayerState = {
     snapshot: Some({
-      viewport: { x: 0.0, y: 0.0, scale: 1.0 },
+      viewport: { x: 0.0, y: 0.0, scale: 1.0, },
       nodes: [target],
       edges: [],
       selected_nodes: [],
@@ -116,12 +110,12 @@ test "missing compatibility is incompatible only during a connection" {
       validation: [],
     }),
   }
-  let active_rendered = @rabbita_testing.server_side_render(
-    () => canvas_render_layer_view(active),
-  )
-  let idle_rendered = @rabbita_testing.server_side_render(
-    () => canvas_render_layer_view(idle),
-  )
+  let active_rendered = @rabbita_testing.server_side_render(() => {
+    canvas_render_layer_view(active)
+  })
+  let idle_rendered = @rabbita_testing.server_side_render(() => {
+    canvas_render_layer_view(idle)
+  })
   assert_true(
     active_rendered.contains("class=\"handle input incompatible-target\""),
   )

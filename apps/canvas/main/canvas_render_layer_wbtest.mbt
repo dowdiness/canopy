@@ -3,7 +3,7 @@
 test "render layer view renders accessible keyed paths and pending path" {
   let model : CanvasRenderLayerState = {
     snapshot: Some({
-      viewport: { x: 10.0, y: 20.0, scale: 1.5 },
+      viewport: { x: 10.0, y: 20.0, scale: 1.5, },
       nodes: [],
       edges: [
         {
@@ -46,7 +46,7 @@ test "render layer update accepts the shared render snapshot shape" {
   let parsed_snapshot = parse_canvas_render_layer_snapshot(json)
   assert_true(parsed_snapshot is Some(_))
   let next = canvas_render_layer_update(
-    { snapshot: None },
+    { snapshot: None, },
     CanvasRenderLayerMsg::RenderState(json),
   )
   match next.snapshot {
@@ -68,7 +68,7 @@ test "render layer update accepts the shared render snapshot shape" {
 test "render layer update keeps the last valid snapshot on malformed JSON" {
   let current : CanvasRenderLayerState = {
     snapshot: Some({
-      viewport: { x: 1.0, y: 2.0, scale: 1.0 },
+      viewport: { x: 1.0, y: 2.0, scale: 1.0, },
       nodes: [],
       edges: [],
       selected_nodes: [],
