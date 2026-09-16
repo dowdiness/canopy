@@ -108,11 +108,11 @@ fn CanvasContextMenuModel::close(
 ///|
 // Resolve the headless widget's raw index against the emitting render, once.
 // The reducer receives the operation itself, never an index into a newer menu.
-fn menu_input_to_intent(
+fn menu_intent(
   model : CanvasContextMenuModel,
-  msg : @context_menu.Msg,
+  input : @context_menu.Msg,
 ) -> CanvasContextMenuMsg {
-  let intent = match msg {
+  let intent = match input {
     @context_menu.Activate(index) =>
       match model.context_menu.item(index) {
         Some(item) => Select(item.operation)
@@ -120,7 +120,7 @@ fn menu_input_to_intent(
           Reject(Rejected("This menu item is unavailable. Reopen the menu."))
       }
     @context_menu.Close | @context_menu.Dismiss(_) =>
-      Close(restore_focus=msg.requests_close_focus())
+      Close(restore_focus=input.requests_close_focus())
     @context_menu.FocusNext => Navigate(Next)
     @context_menu.FocusPrevious => Navigate(Previous)
     @context_menu.FocusFirst => Navigate(First)
@@ -291,7 +291,7 @@ fn context_menu_view(
 ) -> @rabbita.Html {
   let content : Array[@rabbita.Html] = []
   if model.context_menu.is_open() {
-    let dispatch = msg => emit(menu_input_to_intent(model, msg))
+    let dispatch = msg => emit(menu_intent(model, msg))
     let items : Array[@rabbita.Html] = []
     for index, item in model.context_menu.items() {
       items.push(
@@ -430,9 +430,7 @@ fn context_menu_subscriptions(
       CanvasContextMenuSub::ContextMenuEvent(handle, emit),
       context_menu_sub_loader,
     ),
-    model.context_menu.subscriptions(
-      emit.map(msg => menu_input_to_intent(model, msg)),
-    ),
+    model.context_menu.subscriptions(emit.map(msg => menu_intent(model, msg))),
   ])
 }
 

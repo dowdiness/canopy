@@ -173,7 +173,7 @@ async test "activation is consumed once and stale renders cannot act on a reopen
   let runtime = test_context_runtime(handle)
   let prepared = test_context_prepare(handle, test_background_target())
   let initial = test_context_open(prepared)
-  let activation = menu_input_to_intent(initial, @context_menu.Activate(0))
+  let activation = menu_intent(initial, @context_menu.Activate(0))
   let binding = test_context_binding(handle)
   let emit = @cmd.Emit(_ => @rabbita.none)
   let (closed, first) = context_menu_update(binding, initial, activation, emit)
@@ -198,7 +198,7 @@ async test "activation is consumed once and stale renders cannot act on a reopen
   let (_, fresh) = context_menu_update(
     binding,
     after_stale,
-    menu_input_to_intent(after_stale, @context_menu.Activate(1)),
+    menu_intent(after_stale, @context_menu.Activate(1)),
     emit,
   )
   @rabbita_testing.run_cmd(fresh)
@@ -211,7 +211,7 @@ test "batched navigation reduces against current state rather than stale render 
   let initial = test_context_open(
     test_context_prepare(handle, test_background_target()),
   )
-  let next = menu_input_to_intent(initial, @context_menu.FocusNext)
+  let next = menu_intent(initial, @context_menu.FocusNext)
   let binding = test_context_binding(handle)
   let emit = @cmd.Emit(_ => @rabbita.none)
   let (once, _) = context_menu_update(binding, initial, next, emit)
@@ -298,7 +298,7 @@ async test "a rejected opening leaves the original menu action usable" {
   let (_, activate) = context_menu_update(
     test_context_binding(handle),
     rejected,
-    menu_input_to_intent(initial, @context_menu.Activate(0)),
+    menu_intent(initial, @context_menu.Activate(0)),
     @cmd.Emit(_ => @rabbita.none),
   )
   @rabbita_testing.run_cmd(activate)
