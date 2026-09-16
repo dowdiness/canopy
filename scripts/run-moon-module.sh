@@ -10,12 +10,13 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/vendored-check-common.sh"
 
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <check|check-lenient|test|fmt-check|ci|ci-lenient|bench> <module-dir>" >&2
+    echo "Usage: $0 <check|check-lenient|test|fmt-check|ci|ci-lenient|bench> <module-dir> [package...]" >&2
     exit 1
 fi
 
 ACTION="$1"
 MODULE_DIR="$2"
+TARGETS=("${@:3}")
 
 # Accept either manifest format: moon.mod (TOML) or moon.mod.json (legacy).
 # moon reads both under NEW_MOON_MOD=0.
@@ -54,36 +55,36 @@ fi
 
 case "$ACTION" in
     check)
-        moon check "${DENY_WARN_FLAGS[@]}"
+        moon check "${DENY_WARN_FLAGS[@]}" "${TARGETS[@]}"
         ;;
     check-lenient)
         # Same --deny-warn but exempts only the try? [0020] deprecation
         # from vendored submodules canopy cannot migrate (tracked in #573).
-        moon check "${LENIENT_WARN_FLAGS[@]}"
+        moon check "${LENIENT_WARN_FLAGS[@]}" "${TARGETS[@]}"
         ;;
     test)
-        moon test --release
+        moon test --release "${TARGETS[@]}"
         ;;
     fmt-check)
-        moon fmt --check
+        moon fmt --check "${TARGETS[@]}"
         ;;
     ci)
         # When checking from within a vendored submodule, suppress only
         # *transitive* vendored errors (deps), not the module under test.
         # Keep the exact module subtree under test unsuppressed.
         keep_dir="$MODULE_DIR"
-        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${DENY_WARN_FLAGS[@]}" || exit $?
-        moon test --release
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${DENY_WARN_FLAGS[@]}" "${TARGETS[@]}" || exit $?
+        moon test --release "${TARGETS[@]}"
         ;;
     ci-lenient)
         # Same as `ci`, but exempts the vendored warning set for current
         # submodules canopy cannot migrate (see LENIENT_WARN_FLAGS above).
         keep_dir="$MODULE_DIR"
-        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" || exit $?
-        moon test --release
+        run_moon_check_with_vendored_filter "--keep=$keep_dir" "${LENIENT_WARN_FLAGS[@]}" "${TARGETS[@]}" || exit $?
+        moon test --release "${TARGETS[@]}"
         ;;
     bench)
-        moon bench --release
+        moon bench --release "${TARGETS[@]}"
         ;;
     *)
         echo "Unknown action: $ACTION" >&2

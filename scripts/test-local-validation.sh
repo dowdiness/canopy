@@ -31,6 +31,7 @@ printf 'pub fn other() -> Int { 7 }\n' >"$fixture/other/main.mbt"
 printf 'name = "nested"\n' >"$fixture/nested/module/moon.mod"
 printf 'package "fixture/nested"\n' >"$fixture/nested/module/pkg/moon.pkg"
 printf 'pub fn nested() -> Int { 1 }\n' >"$fixture/nested/module/pkg/main.mbt"
+printf 'members = ["."]\n' >"$fixture/nested/module/moon.work"
 printf '_build/\n' >"$fixture/.gitignore"
 
 cat >"$fake_bin/moon" <<'FAKE_MOON'
@@ -226,16 +227,18 @@ mkdir -p "$fixture/second/module/pkg" "$fixture/pkg space"
 printf 'name = "second"\n' >"$fixture/second/module/moon.mod"
 printf 'package "fixture/second"\n' >"$fixture/second/module/pkg/moon.pkg"
 printf 'pub fn second() -> Int { 1 }\n' >"$fixture/second/module/pkg/main.mbt"
+printf 'members = ["."]\n' >"$fixture/second/module/moon.work"
 printf 'package "fixture/spaced"\n' >"$fixture/pkg space/moon.pkg"
 tabbed_path=$'pkg space/name\t雪.mbt'
 printf 'pub fn spaced() -> Int { 2 }\n' >"$fixture/$tabbed_path"
 git -C "$fixture" add second/module "$tabbed_path" 'pkg space/moon.pkg'
 (
   cd "$fixture"
-  PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" \
+  PATH="$fake_bin:$PATH" LOCAL_VALIDATION_TEST_LOG="$log" LOCAL_VALIDATION_LOG_PWD=1 \
     nu scripts/local-validation.nu prepare-commit
 )
-printf 'moon fmt pkg space/name\t雪.mbt second/module/pkg/main.mbt\nmoon info pkg space second/module/pkg\n' >"$expected"
+printf 'pwd=%s moon fmt pkg space/name\t雪.mbt\npwd=%s/second/module moon fmt pkg/main.mbt\npwd=%s moon info pkg space\npwd=%s/second/module moon info pkg\n' \
+  "$fixture" "$fixture" "$fixture" "$fixture" >"$expected"
 diff -u "$expected" "$log" || fail "NUL-safe resolver lost nested, spaced, tabbed, or Unicode paths"
 
 git -C "$fixture" reset --hard --quiet HEAD
@@ -243,6 +246,9 @@ git -C "$fixture" reset --hard --quiet HEAD
 cat >"$fixture/scripts/check-strict.sh" <<'FAKE_STRICT'
 #!/usr/bin/env bash
 set -euo pipefail
+if [ "${LOCAL_VALIDATION_LOG_PWD:-0}" = 1 ]; then
+  printf 'pwd=%s ' "$PWD" >>"$LOCAL_VALIDATION_TEST_LOG"
+fi
 printf 'check-strict.sh %s\n' "$*" >>"$LOCAL_VALIDATION_TEST_LOG"
 if [ "${LOCAL_VALIDATION_FAIL_STRICT:-0}" = 1 ]; then
   exit 1
@@ -302,11 +308,11 @@ git -C "$fixture" commit --quiet -m "change nested, root, and spaced module pack
     nu scripts/local-validation.nu validate-push --base nested-base
 )
 cat >"$expected" <<EXPECTED_NESTED_PUSH
-check-strict.sh nested/module/pkg
+pwd=$fixture/nested/module check-strict.sh pkg
 pwd=$fixture/nested/module moon test --release pkg
-check-strict.sh pkg
+pwd=$fixture check-strict.sh pkg
 pwd=$fixture moon test --release pkg
-check-strict.sh spaced module/pkg space
+pwd=$fixture/spaced module check-strict.sh pkg space
 pwd=$fixture/spaced module moon test --release pkg space
 EXPECTED_NESTED_PUSH
 diff -u "$expected" "$log" || fail "pre-push validation lost module-local PWD or spaced package boundaries"

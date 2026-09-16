@@ -244,7 +244,7 @@ def affected-validation-packages [root: string, changes: list<any>] {
   combine-package-and-module-targets $root $direct_packages (module-targets $changes)
 }
 
-def module-test-target [root: string, package: string] {
+def module-package-target [root: string, package: string] {
   let module = (module-for-package $root $package)
   if $module == null {
     fail $"cannot resolve module for package ($package)"
@@ -266,6 +266,7 @@ def module-test-target [root: string, package: string] {
     | into string
   )
   {
+    module: $module
     directory: $directory
     package: (if $relative_package == "" { "." } else { $relative_package })
   }
@@ -302,6 +303,36 @@ def preparation-fingerprints [paths: list<string>] {
   }
 }
 
+# Moon commands must run inside the owning module, including independent workspaces.
+def prepare-targets [root: string, command: string, paths: list<string>] {
+  let targets = ($paths | each {|path|
+    let package = if $command == "fmt" {
+      package-for-path $root $path
+    } else {
+      $path
+    }
+    let target = (module-package-target $root $package)
+    {
+      directory: $target.directory
+      path: (if $command == "info" {
+        $target.package
+      } else {
+        $root | path join $path | path relative-to $target.directory
+      })
+    }
+  })
+  for directory in ($targets | get directory | uniq) {
+    let selected = ($targets | where directory == $directory | get path)
+    do {
+      cd $directory
+      ^moon $command ...$selected
+      if $env.LAST_EXIT_CODE != 0 {
+        fail $"moon ($command) failed"
+      }
+    }
+  }
+}
+
 def prepare-commit [] {
   let root = (git-output ["rev-parse" "--show-toplevel"] | str trim)
   cd $root
@@ -324,19 +355,8 @@ def prepare-commit [] {
     | sort
   )
   let before = (preparation-fingerprints $outputs)
-  if ($format_paths | is-not-empty) {
-    ^moon fmt ...$format_paths
-    if $env.LAST_EXIT_CODE != 0 {
-      fail "moon fmt failed"
-    }
-  }
-
-  if ($packages | is-not-empty) {
-    ^moon info ...$packages
-    if $env.LAST_EXIT_CODE != 0 {
-      fail "moon info failed"
-    }
-  }
+  prepare-targets $root "fmt" $format_paths
+  prepare-targets $root "info" $packages
   if (preparation-fingerprints $outputs) != $before {
     fail "MoonBit preparation changed files; review and stage them before retrying the commit"
   }
@@ -353,12 +373,18 @@ def validate-push [base: string] {
   report-removed-module-manifests $changes
   let packages = (affected-validation-packages $root $changes)
   let strict_checker = ($root | path join "scripts/check-strict.sh")
+  let module_runner = ($root | path join "scripts/run-moon-module.sh")
   for package in $packages {
-    ^$strict_checker $package
-    let test_target = (module-test-target $root $package)
-    do {
-      cd $test_target.directory
-      ^moon test --release $test_target.package
+    let target = (module-package-target $root $package)
+    # Match the example jobs' existing CI policy; the module runner owns its flags.
+    if $target.module in ["apps/ideal" "apps/block-editor" "apps/canvas" "examples/codemirror"] {
+      ^$module_runner ci-lenient $target.module $target.package
+    } else {
+      do {
+        cd $target.directory
+        ^$strict_checker $target.package
+        ^moon test --release $target.package
+      }
     }
   }
   ^git diff --check $"($base_sha)...($head)"

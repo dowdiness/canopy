@@ -1,6 +1,5 @@
 import {
   "moonbitlang/core/json",
-  "moonbitlang/core/debug",
   "moonbitlang/core/math",
   "moonbitlang/core/ref",
   "dowdiness/canopy-canvas-graph/graph_model",
@@ -22,6 +21,7 @@ import {
 }
 
 import {
+  "moonbitlang/core/debug",
   "dowdiness/diagnostic",
   "moonbit-community/rabbita/testing" @rabbita_testing,
 } for "wbtest"

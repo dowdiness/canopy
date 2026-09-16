@@ -32,21 +32,19 @@ if ! [[ "$BASELINE" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-# Run the command, capturing combined stdout+stderr and the exit code.
-# The || true prevents set -e from exiting on the command's own failure;
-# we inspect $? afterwards via PIPESTATUS.
+# Capture the command's output and status even when it fails.
 set +e
 output="$("$@" 2>&1)"
 status=$?
 set -e
 
 # Sum all "failed: N" fields from "Total tests: ..., failed: N. [target]" lines.
-# Uses sed instead of grep -P for portability; sums with pure bash arithmetic.
+# Ignore source excerpts and diagnostics containing the same words.
+summary_pattern='^Total tests: [0-9]+, passed: [0-9]+, failed: ([0-9]+)\.'
 failures=0
 while IFS= read -r line; do
-    n=$(echo "$line" | sed -n 's/.*failed: *\([0-9]\+\).*/\1/p')
-    if [ -n "$n" ]; then
-        failures=$(( failures + n ))
+    if [[ "$line" =~ $summary_pattern ]]; then
+        failures=$(( failures + 10#${BASH_REMATCH[1]} ))
     fi
 done <<EOF
 $output
@@ -66,23 +64,23 @@ EOF
 #   every loom-owned submodule (loom/loom, seam, pretty, text-change,
 #   moji, egglog, egraph, examples/*).
 non_vendored_failures=0
+# Anchor to Moon's result-record prefix, not `test ... failed` in source text.
+failure_pattern='^\[[^][]+\] test .+ failed([[:space:]:]|$)'
 while IFS= read -r line; do
-    case "$line" in
-        *" test "*" failed"* | *" test "*" failed:"*)
-            case "$line" in
-                *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
-                *"[dowdiness/pretty]"* | *"/loom/pretty/"*) ;;
-                *"/alga/"*) ;;
-                *"/rle/"*) ;;
-                *"/order-tree/"*) ;;
-                *"/loom/"*) ;;
-                *"/event-graph-walker/"*) ;;
-                *"/graphviz/"*) ;;
-                *"/svg-dsl/"*) ;;
-                *) non_vendored_failures=$(( non_vendored_failures + 1 )) ;;
-            esac
-            ;;
-    esac
+    if [[ "$line" =~ $failure_pattern ]]; then
+        case "$line" in
+            *"[moonbit-community/rabbita]"* | *"rabbita/rabbita/"*) ;;
+            *"[dowdiness/pretty]"* | *"/loom/pretty/"*) ;;
+            *"/alga/"*) ;;
+            *"/rle/"*) ;;
+            *"/order-tree/"*) ;;
+            *"/loom/"*) ;;
+            *"/event-graph-walker/"*) ;;
+            *"/graphviz/"*) ;;
+            *"/svg-dsl/"*) ;;
+            *) non_vendored_failures=$(( non_vendored_failures + 1 )) ;;
+        esac
+    fi
 done <<EOF
 $output
 EOF
