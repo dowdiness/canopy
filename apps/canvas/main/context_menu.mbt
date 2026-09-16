@@ -49,7 +49,7 @@ priv enum CanvasContextNavigation {
 }
 
 ///|
-fn CanvasContextNavigation::message(
+fn CanvasContextNavigation::to_focus_message(
   self : CanvasContextNavigation,
 ) -> @context_menu.Msg {
   match self {
@@ -95,7 +95,7 @@ fn context_menu_model() -> CanvasContextMenuModel {
 }
 
 ///|
-fn CanvasContextMenuModel::closed(
+fn CanvasContextMenuModel::close(
   self : CanvasContextMenuModel,
 ) -> CanvasContextMenuModel {
   {
@@ -108,7 +108,7 @@ fn CanvasContextMenuModel::closed(
 ///|
 // Resolve the headless widget's raw index against the emitting render, once.
 // The reducer receives the operation itself, never an index into a newer menu.
-fn context_menu_message(
+fn menu_input_to_intent(
   model : CanvasContextMenuModel,
   msg : @context_menu.Msg,
 ) -> CanvasContextMenuMsg {
@@ -148,12 +148,12 @@ fn context_menu_update(
       match request {
         Err(problem) => ({ ..model, problem: Some(problem), }, @rabbita.none)
         Ok(request) => {
-          let next = model.closed()
+          let next = model.close()
           (
             next,
             @rabbita.perform(
               result => emit(Prepared(next.generation, result)),
-              () => canvas_context_prepare(binding.handle, request),
+              () => build_context_menu(binding.handle, request),
             ),
           )
         }
@@ -194,20 +194,20 @@ fn context_menu_update(
       }
       match intent {
         Select(operation) => {
-          let next = model.closed()
+          let next = model.close()
           (
             next,
             @rabbita.batch([
               @rabbita.perform(
                 result => emit(Completed(next.generation, result)),
-                () => canvas_context_execute(operation),
+                () => apply_menu_operation(operation),
               ),
               model.context_menu.close_focus_cmd(),
             ]),
           )
         }
         Navigate(navigation) => {
-          let msg = navigation.message()
+          let msg = navigation.to_focus_message()
           let context_menu = model.context_menu.update(msg)
           (
             { ..model, context_menu, },
@@ -221,7 +221,7 @@ fn context_menu_update(
         UnhandledKey => (model, @rabbita.none)
         Close(restore_focus~) =>
           (
-            model.closed(),
+            model.close(),
             if restore_focus {
               model.context_menu.close_focus_cmd()
             } else {
@@ -229,7 +229,7 @@ fn context_menu_update(
             },
           )
         Reject(problem) =>
-          ({ ..model.closed(), problem: Some(problem), }, @rabbita.none)
+          ({ ..model.close(), problem: Some(problem), }, @rabbita.none)
       }
     }
     Completed(generation, outcome) => {
@@ -274,7 +274,7 @@ fn context_menu_update(
     }
     DismissAfterExternalMutation =>
       (
-        model.closed(),
+        model.close(),
         if model.context_menu.is_open() {
           model.context_menu.close_focus_cmd()
         } else {
@@ -291,7 +291,7 @@ fn context_menu_view(
 ) -> @rabbita.Html {
   let content : Array[@rabbita.Html] = []
   if model.context_menu.is_open() {
-    let dispatch = msg => emit(context_menu_message(model, msg))
+    let dispatch = msg => emit(menu_input_to_intent(model, msg))
     let items : Array[@rabbita.Html] = []
     for index, item in model.context_menu.items() {
       items.push(
@@ -327,9 +327,9 @@ fn context_menu_view(
 
 ///|
 #cfg(target="js")
-fn canvas_context_request(
+fn parse_menu_request(
   event : @dom.Event,
-  root : @dom.Element,
+  canvas_root : @dom.Element,
 ) -> Result[CanvasContextRequest, CanvasContextProblem] {
   let mouse = match event.to_mouse_event() {
     Some(mouse) => mouse
@@ -349,7 +349,7 @@ fn canvas_context_request(
     canvas_pointer_hit_from_element(event.target().to_element()) {
     CanvasPointerHit::Edge(edge_id) => CanvasContextTarget::Edge(edge_id)
     _ => {
-      let rect = root.get_bounding_client_rect()
+      let rect = canvas_root.get_bounding_client_rect()
       let insert_at = ScreenPoint::from_xy(
         x=client_x - rect.get_left(),
         y=client_y - rect.get_top(),
@@ -396,9 +396,7 @@ fn context_menu_sub_loader(
         // Prevent the browser menu synchronously; admission itself is
         // scheduled only after typed coordinates and hit classification exist.
         event.prevent_default()
-        scheduler.add(
-          (tagger.val)(Request(canvas_context_request(event, root))),
-        )
+        scheduler.add((tagger.val)(Request(parse_menu_request(event, root))))
       }
       target.add_event_listener("contextmenu", listener)
       Some({
@@ -433,7 +431,7 @@ fn context_menu_subscriptions(
       context_menu_sub_loader,
     ),
     model.context_menu.subscriptions(
-      emit.map(msg => context_menu_message(model, msg)),
+      emit.map(msg => menu_input_to_intent(model, msg)),
     ),
   ])
 }

@@ -94,11 +94,11 @@ priv enum CanvasContextOutcome {
 }
 
 ///|
-fn context_menu_source_edge(
+fn find_edge_endpoints(
   state : CanvasState,
-  id : EdgeId,
+  edge_id : EdgeId,
 ) -> (NodeId, String, NodeId, String)? {
-  match state.edges.search_by(fn(edge) { edge.id == id }) {
+  match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
     Some(index) => {
       let edge = state.edges[index]
       Some((edge.source, edge.source_port, edge.target, edge.target_port))
@@ -108,13 +108,13 @@ fn context_menu_source_edge(
 }
 
 ///|
-fn canvas_context_prepare(
-  handle : Int,
+fn build_context_menu(
+  canvas_handle : Int,
   request : CanvasContextRequest,
 ) -> Result[CanvasContextPreparedMenu, CanvasContextProblem] {
   match request.target {
     Background(insert_at~) =>
-      match canvas_backing(handle) {
+      match canvas_backing(canvas_handle) {
         Some(Runtime(runtime)) => {
           let state = runtime.state_peek()
           let position = state.viewport.screen_to_world(insert_at) catch {
@@ -129,7 +129,7 @@ fn canvas_context_prepare(
             ) {
               {
                 operation: RuntimeAdd({
-                  target: { handle, },
+                  target: { handle: canvas_handle, },
                   kind: item.key,
                   position,
                 }),
@@ -143,7 +143,7 @@ fn canvas_context_prepare(
             let ids = selected[2:].to_owned()
             items.insert(0, {
               operation: RuntimeArrange({
-                target: { handle, },
+                target: { handle: canvas_handle, },
                 first: selected[0],
                 second: selected[1],
                 rest: ids,
@@ -161,7 +161,7 @@ fn canvas_context_prepare(
             ) {
               {
                 operation: SourceAdd({
-                  target: { handle, },
+                  target: { handle: canvas_handle, },
                   binding_base: item.key,
                   constructor_name: item.key,
                 }),
@@ -175,9 +175,9 @@ fn canvas_context_prepare(
         None => Err(TargetExpired)
       }
     Edge(edge_id) =>
-      match canvas_backing(handle) {
+      match canvas_backing(canvas_handle) {
         Some(Runtime(runtime)) =>
-          match context_menu_source_edge(runtime.state_peek(), edge_id) {
+          match find_edge_endpoints(runtime.state_peek(), edge_id) {
             Some((source, source_port, target, target_port)) => {
               runtime.select_edge(edge_id)
               Ok({
@@ -185,7 +185,7 @@ fn canvas_context_prepare(
                 items: [
                   {
                     operation: RuntimeDisconnect({
-                      target: { handle, },
+                      target: { handle: canvas_handle, },
                       edge: edge_id,
                     }),
                     label: "Disconnect edge",
@@ -204,10 +204,7 @@ fn canvas_context_prepare(
           }
         Some(Source(graph)) =>
           match
-            context_menu_source_edge(
-              source_graph_base_canvas_state(graph),
-              edge_id,
-            ) {
+            find_edge_endpoints(source_graph_base_canvas_state(graph), edge_id) {
             Some((source, source_port, target, target_port)) => {
               graph.select_edge(edge_id)
               Ok({
@@ -215,7 +212,7 @@ fn canvas_context_prepare(
                 items: [
                   {
                     operation: SourceDisconnect({
-                      owner: { handle, },
+                      owner: { handle: canvas_handle, },
                       source,
                       source_port,
                       target,
@@ -242,7 +239,7 @@ fn canvas_context_prepare(
 }
 
 ///|
-fn context_menu_arrange(
+fn arrange_nodes(
   runtime : CanvasRuntime,
   operation : CanvasContextRuntimeArrange,
 ) -> Result[Unit, CanvasContextProblem] {
@@ -281,7 +278,7 @@ fn context_menu_arrange(
 }
 
 ///|
-fn canvas_context_execute(
+fn apply_menu_operation(
   operation : CanvasContextOperation,
 ) -> CanvasContextOutcome {
   match operation {
@@ -299,7 +296,7 @@ fn canvas_context_execute(
     RuntimeArrange(op) =>
       match canvas_backing(op.target.handle) {
         Some(Runtime(runtime)) =>
-          match context_menu_arrange(runtime, op) {
+          match arrange_nodes(runtime, op) {
             Ok(_) => RuntimeApplied
             Err(problem) => Failed(problem)
           }
@@ -340,10 +337,7 @@ fn canvas_context_execute(
       match canvas_backing(op.owner.handle) {
         Some(Source(graph)) => {
           let live = match
-            context_menu_source_edge(
-              source_graph_base_canvas_state(graph),
-              op.edge,
-            ) {
+            find_edge_endpoints(source_graph_base_canvas_state(graph), op.edge) {
             Some((source, source_port, target, target_port)) =>
               source == op.source &&
               source_port == op.source_port &&

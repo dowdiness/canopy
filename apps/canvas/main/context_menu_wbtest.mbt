@@ -9,7 +9,7 @@ fn test_context_prepare(
   target : CanvasContextTarget,
 ) -> CanvasContextPreparedMenu raise {
   match
-    canvas_context_prepare(handle, {
+    build_context_menu(handle, {
       anchor: @context_menu.Point(x=10.0F, y=20.0F),
       target,
     }) {
@@ -74,7 +74,7 @@ test "background menu stays catalog-only without a multi-selection" {
   )
   let runtime = test_context_runtime(handle)
   let before = runtime.state_peek().nodes.length()
-  guard canvas_context_execute(prepared.items[0].operation) is RuntimeApplied else {
+  guard apply_menu_operation(prepared.items[0].operation) is RuntimeApplied else {
     fail("catalog operation must be executable")
   }
   assert_eq(runtime.state_peek().nodes.length(), before + 1)
@@ -95,7 +95,7 @@ test "arrangement acts on the captured selection, not its replacement" {
     fail("a multi-selection should offer arrangement")
   }
   test_select_node(runtime, NodeId("3"))
-  guard canvas_context_execute(prepared.items[0].operation) is RuntimeApplied else {
+  guard apply_menu_operation(prepared.items[0].operation) is RuntimeApplied else {
     fail("captured arrangement should survive replacement of current selection")
   }
   match runtime.action_log_snapshot().last().unwrap().action() {
@@ -109,7 +109,7 @@ test "background menu hides arrange on a source-backed graph" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
   let prepared = test_context_prepare(handle, test_background_target())
   assert_true(prepared.items.iter().all(item => item.operation is SourceAdd(_)))
-  guard canvas_context_execute(prepared.items[0].operation)
+  guard apply_menu_operation(prepared.items[0].operation)
     is SourceApplied(result) else {
     fail("source catalog operation should apply")
   }
@@ -126,7 +126,7 @@ test "insertion preserves the world point captured before viewport changes" {
   let expected = try! runtime.state_peek().viewport.screen_to_world(screen)
   let prepared = test_context_prepare(handle, Background(insert_at=screen))
   runtime.zoom(-200.0, 0, false, 100.0, 100.0)
-  guard canvas_context_execute(prepared.items[0].operation) is RuntimeApplied else {
+  guard apply_menu_operation(prepared.items[0].operation) is RuntimeApplied else {
     fail("expected insertion")
   }
   match runtime.action_log_snapshot().last().unwrap().action() {
@@ -142,12 +142,12 @@ test "expired edge preparation and execution are explicit failures" {
   let edge = runtime.state_peek().edges[0].id
   let prepared = test_context_prepare(handle, Edge(edge))
   assert_true(runtime.disconnect_edge(edge))
-  guard canvas_context_execute(prepared.items[0].operation)
+  guard apply_menu_operation(prepared.items[0].operation)
     is Failed(TargetExpired) else {
     fail("removed edge must not report success")
   }
   assert_eq(runtime.action_log_snapshot().length(), 1)
-  guard canvas_context_prepare(handle, {
+  guard build_context_menu(handle, {
       anchor: @context_menu.Point(x=0.0F, y=0.0F),
       target: Edge(edge),
     })
@@ -161,7 +161,7 @@ test "disposed source graph cannot execute a previously prepared operation" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)")
   let prepared = test_context_prepare(handle, test_background_target())
   destroy_source_graph(handle)
-  guard canvas_context_execute(prepared.items[0].operation)
+  guard apply_menu_operation(prepared.items[0].operation)
     is Failed(TargetExpired) else {
     fail("disposed graph must not accept an operation")
   }
@@ -173,7 +173,7 @@ async test "activation is consumed once and stale renders cannot act on a reopen
   let runtime = test_context_runtime(handle)
   let prepared = test_context_prepare(handle, test_background_target())
   let initial = test_context_open(prepared)
-  let activation = context_menu_message(initial, @context_menu.Activate(0))
+  let activation = menu_input_to_intent(initial, @context_menu.Activate(0))
   let binding = test_context_binding(handle)
   let emit = @cmd.Emit(_ => @rabbita.none)
   let (closed, first) = context_menu_update(binding, initial, activation, emit)
@@ -198,7 +198,7 @@ async test "activation is consumed once and stale renders cannot act on a reopen
   let (_, fresh) = context_menu_update(
     binding,
     after_stale,
-    context_menu_message(after_stale, @context_menu.Activate(1)),
+    menu_input_to_intent(after_stale, @context_menu.Activate(1)),
     emit,
   )
   @rabbita_testing.run_cmd(fresh)
@@ -211,7 +211,7 @@ test "batched navigation reduces against current state rather than stale render 
   let initial = test_context_open(
     test_context_prepare(handle, test_background_target()),
   )
-  let next = context_menu_message(initial, @context_menu.FocusNext)
+  let next = menu_input_to_intent(initial, @context_menu.FocusNext)
   let binding = test_context_binding(handle)
   let emit = @cmd.Emit(_ => @rabbita.none)
   let (once, _) = context_menu_update(binding, initial, next, emit)
@@ -231,7 +231,7 @@ async test "source rejection is visible and does not send a success notification
   let prepared = test_context_prepare(handle, test_background_target())
   set_source_graph_source(handle, "osc = sine(")
   let before = get_source_graph_source(handle)
-  let outcome = canvas_context_execute(prepared.items[0].operation)
+  let outcome = apply_menu_operation(prepared.items[0].operation)
   guard outcome is SourceRejected(_, ..) else {
     fail("invalid source must reject insertion")
   }
@@ -259,7 +259,7 @@ async test "source rejection is visible and does not send a success notification
 async test "late successful completion still publishes a committed source change" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)")
   let prepared = test_context_prepare(handle, test_background_target())
-  let outcome = canvas_context_execute(prepared.items[0].operation)
+  let outcome = apply_menu_operation(prepared.items[0].operation)
   guard outcome is SourceApplied(_) else { fail("expected insertion") }
   let changes = @ref.Ref(0)
   let reports = @ref.Ref(0)
@@ -298,7 +298,7 @@ async test "a rejected opening leaves the original menu action usable" {
   let (_, activate) = context_menu_update(
     test_context_binding(handle),
     rejected,
-    context_menu_message(initial, @context_menu.Activate(0)),
+    menu_input_to_intent(initial, @context_menu.Activate(0)),
     @cmd.Emit(_ => @rabbita.none),
   )
   @rabbita_testing.run_cmd(activate)
@@ -315,7 +315,7 @@ async test "rejected source disconnect clears selection without claiming an edit
   let prepared = test_context_prepare(handle, Edge(edge))
   set_source_graph_source(handle, "osc = sine(")
   let before = graph.source
-  let outcome = canvas_context_execute(prepared.items[0].operation)
+  let outcome = apply_menu_operation(prepared.items[0].operation)
   guard outcome is SourceRejected(result, ..) else {
     fail("invalid source must reject disconnection")
   }

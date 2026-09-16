@@ -263,7 +263,7 @@ test "context arrangement packs a captured multi-selection with MoveNodes" {
   runtime.pointer_up("2", "", true)
 
   let prepared = test_context_prepare(handle, test_background_target())
-  guard canvas_context_execute(prepared.items[0].operation) is RuntimeApplied else {
+  guard apply_menu_operation(prepared.items[0].operation) is RuntimeApplied else {
     fail("expected arrangement to apply")
   }
 

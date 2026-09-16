@@ -345,8 +345,8 @@ function updateSourceOperationStatus(
     : `${failurePrefix}: ${sourceOperationDetail(result)}`;
 }
 
-function handleContextSourceResult(json: string): void {
-  const result = JSON.parse(json) as SourceGraphOperationResult;
+function reportContextSourceFeedback(resultJson: string): void {
+  const result = JSON.parse(resultJson) as SourceGraphOperationResult;
   // Rejections and explicit operation messages are reported immediately.
   // Message-less success is announced when the source panel synchronizes its
   // editor from the canonical graph; success does not promise operation-specific copy.
@@ -467,8 +467,8 @@ async function init(): Promise<void> {
       scheduleRender();
       return undefined;
     },
-    result => {
-      handleContextSourceResult(result);
+    resultJson => {
+      reportContextSourceFeedback(resultJson);
       return undefined;
     },
   );
