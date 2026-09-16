@@ -185,8 +185,15 @@ export type SourceGraphOperationResult = {
   message?: string;
 };
 
+export type SourceNoticeOperation =
+  | 'rename'
+  | 'set-param'
+  | 'insert'
+  | 'delete'
+  | 'context';
+
 export type SourceNoticeReporter = (
-  operation: string,
+  operation: SourceNoticeOperation,
   detail: string,
   resultJson: string,
 ) => undefined;
