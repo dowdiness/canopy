@@ -99,7 +99,7 @@ measure the rendered panel after render and apply `Positioning` options:
 items, and roving focus; a closed model contains none of them. Item count is
 derived from the items rather than supplied separately. Render with `items()`
 and resolve raw `Activate(index)` input with `item(index)` **before** closing.
-An invalid index is an input rejection, not a successful domain operation.
+Only an existing item can produce a domain operation.
 
 Consumers still own action meaning, hit testing, styling, and mutation. Put a
 complete operation in each item instead of pairing a separate optional target
@@ -113,16 +113,16 @@ Canvas is a consumer example in `apps/canvas/main/context_menu.mbt` and
 - Runtime and Source operations carry only capabilities valid for that backing.
   Runtime insertion captures a world point; arrangement captures at least two
   node IDs. Current viewport or selection changes do not retarget the operation.
-- An opening generation binds events to their emitting menu. Closing consumes
-  that generation; delayed activation cannot execute against a reopened menu.
-  Navigation is applied to current state, not a captured focus snapshot.
+- Choosing an item closes the menu before its operation runs. Further activation
+  while closed is ignored. Navigation and dismissal use the headless model's
+  own messages and update function.
 - Domain owners resolve liveness at execution. A removed target is an explicit
   expired outcome; source rejection and applied changes are distinct outcomes.
   Source failure DTOs remain failures, including raised graph errors. Disconnect
   also clears ephemeral selection on rejection; that change requests a redraw,
   not a successful source-edit notification.
-- Completion of a committed change is still published if a newer menu has
-  opened. Feedback from the older operation does not overwrite the newer menu.
+- Operation results update feedback and notify the host. There is no opening
+  generation or special routing for delayed results.
 - Invalid opening input reports a problem without consuming the existing menu
   or its selected target.
 

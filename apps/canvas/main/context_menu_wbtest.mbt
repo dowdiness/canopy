@@ -35,7 +35,6 @@ fn test_context_open(
       anchor=prepared.anchor,
       items=prepared.items[:],
     ),
-    generation: 1,
     problem: None,
   }
 }
@@ -168,7 +167,7 @@ test "disposed source graph cannot execute a previously prepared operation" {
 }
 
 ///|
-async test "activation is consumed once and stale renders cannot act on a reopened menu" {
+async test "choosing an item closes the menu and ignores further activation" {
   let handle = create_canvas()
   let runtime = test_context_runtime(handle)
   let prepared = test_context_prepare(handle, test_background_target())
@@ -182,47 +181,6 @@ async test "activation is consumed once and stale renders cannot act on a reopen
   @rabbita_testing.run_cmd(duplicate)
   assert_eq(runtime.action_log_snapshot().length(), 1)
   assert_false(closed.context_menu.is_open())
-
-  let reopened = {
-    ..closed,
-    context_menu: closed.context_menu.open(
-      anchor=prepared.anchor,
-      items=prepared.items[:],
-    ),
-  }
-  let (after_stale, stale) = context_menu_update(
-    binding, reopened, activation, emit,
-  )
-  @rabbita_testing.run_cmd(stale)
-  assert_eq(runtime.action_log_snapshot().length(), 1)
-  let (_, fresh) = context_menu_update(
-    binding,
-    after_stale,
-    menu_intent(after_stale, @context_menu.Activate(1)),
-    emit,
-  )
-  @rabbita_testing.run_cmd(fresh)
-  assert_eq(runtime.action_log_snapshot().length(), 2)
-}
-
-///|
-test "batched navigation reduces against current state rather than stale render focus" {
-  let handle = create_canvas()
-  let initial = test_context_open(
-    test_context_prepare(handle, test_background_target()),
-  )
-  let next = menu_intent(initial, @context_menu.FocusNext)
-  let binding = test_context_binding(handle)
-  let emit = @cmd.Emit(_ => @rabbita.none)
-  let (once, _) = context_menu_update(binding, initial, next, emit)
-  let (twice, _) = context_menu_update(binding, once, next, emit)
-  let third_item = @rabbita_testing.server_side_render(() => {
-    @html.button(
-      attrs=twice.context_menu.item_attrs(2, _ => @rabbita.none),
-      "third item",
-    )
-  })
-  assert_true(third_item.contains("tabindex=\"0\""))
 }
 
 ///|
@@ -244,7 +202,7 @@ async test "source rejection is visible and does not send a success notification
   let (failed, command) = context_menu_update(
     binding,
     closed,
-    Completed(closed.generation, outcome),
+    Completed(outcome),
     @cmd.Emit(_ => @rabbita.none),
   )
   @rabbita_testing.run_cmd(command)
@@ -252,31 +210,6 @@ async test "source rejection is visible and does not send a success notification
   assert_eq(changes.val, 0)
   assert_eq(reports.val, 1)
   assert_eq(get_source_graph_source(handle), before)
-  destroy_source_graph(handle)
-}
-
-///|
-async test "late successful completion still publishes a committed source change" {
-  let handle = create_source_graph("osc = sine(freq: 440Hz)")
-  let prepared = test_context_prepare(handle, test_background_target())
-  let outcome = apply_menu_operation(prepared.items[0].operation)
-  guard outcome is SourceApplied(_) else { fail("expected insertion") }
-  let changes = @ref.Ref(0)
-  let reports = @ref.Ref(0)
-  let binding = test_context_binding(handle, on_change=() => changes.val += 1, on_source_result=_ => {
-    reports.val += 1
-  })
-  let newer = test_context_open(prepared)
-  let (after, command) = context_menu_update(
-    binding,
-    newer,
-    Completed(0, outcome),
-    @cmd.Emit(_ => @rabbita.none),
-  )
-  @rabbita_testing.run_cmd(command)
-  assert_true(after.context_menu.is_open())
-  assert_eq(changes.val, 1)
-  assert_eq(reports.val, 1)
   destroy_source_graph(handle)
 }
 
@@ -332,7 +265,7 @@ async test "rejected source disconnect clears selection without claiming an edit
   let (_, command) = context_menu_update(
     binding,
     model,
-    Completed(model.generation, outcome),
+    Completed(outcome),
     @cmd.Emit(_ => @rabbita.none),
   )
   @rabbita_testing.run_cmd(command)

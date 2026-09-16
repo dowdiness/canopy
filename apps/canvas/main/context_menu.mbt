@@ -27,8 +27,6 @@ priv struct CanvasContextRequest {
 ///|
 priv struct CanvasContextMenuModel {
   context_menu : @context_menu.Model[CanvasContextMenuItem]
-  // Identifies an opening, not an item index. Closing consumes that opening.
-  generation : Int
   problem : CanvasContextProblem?
 } derive(Eq)
 
@@ -40,42 +38,12 @@ priv struct CanvasContextMenuBinding {
 }
 
 ///|
-priv enum CanvasContextNavigation {
-  Next
-  Previous
-  First
-  Last
-  Item(Int)
-}
-
-///|
-fn CanvasContextNavigation::to_focus_message(
-  self : CanvasContextNavigation,
-) -> @context_menu.Msg {
-  match self {
-    Next => @context_menu.FocusNext
-    Previous => @context_menu.FocusPrevious
-    First => @context_menu.FocusFirst
-    Last => @context_menu.FocusLast
-    Item(index) => @context_menu.FocusItem(index)
-  }
-}
-
-///|
-priv enum CanvasContextMenuIntent {
-  Select(CanvasContextOperation)
-  Navigate(CanvasContextNavigation)
-  UnhandledKey
-  Close(restore_focus~ : Bool)
-  Reject(CanvasContextProblem)
-}
-
-///|
 priv enum CanvasContextMenuMsg {
   Request(Result[CanvasContextRequest, CanvasContextProblem])
-  Prepared(Int, Result[CanvasContextPreparedMenu, CanvasContextProblem])
-  Menu(Int, CanvasContextMenuIntent)
-  Completed(Int, CanvasContextOutcome)
+  Prepared(Result[CanvasContextPreparedMenu, CanvasContextProblem])
+  Select(CanvasContextOperation)
+  Menu(@context_menu.Msg)
+  Completed(CanvasContextOutcome)
   DismissAfterExternalMutation
 }
 
@@ -89,7 +57,6 @@ fn context_menu_model() -> CanvasContextMenuModel {
     context_menu: @context_menu.Model::new(id=CONTEXT_MENU_PANEL_ID).with_close_focus_id(
       CANVAS_ROOT_ID,
     ),
-    generation: 0,
     problem: None,
   }
 }
@@ -98,11 +65,7 @@ fn context_menu_model() -> CanvasContextMenuModel {
 fn CanvasContextMenuModel::close(
   self : CanvasContextMenuModel,
 ) -> CanvasContextMenuModel {
-  {
-    context_menu: self.context_menu.close(),
-    generation: self.generation + 1,
-    problem: None,
-  }
+  { context_menu: self.context_menu.close(), problem: None, }
 }
 
 ///|
@@ -112,28 +75,14 @@ fn menu_intent(
   model : CanvasContextMenuModel,
   input : @context_menu.Msg,
 ) -> CanvasContextMenuMsg {
-  let intent = match input {
+  match input {
     @context_menu.Activate(index) =>
       match model.context_menu.item(index) {
         Some(item) => Select(item.operation)
-        None =>
-          Reject(Rejected("This menu item is unavailable. Reopen the menu."))
+        None => Menu(input)
       }
-    @context_menu.Close | @context_menu.Dismiss(_) =>
-      Close(restore_focus=input.requests_close_focus())
-    @context_menu.FocusNext => Navigate(Next)
-    @context_menu.FocusPrevious => Navigate(Previous)
-    @context_menu.FocusFirst => Navigate(First)
-    @context_menu.FocusLast => Navigate(Last)
-    @context_menu.FocusItem(index) =>
-      match model.context_menu.item(index) {
-        Some(_) => Navigate(Item(index))
-        None =>
-          Reject(Rejected("This menu item is unavailable. Reopen the menu."))
-      }
-    @context_menu.Key(_) => UnhandledKey
+    _ => Menu(input)
   }
-  Menu(model.generation, intent)
 }
 
 ///|
@@ -151,22 +100,16 @@ fn context_menu_update(
           let next = model.close()
           (
             next,
-            @rabbita.perform(
-              result => emit(Prepared(next.generation, result)),
-              () => build_context_menu(binding.handle, request),
-            ),
+            @rabbita.perform(result => emit(Prepared(result)), () => {
+              build_context_menu(binding.handle, request)
+            }),
           )
         }
       }
-    Prepared(generation, result) => {
-      // Preparation may change ephemeral selection, even when another request
-      // supersedes its menu before this completion is delivered.
+    Prepared(result) => {
       let notify = match result {
         Ok(_) => @rabbita.effect(() => (binding.on_change)())
         Err(_) => @rabbita.none
-      }
-      if generation != model.generation {
-        return (model, notify)
       }
       match result {
         Err(problem) => ({ ..model, problem: Some(problem), }, notify)
@@ -186,55 +129,34 @@ fn context_menu_update(
         }
       }
     }
-    Menu(generation, intent) => {
-      // A dismissed/superseded render is a cancelled interaction. In particular,
-      // a second activation cannot apply the same opening's operation twice.
-      if generation != model.generation || !model.context_menu.is_open() {
+    Select(operation) => {
+      if !model.context_menu.is_open() {
         return (model, @rabbita.none)
       }
-      match intent {
-        Select(operation) => {
-          let next = model.close()
-          (
-            next,
-            @rabbita.batch([
-              @rabbita.perform(
-                result => emit(Completed(next.generation, result)),
-                () => apply_menu_operation(operation),
-              ),
-              model.context_menu.close_focus_cmd(),
-            ]),
-          )
-        }
-        Navigate(navigation) => {
-          let msg = navigation.to_focus_message()
-          let context_menu = model.context_menu.update(msg)
-          (
-            { ..model, context_menu, },
-            if msg.requests_focus() {
-              context_menu.focus_cmd()
-            } else {
-              @rabbita.none
-            },
-          )
-        }
-        UnhandledKey => (model, @rabbita.none)
-        Close(restore_focus~) =>
-          (
-            model.close(),
-            if restore_focus {
-              model.context_menu.close_focus_cmd()
-            } else {
-              @rabbita.none
-            },
-          )
-        Reject(problem) =>
-          ({ ..model.close(), problem: Some(problem), }, @rabbita.none)
-      }
+      (
+        model.close(),
+        @rabbita.batch([
+          @rabbita.perform(result => emit(Completed(result)), () => {
+            apply_menu_operation(operation)
+          }),
+          model.context_menu.close_focus_cmd(),
+        ]),
+      )
     }
-    Completed(generation, outcome) => {
-      // A committed change must reach the host even if a newer menu is open.
-      // Only feedback belongs to the opening that launched the operation.
+    Menu(input) => {
+      let context_menu = model.context_menu.update(input)
+      (
+        { ..model, context_menu, },
+        if input.requests_close_focus() {
+          model.context_menu.close_focus_cmd()
+        } else if input.requests_focus() {
+          context_menu.focus_cmd()
+        } else {
+          @rabbita.none
+        },
+      )
+    }
+    Completed(outcome) => {
       let (problem, notify) = match outcome {
         RuntimeApplied => (None, @rabbita.effect(() => (binding.on_change)()))
         SourceApplied(result) =>
@@ -263,14 +185,7 @@ fn context_menu_update(
           )
         Failed(problem) => (Some(problem), @rabbita.none)
       }
-      (
-        if generation == model.generation {
-          { ..model, problem, }
-        } else {
-          model
-        },
-        notify,
-      )
+      ({ ..model, problem, }, notify)
     }
     DismissAfterExternalMutation =>
       (
