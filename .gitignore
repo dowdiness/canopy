@@ -30,6 +30,7 @@ apps/ideal/web/playwright-report/
 apps/ideal/web/test-results/
 apps/web/test-results/
 test-results/
+.amp/portals/*
 .grepai/
 .ast-grep/
 reference/
@@ -40,7 +41,6 @@ reference/
 .claude/scheduled_tasks.lock
 .codex
 .superpowers/
-.agents/
 .slopless/
 test_output.html
 test_output.svg

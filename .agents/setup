@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly NODE_VERSION=22.22.2
+readonly JUST_VERSION=1.58.0
+readonly NU_VERSION=0.114.1
+readonly LEFTHOOK_VERSION=2.1.10
+readonly LOCAL_BIN="$HOME/.local/bin"
+
+step() {
+  local name=$1
+  shift
+  printf '\n==> %s\n' "$name"
+  time "$@"
+}
+
+install_archive_binary() {
+  local name=$1 current=$2 url=$3 archive_path=$4
+  if command -v "$name" >/dev/null 2>&1 && "$name" --version 2>/dev/null | grep -Fq "$current"; then
+    return
+  fi
+
+  local tmp
+  tmp=$(mktemp -d)
+  curl --fail --silent --show-error --location "$url" --output "$tmp/archive.tar.gz"
+  tar -xzf "$tmp/archive.tar.gz" -C "$tmp"
+  install -m 0755 "$tmp/$archive_path" "$LOCAL_BIN/$name"
+  rm -rf "$tmp"
+}
+
+install_node() {
+  local platform archive install_dir tmp
+  case "$(uname -m)" in
+    x86_64) platform=linux-x64 ;;
+    aarch64) platform=linux-arm64 ;;
+    *) echo "Unsupported architecture for Node.js: $(uname -m)" >&2; return 1 ;;
+  esac
+  archive="node-v${NODE_VERSION}-${platform}"
+  install_dir="$HOME/.local/lib/nodejs/$archive"
+  if [ ! -x "$install_dir/bin/node" ]; then
+    tmp=$(mktemp -d)
+    curl --fail --silent --show-error --location \
+      "https://nodejs.org/dist/v${NODE_VERSION}/${archive}.tar.xz" \
+      --output "$tmp/node.tar.xz"
+    mkdir -p "$(dirname "$install_dir")"
+    tar -xJf "$tmp/node.tar.xz" -C "$(dirname "$install_dir")"
+    rm -rf "$tmp"
+  fi
+  for command in node npm npx corepack; do
+    ln -sfn "$install_dir/bin/$command" "$LOCAL_BIN/$command"
+  done
+}
+
+install_cli_tools() {
+  install_archive_binary \
+    just "$JUST_VERSION" \
+    "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+    just
+  install_archive_binary \
+    nu "$NU_VERSION" \
+    "https://github.com/nushell/nushell/releases/download/${NU_VERSION}/nu-${NU_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+    "nu-${NU_VERSION}-x86_64-unknown-linux-gnu/nu"
+
+  if ! command -v lefthook >/dev/null 2>&1 || ! lefthook version 2>/dev/null | grep -Fq "$LEFTHOOK_VERSION"; then
+    curl --fail --silent --show-error --location \
+      "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_x86_64" \
+      --output "$LOCAL_BIN/lefthook"
+    printf '%s  %s\n' \
+      'f1de34ea0572363a525a2000d40f5a646733893ad28c924b34ac98304518073f' \
+      "$LOCAL_BIN/lefthook" | sha256sum --check --status
+    chmod 0755 "$LOCAL_BIN/lefthook"
+  fi
+}
+
+configure_login_shell() {
+  local env_file="$HOME/.config/canopy/orb-env.sh"
+  local profile_line='. "$HOME/.config/canopy/orb-env.sh" # canopy orb environment'
+  mkdir -p "$(dirname "$env_file")"
+  cat > "$env_file" <<'EOF'
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac
+case ":$PATH:" in
+  *":$HOME/.moon/bin:"*) ;;
+  *) export PATH="$HOME/.moon/bin:$PATH" ;;
+esac
+export NEW_MOON_MOD=0
+EOF
+  if ! grep -Fqx "$profile_line" "$HOME/.bash_profile" 2>/dev/null; then
+    printf '\n%s\n' "$profile_line" >> "$HOME/.bash_profile"
+  fi
+}
+
+install_npm_dependencies() {
+  local lock=$1 dir fingerprint stamp
+  dir=$(dirname "$lock")
+  stamp="$dir/node_modules/.amp-package-lock.sha256"
+  fingerprint=$(
+    {
+      sha256sum "$dir/package.json" "$lock"
+      node --version
+      npm --version
+    } | sha256sum | cut -d' ' -f1
+  )
+  if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$fingerprint" ]; then
+    printf 'npm dependencies current: %s\n' "$dir"
+    return
+  fi
+  printf 'installing npm dependencies: %s\n' "$dir"
+  npm --prefix "$dir" ci --no-audit --no-fund
+  printf '%s\n' "$fingerprint" > "$stamp"
+}
+
+mkdir -p "$LOCAL_BIN"
+export PATH="$LOCAL_BIN:$HOME/.moon/bin:$PATH"
+export NEW_MOON_MOD=0
+
+step "Install Node.js ${NODE_VERSION}" install_node
+step "Install repository CLI tools" install_cli_tools
+step "Configure non-interactive login shells" configure_login_shell
+step "Install pinned MoonBit toolchain" scripts/moon-toolchain.sh ensure
+step "Initialize Git submodules" git submodule update --init --recursive
+step "Warm MoonBit registry" scripts/moon-update.sh
+step "Build JavaScript FFI artifacts" just build-js
+
+export -f install_npm_dependencies
+step "Install tracked npm dependencies" \
+  bash -c 'git ls-files -z "*package-lock.json" | xargs -0 -r -n1 -P4 bash -c '\''install_npm_dependencies "$1"'\'' _'
+
+printf '\nOrb setup complete.\n'

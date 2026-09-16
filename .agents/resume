@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Canopy has no wake-time authentication or backing services to repair.
+# Toolchains and dependencies are restored from the project snapshot.
+:
