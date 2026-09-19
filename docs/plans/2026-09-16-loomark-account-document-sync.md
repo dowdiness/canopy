@@ -98,11 +98,10 @@ require separate permission. Local-only operation remains supported.
   conflict recovery write cannot be detached. The writer is an exclusive
   `Available | Storing | RetryPending` state; stale completions are explicit
   errors and compare only account, document, and generation rather than full
-  document text. Account selection will own the scoped state, so individual
-  transitions do not repeatedly compare a raw account string. The integration
-  must also attach a fresh owner incarnation to each account selection; account,
-  document, and generation alone do not fence a delayed A-session result after
-  A → B → A.
+  document text. Individual transitions do not repeatedly compare a raw account
+  string. The application routes ordinary typed sync messages to retained
+  account-owned state; changing the authenticated account changes network
+  eligibility without discarding another account's pending local work.
 - Pure MoonBit sync transitions resend the exact persisted operation after
   restart, retain edits made during an in-flight operation, reject non-matching
   writer completions, reconcile equal text without false conflict, and keep
@@ -301,8 +300,8 @@ must preserve a recovery branch instead of silently overwriting it.
 The current Rabbita IndexedDB binding supports atomic blind mutation but not a
 transaction-local read/compare/write operation. Therefore multi-tab CAS remains
 an integration gate rather than a property of the present checkpoint writer;
-do not connect account sync until that storage boundary and the A → B → A owner
-incarnation fence are implemented and tested.
+implement it before claiming multi-tab support and before final sync acceptance,
+not as a prerequisite for the initial single-tab integration.
 
 ### Authentication boundary
 
@@ -313,6 +312,113 @@ verification, cookie cryptography, or session management in MoonBit. Do not log
 codes, tokens, cookies, or text. Bind each document request to its expected
 account to reject cross-tab account-switch races. Provider failures must not
 compromise local editor availability.
+
+### Rabbita message and lifecycle boundary
+
+Keep one stable Rabbita application state so account changes never recreate the
+textarea or disturb IME, selection, or native Undo. The model retains the sync
+state of every account observed during the page lifetime, loaded lazily from its
+account-scoped IndexedDB checkpoints. Authentication selects which retained
+account may perform network work; it does not transfer or delete checkpoint
+ownership. Logging out therefore pauses network synchronization while local
+checkpointing and Export remain available.
+
+Use ordinary nested messages rather than a callback registry, custom event bus,
+or account-incarnation framework:
+
+```moonbit nocheck
+priv enum Msg {
+  // Existing editor messages remain unchanged.
+  AccountResolved(Int, AccountResult)
+  Sync(SyncEvent)
+}
+
+priv enum SyncEvent {
+  CheckpointCompleted(CheckpointResult)
+  MutationCompleted(AccountId, OperationId, MutationResult)
+  DiscoveryCompleted(AccountId, Int, DiscoveryResult)
+}
+```
+
+The exact constructors may follow the implemented HTTP result types, but the
+ownership rule is fixed: every `SyncEvent` contains exactly one parsed account
+authority. `CheckpointResult` derives it from its originating checkpoint;
+network events carry it directly. Do not duplicate the account in an outer
+message and then validate two copies. Each callback only emits `Sync(event)` and
+contains no state logic. Root `update` routes the event to that account's
+retained state, where the checkpoint writer, operation ID, remote revision, or
+discovery request ID decides whether the completion is current. Do not allocate
+a second generic request identity when an existing domain identity already
+distinguishes the operation.
+
+Account lookup is the one result that cannot yet be routed by `AccountId`,
+because it determines that identity. Keep its latest request ID in the session
+state and accept only the matching `AccountResolved` message. While account
+lookup is pending or unavailable, preserve editing and local checkpoint writes
+but start no network synchronization. Refresh account identity after auth
+navigation, logout, visibility recovery, and an expected-account rejection; do
+not poll it from the input path.
+
+An inactive account may accept a valid completion for work already started and
+persist its receipt or newest checkpoint. It must not start another network
+request, expose its documents as belonging to the authenticated account, or
+replace the mounted editor. When the same account is selected again, its
+original writer lanes and request identities continue; A → B → A therefore does
+not create a second A state that can collide with an earlier A completion. A
+page reload has no surviving callbacks and reconstructs state from IndexedDB.
+
+Use `Val::switch_by` only for disposable account-specific presentation or
+subscriptions that have no parent-to-child Autosave input. It is not the sync
+correctness boundary. Rabbita intentionally has no consumer API that turns a
+changing parent `Val` into an immediate child message; forcing the sync reducer
+into such a child would require storing an `Emit`, polling, or adding a custom
+event bus. The stable root message loop is smaller and follows Rabbita's normal
+`Model` / `Msg` / `update` / `Cmd` contract. Cancellation may release resources
+but is not required for correctness.
+
+Do not add a second `moonbitlang/async` worker or queue to the application model.
+Rabbita's browser host and HTTP commands already execute on that runtime. Async
+task groups are lexical: returning from `with_task_group` guarantees joined
+children, but `Task::cancel` is cooperative and does not synchronously prove
+that a task can no longer enqueue a result. Rabbita's browser host also launches
+each async `Cmd` without exposing its task handle to consumer code. Bridging a
+component lifetime to a new task group would therefore require a binding-level
+registry, cancellation handle, queue, and the same message identity checks.
+That duplicates the existing command loop rather than simplifying it.
+
+Use `moonbitlang/async` inside server code or a focused Rabbita binding when an
+actual streaming or structured-child lifetime requires it. Account sync remains
+ordinary `Cmd` effects returning typed `Msg` values. Backoff, visibility, and
+online policy stay explicit in the pure model so they are durable, inspectable,
+and testable; cancellation is only an optional resource optimization.
+
+Better Auth remains the server authorization boundary, and its session ID is
+not exposed as application state. Each document request carries its expected
+`AccountId` as a precondition; the Worker compares it with Better Auth's verified
+user ID before reading or mutating documents. A client-provided account never
+grants authority. If another tab changes the shared cookie before a request is
+admitted, the mismatch is rejected rather than returning one account's data to
+another account's retained state.
+
+Tests must cover delayed checkpoint, mutation, and discovery messages through
+A → B → A; valid results return to the original retained A state, stale request
+identities are rejected, and no A result starts network work while B is selected.
+Account switches must leave the same textarea mounted. Expected-account mismatch
+must fail before document access. Existing operation-ID and remote-revision
+tests continue to own ordering within one account.
+
+The acceptance matrix is:
+
+- Reverse-ordered account lookups: only the latest lookup selects an account.
+- A mutation completes while B is selected: update A's retained checkpoint and
+  schedule no A network follow-up.
+- A completion arrives after A → B → A: accept it only when its existing
+  checkpoint, operation, revision, or discovery identity is still current in
+  the same retained A state.
+- The shared cookie changes before server admission: expected-account mismatch
+  performs no document access and requests a fresh account lookup.
+- The page reloads: no callback survives; durable pending operations are parsed
+  from IndexedDB and resumed only for the authenticated owner.
 
 ### MoonBit / TypeScript boundary and reuse
 

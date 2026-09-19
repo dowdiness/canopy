@@ -155,16 +155,36 @@ from that phase instead of being copied into every transition result. Callers
 cannot construct a conflict transition without its atomic recovery Source. The
 checkpoint writer is likewise exactly `Available`, `Storing`, or `RetryPending`.
 A delayed completion that does not match the active account, document, and
-generation returns an explicit error without comparing full document text. Account
-switching will replace the owned account-scoped state instead of passing an
-account string through every transition for repeated comparison.
+generation returns an explicit error without comparing full document text.
 
-Two correctness gates remain for integration. Account selection needs a fresh
-owner incarnation so a delayed completion from an earlier A session cannot be
-accepted after A → B → A merely because account, document, and generation happen
-to match. Multi-tab checkpoint writes need transaction-local compare-and-write;
-the current Rabbita IndexedDB API provides atomic blind mutations but no CAS.
-Neither case is treated as solved by the pure per-document writer.
+Account integration will use the existing stable Rabbita message loop. Ordinary
+`Sync(SyncEvent)` messages route asynchronous results to retained per-account
+state. Each event owns exactly one account identity rather than carrying and
+cross-validating duplicate copies. Selecting B pauses A's network work without
+discarding A's writer lanes or pending operations, so returning A does not
+create a second state that can accept an unrelated old completion. The mounted
+editor remains stable across account changes. Operation IDs, revisions,
+checkpoint generations, and discovery request IDs provide ordering within each
+account; no generic account-incarnation token or callback registry is added.
+Each document request also binds the expected account as a server-checked
+precondition.
+
+Account lookup itself carries a latest-request ID because its result determines
+the account and cannot yet be routed by one. While that lookup is unresolved,
+local editing and checkpointing continue but network synchronization stays
+paused. A server expected-account rejection triggers a fresh lookup rather than
+guessing that the previous browser account is still current.
+
+`switch_by` remains appropriate for disposable account-only presentation and
+subscriptions, but not as the sync reducer's ownership boundary: parent
+Autosave input must enter the normal root `update` without a stored child
+`Emit`, polling, or a custom event bus. A separate `moonbitlang/async` task group
+or queue would duplicate Rabbita's existing async `Cmd` runtime and still need
+the same message identities because cancellation is cooperative. Multi-tab
+checkpoint writes still need transaction-local compare-and-write; the current
+Rabbita IndexedDB API provides atomic blind mutations but no CAS. That CAS is
+required before multi-tab support and final sync acceptance, not before the
+initial single-tab integration.
 
 From `apps/loomark`:
 
