@@ -1,40 +1,51 @@
 ///|
 fn import_document(
-  documents : Documents,
-  document_id : String,
+  documents : State,
+  document_id : @source_repository.DocumentId,
   text : String,
-) -> (Documents, Array[DocumentsDecision]) {
-  guard find_record(documents.records, document_id) is None else {
+) -> (State, Array[Effect]) {
+  let key = Key::source(document_id)
+  guard find_record(documents.records, key) is None else {
     return (documents, [])
   }
-  let document = @source_repository.Document::create(document_id, text) catch {
-    _ => abort("invalid generated document id")
-  }
+  let document = @source_repository.Document::create(document_id, text)
   let record = {
+    persistence: Source(ImportedNew, SourceDeletePhase::Available),
     document,
-    origin: ImportedNew,
     edit: Idle,
     save: Saved,
     lead_source: LeadSource::Available(text),
-    delete: DocumentsDeletePhase::Available,
   }
-  let (record, decisions) = begin_save(record)
+  let (record, effects) = begin_save(documents.saved, record)
   (
     { ..documents, records: prepend_record(documents.records, record), },
-    decisions,
+    effects,
   )
 }
 
 ///|
+fn acknowledged_document(
+  saved : @source_repository.SavedDocuments,
+  key : Key,
+) -> @source_repository.Document? {
+  match key {
+    Source(document_id) => saved.find(document_id)
+    Checkpoint(account, document_id) =>
+      saved.checkpoint(account, document_id).map(value => value.document())
+  }
+}
+
+///|
 fn apply_text(
-  documents : Documents,
-  document_id : String,
+  documents : State,
+  document_id : Key,
   text : String,
-) -> (Documents, Array[DocumentsDecision]) {
+) -> (State, Array[Effect]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
-  guard !delete_is_active(record.delete) && record.document.text() != text else {
+  guard !delete_is_active(record.delete_phase()) &&
+    record.document.text() != text else {
     return (documents, [])
   }
   let document = record.document.update(text)
@@ -42,7 +53,7 @@ fn apply_text(
     LeadSource::Unlisted => LeadSource::Available(text)
     source => source
   }
-  let acknowledged = documents.saved.find(document_id)
+  let acknowledged = acknowledged_document(documents.saved, record.key())
   let is_clean = acknowledged is Some(saved) && saved.text() == text
   let in_flight = record.save is Saving(_, _)
   let (documents, checkpoint) = if is_clean && !in_flight {
@@ -110,17 +121,17 @@ fn apply_text(
 
 ///|
 fn apply_pending_edit(
-  documents : Documents,
-  document_id : String,
+  documents : State,
+  document_id : Key,
   revision : Int,
-) -> (Documents, Array[DocumentsDecision]) {
+) -> (State, Array[Effect]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
-  guard !delete_is_active(record.delete) else { return (documents, []) }
+  guard !delete_is_active(record.delete_phase()) else { return (documents, []) }
   match record.edit {
     Waiting(current) if current == revision => {
-      let (record, decisions) = accept_pending(record)
+      let (record, decisions) = accept_pending(documents.saved, record)
       (
         {
           ..documents,
@@ -147,17 +158,17 @@ fn apply_pending_edit(
 
 ///|
 fn eligible_maximum(
-  documents : Documents,
-  document_id : String,
+  documents : State,
+  document_id : Key,
   maximum_id : Int,
-) -> (Documents, Array[DocumentsDecision]) {
+) -> (State, Array[Effect]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
-  guard !delete_is_active(record.delete) else { return (documents, []) }
+  guard !delete_is_active(record.delete_phase()) else { return (documents, []) }
   match record.save {
     Waiting(checkpoint) if checkpoint.maximum_id == maximum_id => {
-      let (record, decisions) = mark_eligible(record)
+      let (record, decisions) = mark_eligible(documents.saved, record)
       (
         {
           ..documents,
@@ -167,7 +178,7 @@ fn eligible_maximum(
       )
     }
     Saving(_, Some(checkpoint)) if checkpoint.maximum_id == maximum_id => {
-      let (record, decisions) = mark_eligible(record)
+      let (record, decisions) = mark_eligible(documents.saved, record)
       (
         {
           ..documents,
@@ -182,8 +193,9 @@ fn eligible_maximum(
 
 ///|
 fn mark_eligible(
-  record : DocumentRecord,
-) -> (DocumentRecord, Array[DocumentsDecision]) {
+  saved : @source_repository.SavedDocuments,
+  record : Record,
+) -> (Record, Array[Effect]) {
   match record.save {
     Waiting(checkpoint) if is_composing(record.edit) =>
       (
@@ -197,7 +209,7 @@ fn mark_eligible(
         [],
       )
     Waiting(checkpoint) =>
-      begin_save({
+      begin_save(saved, {
         ..record,
         save: Waiting({
           ..checkpoint,
@@ -224,24 +236,26 @@ fn mark_eligible(
 
 ///|
 fn accept_pending(
-  record : DocumentRecord,
-) -> (DocumentRecord, Array[DocumentsDecision]) {
+  saved : @source_repository.SavedDocuments,
+  record : Record,
+) -> (Record, Array[Effect]) {
   let record = {
     ..record,
     edit: Idle,
     lead_source: LeadSource::Available(record.document.text()),
   }
-  mark_eligible(record)
+  mark_eligible(saved, record)
 }
 
 ///|
 fn finish_composition(
-  document_id : String,
-  record : DocumentRecord,
-) -> (DocumentRecord, Array[DocumentsDecision]) {
+  saved : @source_repository.SavedDocuments,
+  document_id : Key,
+  record : Record,
+) -> (Record, Array[Effect]) {
   match record.save {
     Waiting(checkpoint) if checkpoint.eligibility ==
-      DocumentsCheckpointEligibility::Eligible => begin_save(record)
+      DocumentsCheckpointEligibility::Eligible => begin_save(saved, record)
     Waiting(checkpoint) => {
       let (checkpoint, decisions) = checkpoint_effect(
         document_id, checkpoint, false,
@@ -261,15 +275,16 @@ fn finish_composition(
 
 ///|
 fn complete_waiting_delete(
-  documents : Documents,
-  record : DocumentRecord,
+  documents : State,
+  record : Record,
+  origin : LocalDocumentOrigin,
   delete_operation : DeleteOperation,
   retained : DocumentsSaveStatus,
   saved : @source_repository.SavedDocuments,
-) -> (Documents, Array[DocumentsDecision]) {
-  let document_id = record.document.id()
+) -> (State, Array[Effect]) {
+  let document_id = record.key()
   let (deleting, decision) = issue_delete_record(
-    record, delete_operation, retained,
+    record, origin, delete_operation, retained,
   )
   (
     {
@@ -283,31 +298,42 @@ fn complete_waiting_delete(
 
 ///|
 fn complete_stored(
-  documents : Documents,
-  record : DocumentRecord,
+  documents : State,
+  record : Record,
   pending : DocumentsCheckpoint?,
   saved : @source_repository.SavedDocuments,
-) -> (Documents, Array[DocumentsDecision]) {
-  let document_id = record.document.id()
-  let completed = { ..record, origin: Existing, }
-  match record.delete {
-    Waiting(delete_operation) => {
+) -> (State, Array[Effect]) {
+  let document_id = record.key()
+  let persistence = match record.persistence {
+    Source(EphemeralNew | ImportedNew, deletion) =>
+      DocumentPersistence::Source(Existing, deletion)
+    Source(Existing, _) | Checkpoint(_) => record.persistence
+  }
+  let completed = { ..record, persistence, }
+  match record.persistence {
+    Source(origin, SourceDeletePhase::Waiting(delete_operation)) => {
       let retained = match pending {
-        Some(checkpoint) if saved.find(document_id) != Some(record.document) =>
-          DocumentsSaveStatus::Waiting(checkpoint)
+        Some(checkpoint) if acknowledged_document(saved, record.key()) !=
+          Some(record.document) => DocumentsSaveStatus::Waiting(checkpoint)
         _ => Saved
       }
       complete_waiting_delete(
-        documents, completed, delete_operation, retained, saved,
+        documents, completed, origin, delete_operation, retained, saved,
       )
     }
-    Deleting(_) | Available | Failed(_, _) => {
+    Source(
+      _,
+      SourceDeletePhase::Deleting(_)
+      | SourceDeletePhase::Available
+      | SourceDeletePhase::Failed(_, _)
+    )
+    | Checkpoint(_) => {
       let (next, decisions) = match pending {
-        Some(_) if saved.find(document_id) == Some(record.document) =>
-          ({ ..completed, save: Saved, }, [])
+        Some(_) if acknowledged_document(saved, record.key()) ==
+          Some(record.document) => ({ ..completed, save: Saved, }, [])
         Some(checkpoint) if checkpoint.eligibility ==
           DocumentsCheckpointEligibility::Eligible &&
-          !is_composing(record.edit) => begin_save(completed)
+          !is_composing(record.edit) => begin_save(saved, completed)
         Some(checkpoint) => ({ ..completed, save: Waiting(checkpoint), }, [])
         None => ({ ..completed, save: Saved, }, [])
       }
@@ -325,18 +351,19 @@ fn complete_stored(
 
 ///|
 fn complete_failed(
-  documents : Documents,
-  record : DocumentRecord,
+  documents : State,
+  record : Record,
   pending : DocumentsCheckpoint?,
   failure : @source_repository.SaveFailure,
-) -> (Documents, Array[DocumentsDecision]) {
-  let document_id = record.document.id()
-  match record.delete {
-    Waiting(delete_operation) =>
-      if documents.saved.find(document_id) is Some(_) {
+) -> (State, Array[Effect]) {
+  let document_id = record.key()
+  match record.persistence {
+    Source(origin, SourceDeletePhase::Waiting(delete_operation)) =>
+      if acknowledged_document(documents.saved, record.key()) is Some(_) {
         complete_waiting_delete(
           documents,
           record,
+          origin,
           delete_operation,
           Failed(failure),
           documents.saved,
@@ -350,14 +377,28 @@ fn complete_failed(
           [],
         )
       }
-    Deleting(_) | Available | Failed(_, _) => {
-      let (next, decisions) = match pending {
-        Some(checkpoint) if checkpoint.eligibility ==
-          DocumentsCheckpointEligibility::Eligible &&
-          !is_composing(record.edit) =>
-          begin_save({ ..record, save: Waiting(checkpoint), })
-        Some(checkpoint) => ({ ..record, save: Waiting(checkpoint), }, [])
-        None => ({ ..record, save: Failed(failure), }, [])
+    Source(
+      _,
+      SourceDeletePhase::Deleting(_)
+      | SourceDeletePhase::Available
+      | SourceDeletePhase::Failed(_, _)
+    )
+    | Checkpoint(_) => {
+      let (next, decisions) = if acknowledged_document(
+          documents.saved,
+          record.key(),
+        ) ==
+        Some(record.document) {
+        ({ ..record, save: Saved, }, [])
+      } else {
+        match pending {
+          Some(checkpoint) if checkpoint.eligibility ==
+            DocumentsCheckpointEligibility::Eligible &&
+            !is_composing(record.edit) =>
+            begin_save(documents.saved, { ..record, save: Waiting(checkpoint), })
+          Some(checkpoint) => ({ ..record, save: Waiting(checkpoint), }, [])
+          None => ({ ..record, save: Failed(failure), }, [])
+        }
       }
       (
         {
@@ -372,11 +413,11 @@ fn complete_failed(
 
 ///|
 fn complete(
-  documents : Documents,
+  documents : State,
   operation : SaveOperation,
   result : @source_repository.SaveResult,
-) -> (Documents, Array[DocumentsDecision]) {
-  let document_id = operation.document.id()
+) -> (State, Array[Effect]) {
+  let document_id = operation.key
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
@@ -395,5 +436,58 @@ fn complete(
       complete_stored(documents, record, pending, saved)
     }
     SaveFailed(failure) => complete_failed(documents, record, pending, failure)
+  }
+}
+
+///|
+fn checkpoint_failure(
+  failure : @source_repository.CheckpointFailure,
+) -> @source_repository.SaveFailure {
+  match failure {
+    InvalidCheckpoint => @source_repository.SaveFailure::InvalidSource
+    StorageUnavailable => @source_repository.SaveFailure::StorageUnavailable
+    QuotaExceeded => @source_repository.SaveFailure::QuotaExceeded
+    WriteFailed => @source_repository.SaveFailure::WriteFailed
+  }
+}
+
+///|
+fn complete_checkpoint(
+  documents : State,
+  result : @source_repository.CheckpointResult,
+) -> (State, Array[Effect]) {
+  match result {
+    CheckpointStored(checkpoint) => {
+      let saved = documents.saved.apply_checkpoint(checkpoint) catch {
+        _ => return (documents, [])
+      }
+      let documents = { ..documents, saved, }
+      let key = Key::checkpoint(
+        checkpoint.account(),
+        checkpoint.document().id(),
+      )
+      let document_id = key
+      guard find_record(documents.records, document_id) is Some(record) &&
+        record.save is Saving(operation, pending) &&
+        operation.key == key &&
+        operation.document == checkpoint.document() else {
+        return (documents, [])
+      }
+      complete_stored(documents, record, pending, saved)
+    }
+    CheckpointFailed(checkpoint, failure) => {
+      let key = Key::checkpoint(
+        checkpoint.account(),
+        checkpoint.document().id(),
+      )
+      let document_id = key
+      guard find_record(documents.records, document_id) is Some(record) &&
+        record.save is Saving(operation, pending) &&
+        operation.key == key &&
+        operation.document == checkpoint.document() else {
+        return (documents, [])
+      }
+      complete_failed(documents, record, pending, checkpoint_failure(failure))
+    }
   }
 }

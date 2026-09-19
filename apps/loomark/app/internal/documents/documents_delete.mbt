@@ -1,42 +1,51 @@
 ///|
 fn delete_is_active(phase : DocumentsDeletePhase) -> Bool {
   match phase {
-    Available | Failed(_, _) => false
+    Unavailable | Available | Failed(_, _) => false
     Waiting(_) | Deleting(_) => true
   }
 }
 
 ///|
-fn remove_record(
-  records : Array[DocumentRecord],
-  id : String,
-) -> Array[DocumentRecord] {
-  records.filter(r => r.document.id() != id)
+fn remove_record(records : Array[Record], key : Key) -> Array[Record] {
+  records.filter(r => r.key() != key)
 }
 
 ///|
 fn issue_delete_record(
-  record : DocumentRecord,
+  record : Record,
+  origin : LocalDocumentOrigin,
   operation : DeleteOperation,
   retained : DocumentsSaveStatus,
-) -> (DocumentRecord, DocumentsDecision) {
+) -> (Record, Effect) {
   (
-    { ..record, save: retained, delete: Deleting(operation), },
-    DeleteDocument(operation),
+    {
+      ..record,
+      save: retained,
+      persistence: Source(origin, SourceDeletePhase::Deleting(operation)),
+    },
+    DeleteSource(operation),
   )
 }
 
 ///|
 fn confirm_or_retry_delete(
-  documents : Documents,
-  id : String,
-) -> (Documents, Array[DocumentsDecision]) {
+  documents : State,
+  id : Key,
+) -> (State, Array[Effect]) {
   guard find_record(documents.records, id) is Some(record) else {
     return (documents, [])
   }
-  guard !delete_is_active(record.delete) else { return (documents, []) }
+  guard record.persistence is Source(origin, phase) &&
+    (
+      phase is SourceDeletePhase::Available ||
+      phase is SourceDeletePhase::Failed(_, _)
+    ) else {
+    return (documents, [])
+  }
   let request_id = documents.last_delete_request + 1
-  let operation = { document_id: id, request_id, }
+  let key = record.key()
+  let operation = { key, document_id: record.document.id(), request_id, }
   match record.save {
     Saving(_, _) =>
       (
@@ -45,12 +54,12 @@ fn confirm_or_retry_delete(
           last_delete_request: request_id,
           records: replace_record(documents.records, id, r => {
             ..r,
-            delete: Waiting(operation),
+            persistence: Source(origin, SourceDeletePhase::Waiting(operation)),
           }),
         },
         [],
       )
-    _ if documents.saved.find(id) is None =>
+    _ if documents.saved.find(record.document.id()) is None =>
       (
         {
           ..documents,
@@ -62,6 +71,7 @@ fn confirm_or_retry_delete(
     _ => {
       let (record, decision) = issue_delete_record(
         record,
+        origin,
         operation,
         record.save,
       )
@@ -79,17 +89,17 @@ fn confirm_or_retry_delete(
 
 ///|
 fn finish_delete(
-  documents : Documents,
+  documents : State,
   operation : DeleteOperation,
   result : @source_repository.DeleteResult,
-) -> (Documents, Array[DocumentsDecision]) {
-  guard find_record(documents.records, operation.document_id) is Some(record) else {
+) -> (State, Array[Effect]) {
+  let key = operation.key
+  guard find_record(documents.records, key) is Some(record) else {
     return (documents, [])
   }
-  guard (match record.delete {
-    Deleting(x) => x == operation
-    Available | Waiting(_) | Failed(_, _) => false
-  }) else {
+  guard record.persistence
+    is Source(origin, SourceDeletePhase::Deleting(active)) &&
+    active == operation else {
     return (documents, [])
   }
   match result {
@@ -102,22 +112,24 @@ fn finish_delete(
         return (documents, [])
       }
       (
-        { ..documents, saved, records: remove_record(documents.records, id), },
+        { ..documents, saved, records: remove_record(documents.records, key), },
         [],
       )
     }
     DeleteFailed(failure) => {
-      let restored = { ..record, delete: Failed(operation, failure), }
+      let restored = {
+        ..record,
+        persistence: Source(
+          origin,
+          SourceDeletePhase::Failed(operation, failure),
+        ),
+      }
       let (restored, decisions) = match record.save {
         Waiting(checkpoint) if checkpoint.eligibility ==
           DocumentsCheckpointEligibility::Eligible &&
-          !is_composing(record.edit) => begin_save(restored)
+          !is_composing(record.edit) => begin_save(documents.saved, restored)
         Waiting(checkpoint) => {
-          let (checkpoint, decisions) = checkpoint_effect(
-            operation.document_id,
-            checkpoint,
-            true,
-          )
+          let (checkpoint, decisions) = checkpoint_effect(key, checkpoint, true)
           (
             { ..restored, save: DocumentsSaveStatus::Waiting(checkpoint), },
             decisions,
@@ -128,9 +140,7 @@ fn finish_delete(
       (
         {
           ..documents,
-          records: replace_record(documents.records, operation.document_id, fn(
-            _,
-          ) {
+          records: replace_record(documents.records, key, fn(_) {
             return restored
           }),
         },

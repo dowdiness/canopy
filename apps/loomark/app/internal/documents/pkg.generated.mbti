@@ -1,0 +1,94 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/app/internal/documents"
+
+import {
+  "dowdiness/loomark/app/internal/source_repository",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct DeleteOperation {
+  key : Key
+  document_id : @source_repository.DocumentId
+  request_id : Int
+} derive(Eq)
+
+pub(all) enum DeleteStatus {
+  NotDeletable
+  Deletable
+  DeletePending
+  DeleteFailed(@source_repository.DeleteFailure)
+} derive(Eq)
+
+pub(all) enum Effect {
+  ArmMaximum(Key, Int)
+  PersistSource(SaveOperation)
+  PersistCheckpoint(@source_repository.CheckpointWrite)
+  DeleteSource(DeleteOperation)
+}
+
+pub(all) enum Feedback {
+  MaximumElapsed(Key, Int)
+  SaveCompleted(SaveOperation, @source_repository.SaveResult)
+  CheckpointCompleted(@source_repository.CheckpointResult)
+  DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
+}
+
+pub enum Key {
+  Source(@source_repository.DocumentId)
+  Checkpoint(@source_repository.AccountId, @source_repository.DocumentId)
+} derive(Eq, Hash)
+pub fn Key::checkpoint(@source_repository.AccountId, @source_repository.DocumentId) -> Self
+pub fn Key::lifecycle_key(Self) -> String
+pub fn Key::source(@source_repository.DocumentId) -> Self
+
+pub(all) enum Msg {
+  New(@source_repository.DocumentId)
+  Imported(@source_repository.DocumentId, String)
+  TextChanged(Key, String)
+  CompositionStarted(Key)
+  CompositionEnded(Key)
+  FeedbackReceived(Feedback)
+  RetrySave(Key)
+  VisibilityFlush(Key)
+  ApplyPendingEdit(Key, Int)
+  DeleteConfirmed(Key)
+  RetryDelete(Key)
+  DismissDeleteFailure(Key)
+}
+
+pub struct SaveOperation {
+  key : Key
+  document : @source_repository.Document
+} derive(Eq)
+
+pub(all) enum SaveStatus {
+  Clean
+  Unsaved
+  SaveFailed(@source_repository.SaveFailure)
+} derive(Eq)
+
+pub struct State {
+  // private fields
+} derive(Eq)
+pub fn State::State(@source_repository.SavedDocuments) -> Self
+pub fn State::delete_status(Self, Key) -> DeleteStatus?
+pub fn State::document(Self, Key) -> @source_repository.Document?
+pub fn State::fallback_document(Self, Key) -> Key?
+pub fn State::hide_accounts(Self) -> Self
+pub fn State::is_composing(Self, Key) -> Bool
+pub fn State::pending_edits(Self) -> Array[(Key, Int)]
+pub fn State::project_account(Self, @source_repository.AccountId) -> Self
+pub fn State::recent(Self) -> Array[(Key, String, SaveStatus, DeleteStatus)]
+pub fn State::reduce(Self, Msg) -> (Self, Array[Effect])
+pub fn State::resume_hint(Self, Key) -> @source_repository.EditingDocumentHint?
+pub fn State::save_status(Self, Key) -> SaveStatus?
+pub fn State::snapshot(Self) -> @source_repository.SavedDocuments
+pub fn State::text(Self, Key) -> String?
+
+// Type aliases
+
+// Traits
