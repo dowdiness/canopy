@@ -1,0 +1,57 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/app/internal/sync"
+
+import {
+  "dowdiness/loomark/app/internal/source_repository",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror CompletionError {
+  StaleCompletion
+} derive(Eq, @debug.Debug)
+
+// Types and methods
+pub(all) enum AccountResult {
+  SignedOut
+  Resolved(@source_repository.AccountId, String)
+  AccountUnavailable
+}
+
+pub enum AccountSelection {
+  NoAccountSelected
+  AccountSelected(@source_repository.AccountId)
+} derive(Eq, @debug.Debug)
+
+pub struct Attempt {
+  request_id : RequestId
+  write : @source_repository.CheckpointWrite
+} derive(Eq, @debug.Debug)
+pub fn Attempt::request_id(Self) -> RequestId
+pub fn Attempt::write(Self) -> @source_repository.CheckpointWrite
+
+pub struct RequestId(Int) derive(Eq, @debug.Debug)
+
+pub enum Session {
+  Resolving(Int)
+  NoAccount
+  Current(@source_repository.AccountId, String)
+  SessionUnavailable
+} derive(Eq, @debug.Debug)
+
+pub struct State {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn State::State() -> Self
+pub fn State::begin_lookup(Self) -> (Self, Int)
+pub fn State::failed(Self, RequestId, @source_repository.SyncCheckpoint) -> Self raise CompletionError
+pub fn State::persist(Self, @source_repository.CheckpointWrite) -> (Self, Attempt?)
+pub fn State::resolved(Self, Int, AccountResult) -> (Self, AccountSelection?)
+pub fn State::session(Self) -> Session
+pub fn State::stored(Self, RequestId, @source_repository.SyncCheckpoint) -> (Self, Attempt?) raise CompletionError
+
+// Type aliases
+
+// Traits
