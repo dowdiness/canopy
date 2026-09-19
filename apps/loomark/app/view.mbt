@@ -186,7 +186,7 @@ fn creation_failure_view(
 
 ///|
 fn delete_failure_view(
-  document_id : String,
+  document_id : @documents.Key,
   failure : @source_repository.DeleteFailure,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
@@ -265,7 +265,7 @@ fn feature_sidebar(
 ///|
 fn view(
   sidebar : @sidebar.SidebarScope,
-  model : Model,
+  model : Page,
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,
   delete_dialog : @rabbita.Html,
@@ -318,23 +318,19 @@ fn view(
                   mode_content(editing.mode, editor_panels),
                   match
                     (
-                      editing.documents.save_status(
-                        editing.activation.document_id,
-                      ),
+                      editing.documents.save_status(editing.activation.key),
                       editing.creation,
                     ) {
-                    (Some(Failed(failure)), _) =>
+                    (Some(@documents.SaveStatus::SaveFailed(failure)), _) =>
                       save_failure_view(failure, emit)
                     (_, CreationFailed(failure)) =>
                       creation_failure_view(failure, emit)
                     _ =>
                       match
-                        editing.documents.delete_status(
-                          editing.activation.document_id,
-                        ) {
-                        Some(Failed(operation, failure)) =>
+                        editing.documents.delete_status(editing.activation.key) {
+                        Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
                           delete_failure_view(
-                            operation.document_id,
+                            editing.activation.key,
                             failure,
                             emit,
                           )

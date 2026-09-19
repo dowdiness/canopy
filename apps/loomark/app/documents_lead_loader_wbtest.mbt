@@ -78,7 +78,7 @@ test "pending loader schedules one 250ms timer and updates its tagger" {
   let scheduler : LeadFakeScheduler = { commands: [], }
   let markers : Array[String] = []
   let running = start_pending_edit_subscription(
-    PendingEditSub::Apply("one", 1, () => {
+    PendingEditSub::Apply(source_key("one"), 1, () => {
       markers.push("old")
       @cmd.none
     }),
@@ -89,7 +89,7 @@ test "pending loader schedules one 250ms timer and updates its tagger" {
   assert_eq(timer.callbacks.length(), 1)
   assert_eq(timer.delays, [250])
   (running.update_tagger)(
-    PendingEditSub::Apply("one", 1, () => {
+    PendingEditSub::Apply(source_key("one"), 1, () => {
       markers.push("latest")
       @cmd.none
     }),
@@ -105,7 +105,7 @@ test "pending loader unload cancels and mutes a queued callback" {
   let timer : LeadFakeTimer = { callbacks: [], delays: [], cancel_calls: [], }
   let scheduler : LeadFakeScheduler = { commands: [], }
   let running = start_pending_edit_subscription(
-    PendingEditSub::Apply("one", 1, () => @cmd.none),
+    PendingEditSub::Apply(source_key("one"), 1, () => @cmd.none),
     scheduler,
     (callback, delay) => lead_fake_schedule(timer, callback, delay),
     handle => lead_fake_cancel(timer, handle),
@@ -123,7 +123,7 @@ test "replaced loader cancels old revision and emits only the new one" {
   let scheduler : LeadFakeScheduler = { commands: [], }
   let markers : Array[String] = []
   let old = start_pending_edit_subscription(
-    PendingEditSub::Apply("one", 1, () => {
+    PendingEditSub::Apply(source_key("one"), 1, () => {
       markers.push("old")
       @cmd.none
     }),
@@ -134,7 +134,7 @@ test "replaced loader cancels old revision and emits only the new one" {
   let old_callback = timer.callbacks[0]
   (old.unload)(scheduler)
   let _new = start_pending_edit_subscription(
-    PendingEditSub::Apply("one", 2, () => {
+    PendingEditSub::Apply(source_key("one"), 2, () => {
       markers.push("new")
       @cmd.none
     }),

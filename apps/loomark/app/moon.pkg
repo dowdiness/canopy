@@ -1,5 +1,8 @@
 import {
+  "dowdiness/loomark/app/internal/account_http",
+  "dowdiness/loomark/app/internal/documents",
   "dowdiness/loomark/app/internal/source_repository",
+  "dowdiness/loomark/app/internal/sync",
   "dowdiness/loomark/internal/document_lead",
   "dowdiness/loomark/internal/recent_documents",
   "dowdiness/loomark/internal/view",

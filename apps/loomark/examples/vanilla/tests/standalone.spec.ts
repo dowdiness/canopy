@@ -6,6 +6,7 @@ const DOCUMENT_STORE_NAME = "documents"
 const LEGACY_ACTIVE_KEY = "active"
 const EDITING_DOCUMENT_KEY = "editing-document"
 const SOURCE_KEY_PREFIX = "source/v1/"
+const SYNC_KEY_PREFIX = "sync/"
 const CATALOG_KEY = "catalog/v1"
 
 type StoredDocument = {
@@ -82,6 +83,10 @@ async function pendingTimerObservation(page: Page): Promise<PendingTimerObservat
 
 function sourceKey(documentId: string): string {
   return `${SOURCE_KEY_PREFIX}${documentId}`
+}
+
+function syncKey(accountId: string, documentId: string): string {
+  return `${SYNC_KEY_PREFIX}${accountId.length}/${accountId}/${documentId}`
 }
 
 async function scanStoreRecords(page: Page): Promise<StoreRecord[]> {
@@ -318,6 +323,22 @@ async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<
 
 function encodeStoredDocument(document: StoredDocument): string {
   return JSON.stringify(document)
+}
+
+function encodeReadyCheckpoint(
+  accountId: string,
+  document: StoredDocument,
+): string {
+  const header = JSON.stringify({
+    account_id: accountId,
+    document_id: document.document_id,
+    generation: 0,
+    current: 0,
+    baseline: { kind: "missing" },
+    phase: { kind: "ready" },
+    text_lengths: [document.text.length],
+  })
+  return `loomark-sync\n${header.length}\n${header}${document.text}`
 }
 
 async function openStoredDocuments(page: Page, documents: StoredDocument[]): Promise<void> {
@@ -712,6 +733,41 @@ test("opening and saving persist only authoritative Source records", async ({ pa
     document_id: baseline.document_id,
     text: "# Source only\n",
   })
+})
+
+test("account checkpoint edits persist without creating a Source copy", async ({ page }) => {
+  const accountId = "account-a"
+  const document = { document_id: "synced", text: "# Synced\n" }
+  const key = syncKey(accountId, document.document_id)
+  await page.route("**/api/account", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ id: accountId, name: "Account A" }),
+  }))
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  await replaceStoreRecords(page, [{
+    key,
+    value: encodeReadyCheckpoint(accountId, document),
+  }])
+
+  await page.reload()
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  const synced = documents.getByRole("button", { name: "Synced", exact: true })
+  await expect(synced).toBeVisible()
+  await synced.click()
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(document.text)
+
+  await text.fill("# Changed\n")
+  await expect.poll(async () => {
+    const value = await readStoredDocumentRaw(page, key)
+    return typeof value === "string" && value.endsWith("# Changed\n")
+  }).toBe(true)
+  expect(await readStoredDocumentRaw(page, sourceKey(document.document_id)))
+    .toBeUndefined()
+  await expect(documents.getByRole("button", { name: 'Delete "Changed"' }))
+    .toBeDisabled()
 })
 
 test("duplicate leads select and delete by Document ID", async ({ page }) => {

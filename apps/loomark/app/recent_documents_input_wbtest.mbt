@@ -1,41 +1,61 @@
 ///|
-fn input_for(documents : Documents) -> Array[@recent_documents.Seed] {
+fn input_for(
+  documents : @documents.State,
+) -> Array[@recent_documents.Seed[@documents.Key]] {
   recent_document_seeds({ ..test_editing(), documents, }).to_array()
 }
 
 ///|
 test "empty imported document remains listed after failed save and deletes locally" {
-  let documents = initial_documents(test_snapshot())
-  let (documents, decisions) = documents.reduce(DocumentsImported("empty", ""))
-  guard decisions is [DocumentsPersist(operation)] else { fail("import save") }
+  let documents = @documents.State::State(test_snapshot())
+  let (documents, decisions) = documents.reduce(
+    @documents.Msg::Imported(document_id("empty"), ""),
+  )
+  guard decisions is [@documents.Effect::PersistSource(operation)] else {
+    fail("import save")
+  }
   let (documents, _) = documents.reduce(
-    DocumentsFeedbackReceived(SaveCompleted(operation, SaveFailed(WriteFailed))),
+    @documents.Msg::FeedbackReceived(
+      @documents.Feedback::SaveCompleted(operation, SaveFailed(WriteFailed)),
+    ),
   )
   let seeds = input_for(documents)
   assert_true(
-    seeds.exists(seed => seed.docid() == "empty" && seed.source() == ""),
+    seeds.exists(seed => {
+      seed.docid() == source_key("empty") && seed.source() == ""
+    }),
   )
-  let (documents, decisions) = documents.reduce(DeleteConfirmed("empty"))
+  let (documents, decisions) = documents.reduce(
+    @documents.Msg::DeleteConfirmed(source_key("empty")),
+  )
   assert_true(decisions.is_empty())
-  assert_true(!input_for(documents).exists(seed => seed.docid() == "empty"))
+  assert_true(
+    !input_for(documents).exists(seed => seed.docid() == source_key("empty")),
+  )
 }
 
 ///|
 test "edited New returning empty stays listed before and after lead acceptance" {
-  let documents = initial_documents(test_snapshot())
-  let (documents, _) = documents.reduce(DocumentsNew("new"))
-  let (documents, _) = documents.reduce(DocumentsTextChanged("new", "first"))
-  let (documents, _) = documents.reduce(DocumentsTextChanged("new", ""))
+  let documents = @documents.State::State(test_snapshot())
+  let (documents, _) = documents.reduce(@documents.Msg::New(document_id("new")))
+  let (documents, _) = documents.reduce(
+    @documents.Msg::TextChanged(source_key("new"), "first"),
+  )
+  let (documents, _) = documents.reduce(
+    @documents.Msg::TextChanged(source_key("new"), ""),
+  )
   assert_true(
     input_for(documents).exists(seed => {
-      seed.docid() == "new" && seed.source() == "first"
+      seed.docid() == source_key("new") && seed.source() == "first"
     }),
   )
-  let revision = pending_revision(documents, "new")
-  let (documents, _) = documents.reduce(ApplyPendingEdit("new", revision))
+  let revision = pending_revision(documents, source_key("new"))
+  let (documents, _) = documents.reduce(
+    @documents.Msg::ApplyPendingEdit(source_key("new"), revision),
+  )
   assert_true(
     input_for(documents).exists(seed => {
-      seed.docid() == "new" && seed.source() == ""
+      seed.docid() == source_key("new") && seed.source() == ""
     }),
   )
 }
@@ -45,13 +65,15 @@ test "untouched New is excluded while loaded saved empty is admitted" {
   let saved = @source_repository.SavedDocuments::from_documents([
     documents_test_document("empty", ""),
   ]).unwrap()
-  let documents = initial_documents(saved)
-  let (documents, _) = documents.reduce(DocumentsNew("new"))
+  let documents = @documents.State::State(saved)
+  let (documents, _) = documents.reduce(@documents.Msg::New(document_id("new")))
   let seeds = input_for(documents)
   assert_true(
-    seeds.exists(seed => seed.docid() == "empty" && seed.source() == ""),
+    seeds.exists(seed => {
+      seed.docid() == source_key("empty") && seed.source() == ""
+    }),
   )
-  assert_false(seeds.exists(seed => seed.docid() == "new"))
+  assert_false(seeds.exists(seed => seed.docid() == source_key("new")))
 }
 
 ///|
@@ -71,29 +93,47 @@ test "loaded saved rows retain lexical order" {
     documents_test_document("z", "z"),
     documents_test_document("a", "a"),
   ]).unwrap()
-  let seeds = input_for(initial_documents(saved))
-  assert_eq(seeds.map(seed => seed.docid()), ["a", "z"])
+  let seeds = input_for(@documents.State::State(saved))
+  assert_true(
+    seeds.map(seed => seed.docid()) == [source_key("a"), source_key("z")],
+  )
 }
 
 ///|
 test "adapter preserves accepted sources and page-local row order" {
-  let documents = initial_documents(test_snapshot())
-  let (documents, _) = documents.reduce(DocumentsTextChanged("two", "second"))
-  let two_revision = pending_revision(documents, "two")
-  let (documents, _) = documents.reduce(ApplyPendingEdit("two", two_revision))
-  let (documents, _) = documents.reduce(DocumentsTextChanged("one", "first"))
-  let one_revision = pending_revision(documents, "one")
-  let (documents, _) = documents.reduce(ApplyPendingEdit("one", one_revision))
+  let documents = @documents.State::State(test_snapshot())
+  let (documents, _) = documents.reduce(
+    @documents.Msg::TextChanged(source_key("two"), "second"),
+  )
+  let two_revision = pending_revision(documents, source_key("two"))
+  let (documents, _) = documents.reduce(
+    @documents.Msg::ApplyPendingEdit(source_key("two"), two_revision),
+  )
+  let (documents, _) = documents.reduce(
+    @documents.Msg::TextChanged(source_key("one"), "first"),
+  )
+  let one_revision = pending_revision(documents, source_key("one"))
+  let (documents, _) = documents.reduce(
+    @documents.Msg::ApplyPendingEdit(source_key("one"), one_revision),
+  )
   let seeds = input_for(documents)
-  assert_eq(seeds.map(seed => seed.docid()), ["one", "two"])
+  assert_true(
+    seeds.map(seed => seed.docid()) == [source_key("one"), source_key("two")],
+  )
   assert_eq(seeds.map(seed => seed.source()), ["first", "second"])
 }
 
 ///|
 test "adapter selects the Editing Document by ID" {
   let seeds = input_for(test_editing().documents)
-  let one = seeds.iter().find_first(seed => seed.docid() == "one").unwrap()
-  let two = seeds.iter().find_first(seed => seed.docid() == "two").unwrap()
+  let one = seeds
+    .iter()
+    .find_first(seed => seed.docid() == source_key("one"))
+    .unwrap()
+  let two = seeds
+    .iter()
+    .find_first(seed => seed.docid() == source_key("two"))
+    .unwrap()
   assert_true(one.selection() is @recent_documents.Selection::Editing)
   assert_true(two.selection() is @recent_documents.Selection::Selectable)
 }

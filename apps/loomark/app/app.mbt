@@ -3,7 +3,7 @@ const LEAD_DELAY_MS : Int = 250
 
 ///|
 priv suberror PendingEditSub {
-  Apply(String, Int, () -> @rabbita.Cmd)
+  Apply(@documents.Key, Int, () -> @rabbita.Cmd)
 }
 
 ///|
@@ -47,28 +47,24 @@ fn pending_edit_sub_loader(
 }
 
 ///|
-fn lead_subscriptions(model : Model, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
-  let records = match model {
-    Editing(editing) => editing.documents.records
-    PreparingNew(preparing) => preparing.documents.records
+fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
+  let pending = match model {
+    Editing(editing) => editing.documents.pending_edits()
+    PreparingNew(preparing) => preparing.documents.pending_edits()
     Loading(_) | Recovery(_, _) => []
   }
   @sub.batch(
-    records.filter_map(record => {
-      match record.edit {
-        Waiting(revision) if !delete_is_active(record.delete) =>
-          Some(
-            @sub.custom_sub(
-              "loomark.pending-edit.\{record.document.id()}-\{revision}",
-              @sub.Scope::Local,
-              PendingEditSub::Apply(record.document.id(), revision, () => {
-                emit(ApplyPendingEdit(record.document.id(), revision))
-              }),
-              pending_edit_sub_loader,
-            ),
-          )
-        _ => None
-      }
+    pending.map(item => {
+      let (key, revision) = item
+      let lifecycle_key = key.lifecycle_key()
+      @sub.custom_sub(
+        "loomark.pending-edit.\{lifecycle_key}-\{revision}",
+        @sub.Scope::Local,
+        PendingEditSub::Apply(key, revision, () => {
+          emit(ApplyPendingEdit(key, revision))
+        }),
+        pending_edit_sub_loader,
+      )
     }),
   )
 }
@@ -88,25 +84,26 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       @sub.batch([
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
-        lead_subscriptions(current, emit),
+        lead_subscriptions(current.page, emit),
       ])
     },
   )
+  let page = model.map(model => model.page)
 
   fn editor_panels(
     orientation : @rui.SeparatorOrientation,
   ) -> @rabbita.Val[@rabbita.Html] {
     @rui.resizable_panel_group_with_input(
       id="loomark-editor-panels",
-      input=model,
+      input=page,
       default_size=50,
       min=25,
       max=75,
       orientation~,
       aria_label="Resize editor and preview",
       class="min-h-0 min-w-0 w-full flex-1",
-      (scope, model) => {
-        match model {
+      (scope, page) => {
+        match page {
           Editing(editing) => {
             let split = editing.mode == Split
             let text_visible = editing.mode != Preview
@@ -172,8 +169,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     editor_panels(@rui.Vertical)
   }
 
-  let compact = model.map(model => {
-    match model {
+  let compact = page.map(page => {
+    match page {
       Loading(compact) => compact
       PreparingNew(preparing) => preparing.compact
       Editing(editing) => editing.compact
@@ -190,14 +187,14 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     },
     by=compact => if compact { "compact" } else { "wide" },
   )
-  let feature_input = model.map(model => {
-    match model {
+  let feature_input = page.map(page => {
+    match page {
       Editing(editing) => recent_document_seeds(editing)
       Loading(_) | PreparingNew(_) | Recovery(_, _) => @vector.Vector([])
     }
   })
-  let feature_delete_target = model.map(model => {
-    match model {
+  let feature_delete_target = page.map(page => {
+    match page {
       Editing(editing) =>
         match editing.deletion {
           DeleteConfirmation(id) => Some(id)
@@ -211,9 +208,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   )
   let recent_feature = @recent_documents.build(
     input=feature_input,
+    lifecycle_key=key => key.lifecycle_key(),
     visible=sidebar_state.visible(),
-    can_create=model.map(model => {
-      match model {
+    can_create=page.map(page => {
+      match page {
         Editing(editing) => editing.can_activate()
         _ => false
       }
@@ -231,12 +229,12 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     }),
     close_after_action=sidebar_state.collapse(),
   )
-  let layout_input = model.map4(
+  let layout_input = page.map4(
     selected_panels,
     recent_feature.dialog(),
     recent_feature.navigation(),
-    (model, editor_panels, dialog, recent_navigation) => {
-      (model, editor_panels, dialog, recent_navigation)
+    (page, editor_panels, dialog, recent_navigation) => {
+      (page, editor_panels, dialog, recent_navigation)
     },
   )
   @sidebar.sidebar_provider_with_state(
@@ -244,8 +242,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     input=layout_input,
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
     (sidebar, layout) => {
-      let (model, editor_panels, dialog, recent_navigation) = layout
-      view(sidebar, model, emit, editor_panels, dialog, recent_navigation)
+      let (page, editor_panels, dialog, recent_navigation) = layout
+      view(sidebar, page, emit, editor_panels, dialog, recent_navigation)
     },
   )
 }

@@ -1,5 +1,5 @@
 ///|
-priv enum Model {
+priv enum Page {
   Loading(Bool)
   PreparingNew(PreparingNewState)
   Editing(EditingState)
@@ -7,8 +7,14 @@ priv enum Model {
 } derive(Eq)
 
 ///|
+priv struct Model {
+  page : Page
+  sync : @sync.State
+} derive(Eq)
+
+///|
 priv struct PreparingNewState {
-  documents : Documents
+  documents : @documents.State
   mode : EditorMode
   compact : Bool
   request_id : Int
@@ -17,12 +23,13 @@ priv struct PreparingNewState {
 
 ///|
 priv struct Activation {
-  document_id : String
+  key : @documents.Key
   generation : Int
 } derive(Eq)
 
 ///|
 priv struct ActivationTarget {
+  key : @documents.Key
   document : @source_repository.Document
   resume_hint : @source_repository.EditingDocumentHint?
 }
@@ -30,7 +37,7 @@ priv struct ActivationTarget {
 ///|
 priv struct EditingState {
   activation : Activation
-  documents : Documents
+  documents : @documents.State
   creation : DocumentCreation
   deletion : DocumentDeletion
   mode : EditorMode
@@ -57,7 +64,7 @@ priv enum DocumentCreation {
 ///|
 priv enum DocumentDeletion {
   NoDeletion
-  DeleteConfirmation(String)
+  DeleteConfirmation(@documents.Key)
 } derive(Eq)
 
 ///|
@@ -76,16 +83,24 @@ priv enum Msg {
   ExportRequested
   PreviewEvent(@preview.Event)
   ViewportChanged(Double)
-  DocumentsLifecycle(DocumentsFeedback)
-  ApplyPendingEdit(String, Int)
+  DocumentsLifecycle(@documents.Feedback)
+  ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
   RetrySave
-  DocumentSelected(String)
+  DocumentSelected(@documents.Key)
   CreateRequested
-  CreateCompleted(String, @source_repository.CreateResult)
-  DeleteRequested(String)
+  CreateCompleted(@documents.Key, @source_repository.CreateResult)
+  DeleteRequested(@documents.Key)
   DeleteCancelled
-  DeleteConfirmed(String)
-  RetryDelete(String)
-  DismissDeleteFailure(String)
+  DeleteConfirmed(@documents.Key)
+  RetryDelete(@documents.Key)
+  DismissDeleteFailure(@documents.Key)
+  PersistCheckpoint(@source_repository.CheckpointWrite)
+  Sync(SyncMsg)
+}
+
+///|
+priv enum SyncMsg {
+  AccountResolved(Int, @sync.AccountResult)
+  CheckpointCompleted(@sync.RequestId, @source_repository.CheckpointResult)
 }

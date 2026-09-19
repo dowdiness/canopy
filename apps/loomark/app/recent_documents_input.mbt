@@ -2,14 +2,13 @@
 /// Resolve app state into the narrow Recent documents feature input.
 fn recent_document_seeds(
   editing : EditingState,
-) -> @vector.Vector[@recent_documents.Seed] {
+) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
   @vector.Vector(
-    editing.documents.records.filter_map(record => {
-      let id = record.document.id()
-      // LeadSource is the presentation admission authority. An empty lead is
-      // valid; only an untouched New document remains Unlisted.
-      guard record.lead_source is Available(source) else { return None }
-      let selection = if id == editing.activation.document_id {
+    editing.documents
+    .recent()
+    .map(item => {
+      let (id, source, save, deletion_status) = item
+      let selection = if id == editing.activation.key {
         @recent_documents.Selection::Editing
       } else if editing.can_select(id) {
         @recent_documents.Selection::Selectable
@@ -19,25 +18,27 @@ fn recent_document_seeds(
       let deletion = if editing.creation == Creating {
         @recent_documents.DeletionAvailability::Blocked
       } else {
-        match record.delete {
-          Available => @recent_documents.DeletionAvailability::Available
-          Failed(_, _) => @recent_documents.DeletionAvailability::Failed
-          Waiting(_) | Deleting(_) =>
+        match deletion_status {
+          @documents.DeleteStatus::Deletable =>
+            @recent_documents.DeletionAvailability::Available
+          @documents.DeleteStatus::DeleteFailed(_) =>
+            @recent_documents.DeletionAvailability::Failed
+          @documents.DeleteStatus::NotDeletable =>
+            @recent_documents.DeletionAvailability::Blocked
+          @documents.DeleteStatus::DeletePending =>
             @recent_documents.DeletionAvailability::Pending
         }
       }
-      let status = match record.save {
-        Saved => @recent_documents.RowStatus::Saved
+      let status = match save {
+        @documents.SaveStatus::Clean => @recent_documents.RowStatus::Saved
         _ => @recent_documents.RowStatus::Unsaved
       }
-      Some(
-        @recent_documents.Seed::Seed(
-          docid=id,
-          source~,
-          selection~,
-          deletion~,
-          status~,
-        ),
+      @recent_documents.Seed::Seed(
+        docid=id,
+        source~,
+        selection~,
+        deletion~,
+        status~,
       )
     })[:],
   )
