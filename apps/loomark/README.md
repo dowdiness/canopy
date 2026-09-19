@@ -134,21 +134,23 @@ documents projection exposes only the selected account beside local-only
 documents. Switching accounts therefore changes visibility, not editing or
 Autosave ownership.
 
-Checkpoint persistence has a pure per-document lane. It never encodes on text
-input: callers feed it only checkpoints made eligible by the existing Autosave
-quiet/maximum/composition lifecycle. At most one IndexedDB checkpoint write is
-in flight and one newest checkpoint waits behind it, so intermediate edits and
-an acknowledgment immediately followed by another pending operation collapse
-without losing durable retry state. Storage failure retains the newest write
-for explicit retry; successful and failed completions both carry their
-checkpoint identity. A completion that does not match the active write is an
-explicit stale-event error and cannot advance the lane. Conflict recovery stays
-attached to its atomic checkpoint write while coalescing. Synced Autosave now
-routes eligible text directly to this lane instead of recreating a retired
-`source/v1` record. Editing remains immediate while storage is pending; success
-updates the canonical checkpoint, failure keeps the optimistic text and the
-latest retryable write. Network scheduling, synchronized deletion, account
-controls, and status UI remain unconnected.
+Checkpoint persistence has a pure per-document causal lane. It never encodes on
+text input: the document reducer submits text only after the existing Autosave
+quiet/maximum/composition lifecycle makes it eligible. Every transition starts
+from the lane's newest waiting write, active write, or durable checkpoint, in
+that order; local text and future remote acknowledgments therefore cannot branch
+independently from the same stored generation. At most one IndexedDB checkpoint
+write is in flight and one newest checkpoint waits behind it, so intermediate
+edits collapse without losing durable retry state. Storage failure retains the
+newest write for explicit retry; successful and failed completions both carry
+their checkpoint identity. A completion that does not match the active write is
+an explicit stale-event error and cannot advance the lane. Conflict recovery
+stays attached to its atomic checkpoint write while coalescing. Editing remains
+immediate while storage is pending; success updates the canonical checkpoint,
+failure keeps the optimistic text and the latest retryable write. After a
+Sending checkpoint is durable, the root schedules its HTTP command. Network
+list polling, synchronized deletion controls, account controls, and status UI
+remain unconnected.
 
 The sync model parses account IDs, operation UUIDs, server revisions, and
 checkpoint frames once at their ingress. Each parser declares its exact MoonBit
@@ -162,34 +164,50 @@ revalidating strings and numbers. A checkpoint has exactly one phase—`Ready`,
 `Sending`, `RemoteUpdate`, or `Conflict`—so combinations such as a pending
 request plus a conflict cannot be represented. The next directive is derived
 from that phase instead of being copied into every transition result. Callers
-cannot construct a conflict transition without its atomic recovery Source. The
-checkpoint writer is likewise exactly `Available`, `Storing`, or `RetryPending`.
-A delayed completion that does not match the active account, document, and
-generation returns an explicit error without comparing full document text.
+cannot construct a conflict transition without its atomic recovery Source. A
+writer lane is present only while `Storing` or `RetryPending`; its absence means
+the durable checkpoint is current. A delayed completion that does not match the
+active account, document, and generation returns an explicit error without
+comparing full document text.
 
 The account-sync state is a small internal package, separate from the HTTP
-boundary and root editor package. It owns only the session lookup and transient
-writers that are storing or awaiting retry, keyed by account and document.
-Available writers and durable checkpoints are not copied into it. The root
+boundary and root editor package. It owns the session lookup plus transient
+writer and network work keyed by account and document. Durable checkpoints are
+not copied into it. The root
 model is the direct product of its editor `Page` and this sync state. Existing
 editor messages remain ordinary `Msg` constructors; `Sync(SyncMsg)` carries
 account and checkpoint results without a second page-message wrapper. A → B → A
 retains optimistic records and actual in-flight work under account-qualified
 document keys, while account/document/generation identity rejects unrelated
 delayed completions. No generic account-incarnation token or callback registry
-is added. The pure document reducer emits `DocumentEffect` values containing
-the exact Source operation or checkpoint write; the root executes them without
-reconstructing persistence intent.
+is added. The pure document reducer emits an exact Source operation for
+local-only data and an account-qualified eligible Document for synced data.
+Only the sync lane derives a checkpoint write, so Autosave, acknowledgments,
+and future reconciliation all share one causal transition head.
 
 Account lookup itself carries a latest-request ID because its result determines
 the account and cannot yet be routed by one. While that lookup is unresolved,
 local editing and checkpointing continue but network synchronization stays
 paused. Local repository open deliberately precedes account lookup, so showing
-and editing local data never waits for network I/O. The HTTP task uses Rabbita's
-managed `Cmd` operation lifecycle rather than launching a detached async task.
-Future document HTTP integration must trigger a fresh lookup after an
-expected-account rejection rather than guessing that the previous browser
-account is still current.
+and editing local data never waits for network I/O. The typed document HTTP
+binding preserves custom account headers, response status, and response body;
+it parses receipts and conflict documents at ingress. Requests use Rabbita's
+managed `Cmd` lifecycle rather than a detached async task. An expected-account
+rejection triggers a fresh account lookup only when that account is still
+selected.
+
+A save first persists its immutable operation ID and payload, then sends it.
+Successful receipts enter the same causal writer before becoming canonical.
+Uncertain delivery leaves the durable operation available for retry on the next
+account resolution or visibility restore. A 409 returns to the reducer before
+the current remote document is fetched, so an account switch can defer that
+request until its account is current. Conflict recovery is then persisted
+atomically. Definitive 413 and 422 responses retire the rejected operation. An
+unchanged oversized payload waits for a new edit instead of looping; text
+already changed during delivery proceeds immediately, while a rejected
+operation identity is replaced automatically. HTTP bodies are accepted only
+after complete `arrayBuffer()` consumption and strict UTF-8 decoding; an
+interrupted stream cannot produce a receipt from a valid prefix.
 
 `switch_by` remains appropriate for disposable account-only presentation and
 subscriptions, but not as the sync reducer's ownership boundary: parent
@@ -216,10 +234,11 @@ utilities, not real Google credentials or a production login bypass. The
 Worker build also builds this artifact. Database schema generation is a
 development tool, never a public endpoint.
 
-The editor has not yet been connected to these APIs. Passing server tests does
-not establish the phone-to-PC editing experience, real Google callback flow,
-or persistence across a server process restart. The remaining work is tracked
-in the [account sync plan](../../docs/plans/2026-09-16-loomark-account-document-sync.md).
+The editor now sends durable pending operations and applies receipts and
+revision conflicts. Remote document discovery/list polling, synchronized delete
+controls, and sync status UI are not connected yet, so this does not establish
+the complete phone-to-PC editing experience or real Google callback flow. The
+remaining work is tracked in the [account sync plan](../../docs/plans/2026-09-16-loomark-account-document-sync.md).
 No shared database or deployment is provisioned by these test commands.
 
 ## Production validation

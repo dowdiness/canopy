@@ -71,15 +71,15 @@ require separate permission. Local-only operation remains supported.
   writes one stable local recovery Source with the checkpoint atomically.
   The unversioned format has no migration or compatibility fallback while it
   remains uncommitted.
-- A pure per-document persistence lane accepts only Autosave-eligible
-  checkpoints, permits one IndexedDB write in flight, and retains only the
-  newest follow-up. Edits during a write and an acknowledgment followed by a
-  new pending operation therefore require at most one additional encoding and
-  write. Successful and failed storage completions both carry the checkpoint
-  identity they belong to. Failures retain the newest write for explicit retry,
-  non-active completions return explicit stale-event errors, and conflict
-  recovery stays attached to its atomic checkpoint write. Synced Autosave now
-  feeds this lane only after existing quiet/maximum/composition eligibility; it
+- A pure per-document causal lane accepts text only after Autosave eligibility,
+  permits one IndexedDB write in flight, and retains only the newest follow-up.
+  Every transition starts from the newest waiting write, active write, or
+  durable checkpoint, in that order. Local edits and future acknowledgments
+  therefore cannot branch independently from one stored generation and then
+  overwrite each other. Successful and failed storage completions both carry
+  the checkpoint identity they belong to. Failures retain the newest write for
+  explicit retry, non-active completions return explicit stale-event errors,
+  and conflict recovery stays attached to its atomic checkpoint write. This
   adds no input callback or second timer. `SavedDocuments` remains the sole
   durable checkpoint owner, while sync state retains only storing or
   retry-pending writers.
@@ -97,37 +97,49 @@ require separate permission. Local-only operation remains supported.
   returns its checkpoint write directly; an unchanged edit or reconciliation
   is represented only by `None` or `Unchanged`, without copying the checkpoint
   and a derivable directive into a second outcome object. The indivisible
-  conflict recovery write cannot be detached. The writer is an exclusive
-  `Available | Storing | RetryPending` state; stale completions are explicit
-  errors and compare only account, document, and generation rather than full
-  document text. Individual transitions do not repeatedly compare a raw account
-  string. A pure account state accepts only the latest account lookup and keys
-  actual in-flight writer lanes by account and document. The typed account HTTP
-  boundary distinguishes signed out and resolved accounts from an unavailable
-  service; malformed successful responses are unavailable. The root model owns
-  editor `Page` and sync state directly. After local repository open it resolves
+  conflict recovery write cannot be detached. A writer lane is present only
+  while `Storing` or `RetryPending`; its absence means the durable checkpoint is
+  current. Stale completions are explicit errors and compare only account,
+  document, and generation rather than full document text. Individual
+  transitions do not repeatedly compare a raw account string. A pure account
+  state accepts only the latest account lookup and keys
+  actual in-flight writer and network work by account and document. The typed
+  account HTTP boundary distinguishes signed out and resolved accounts from an
+  unavailable service; malformed successful responses are unavailable. The root
+  model owns editor `Page` and sync state directly. After local repository open it resolves
   the account through a normal `Sync` message; local rendering therefore does
   not wait for network I/O. The account-aware projection exposes only
   current-account checkpoints beside local documents, while account-qualified
   document keys retain inactive accounts' optimistic records and Autosave
-  state. The document reducer emits the exact Source operation or checkpoint
-  write selected by its transition; the root executes that effect without
-  reconstructing it. Synced saves therefore update checkpoints without
-  recreating `source/v1`. Network scheduling, synchronized deletion, and status
-  UI are not connected yet.
+  state. The document reducer emits an exact Source operation for local-only
+  data and an account-qualified eligible Document for synced data. Only the sync
+  lane derives checkpoint writes from its causal head; the root merely executes
+  the resulting attempt. Synced saves therefore update checkpoints without
+  recreating `source/v1`. The typed document HTTP boundary preserves custom
+  account headers and non-2xx bodies, strictly parses receipts and remote
+  documents, and returns normal messages. A new operation is persisted before
+  delivery; successful receipts, definitive rejection, and 409 reconciliation
+  re-enter the causal writer. The 409 response reaches the reducer before its
+  remote GET, allowing an account switch to defer that GET. Bodies are parsed
+  only after complete `arrayBuffer()` consumption and strict UTF-8 decoding.
+  Uncertain delivery retries only from a later lifecycle trigger. Oversized
+  content waits without an automatic loop unless its text changed during
+  delivery; a rejected operation identity is replaced. Remote list polling,
+  synchronized deletion controls, and status UI are not connected yet.
 - Pure MoonBit sync transitions resend the exact persisted operation after
   restart, retain edits made during an in-flight operation, reject non-matching
   writer completions, reconcile equal text without false conflict, and keep
   conflicts blocked under one recovery identity. A definitive server revision
   rejection retires the pending operation into reconciliation; an uncertain
   delivery keeps the exact operation for retry. Once an update is available,
-  older remote revisions cannot replace it. Scheduling and HTTP integration are
-  not yet connected to the editor.
+  older remote revisions cannot replace it. Operation planning, durable-send
+  ordering, receipt application, and conflict recovery are connected through
+  ordinary root messages and managed commands.
 - [Worker configuration](../../apps/loomark/wrangler.jsonc) now includes the
   same-origin API and a local D1 binding. No remote database has been provisioned.
 - Better Auth and D1 integration tests exercise authentication, revision checks,
-  duplicate receipts, tombstones, and account isolation. The document API is
-  compiled from MoonBit; this is not yet connected to the editor UI.
+  duplicate receipts, tombstones, and account isolation. The MoonBit document
+  API is connected for outbound durable operations; remote discovery remains.
 - No auth configuration appeared in the inspected Loomark/relay configuration,
   relevant environment-variable names, or their local `.dev.vars` locations.
   This does not establish what is configured in the Cloudflare dashboard.
