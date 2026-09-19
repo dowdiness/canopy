@@ -30,6 +30,7 @@ fn demand_dialog_fixture() -> @rabbita.Val[@html.Html] {
     compact=@rabbita.Val::constant(false),
     delete_target=@rabbita.Val::constant(Some("b")),
     on_intent=@cmd.Emit(_ => @rabbita.none),
+    lifecycle_key=id => id,
     close_after_action=@rabbita.none,
   )
   feature.navigation().map2(

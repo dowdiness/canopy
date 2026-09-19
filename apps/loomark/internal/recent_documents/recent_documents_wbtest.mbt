@@ -29,6 +29,8 @@ test "rendered duplicate bounded labels match confirmation labels" {
   })
   assert_true(first.contains("(1 of 2)"))
   assert_true(second.contains("(2 of 2)"))
+  assert_true(first.contains("aria-description=\"Description\""))
+  assert_false(first.contains("loomark-document-description-"))
   assert_true(
     first.contains(
       "aria-label=\"Delete &quot;" + row_label(presented[0]) + "&quot;\"",
@@ -43,6 +45,43 @@ test "rendered duplicate bounded labels match confirmation labels" {
     delete_confirmation_label(presented[0]),
     "Delete \"" + row_label(presented[0]) + "\"?",
   )
+}
+
+///|
+test "typed document ids pass through intents unchanged" {
+  let seed = Seed::Seed(
+    docid=42,
+    source="# Typed",
+    selection=Selection::Selectable,
+    deletion=DeletionAvailability::Available,
+    status=RowStatus::Saved,
+  )
+  assert_eq(seed.docid(), 42)
+  let _feature = build(
+    input=@rabbita.Val::constant(@vector.Vector([seed])),
+    visible=@rabbita.Val::constant(true),
+    can_create=@rabbita.Val::constant(true),
+    compact=@rabbita.Val::constant(false),
+    delete_target=@rabbita.Val::constant(Some(42)),
+    on_intent=@cmd.Emit((_ : Intent[Int]) => @cmd.none),
+    lifecycle_key=id => id.to_string(),
+    close_after_action=@cmd.none,
+  )
+  let select : Intent[Int] = Intent::Select(42)
+  let request_delete : Intent[Int] = Intent::RequestDelete(42)
+  let confirm_delete : Intent[Int] = Intent::ConfirmDelete(42)
+  match select {
+    Select(id) => assert_eq(id, 42)
+    _ => fail("expected Select")
+  }
+  match request_delete {
+    RequestDelete(id) => assert_eq(id, 42)
+    _ => fail("expected RequestDelete")
+  }
+  match confirm_delete {
+    ConfirmDelete(id) => assert_eq(id, 42)
+    _ => fail("expected ConfirmDelete")
+  }
 }
 
 ///|

@@ -9,7 +9,7 @@ import {
 }
 
 // Values
-pub fn build(input~ : @rabbita.Val[@vector.Vector[Seed]], visible~ : @rabbita.Val[Bool], can_create~ : @rabbita.Val[Bool], compact~ : @rabbita.Val[Bool], delete_target~ : @rabbita.Val[String?], on_intent~ : @cmd.Emit[Intent], close_after_action~ : @cmd.Cmd) -> RecentDocumentsFeature
+pub fn[Id : Eq + Hash] build(input~ : @rabbita.Val[@vector.Vector[Seed[Id]]], visible~ : @rabbita.Val[Bool], can_create~ : @rabbita.Val[Bool], compact~ : @rabbita.Val[Bool], delete_target~ : @rabbita.Val[Id?], on_intent~ : @cmd.Emit[Intent[Id]], lifecycle_key~ : (Id) -> String, close_after_action~ : @cmd.Cmd) -> RecentDocumentsFeature
 
 // Errors
 
@@ -21,12 +21,12 @@ pub(all) enum DeletionAvailability {
   Failed
 } derive(Eq)
 
-pub enum Intent {
+pub enum Intent[Id] {
   Create
-  Select(String)
-  RequestDelete(String)
+  Select(Id)
+  RequestDelete(Id)
   CancelDelete
-  ConfirmDelete(String)
+  ConfirmDelete(Id)
 }
 
 pub struct RecentDocumentsFeature {
@@ -40,12 +40,12 @@ pub(all) enum RowStatus {
   Unsaved
 } derive(Eq)
 
-type Seed derive(Eq)
-pub fn Seed::Seed(docid~ : String, source~ : String, selection~ : Selection, deletion~ : DeletionAvailability, status~ : RowStatus) -> Self
-pub fn Seed::deletion(Self) -> DeletionAvailability
-pub fn Seed::docid(Self) -> String
-pub fn Seed::selection(Self) -> Selection
-pub fn Seed::source(Self) -> String
+type Seed[Id] derive(Eq)
+pub fn[Id] Seed::Seed(docid~ : Id, source~ : String, selection~ : Selection, deletion~ : DeletionAvailability, status~ : RowStatus) -> Self[Id]
+pub fn[Id] Seed::deletion(Self[Id]) -> DeletionAvailability
+pub fn[Id] Seed::docid(Self[Id]) -> Id
+pub fn[Id] Seed::selection(Self[Id]) -> Selection
+pub fn[Id] Seed::source(Self[Id]) -> String
 
 pub(all) enum Selection {
   Editing

@@ -22,8 +22,8 @@ pub(all) enum DeletionAvailability {
 } derive(Eq)
 
 ///|
-struct Seed {
-  docid : String
+struct Seed[Id] {
+  docid : Id
   source : String
   selection : Selection
   deletion : DeletionAvailability
@@ -31,59 +31,59 @@ struct Seed {
 } derive(Eq)
 
 ///|
-pub fn Seed::Seed(
-  docid~ : String,
+pub fn[Id] Seed::Seed(
+  docid~ : Id,
   source~ : String,
   selection~ : Selection,
   deletion~ : DeletionAvailability,
   status~ : RowStatus,
-) -> Seed {
+) -> Seed[Id] {
   { docid, source, selection, deletion, status, }
 }
 
 ///|
-pub fn Seed::docid(self : Seed) -> String {
+pub fn[Id] Seed::docid(self : Seed[Id]) -> Id {
   self.docid
 }
 
 ///|
-pub fn Seed::source(self : Seed) -> String {
+pub fn[Id] Seed::source(self : Seed[Id]) -> String {
   self.source
 }
 
 ///|
-pub fn Seed::deletion(self : Seed) -> DeletionAvailability {
+pub fn[Id] Seed::deletion(self : Seed[Id]) -> DeletionAvailability {
   self.deletion
 }
 
 ///|
-pub fn Seed::selection(self : Seed) -> Selection {
+pub fn[Id] Seed::selection(self : Seed[Id]) -> Selection {
   self.selection
 }
 
 ///|
-pub enum Intent {
+pub enum Intent[Id] {
   Create
-  Select(String)
-  RequestDelete(String)
+  Select(Id)
+  RequestDelete(Id)
   CancelDelete
-  ConfirmDelete(String)
+  ConfirmDelete(Id)
 }
 
 ///|
-priv struct Row {
-  seed : Seed
+priv struct Row[Id] {
+  seed : Seed[Id]
   lead : @document_lead.DocumentLead
 } derive(Eq)
 
 ///|
-priv struct PresentedRow {
-  row : Row
+priv struct PresentedRow[Id] {
+  row : Row[Id]
   ordinal : (Int, Int)?
 } derive(Eq)
 
 ///|
-fn row_base_label(row : Row) -> String {
+fn[Id] row_base_label(row : Row[Id]) -> String {
   if row.lead.primary() == "" {
     "Empty document"
   } else {
@@ -92,7 +92,9 @@ fn row_base_label(row : Row) -> String {
 }
 
 ///|
-fn rows_presented(rows : @vector.Vector[Row]) -> @vector.Vector[PresentedRow] {
+fn[Id] rows_presented(
+  rows : @vector.Vector[Row[Id]],
+) -> @vector.Vector[PresentedRow[Id]] {
   let values = rows.to_array()
   @vector.Vector(
     values.mapi((index, row) => {
@@ -116,7 +118,7 @@ fn rows_presented(rows : @vector.Vector[Row]) -> @vector.Vector[PresentedRow] {
 }
 
 ///|
-fn row_label(row : PresentedRow) -> String {
+fn[Id] row_label(row : PresentedRow[Id]) -> String {
   let base = row_base_label(row.row)
   match row.ordinal {
     Some((number, total)) => "\{base} (\{number} of \{total})"
@@ -125,7 +127,7 @@ fn row_label(row : PresentedRow) -> String {
 }
 
 ///|
-fn delete_confirmation_label(row : PresentedRow) -> String {
+fn[Id] delete_confirmation_label(row : PresentedRow[Id]) -> String {
   "Delete \"\{row_label(row)}\"?"
 }
 
@@ -161,16 +163,15 @@ fn status_view(
 }
 
 ///|
-fn render_row(
-  key : String,
-  presented : PresentedRow,
-  emit : @cmd.Emit[Intent],
+fn[Id] render_row(
+  key : Id,
+  presented : PresentedRow[Id],
+  emit : @cmd.Emit[Intent[Id]],
   close : @cmd.Cmd,
 ) -> @html.Html {
   let row = presented.row
   let seed = row.seed
   let label = row_label(presented)
-  let description_id = "loomark-document-description-\{key}"
   let attrs = @html.Attrs::build()
   let children = [
     @html.span(
@@ -185,12 +186,11 @@ fn render_row(
   if row.lead.description() != "" {
     children.push(
       @html.span(
-        id=description_id,
         class="mt-1 overflow-hidden whitespace-pre-wrap break-words text-xs leading-5 text-lm-muted [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]",
         row.lead.description(),
       ),
     )
-    ignore(attrs.aria_describedby(description_id))
+    ignore(attrs.aria_description(row.lead.description()))
   }
   children.push(status_view(seed.status, seed.deletion))
   @sidebar.sidebar_menu_item([
@@ -245,13 +245,14 @@ pub fn RecentDocumentsFeature::dialog(self : Self) -> @rabbita.Val[@html.Html] {
 }
 
 ///|
-pub fn build(
-  input~ : @rabbita.Val[@vector.Vector[Seed]],
+pub fn[Id : Eq + Hash] build(
+  input~ : @rabbita.Val[@vector.Vector[Seed[Id]]],
   visible~ : @rabbita.Val[Bool],
   can_create~ : @rabbita.Val[Bool],
   compact~ : @rabbita.Val[Bool],
-  delete_target~ : @rabbita.Val[String?],
-  on_intent~ : @cmd.Emit[Intent],
+  delete_target~ : @rabbita.Val[Id?],
+  on_intent~ : @cmd.Emit[Intent[Id]],
+  lifecycle_key~ : (Id) -> String,
   close_after_action~ : @cmd.Cmd,
 ) -> RecentDocumentsFeature {
   let rows = input.assoc_by(
@@ -387,7 +388,7 @@ pub fn build(
     },
     by=target => {
       match target {
-        Some(id) => "confirm-\{id}"
+        Some(id) => "confirm-\{lifecycle_key(id)}"
         None => "closed"
       }
     },
