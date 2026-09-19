@@ -87,7 +87,9 @@ test "old completion cannot finish an identical retry" {
   let retry = retry.unwrap()
   let stale : Result[(State, Attempt?), CompletionError] = Ok(
     retrying.stored(first.request_id(), write.checkpoint()),
-  ) catch { error => Err(error) }
+  ) catch {
+    error => Err(error)
+  }
   assert_eq(stale, Err(CompletionError::StaleCompletion))
   let (done, next) = retrying.stored(retry.request_id(), write.checkpoint())
   assert_eq(next, None)
@@ -103,6 +105,8 @@ test "completion cannot cross an account lane" {
   let (state, attempt) = State().persist(write)
   let result : Result[(State, Attempt?), CompletionError] = Ok(
     state.stored(attempt.unwrap().request_id(), other),
-  ) catch { error => Err(error) }
+  ) catch {
+    error => Err(error)
+  }
   assert_eq(result, Err(CompletionError::StaleCompletion))
 }

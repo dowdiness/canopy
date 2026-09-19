@@ -136,7 +136,11 @@ fn State::replace_lane(self : Self, index : Int, state : LaneState) -> Self {
   {
     ..self,
     lanes: self.lanes.mapi((i, lane) => {
-      if i == index { { ..lane, state, } } else { lane }
+      if i == index {
+        { ..lane, state, }
+      } else {
+        lane
+      }
     }),
   }
 }
