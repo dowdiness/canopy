@@ -104,7 +104,7 @@ priv enum Msg {
   DeleteConfirmed(@documents.Key)
   RetryDelete(@documents.Key)
   DismissDeleteFailure(@documents.Key)
-  PersistCheckpoint(@source_repository.CheckpointWrite)
+  SaveCheckpoint(@source_repository.AccountId, @source_repository.Document)
   Sync(SyncMsg)
 }
 
@@ -112,4 +112,28 @@ priv enum Msg {
 priv enum SyncMsg {
   AccountResolved(Int, @sync.AccountResult)
   CheckpointCompleted(@sync.RequestId, @source_repository.CheckpointResult)
+  OperationPrepared(
+    @sync.PlanId,
+    @source_repository.AccountId,
+    @source_repository.DocumentId,
+    @source_repository.OperationId?
+  )
+  DeliveryCompleted(
+    @source_repository.AccountId,
+    @source_repository.DocumentId,
+    @source_repository.OperationId,
+    @document_http.DeliveryResult
+  )
+  RemoteCompleted(
+    @source_repository.AccountId,
+    @source_repository.DocumentId,
+    @source_repository.OperationId,
+    @document_http.RemoteResult
+  )
+  RecoveryCreated(
+    @source_repository.AccountId,
+    @source_repository.DocumentId,
+    @source_repository.OperationId,
+    @source_repository.CreateResult
+  )
 }

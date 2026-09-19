@@ -123,13 +123,13 @@ fn begin_save(
     Checkpoint(account) =>
       match saved.checkpoint(account, record.document.id()) {
         Some(checkpoint) =>
-          match checkpoint.edit(record.document.text()) {
-            Some(write) =>
-              (
-                { ..record, save: Saving(operation, None), },
-                [Effect::PersistCheckpoint(write)],
-              )
-            None => ({ ..record, save: Saved, }, [])
+          if checkpoint.document().text() == record.document.text() {
+            ({ ..record, save: Saved, }, [])
+          } else {
+            (
+              { ..record, save: Saving(operation, None), },
+              [Effect::SaveCheckpoint(account, record.document)],
+            )
           }
         None => ({ ..record, save: Failed(InvalidSource), }, [])
       }

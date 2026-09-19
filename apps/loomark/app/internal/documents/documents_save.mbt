@@ -482,12 +482,25 @@ fn complete_checkpoint(
       )
       let document_id = key
       guard find_record(documents.records, document_id) is Some(record) &&
-        record.save is Saving(operation, pending) &&
-        operation.key == key &&
-        operation.document == checkpoint.document() else {
+        record.save is Saving(operation, pending) && operation.key == key else {
         return (documents, [])
       }
-      complete_failed(documents, record, pending, checkpoint_failure(failure))
+      if operation.document == checkpoint.document() {
+        complete_failed(documents, record, pending, checkpoint_failure(failure))
+      } else if record.document == checkpoint.document() {
+        (
+          {
+            ..documents,
+            records: replace_record(documents.records, document_id, current => {
+              ..current,
+              save: Failed(checkpoint_failure(failure)),
+            }),
+          },
+          [],
+        )
+      } else {
+        (documents, [])
+      }
     }
   }
 }

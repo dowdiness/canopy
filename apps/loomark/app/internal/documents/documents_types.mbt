@@ -121,7 +121,7 @@ pub(all) enum Msg {
 pub(all) enum Effect {
   ArmMaximum(Key, Int)
   PersistSource(SaveOperation)
-  PersistCheckpoint(@source_repository.CheckpointWrite)
+  SaveCheckpoint(@source_repository.AccountId, @source_repository.Document)
   DeleteSource(DeleteOperation)
 }
 
