@@ -6,7 +6,7 @@ pub(all) enum SyncDirective {
   SaveRequired
   Send(PendingOperation)
   UpdateAvailable(RemoteDocument)
-  Conflict(String, RemoteDocument)
+  Conflict(DocumentId, RemoteDocument)
 } derive(Eq, Debug)
 
 ///|
@@ -154,7 +154,7 @@ pub enum ReconcilePlan {
 ///|
 pub fn ConflictDraft::preserve(
   self : Self,
-  value : String,
+  value : DocumentId,
 ) -> CheckpointWrite raise InvalidRecoveryId {
   let recovery = recovery_identity(self.checkpoint.document.id(), value)
   let recovery_document = recovery.document(self.checkpoint.document.text())

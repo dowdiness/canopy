@@ -14,7 +14,7 @@ pub(all) suberror InvalidRevision derive(Eq, Debug)
 pub(all) suberror InvalidCheckpoint derive(Eq, Debug)
 
 ///|
-pub struct AccountId(String) derive(Eq, Debug)
+pub struct AccountId(String) derive(Eq, Hash, Debug)
 
 ///|
 pub fn AccountId::parse(value : String) -> AccountId raise InvalidAccountId {
@@ -141,18 +141,16 @@ pub struct RecoveryIdentity(Document) derive(Eq, Debug)
 
 ///|
 fn recovery_identity(
-  document_id : String,
-  value : String,
+  document_id : DocumentId,
+  value : DocumentId,
 ) -> RecoveryIdentity raise InvalidRecoveryId {
-  let identity = Document::create(value, "") catch {
-    _ => raise InvalidRecoveryId
-  }
-  guard identity.id() != document_id else { raise InvalidRecoveryId }
+  let identity = Document::create(value, "")
+  guard value != document_id else { raise InvalidRecoveryId }
   RecoveryIdentity(identity)
 }
 
 ///|
-fn RecoveryIdentity::id(self : Self) -> String {
+fn RecoveryIdentity::id(self : Self) -> DocumentId {
   self.0.id()
 }
 

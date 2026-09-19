@@ -1,8 +1,9 @@
 ///|
 fn preparation_document(size : Int) -> Document {
-  Document::create("bench-document", "# Stable\n" + String::make(size, 'x')) catch {
-    _ => abort("invalid")
-  }
+  Document::create(
+    test_document_id("bench-document"),
+    "# Stable\n" + String::make(size, 'x'),
+  )
 }
 
 ///|
@@ -22,9 +23,7 @@ test "bench: encode shared 1 MiB sync checkpoint text" (b : @bench.T) {
   let text = String::make(1024 * 1024, 'x')
   let enrolled = SyncCheckpoint::enroll(
     test_account(value="bench-account"),
-    Document::create("bench-document", text) catch {
-      _ => abort("invalid")
-    },
+    Document::create(test_document_id("bench-document"), text),
   )
   let pending = start_save(enrolled, "11111111-1111-4111-8111-111111111111")
   let acknowledged = pending

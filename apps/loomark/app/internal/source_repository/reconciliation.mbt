@@ -7,12 +7,12 @@ fn reconcile_scan(
   let issues : Array[RepositoryIssue] = []
   let observed : Array[String] = []
   let observed_sync : Array[String] = []
-  let mut editing : String? = None
+  let mut editing : DocumentId? = None
   for entry in entries {
     match entry {
       @indexed_db.Entry::StringRecord(key, encoded) =>
         if key == EDITING_DOCUMENT_KEY {
-          editing = Some(encoded)
+          editing = Some(DocumentId::parse(encoded)) catch { _ => None }
         } else if key.strip_prefix(SOURCE_KEY_PREFIX) is Some(_) {
           observed.push(key)
           match decode_document(key, encoded) {

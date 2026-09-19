@@ -1,10 +1,24 @@
 ///|
 /// The authoritative persisted document: identity plus exact text.
-pub struct Document(String, String) derive(Eq, Debug)
+pub struct DocumentId(String) derive(Eq, Hash, Debug)
+
+///|
+pub fn DocumentId::parse(value : String) -> DocumentId raise DocumentError {
+  guard !value.is_empty() else { raise InvalidIdentity }
+  DocumentId(value)
+}
+
+///|
+pub fn DocumentId::value(self : Self) -> String {
+  self.0
+}
+
+///|
+pub struct Document(DocumentId, String) derive(Eq, Debug)
 
 ///|
 /// An advisory startup-selection hint parsed from accepted SavedDocuments.
-pub struct EditingDocumentHint(String) derive(Eq, Debug)
+pub struct EditingDocumentHint(DocumentId) derive(Eq, Debug)
 
 ///|
 pub(all) suberror DocumentError {
@@ -12,13 +26,7 @@ pub(all) suberror DocumentError {
 } derive(Eq, Debug)
 
 ///|
-pub fn Document::create(
-  id : String,
-  text : String,
-) -> Document raise DocumentError {
-  if id == "" {
-    raise InvalidIdentity
-  }
+pub fn Document::create(id : DocumentId, text : String) -> Document {
   Document(id, text)
 }
 
@@ -28,7 +36,7 @@ pub fn Document::update(self : Self, text : String) -> Document {
 }
 
 ///|
-pub fn Document::id(self : Self) -> String {
+pub fn Document::id(self : Self) -> DocumentId {
   self.0
 }
 
@@ -39,12 +47,12 @@ pub fn Document::text(self : Self) -> String {
 
 ///|
 struct CatalogEntry {
-  document_id : String
+  document_id : DocumentId
   derived_name : @document_lead.DerivedName
 } derive(Eq, Debug)
 
 ///|
-pub fn CatalogEntry::document_id(self : Self) -> String {
+pub fn CatalogEntry::document_id(self : Self) -> DocumentId {
   self.document_id
 }
 
@@ -90,7 +98,7 @@ pub(all) suberror CheckpointApplyError {
 ///|
 pub(all) enum RepositoryChange {
   Stored(Document)
-  Deleted(String)
+  Deleted(DocumentId)
 } derive(Eq, Debug)
 
 ///|
@@ -106,7 +114,9 @@ pub struct SavedDocuments {
 ///|
 fn sort_documents(documents : Array[Document]) -> Array[Document] {
   let result = documents.copy()
-  result.sort_by((left, right) => left.id().lexical_compare(right.id()))
+  result.sort_by((left, right) => {
+    left.id().value().lexical_compare(right.id().value())
+  })
   result
 }
 
@@ -126,7 +136,7 @@ fn compare_checkpoints(left : SyncCheckpoint, right : SyncCheckpoint) -> Int {
   if account_order != 0 {
     account_order
   } else {
-    left.document().id().lexical_compare(right.document().id())
+    left.document().id().value().lexical_compare(right.document().id().value())
   }
 }
 
@@ -137,7 +147,7 @@ pub fn SavedDocuments::from_documents(
   let ordered = sort_documents(documents)
   let ids = Set::from_iter(ordered.iter().map(document => document.id()))
   guard ids.length() == ordered.length() else { return None }
-  let observed = ordered.map(document => SOURCE_KEY_PREFIX + document.id())
+  let observed = ordered.map(document => source_key(document.id()))
   Some({
     documents: ordered,
     catalog_value: catalog_for(ordered),
@@ -175,7 +185,7 @@ pub fn SavedDocuments::all(self : Self) -> ArrayView[Document] {
 }
 
 ///|
-pub fn SavedDocuments::find(self : Self, id : String) -> Document? {
+pub fn SavedDocuments::find(self : Self, id : DocumentId) -> Document? {
   self.documents
   .view()
   .search_by(document => document.id() == id)
@@ -185,7 +195,7 @@ pub fn SavedDocuments::find(self : Self, id : String) -> Document? {
 ///|
 pub fn SavedDocuments::editing_document_hint(
   self : Self,
-  document_id : String,
+  document_id : DocumentId,
 ) -> EditingDocumentHint? {
   self.find(document_id).map(document => EditingDocumentHint(document.id()))
 }
@@ -212,13 +222,24 @@ pub fn SavedDocuments::checkpoints_for(
 fn SavedDocuments::find_checkpoint_index(
   self : Self,
   account : AccountId,
-  document_id : String,
+  document_id : DocumentId,
 ) -> Int? {
   self.sync_checkpoints
   .view()
   .search_by(checkpoint => {
     checkpoint.account == account && checkpoint.document.id() == document_id
   })
+}
+
+///|
+pub fn SavedDocuments::checkpoint(
+  self : Self,
+  account : AccountId,
+  document_id : DocumentId,
+) -> SyncCheckpoint? {
+  self
+  .find_checkpoint_index(account, document_id)
+  .map(index => self.sync_checkpoints[index])
 }
 
 ///|
@@ -286,7 +307,7 @@ pub fn SavedDocuments::apply(
       if !replaced {
         documents.push(document)
       }
-      let key = SOURCE_KEY_PREFIX + document.id()
+      let key = source_key(document.id())
       if !observed.contains(key) {
         observed.push(key)
       }
@@ -302,7 +323,7 @@ pub fn SavedDocuments::apply(
     }
     Deleted(id) => {
       guard self.find(id) is Some(_) else { return None }
-      let key = SOURCE_KEY_PREFIX + id
+      let key = source_key(id)
       Some(
         rebuild_saved_documents(
           documents.filter(document => document.id() != id),

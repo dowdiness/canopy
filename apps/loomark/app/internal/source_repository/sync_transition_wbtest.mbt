@@ -12,6 +12,13 @@ fn test_account(value? : String = "account-a") -> AccountId {
 }
 
 ///|
+fn test_document_id(value : String) -> DocumentId {
+  DocumentId::parse(value) catch {
+    _ => abort("invalid test document identity")
+  }
+}
+
+///|
 fn test_operation(value : String) -> OperationId {
   OperationId::parse(value) catch {
     _ => abort("invalid test operation")
@@ -32,9 +39,7 @@ fn remote_present(revision : Double, text : String) -> RemoteDocument {
 
 ///|
 fn sync_doc(text : String) -> Document {
-  Document::create("document", text) catch {
-    _ => abort("invalid document")
-  }
+  Document::create(test_document_id("document"), text)
 }
 
 ///|
@@ -78,7 +83,7 @@ fn preserve_conflict(
   guard checkpoint.reconcile(remote) is ReconcilePlan::ConflictDetected(draft) else {
     abort("expected conflict")
   }
-  draft.preserve(recovery_id) catch {
+  draft.preserve(test_document_id(recovery_id)) catch {
     _ => abort("invalid test recovery identity")
   }
 }

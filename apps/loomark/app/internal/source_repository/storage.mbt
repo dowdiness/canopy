@@ -52,13 +52,13 @@ pub(all) enum SaveResult {
 
 ///|
 pub(all) enum CreateResult {
-  Created(String)
+  Created(DocumentId)
   CreateFailed(CreateFailure)
 } derive(Eq, Debug)
 
 ///|
 pub(all) enum DeleteResult {
-  Deleted(String)
+  Deleted(DocumentId)
   DeleteFailed(DeleteFailure)
 } derive(Eq, Debug)
 
@@ -128,7 +128,7 @@ pub fn enroll_for_sync(
   document_store.apply(
     [
       @indexed_db.Mutation::Set(key, encode_checkpoint(checkpoint)),
-      @indexed_db.Mutation::Delete(SOURCE_KEY_PREFIX + document.id()),
+      @indexed_db.Mutation::Delete(source_key(document.id())),
     ],
     outcome => msg(checkpoint_result(checkpoint, outcome)),
   )
@@ -147,7 +147,7 @@ fn checkpoint_mutations(write : CheckpointWrite) -> Array[@indexed_db.Mutation] 
       [
         checkpoint_mutation,
         @indexed_db.Mutation::Set(
-          SOURCE_KEY_PREFIX + recovery.id(),
+          source_key(recovery.id()),
           encode_document(recovery),
         ),
       ]
@@ -165,7 +165,7 @@ pub fn persist_checkpoint_write(
     CheckpointOnly(_) => true
     CheckpointAndRecovery(_, recovery) =>
       saved.find(recovery.id()) is None &&
-      !saved.observed(SOURCE_KEY_PREFIX + recovery.id())
+      !saved.observed(source_key(recovery.id()))
   }) else {
     return msg(
       CheckpointFailed(checkpoint, CheckpointFailure::InvalidCheckpoint),
@@ -178,7 +178,7 @@ pub fn persist_checkpoint_write(
 
 ///|
 pub fn EditingDocumentHint::remember(self : Self) -> @cmd.Cmd {
-  document_store.set(EDITING_DOCUMENT_KEY, self.0, _ => @cmd.none)
+  document_store.set(EDITING_DOCUMENT_KEY, self.0.value(), _ => @cmd.none)
 }
 
 ///|
@@ -202,7 +202,7 @@ pub fn save(
   document : Document,
   msg : @cmd.Emit[SaveResult],
 ) -> @cmd.Cmd {
-  let key = SOURCE_KEY_PREFIX + document.id()
+  let key = source_key(document.id())
   guard saved.find(document.id()) is Some(_) || !saved.observed(key) else {
     return msg(SaveFailed(SaveFailure::InvalidSource))
   }
@@ -214,13 +214,13 @@ pub fn save(
 ///|
 pub fn delete(
   saved : SavedDocuments,
-  document_id : String,
+  document_id : DocumentId,
   msg : @cmd.Emit[DeleteResult],
 ) -> @cmd.Cmd {
-  guard saved.find(document_id) is Some(_) &&
-    source_key(document_id) is Some(key) else {
+  guard saved.find(document_id) is Some(_) else {
     return msg(DeleteFailed(DeleteFailure::InvalidSource))
   }
+  let key = source_key(document_id)
   document_store.delete(key, outcome => {
     match outcome {
       None => msg(Deleted(document_id))
@@ -241,8 +241,10 @@ pub fn create(
   guard random_uuid_available() else {
     return msg(CreateFailed(CreateFailure::DocumentIdentityUnavailable))
   }
-  let id = random_uuid()
-  guard saved.find(id) is None && !saved.observed(SOURCE_KEY_PREFIX + id) else {
+  let id = DocumentId::parse(random_uuid()) catch {
+    _ => return msg(CreateFailed(CreateFailure::DocumentIdentityUnavailable))
+  }
+  guard saved.find(id) is None && !saved.observed(source_key(id)) else {
     return msg(CreateFailed(CreateFailure::DocumentIdentityUnavailable))
   }
   msg(Created(id))

@@ -1,8 +1,6 @@
 ///|
 fn rdoc(id : String, text : String) -> Document {
-  Document::create(id, text) catch {
-    _ => abort("invalid test id")
-  }
+  Document::create(test_document_id(id), text)
 }
 
 ///|
@@ -21,8 +19,8 @@ test "reconciliation derives catalog and preserves unrelated observations" {
     @indexed_db.Entry::StringRecord("other", "x"),
   ])
   guard selected is Some(selected) else { fail("missing selection") }
-  assert_eq(selected.id(), "a")
-  assert_eq(saved.all().map(x => x.id()), ["a", "b"])
+  assert_eq(selected.id().value(), "a")
+  assert_eq(saved.all().map(x => x.id().value()), ["a", "b"])
   assert_eq(saved.issues(), [RepositoryIssue::UnknownRecord("other")])
 }
 
@@ -55,13 +53,13 @@ test "only exact editing-document string selects a valid document" {
   ]
   let (_, selected) = reconcile_scan(entries)
   guard selected is Some(selected) else { fail("missing selection") }
-  assert_eq(selected.id(), "b")
+  assert_eq(selected.id().value(), "b")
   let (_, fallback) = reconcile_scan([
     rentry("a", "a"),
     @indexed_db.Entry::StringRecord("editing-document", "missing"),
   ])
   guard fallback is Some(fallback) else { fail("missing fallback") }
-  assert_eq(fallback.id(), "a")
+  assert_eq(fallback.id().value(), "a")
   let (_, non_string_fallback) = reconcile_scan([
     rentry("a", "a"),
     @indexed_db.Entry::UnsupportedValue("editing-document"),
@@ -69,7 +67,7 @@ test "only exact editing-document string selects a valid document" {
   guard non_string_fallback is Some(non_string_fallback) else {
     fail("missing non-string fallback")
   }
-  assert_eq(non_string_fallback.id(), "a")
+  assert_eq(non_string_fallback.id().value(), "a")
 }
 
 ///|
@@ -81,7 +79,7 @@ test "duplicate valid payload ids are not admitted twice" {
       encode_document(rdoc("a", "other")),
     ),
   ])
-  assert_eq(saved.all().map(x => x.id()), ["a"])
+  assert_eq(saved.all().map(x => x.id().value()), ["a"])
   assert_eq(saved.issues(), [RepositoryIssue::InvalidSource("source/v1/b")])
 }
 
@@ -102,11 +100,11 @@ test "legacy sources remain readable beside account-scoped checkpoints" {
   let (saved, selected) = reconcile_scan([
     rentry("legacy", "legacy text"),
     @indexed_db.Entry::StringRecord(
-      sync_key(test_account(value="account-b"), "shared"),
+      sync_key(test_account(value="account-b"), test_document_id("shared")),
       encode_checkpoint(account_b),
     ),
     @indexed_db.Entry::StringRecord(
-      sync_key(test_account(), "shared"),
+      sync_key(test_account(), test_document_id("shared")),
       encode_checkpoint(account_a),
     ),
   ])
@@ -120,7 +118,7 @@ test "legacy sources remain readable beside account-scoped checkpoints" {
 
 ///|
 test "malformed sync data is isolated without hiding legacy sources" {
-  let key = sync_key(test_account(), "bad")
+  let key = sync_key(test_account(), test_document_id("bad"))
   let (saved, selected) = reconcile_scan([
     rentry("legacy", "safe"),
     @indexed_db.Entry::StringRecord(key, "{}"),

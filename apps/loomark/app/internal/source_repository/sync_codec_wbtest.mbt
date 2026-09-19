@@ -8,7 +8,7 @@ fn checkpoint_key(
   account? : String = "account-a",
   document? : String = "document",
 ) -> String {
-  sync_key(test_account(value=account), document)
+  sync_key(test_account(value=account), test_document_id(document))
 }
 
 ///|

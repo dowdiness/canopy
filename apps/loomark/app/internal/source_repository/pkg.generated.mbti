@@ -9,7 +9,7 @@ import {
 // Values
 pub fn create(SavedDocuments, @cmd.Emit[CreateResult]) -> @cmd.Cmd
 
-pub fn delete(SavedDocuments, String, @cmd.Emit[DeleteResult]) -> @cmd.Cmd
+pub fn delete(SavedDocuments, DocumentId, @cmd.Emit[DeleteResult]) -> @cmd.Cmd
 
 pub fn enroll_for_sync(SavedDocuments, AccountId, Document, @cmd.Emit[CheckpointResult]) -> @cmd.Cmd
 
@@ -45,13 +45,8 @@ pub(all) suberror ReceiptMismatch {
   RevisionMismatch
 } derive(Eq, @debug.Debug)
 
-pub(all) suberror WriterError {
-  StaleCompletion
-  RetryUnavailable
-} derive(Eq, @debug.Debug)
-
 // Types and methods
-pub struct AccountId(String) derive(Eq, @debug.Debug)
+pub struct AccountId(String) derive(Eq, Hash, @debug.Debug)
 pub fn AccountId::parse(String) -> Self raise InvalidAccountId
 pub fn AccountId::value(Self) -> String
 
@@ -59,7 +54,7 @@ pub struct Catalog(Array[CatalogEntry]) derive(Eq, @debug.Debug)
 pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
 
 type CatalogEntry derive(Eq, @debug.Debug)
-pub fn CatalogEntry::document_id(Self) -> String
+pub fn CatalogEntry::document_id(Self) -> DocumentId
 pub fn CatalogEntry::name(Self) -> String
 
 pub(all) enum CheckpointFailure {
@@ -79,30 +74,20 @@ pub enum CheckpointWrite {
   CheckpointAndRecovery(SyncCheckpoint, Document)
 } derive(Eq, @debug.Debug)
 pub fn CheckpointWrite::checkpoint(Self) -> SyncCheckpoint
-
-pub enum CheckpointWriter {
-  Available
-  Storing(CheckpointWrite, CheckpointWrite?)
-  RetryPending(CheckpointWrite)
-} derive(Eq, @debug.Debug)
-pub fn CheckpointWriter::enqueue(Self, CheckpointWrite) -> (Self, CheckpointWrite?)
-pub fn CheckpointWriter::failed(Self, SyncCheckpoint) -> Self raise WriterError
-pub fn CheckpointWriter::new() -> Self
-pub fn CheckpointWriter::retry(Self) -> (Self, CheckpointWrite) raise WriterError
-pub fn CheckpointWriter::stored(Self, SyncCheckpoint) -> (Self, CheckpointWrite?) raise WriterError
+pub fn CheckpointWrite::coalesce(Self, Self) -> Self
 
 pub struct ConflictDraft {
   checkpoint : SyncCheckpoint
   remote : RemoteDocument
 } derive(Eq, @debug.Debug)
-pub fn ConflictDraft::preserve(Self, String) -> CheckpointWrite raise InvalidRecoveryId
+pub fn ConflictDraft::preserve(Self, DocumentId) -> CheckpointWrite raise InvalidRecoveryId
 
 pub(all) enum CreateFailure {
   DocumentIdentityUnavailable
 } derive(Eq, @debug.Debug)
 
 pub(all) enum CreateResult {
-  Created(String)
+  Created(DocumentId)
   CreateFailed(CreateFailure)
 } derive(Eq, @debug.Debug)
 
@@ -114,17 +99,21 @@ pub(all) enum DeleteFailure {
 } derive(Eq, @debug.Debug)
 
 pub(all) enum DeleteResult {
-  Deleted(String)
+  Deleted(DocumentId)
   DeleteFailed(DeleteFailure)
 } derive(Eq, @debug.Debug)
 
-pub struct Document(String, String) derive(Eq, @debug.Debug)
-pub fn Document::create(String, String) -> Self raise DocumentError
-pub fn Document::id(Self) -> String
+pub struct Document(DocumentId, String) derive(Eq, @debug.Debug)
+pub fn Document::create(DocumentId, String) -> Self
+pub fn Document::id(Self) -> DocumentId
 pub fn Document::text(Self) -> String
 pub fn Document::update(Self, String) -> Self
 
-pub struct EditingDocumentHint(String) derive(Eq, @debug.Debug)
+pub struct DocumentId(String) derive(Eq, Hash, @debug.Debug)
+pub fn DocumentId::parse(String) -> Self raise DocumentError
+pub fn DocumentId::value(Self) -> String
+
+pub struct EditingDocumentHint(DocumentId) derive(Eq, @debug.Debug)
 pub fn EditingDocumentHint::remember(Self) -> @cmd.Cmd
 
 pub(all) enum OpenFailure {
@@ -183,7 +172,7 @@ pub fn RemoteDocument::revision(Self) -> Double
 
 pub(all) enum RepositoryChange {
   Stored(Document)
-  Deleted(String)
+  Deleted(DocumentId)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum RepositoryIssue {
@@ -219,9 +208,10 @@ pub fn SavedDocuments::all(Self) -> ArrayView[Document]
 pub fn SavedDocuments::apply(Self, RepositoryChange) -> Self?
 pub fn SavedDocuments::apply_checkpoint(Self, SyncCheckpoint) -> Self raise CheckpointApplyError
 pub fn SavedDocuments::catalog(Self) -> Catalog
+pub fn SavedDocuments::checkpoint(Self, AccountId, DocumentId) -> SyncCheckpoint?
 pub fn SavedDocuments::checkpoints_for(Self, AccountId) -> Array[SyncCheckpoint]
-pub fn SavedDocuments::editing_document_hint(Self, String) -> EditingDocumentHint?
-pub fn SavedDocuments::find(Self, String) -> Document?
+pub fn SavedDocuments::editing_document_hint(Self, DocumentId) -> EditingDocumentHint?
+pub fn SavedDocuments::find(Self, DocumentId) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
 pub fn SavedDocuments::issues(Self) -> ArrayView[RepositoryIssue]
 
@@ -253,7 +243,7 @@ pub(all) enum SyncDirective {
   SaveRequired
   Send(PendingOperation)
   UpdateAvailable(RemoteDocument)
-  Conflict(String, RemoteDocument)
+  Conflict(DocumentId, RemoteDocument)
 } derive(Eq, @debug.Debug)
 
 pub enum SyncPhase {

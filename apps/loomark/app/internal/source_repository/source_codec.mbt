@@ -5,18 +5,14 @@ const SOURCE_KEY_PREFIX : String = "source/v1/"
 const EDITING_DOCUMENT_KEY : String = "editing-document"
 
 ///|
-fn source_key(document_id : String) -> String? {
-  if document_id == "" {
-    None
-  } else {
-    Some(SOURCE_KEY_PREFIX + document_id)
-  }
+fn source_key(document_id : DocumentId) -> String {
+  SOURCE_KEY_PREFIX + document_id.value()
 }
 
 ///|
 fn encode_document(document : Document) -> String {
   Json::object({
-    "document_id": document.id().to_json(),
+    "document_id": document.id().value().to_json(),
     "text": document.text().to_json(),
   }).stringify()
 }
@@ -40,5 +36,6 @@ fn decode_document(storage_key : String, encoded : String) -> Document? {
     _ => return None
   }
   guard identity.equal_to_string(id) else { return None }
-  Some(Document::create(id, text) catch { _ => return None })
+  let id = DocumentId::parse(id) catch { _ => return None }
+  Some(Document::create(id, text))
 }

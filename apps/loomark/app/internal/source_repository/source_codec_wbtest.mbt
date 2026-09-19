@@ -1,8 +1,6 @@
 ///|
 fn codec_doc(id : String, text : String) -> Document {
-  Document::create(id, text) catch {
-    _ => abort("invalid test id")
-  }
+  Document::create(test_document_id(id), text)
 }
 
 ///|
@@ -38,7 +36,7 @@ test "codec rejects malformed missing and extra fields" {
 test "codec rejects identity mismatch and invalid keys" {
   let value = codec_doc("id", "x")
   assert_eq(decode_document("source/v1/other", encode_document(value)), None)
-  assert_eq(source_key(""), None)
+  assert_eq(source_key(test_document_id("id")), "source/v1/id")
   assert_eq(decode_document("source/v1/", encode_document(value)), None)
 }
 

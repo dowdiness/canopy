@@ -5,14 +5,14 @@ const SYNC_KEY_PREFIX : String = "sync/"
 const SYNC_FRAME_PREFIX : String = "loomark-sync\n"
 
 ///|
-fn sync_key(account : AccountId, document_id : String) -> String {
+fn sync_key(account : AccountId, document_id : DocumentId) -> String {
   let account_id = account.value()
   SYNC_KEY_PREFIX +
   account_id.length().to_string() +
   "/" +
   account_id +
   "/" +
-  document_id
+  document_id.value()
 }
 
 ///|
@@ -153,14 +153,17 @@ fn encode_phase(phase : SyncPhase, texts : Array[String]) -> Json {
         "remote": encode_remote(remote, texts),
       })
     Conflict(recovery) =>
-      Json::object({ "kind": "conflict", "recovery_document_id": recovery.id() })
+      Json::object({
+        "kind": "conflict",
+        "recovery_document_id": recovery.id().value(),
+      })
   }
 }
 
 ///|
 fn decode_phase(
   value : Json,
-  document_id : String,
+  document_id : DocumentId,
   texts : Array[String],
 ) -> SyncPhase? {
   guard value is Json::Object(fields) else { return None }
@@ -185,6 +188,9 @@ fn decode_phase(
         is Some(Json::String(recovery_document_id)) else {
         return None
       }
+      let recovery_document_id = DocumentId::parse(recovery_document_id) catch {
+        _ => return None
+      }
       let recovery = recovery_identity(document_id, recovery_document_id) catch {
         _ => return None
       }
@@ -202,7 +208,7 @@ fn encode_checkpoint(checkpoint : SyncCheckpoint) -> String {
   let phase = encode_phase(checkpoint.phase, texts)
   let header = Json::object({
     "account_id": checkpoint.account.value(),
-    "document_id": checkpoint.document.id(),
+    "document_id": checkpoint.document.id().value(),
     "generation": checkpoint.generation,
     "current": current,
     "baseline": baseline,
@@ -290,11 +296,16 @@ fn decode_checkpoint(storage_key : String, encoded : String) -> SyncCheckpoint? 
     return None
   }
   guard fields.get("account_id") is Some(Json::String(account_id)) &&
-    fields.get("document_id") is Some(Json::String(document_id)) &&
+    fields.get("document_id") is Some(Json::String(document_id_value)) &&
     fields.get("generation") is Some(Json::Number(generation, ..)) &&
     decode_text(fields.get("current"), texts) is Some(text) &&
-    decode_remote_field(fields.get("baseline"), texts) is Some(baseline) &&
-    (match fields.get("phase") {
+    decode_remote_field(fields.get("baseline"), texts) is Some(baseline) else {
+    return None
+  }
+  let document_id = DocumentId::parse(document_id_value) catch {
+    _ => return None
+  }
+  guard (match fields.get("phase") {
       Some(value) => decode_phase(value, document_id, texts)
       None => None
     })
@@ -303,7 +314,7 @@ fn decode_checkpoint(storage_key : String, encoded : String) -> SyncCheckpoint? 
   }
   let account = AccountId::parse(account_id) catch { _ => return None }
   guard sync_key(account, document_id) == storage_key else { return None }
-  let document = Document::create(document_id, text) catch { _ => return None }
+  let document = Document::create(document_id, text)
   Some(
     checkpoint_from_storage(account, document, generation, baseline, phase) catch {
       _ => return None
