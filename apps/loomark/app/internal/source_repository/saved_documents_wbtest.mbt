@@ -85,3 +85,52 @@ test "from_documents keeps lexical order without startup selection state" {
   let saved = SavedDocuments::from_documents([doc("b", "b"), doc("a", "a")]).unwrap()
   assert_eq(saved.all().map(document => document.id()), ["a", "b"])
 }
+
+///|
+test "checkpoint updates preserve document projections without rebuilding them" {
+  let saved = SavedDocuments::from_documents([doc("local", "# Local\n")]).unwrap()
+  let sentinel = { ..saved, catalog_value: Catalog([]), }
+  let checkpoint = SyncCheckpoint::enroll(
+    test_account(),
+    doc("remote", "remote"),
+  )
+  let updated = sentinel.apply_checkpoint(checkpoint)
+  assert_eq(updated.all(), sentinel.all())
+  assert_eq(updated.catalog(), sentinel.catalog())
+  assert_eq(updated.issues(), sentinel.issues())
+}
+
+///|
+test "checkpoint insertion and replacement retain lexical order" {
+  let initial = SavedDocuments::from_documents([]).unwrap()
+  let account_b = SyncCheckpoint::enroll(
+    test_account(value="account-b"),
+    doc("same", "B"),
+  )
+  let account_a_z = SyncCheckpoint::enroll(test_account(), doc("z", "Z"))
+  let account_a_a = SyncCheckpoint::enroll(test_account(), doc("a", "A"))
+  let saved = initial
+    .apply_checkpoint(account_b)
+    .apply_checkpoint(account_a_z)
+    .apply_checkpoint(account_a_a)
+  assert_eq(
+    saved.checkpoints_for(test_account()).map(value => value.document().id()),
+    ["a", "z"],
+  )
+  let replacement = account_a_a.edit("new").unwrap().checkpoint()
+  let replaced = saved.apply_checkpoint(replacement)
+  assert_eq(
+    replaced.checkpoints_for(test_account()).map(value => value.document().id()),
+    ["a", "z"],
+  )
+  assert_eq(
+    replaced.checkpoints_for(test_account())[0].document().text(),
+    "new",
+  )
+  let stale : Result[SavedDocuments, CheckpointApplyError] = Ok(
+    replaced.apply_checkpoint(account_a_a),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(stale, Err(CheckpointApplyError::StaleCheckpoint))
+}

@@ -3,8 +3,10 @@ fn reconcile_scan(
   entries : Array[@indexed_db.Entry],
 ) -> (SavedDocuments, Document?) {
   let documents : Array[Document] = []
+  let checkpoints : Array[SyncCheckpoint] = []
   let issues : Array[RepositoryIssue] = []
   let observed : Array[String] = []
+  let observed_sync : Array[String] = []
   let mut editing : String? = None
   for entry in entries {
     match entry {
@@ -20,6 +22,17 @@ fn reconcile_scan(
               documents.push(document)
             _ => issues.push(InvalidSource(key))
           }
+        } else if key.strip_prefix(SYNC_KEY_PREFIX) is Some(_) {
+          observed_sync.push(key)
+          match decode_checkpoint(key, encoded) {
+            Some(checkpoint) if checkpoints
+              .iter()
+              .all(existing => {
+                existing.account() != checkpoint.account() ||
+                existing.document().id() != checkpoint.document().id()
+              }) => checkpoints.push(checkpoint)
+            _ => issues.push(InvalidSyncCheckpoint(key))
+          }
         } else if key.strip_prefix("source/v") is Some(_) {
           issues.push(UnsupportedSourceSchema(key))
         } else {
@@ -29,6 +42,9 @@ fn reconcile_scan(
         if key.strip_prefix(SOURCE_KEY_PREFIX) is Some(_) {
           observed.push(key)
           issues.push(InvalidSource(key))
+        } else if key.strip_prefix(SYNC_KEY_PREFIX) is Some(_) {
+          observed_sync.push(key)
+          issues.push(InvalidSyncCheckpoint(key))
         } else if key == EDITING_DOCUMENT_KEY {
           ()
         } else {
@@ -38,7 +54,9 @@ fn reconcile_scan(
         issues.push(UnsupportedKey(position))
     }
   }
-  let saved = rebuild_saved_documents(documents, issues, observed)
+  let saved = rebuild_saved_documents(
+    documents, issues, observed, checkpoints, observed_sync,
+  )
   let selected = match editing {
     Some(id) =>
       match saved.find(id) {

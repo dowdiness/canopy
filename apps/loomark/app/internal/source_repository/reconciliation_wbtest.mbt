@@ -91,3 +91,45 @@ test "opening empty scan is ready without writing" {
   assert_eq(selected, None)
   assert_eq(saved.catalog().entries(), [])
 }
+
+///|
+test "legacy sources remain readable beside account-scoped checkpoints" {
+  let account_a = SyncCheckpoint::enroll(test_account(), rdoc("shared", "A"))
+  let account_b = SyncCheckpoint::enroll(
+    test_account(value="account-b"),
+    rdoc("shared", "B"),
+  )
+  let (saved, selected) = reconcile_scan([
+    rentry("legacy", "legacy text"),
+    @indexed_db.Entry::StringRecord(
+      sync_key(test_account(value="account-b"), "shared"),
+      encode_checkpoint(account_b),
+    ),
+    @indexed_db.Entry::StringRecord(
+      sync_key(test_account(), "shared"),
+      encode_checkpoint(account_a),
+    ),
+  ])
+  assert_eq(selected, Some(rdoc("legacy", "legacy text")))
+  assert_eq(saved.all(), [rdoc("legacy", "legacy text")])
+  assert_eq(saved.checkpoints_for(test_account()), [account_a])
+  assert_eq(saved.checkpoints_for(test_account(value="account-b")), [account_b])
+  assert_eq(saved.checkpoints_for(test_account(value="account-c")), [])
+  assert_eq(saved.issues(), [])
+}
+
+///|
+test "malformed sync data is isolated without hiding legacy sources" {
+  let key = sync_key(test_account(), "bad")
+  let (saved, selected) = reconcile_scan([
+    rentry("legacy", "safe"),
+    @indexed_db.Entry::StringRecord(key, "{}"),
+    @indexed_db.Entry::StringRecord("sync/malformed", "malformed"),
+  ])
+  assert_eq(selected, Some(rdoc("legacy", "safe")))
+  assert_eq(saved.checkpoints_for(test_account()), [])
+  assert_eq(saved.issues(), [
+    RepositoryIssue::InvalidSyncCheckpoint(key),
+    RepositoryIssue::InvalidSyncCheckpoint("sync/malformed"),
+  ])
+}

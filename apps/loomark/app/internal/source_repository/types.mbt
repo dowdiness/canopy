@@ -75,9 +75,16 @@ fn catalog_for(documents : Array[Document]) -> Catalog {
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   UnsupportedSourceSchema(String)
+  InvalidSyncCheckpoint(String)
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
+} derive(Eq, Debug)
+
+///|
+pub(all) suberror CheckpointApplyError {
+  StaleCheckpoint
+  StorageKeyConflict
 } derive(Eq, Debug)
 
 ///|
@@ -92,6 +99,8 @@ pub struct SavedDocuments {
   catalog_value : Catalog
   issues_value : Array[RepositoryIssue]
   observed_source_keys : Array[String]
+  sync_checkpoints : Array[SyncCheckpoint]
+  observed_sync_keys : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -109,6 +118,19 @@ fn sort_keys(keys : Array[String]) -> Array[String] {
 }
 
 ///|
+fn compare_checkpoints(left : SyncCheckpoint, right : SyncCheckpoint) -> Int {
+  let account_order = left
+    .account()
+    .value()
+    .lexical_compare(right.account().value())
+  if account_order != 0 {
+    account_order
+  } else {
+    left.document().id().lexical_compare(right.document().id())
+  }
+}
+
+///|
 pub fn SavedDocuments::from_documents(
   documents : Array[Document],
 ) -> SavedDocuments? {
@@ -121,6 +143,8 @@ pub fn SavedDocuments::from_documents(
     catalog_value: catalog_for(ordered),
     issues_value: [],
     observed_source_keys: observed,
+    sync_checkpoints: [],
+    observed_sync_keys: [],
   })
 }
 
@@ -129,13 +153,19 @@ fn rebuild_saved_documents(
   documents : Array[Document],
   issues : Array[RepositoryIssue],
   observed_source_keys : Array[String],
+  sync_checkpoints : Array[SyncCheckpoint],
+  observed_sync_keys : Array[String],
 ) -> SavedDocuments {
   let ordered = sort_documents(documents)
+  let ordered_checkpoints = sync_checkpoints.copy()
+  ordered_checkpoints.sort_by(compare_checkpoints)
   {
     documents: ordered,
     catalog_value: catalog_for(ordered),
     issues_value: issues.copy(),
     observed_source_keys: sort_keys(observed_source_keys),
+    sync_checkpoints: ordered_checkpoints,
+    observed_sync_keys: sort_keys(observed_sync_keys),
   }
 }
 
@@ -171,8 +201,70 @@ pub fn SavedDocuments::issues(self : Self) -> ArrayView[RepositoryIssue] {
 }
 
 ///|
+pub fn SavedDocuments::checkpoints_for(
+  self : Self,
+  account : AccountId,
+) -> Array[SyncCheckpoint] {
+  self.sync_checkpoints.filter(checkpoint => checkpoint.account() == account)
+}
+
+///|
+fn SavedDocuments::find_checkpoint_index(
+  self : Self,
+  account : AccountId,
+  document_id : String,
+) -> Int? {
+  self.sync_checkpoints
+  .view()
+  .search_by(checkpoint => {
+    checkpoint.account == account && checkpoint.document.id() == document_id
+  })
+}
+
+///|
+pub fn SavedDocuments::apply_checkpoint(
+  self : Self,
+  checkpoint : SyncCheckpoint,
+) -> SavedDocuments raise CheckpointApplyError {
+  let key = sync_key(checkpoint.account, checkpoint.document.id())
+  let checkpoints = self.sync_checkpoints.copy()
+  let observed_sync = match
+    self.find_checkpoint_index(checkpoint.account, checkpoint.document.id()) {
+    Some(index) => {
+      let previous = checkpoints[index]
+      guard checkpoint.generation > previous.generation else {
+        raise StaleCheckpoint
+      }
+      checkpoints[index] = checkpoint
+      self.observed_sync_keys
+    }
+    None => {
+      guard !self.observed_sync(key) else { raise StorageKeyConflict }
+      let insertion = checkpoints
+        .view()
+        .search_by(candidate => compare_checkpoints(checkpoint, candidate) < 0)
+        .unwrap_or(checkpoints.length())
+      checkpoints.insert(insertion, checkpoint)
+      let keys = self.observed_sync_keys.copy()
+      let key_insertion = keys
+        .view()
+        .search_by(existing => key.lexical_compare(existing) < 0)
+        .unwrap_or(keys.length())
+      keys.insert(key_insertion, key)
+      keys
+    }
+  }
+  { ..self, sync_checkpoints: checkpoints, observed_sync_keys: observed_sync, }
+}
+
+///|
 fn SavedDocuments::observed(self : Self, key : String) -> Bool {
   self.observed_source_keys.contains(key)
+}
+
+///|
+fn SavedDocuments::observed_sync(self : Self, key : String) -> Bool {
+  self.observed_sync_keys.contains(key)
 }
 
 ///|
@@ -198,7 +290,15 @@ pub fn SavedDocuments::apply(
       if !observed.contains(key) {
         observed.push(key)
       }
-      Some(rebuild_saved_documents(documents, self.issues_value, observed))
+      Some(
+        rebuild_saved_documents(
+          documents,
+          self.issues_value,
+          observed,
+          self.sync_checkpoints,
+          self.observed_sync_keys,
+        ),
+      )
     }
     Deleted(id) => {
       guard self.find(id) is Some(_) else { return None }
@@ -208,6 +308,8 @@ pub fn SavedDocuments::apply(
           documents.filter(document => document.id() != id),
           self.issues_value,
           observed.filter(observed_key => observed_key != key),
+          self.sync_checkpoints,
+          self.observed_sync_keys,
         ),
       )
     }

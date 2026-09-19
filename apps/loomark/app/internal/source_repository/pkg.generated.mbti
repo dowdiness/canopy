@@ -16,6 +16,11 @@ pub fn open(@cmd.Emit[OpenResult]) -> @cmd.Cmd
 pub fn save(SavedDocuments, Document, @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
 // Errors
+pub(all) suberror CheckpointApplyError {
+  StaleCheckpoint
+  StorageKeyConflict
+} derive(Eq, @debug.Debug)
+
 pub(all) suberror DocumentError {
   InvalidIdentity
 } derive(Eq, @debug.Debug)
@@ -152,6 +157,7 @@ pub(all) enum RepositoryChange {
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   UnsupportedSourceSchema(String)
+  InvalidSyncCheckpoint(String)
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
@@ -174,10 +180,14 @@ pub struct SavedDocuments {
   catalog_value : Catalog
   issues_value : Array[RepositoryIssue]
   observed_source_keys : Array[String]
+  sync_checkpoints : Array[SyncCheckpoint]
+  observed_sync_keys : Array[String]
 } derive(Eq, @debug.Debug)
 pub fn SavedDocuments::all(Self) -> ArrayView[Document]
 pub fn SavedDocuments::apply(Self, RepositoryChange) -> Self?
+pub fn SavedDocuments::apply_checkpoint(Self, SyncCheckpoint) -> Self raise CheckpointApplyError
 pub fn SavedDocuments::catalog(Self) -> Catalog
+pub fn SavedDocuments::checkpoints_for(Self, AccountId) -> Array[SyncCheckpoint]
 pub fn SavedDocuments::editing_document_hint(Self, String) -> EditingDocumentHint?
 pub fn SavedDocuments::find(Self, String) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
