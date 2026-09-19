@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/timeout"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/sub",
+}
+
+// Values
+pub fn after(String, Int, @cmd.Cmd) -> @sub.Sub
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

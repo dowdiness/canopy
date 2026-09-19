@@ -1,0 +1,9 @@
+import {
+  "dowdiness/dom_boundary",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
+}
+
+supported_targets = "js"
+
+warnings = "-alert_experimental"

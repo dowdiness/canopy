@@ -55,6 +55,15 @@ priv enum EditorMode {
 } derive(Eq)
 
 ///|
+priv struct EditorPanelsInput {
+  activation : Activation
+  disabled : Bool
+  read_only : Bool
+  mode : EditorMode
+  preview : @preview.State
+} derive(Eq)
+
+///|
 priv enum DocumentCreation {
   Idle
   Creating
@@ -76,7 +85,7 @@ priv enum Msg {
   CompositionStarted(Activation)
   CompositionEnded(Activation)
   ModeSelected(EditorMode)
-  ImportFilesSelected(FixedArray[@dom.File])
+  ImportFilesSelected(FixedArray[@browser.File])
   ImportReadCompleted(Result[Bytes, Error])
   ImportCreateCompleted(String, @source_repository.CreateResult)
   DismissImportFailure

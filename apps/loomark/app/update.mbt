@@ -37,14 +37,6 @@ fn export_payload(editing : EditingState) -> (String, String) {
 }
 
 ///|
-#warnings("-unused_async")
-async fn download_export(filename : String, text : String) -> Unit noraise {
-  @dom_boundary.download_text(filename, text) catch {
-    _ => ()
-  }
-}
-
-///|
 fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
   let key = self.activation.key
   let persistence_blocks = match self.documents.delete_status(key) {
@@ -442,9 +434,7 @@ fn update_page(
         Some(file) =>
           (
             Editing({ ..editing, import_failed: false, }),
-            @cmd.attempt(result => emit(ImportReadCompleted(result)), async fn() {
-              file.as_blob().bytes()
-            }),
+            @browser.read(file, emit.map(result => ImportReadCompleted(result))),
           )
       }
     (Editing(editing), ImportReadCompleted(Err(_))) =>
@@ -490,10 +480,7 @@ fn update_page(
       (Editing({ ..editing, import_failed: false, }), @cmd.none)
     (Editing(editing), ExportRequested) => {
       let (filename, text) = export_payload(editing)
-      (
-        Editing(editing),
-        @cmd.effect(async fn() noraise { download_export(filename, text) }),
-      )
+      (Editing(editing), @browser.download(filename, text))
     }
     (Editing(editing), PreviewEvent(event)) => {
       let (preview, command) = preview_engine.update(

@@ -2,51 +2,6 @@
 const LEAD_DELAY_MS : Int = 250
 
 ///|
-priv suberror PendingEditSub {
-  Apply(@documents.Key, Int, () -> @rabbita.Cmd)
-}
-
-///|
-fn start_pending_edit_subscription(
-  payload : Error,
-  scheduler : &@cmd.Scheduler,
-  schedule_timeout : (() -> Unit, Int) -> Int,
-  cancel_timeout : (Int) -> Unit,
-) -> @sub.RunningSub? {
-  guard payload is PendingEditSub::Apply(_, _, command) else { return None }
-  let mut tagger = command
-  let mut active = true
-  let timer = schedule_timeout(
-    () => if active { scheduler.add(tagger()) },
-    LEAD_DELAY_MS,
-  )
-  Some({
-    unload: _ => {
-      active = false
-      cancel_timeout(timer)
-    },
-    update_tagger: next => {
-      guard next is PendingEditSub::Apply(_, _, new_emit) else { return }
-      tagger = new_emit
-    },
-  })
-}
-
-///|
-fn pending_edit_sub_loader(
-  payload : Error,
-  scheduler : &@cmd.Scheduler,
-) -> @sub.RunningSub? {
-  let window = @dom.window()
-  start_pending_edit_subscription(
-    payload,
-    scheduler,
-    (callback, ms) => window.set_timeout(callback, ms),
-    timer => window.clear_timeout(timer),
-  )
-}
-
-///|
 fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
   let pending = match model {
     Editing(editing) => editing.documents.pending_edits()
@@ -57,13 +12,10 @@ fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
     pending.map(item => {
       let (key, revision) = item
       let lifecycle_key = key.lifecycle_key()
-      @sub.custom_sub(
+      @timeout.after(
         "loomark.pending-edit.\{lifecycle_key}-\{revision}",
-        @sub.Scope::Local,
-        PendingEditSub::Apply(key, revision, () => {
-          emit(ApplyPendingEdit(key, revision))
-        }),
-        pending_edit_sub_loader,
+        LEAD_DELAY_MS,
+        emit(ApplyPendingEdit(key, revision)),
       )
     }),
   )
@@ -74,7 +26,7 @@ fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let text_area = @text_area.TextArea::TextArea("loomark-text")
   let preview_engine = @preview.PreviewEngine::PreviewEngine()
-  let initial_compact = compact_viewport(@dom.window().inner_width())
+  let initial_compact = compact_viewport(@browser.viewport_width())
   let (model, emit) = @rabbita.create_state_with_init(
     init=emit => initial_state(emit, initial_compact),
     update=(model, msg, emit) => {
@@ -89,25 +41,38 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     },
   )
   let page = model.map(model => model.page)
+  let editor_input = page.map(page => {
+    match page {
+      Editing(editing) =>
+        Some({
+          activation: editing.activation,
+          disabled: editing.creation == Creating,
+          read_only: editing.deletion_blocks_document_changes(),
+          mode: editing.mode,
+          preview: editing.preview,
+        })
+      Loading(_) | PreparingNew(_) | Recovery(_, _) => None
+    }
+  })
 
   fn editor_panels(
     orientation : @rui.SeparatorOrientation,
   ) -> @rabbita.Val[@rabbita.Html] {
     @rui.resizable_panel_group_with_input(
       id="loomark-editor-panels",
-      input=page,
+      input=editor_input,
       default_size=50,
       min=25,
       max=75,
       orientation~,
       aria_label="Resize editor and preview",
       class="min-h-0 min-w-0 w-full flex-1",
-      (scope, page) => {
-        match page {
-          Editing(editing) => {
-            let split = editing.mode == Split
-            let text_visible = editing.mode != Preview
-            let preview_visible = editing.mode != Text
+      (scope, input) => {
+        match input {
+          Some(input) => {
+            let split = input.mode == Split
+            let text_visible = input.mode != Preview
+            let preview_visible = input.mode != Text
             [
               @rui.resizable_panel(
                 scope~,
@@ -126,9 +91,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 text_area_view(
                   emit,
                   text_area,
-                  editing.activation,
-                  disabled=editing.creation == Creating,
-                  read_only=editing.deletion_blocks_document_changes(),
+                  input.activation,
+                  disabled=input.disabled,
+                  read_only=input.read_only,
                 ),
               ),
               @rui.resizable_handle(
@@ -151,11 +116,11 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 } else {
                   ["display:none;overflow:hidden"]
                 },
-                editing.preview.view(),
+                input.preview.view(),
               ),
             ]
           }
-          Loading(_) | PreparingNew(_) | Recovery(_, _) => []
+          None => []
         }
       },
     )

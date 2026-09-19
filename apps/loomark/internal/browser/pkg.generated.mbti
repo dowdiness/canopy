@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/browser"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
+}
+
+// Values
+pub fn download(String, String) -> @cmd.Cmd
+
+pub fn read(@dom.File, @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd
+
+pub fn viewport_width() -> Double
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @dom {type File}
+
+// Traits

@@ -245,6 +245,131 @@ pub fn RecentDocumentsFeature::dialog(self : Self) -> @rabbita.Val[@html.Html] {
 }
 
 ///|
+fn[Id : Eq] row_component(
+  seed : @rabbita.Val[Seed[Id]],
+) -> @rabbita.Val[Row[Id]] {
+  let source = seed.map(seed => seed.source)
+  let lead = source.map(@document_lead.extract)
+  seed.map2(lead, (seed, lead) => { seed, lead, })
+}
+
+///|
+fn[Id : Eq] presented_row_component(
+  key : Id,
+  row : @rabbita.Val[PresentedRow[Id]],
+  compact : @rabbita.Val[Bool],
+  on_intent : @cmd.Emit[Intent[Id]],
+  close_after_action : @cmd.Cmd,
+) -> @rabbita.Val[@html.Html] {
+  row.map2(compact, (row, compact) => {
+    render_row(
+      key,
+      row,
+      on_intent,
+      if compact {
+        close_after_action
+      } else {
+        @cmd.none
+      },
+    )
+  })
+}
+
+///|
+fn[Id : Eq + Hash] visible_documents(
+  rows : @rabbita.Val[@vector.Vector[Row[Id]]],
+  compact : @rabbita.Val[Bool],
+  on_intent : @cmd.Emit[Intent[Id]],
+  close_after_action : @cmd.Cmd,
+) -> @rabbita.Val[@html.Html] {
+  let presented = rows.map(rows_presented)
+  presented
+  .assoc_by(
+    (key, row) => {
+      presented_row_component(key, row, compact, on_intent, close_after_action)
+    },
+    by=row => row.row.seed.docid,
+  )
+  .view(rows => {
+    if rows.is_empty() {
+      @html.div(
+        class="px-3 py-6 text-sm text-lm-muted",
+        attrs=@html.Attrs::build().role("status"),
+        "No documents yet",
+      )
+    } else {
+      @sidebar.sidebar_menu(rows.to_array())
+    }
+  })
+}
+
+///|
+fn empty_component() -> @rabbita.Val[@html.Html] {
+  @rabbita.Val::constant(@html.nothing)
+}
+
+///|
+fn[Id] available_delete_dialog(
+  id : Id,
+  row : PresentedRow[Id],
+  on_intent : @cmd.Emit[Intent[Id]],
+) -> @rabbita.Val[@html.Html] {
+  @rui.alert_dialog(
+    id="loomark-delete-document",
+    default_open=true,
+    on_open_change=@cmd.Emit(open => {
+      if open {
+        @cmd.none
+      } else {
+        on_intent(Intent::CancelDelete)
+      }
+    }),
+    scope => {
+      @rui.alert_dialog_portal([
+        @rui.alert_dialog_content(scope, [
+          @rui.alert_dialog_header([
+            @rui.alert_dialog_title(scope, delete_confirmation_label(row)),
+          ]),
+          @rui.alert_dialog_footer([
+            @rui.alert_dialog_cancel(scope, "Cancel"),
+            @rui.alert_dialog_action(
+              scope,
+              on_click=on_intent(Intent::ConfirmDelete(id)),
+              "Delete document",
+            ),
+          ]),
+        ]),
+      ])
+    },
+  )
+}
+
+///|
+fn[Id : Eq] delete_dialog(
+  id : Id,
+  rows : @rabbita.Val[@vector.Vector[Row[Id]]],
+  on_intent : @cmd.Emit[Intent[Id]],
+) -> @rabbita.Val[@html.Html] {
+  let candidate = rows
+    .map(rows_presented)
+    .map(rows => rows.iter().find_first(row => row.row.seed.docid == id))
+  candidate.switch_by(
+    candidate => {
+      match candidate {
+        Some(row) => available_delete_dialog(id, row, on_intent)
+        None => empty_component()
+      }
+    },
+    by=candidate => {
+      match candidate {
+        Some(row) => "available-\{delete_confirmation_label(row)}"
+        None => "unavailable"
+      }
+    },
+  )
+}
+
+///|
 pub fn[Id : Eq + Hash] build(
   input~ : @rabbita.Val[@vector.Vector[Seed[Id]]],
   visible~ : @rabbita.Val[Bool],
@@ -255,49 +380,15 @@ pub fn[Id : Eq + Hash] build(
   lifecycle_key~ : (Id) -> String,
   close_after_action~ : @cmd.Cmd,
 ) -> RecentDocumentsFeature {
-  let rows = input.assoc_by(
-    (_, seed) => {
-      let source = seed.map(seed => seed.source)
-      let lead = source.map(@document_lead.extract)
-      seed.map2(lead, (seed, lead) => { seed, lead, })
-    },
-    by=seed => seed.docid,
-  )
+  let rows = input.assoc_by((_, seed) => row_component(seed), by=seed => {
+    seed.docid
+  })
   let content = visible.switch_by(
     visible => {
       if visible {
-        let presented = rows.map(rows_presented)
-        presented
-        .assoc_by(
-          (key, row) => {
-            row.map2(compact, (row, compact) => {
-              render_row(
-                key,
-                row,
-                on_intent,
-                if compact {
-                  close_after_action
-                } else {
-                  @cmd.none
-                },
-              )
-            })
-          },
-          by=row => row.row.seed.docid,
-        )
-        .view(rows => {
-          if rows.is_empty() {
-            @html.div(
-              class="px-3 py-6 text-sm text-lm-muted",
-              attrs=@html.Attrs::build().role("status"),
-              "No documents yet",
-            )
-          } else {
-            @sidebar.sidebar_menu(rows.to_array())
-          }
-        })
+        visible_documents(rows, compact, on_intent, close_after_action)
       } else {
-        @rabbita.Val::constant(@html.nothing)
+        empty_component()
       }
     },
     by=visible => if visible { "visible" } else { "hidden" },
@@ -337,53 +428,8 @@ pub fn[Id : Eq + Hash] build(
   let dialog = delete_target.switch_by(
     target => {
       match target {
-        None => @rabbita.Val::constant(@html.nothing)
-        Some(id) => {
-          let presented = rows.map(rows_presented)
-          let candidate = presented.map(rows => {
-            rows.iter().find_first(row => row.row.seed.docid == id)
-          })
-          candidate.switch_by(
-            row => {
-              match row {
-                None => @rabbita.Val::constant(@html.nothing)
-                Some(row) =>
-                  @rui.alert_dialog(
-                    id="loomark-delete-document",
-                    default_open=true,
-                    on_open_change=@cmd.Emit(open => {
-                      if open {
-                        @cmd.none
-                      } else {
-                        on_intent(Intent::CancelDelete)
-                      }
-                    }),
-                    scope => {
-                      @rui.alert_dialog_portal([
-                        @rui.alert_dialog_content(scope, [
-                          @rui.alert_dialog_header([
-                            @rui.alert_dialog_title(
-                              scope,
-                              delete_confirmation_label(row),
-                            ),
-                          ]),
-                          @rui.alert_dialog_footer([
-                            @rui.alert_dialog_cancel(scope, "Cancel"),
-                            @rui.alert_dialog_action(
-                              scope,
-                              on_click=on_intent(Intent::ConfirmDelete(id)),
-                              "Delete document",
-                            ),
-                          ]),
-                        ]),
-                      ])
-                    },
-                  )
-              }
-            },
-            by=row => if row is Some(_) { "available" } else { "unavailable" },
-          )
-        }
+        None => empty_component()
+        Some(id) => delete_dialog(id, rows, on_intent)
       }
     },
     by=target => {
