@@ -59,6 +59,23 @@
   margin-block: 1.25rem;
 }
 
+/* Preserve hierarchy without making document headings dominate the reading pane. */
+.loomark-prose :where(h1) {
+  font-size: 1.75em;
+}
+
+.loomark-prose :where(h2) {
+  font-size: 1.35em;
+}
+
+.loomark-prose :where(h3) {
+  font-size: 1.15em;
+}
+
+.loomark-prose :where(h4, h5, h6) {
+  font-size: 1em;
+}
+
 .loomark-prose :where(h1) {
   margin-block: 0 1.25rem;
 }
