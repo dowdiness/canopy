@@ -41,6 +41,11 @@ pub(all) suberror ReceiptMismatch {
   RevisionMismatch
 } derive(Eq, @debug.Debug)
 
+pub(all) suberror WriterError {
+  StaleCompletion
+  RetryUnavailable
+} derive(Eq, @debug.Debug)
+
 // Types and methods
 pub struct AccountId(String) derive(Eq, @debug.Debug)
 pub fn AccountId::parse(String) -> Self raise InvalidAccountId
@@ -58,6 +63,17 @@ pub enum CheckpointWrite {
   CheckpointAndRecovery(SyncCheckpoint, Document)
 } derive(Eq, @debug.Debug)
 pub fn CheckpointWrite::checkpoint(Self) -> SyncCheckpoint
+
+pub enum CheckpointWriter {
+  Available
+  Storing(CheckpointWrite, CheckpointWrite?)
+  RetryPending(CheckpointWrite)
+} derive(Eq, @debug.Debug)
+pub fn CheckpointWriter::enqueue(Self, CheckpointWrite) -> (Self, CheckpointWrite?)
+pub fn CheckpointWriter::failed(Self, SyncCheckpoint) -> Self raise WriterError
+pub fn CheckpointWriter::new() -> Self
+pub fn CheckpointWriter::retry(Self) -> (Self, CheckpointWrite) raise WriterError
+pub fn CheckpointWriter::stored(Self, SyncCheckpoint) -> (Self, CheckpointWrite?) raise WriterError
 
 pub struct ConflictDraft {
   checkpoint : SyncCheckpoint
