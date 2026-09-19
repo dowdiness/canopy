@@ -1,0 +1,13 @@
+import {
+  "dowdiness/loomark/app/internal/source_repository",
+  "dowdiness/loomark/app/internal/sync",
+  "moonbit-community/rabbita/cmd",
+  "moonbitlang/async/http" @async_http,
+  "moonbitlang/async/io",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/json",
+}
+
+supported_targets = "js"
+
+warnings = "-alert_experimental"
