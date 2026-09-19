@@ -11,7 +11,11 @@ pub fn create(SavedDocuments, @cmd.Emit[CreateResult]) -> @cmd.Cmd
 
 pub fn delete(SavedDocuments, String, @cmd.Emit[DeleteResult]) -> @cmd.Cmd
 
+pub fn enroll_for_sync(SavedDocuments, AccountId, Document, @cmd.Emit[CheckpointResult]) -> @cmd.Cmd
+
 pub fn open(@cmd.Emit[OpenResult]) -> @cmd.Cmd
+
+pub fn persist_checkpoint_write(SavedDocuments, CheckpointWrite, @cmd.Emit[CheckpointResult]) -> @cmd.Cmd
 
 pub fn save(SavedDocuments, Document, @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
@@ -57,6 +61,18 @@ pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
 type CatalogEntry derive(Eq, @debug.Debug)
 pub fn CatalogEntry::document_id(Self) -> String
 pub fn CatalogEntry::name(Self) -> String
+
+pub(all) enum CheckpointFailure {
+  InvalidCheckpoint
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum CheckpointResult {
+  CheckpointStored(SyncCheckpoint)
+  CheckpointFailed(SyncCheckpoint, CheckpointFailure)
+} derive(Eq, @debug.Debug)
 
 pub enum CheckpointWrite {
   CheckpointOnly(SyncCheckpoint)

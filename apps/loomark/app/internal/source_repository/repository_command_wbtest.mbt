@@ -78,3 +78,73 @@ test "delete and create commands use positional callbacks" {
     @debug.to_string(create(saved, _ => @cmd.none)).contains("IndexedDB"),
   )
 }
+
+///|
+test "enrollment atomically publishes checkpoint and retires legacy source" {
+  let document = command_doc("a")
+  let saved = SavedDocuments::from_documents([document]).unwrap()
+  let command = enroll_for_sync(saved, test_account(), document, _ => @cmd.none)
+  assert_true(@debug.to_string(command).contains("IndexedDBApply(2)"))
+}
+
+///|
+test "checkpoint failure retains the completion identity" {
+  let checkpoint = SyncCheckpoint::enroll(test_account(), command_doc("a"))
+  assert_eq(
+    checkpoint_result(checkpoint, Some(@indexed_db.WriteError::Unavailable)),
+    CheckpointResult::CheckpointFailed(
+      checkpoint,
+      CheckpointFailure::StorageUnavailable,
+    ),
+  )
+}
+
+///|
+test "pending operation is written inside its complete checkpoint" {
+  let enrolled = SyncCheckpoint::enroll(test_account(), command_doc("a"))
+  let saved = SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_checkpoint(enrolled)
+  let pending = start_save(enrolled, TEST_OPERATION_1)
+  assert_eq(checkpoint_mutations(pending), [
+    @indexed_db.Mutation::Set(
+      sync_key(test_account(), "a"),
+      encode_checkpoint(pending.checkpoint()),
+    ),
+  ])
+  let command = persist_checkpoint_write(saved, pending, _ => @cmd.none)
+  assert_true(@debug.to_string(command).contains("IndexedDBApply(1)"))
+}
+
+///|
+test "conflict checkpoint and recovery source share one transaction" {
+  let enrolled = SyncCheckpoint::enroll(test_account(), command_doc("a"))
+  let saved = SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_checkpoint(enrolled)
+  let sent = start_save(enrolled, TEST_OPERATION_1)
+  let acknowledged = sent
+    .checkpoint()
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+  let edited = acknowledged.checkpoint().edit("local").unwrap().checkpoint()
+  let conflicted = preserve_conflict(
+    edited,
+    remote_present(2.0, "remote"),
+    "recovery",
+  )
+  guard conflicted is CheckpointAndRecovery(checkpoint, recovery) else {
+    fail("expected conflict recovery")
+  }
+  assert_eq(checkpoint_mutations(conflicted), [
+    @indexed_db.Mutation::Set(
+      sync_key(test_account(), "a"),
+      encode_checkpoint(checkpoint),
+    ),
+    @indexed_db.Mutation::Set(
+      SOURCE_KEY_PREFIX + "recovery",
+      encode_document(recovery),
+    ),
+  ])
+  let command = persist_checkpoint_write(saved, conflicted, _ => @cmd.none)
+  assert_true(@debug.to_string(command).contains("IndexedDBApply(2)"))
+}
