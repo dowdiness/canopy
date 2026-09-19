@@ -1,0 +1,14 @@
+import {
+  "dowdiness/loomark/app/internal/source_repository",
+  "moonbit-community/rabbita/cmd",
+  "moonbitlang/async/js_async",
+  "moonbitlang/core/json",
+}
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+supported_targets = "js"
+
+warnings = "-alert_experimental"

@@ -120,6 +120,18 @@ pub fn SyncCheckpoint::acknowledge(
 }
 
 ///|
+/// Retire an operation that the server definitively did not apply. Delivery
+/// failures with an uncertain outcome must retain the Sending phase instead.
+pub fn SyncCheckpoint::reject_operation(
+  self : Self,
+  operation_id : OperationId,
+) -> CheckpointWrite raise ReceiptMismatch {
+  guard self.phase is Sending(operation) else { raise NoPendingOperation }
+  guard operation.operation_id == operation_id else { raise OperationMismatch }
+  CheckpointOnly({ ..self, phase: Ready, } |> SyncCheckpoint::advance)
+}
+
+///|
 /// Retire an operation that the server definitively rejected because a newer
 /// remote revision exists. Uncertain delivery failures must keep using the
 /// persisted operation instead.

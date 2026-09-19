@@ -124,6 +124,21 @@ test "a stale receipt is an explicit error" {
 }
 
 ///|
+test "definitive non-application retires only the matching operation" {
+  let checkpoint = sending_checkpoint("first", TEST_OPERATION_1)
+  let rejected = checkpoint
+    .reject_operation(test_operation(TEST_OPERATION_1))
+    .checkpoint()
+  assert_eq(rejected.directive(), SyncDirective::SaveRequired)
+  let mismatch : Result[CheckpointWrite, ReceiptMismatch] = Ok(
+    checkpoint.reject_operation(test_operation(TEST_OPERATION_2)),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(mismatch, Err(ReceiptMismatch::OperationMismatch))
+}
+
+///|
 test "pending delivery wins over a competing remote revision" {
   let checkpoint = sending_checkpoint("local", TEST_OPERATION_1)
   assert_eq(

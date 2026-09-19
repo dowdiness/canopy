@@ -249,3 +249,10 @@ pub fn create(
   }
   msg(Created(id))
 }
+
+///|
+pub fn operation_id(msg : @cmd.Emit[OperationId?]) -> @cmd.Cmd {
+  guard random_uuid_available() else { return msg(None) }
+  let id = OperationId::parse(random_uuid()) catch { _ => return msg(None) }
+  msg(Some(id))
+}
