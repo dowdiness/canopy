@@ -62,6 +62,55 @@ require separate permission. Local-only operation remains supported.
 - [Application update](../../apps/loomark/app/update.mbt) owns activation and IME
   gating; [textarea policy](../decisions/2026-08-25-loomark-textarea-edit-boundary.md)
   keeps native Undo while the current editor remains mounted.
+- The Source repository recognizes account-scoped `sync/` checkpoints that
+  atomically contain local text, remote baseline, generation, an immutable
+  pending save/delete, and update/conflict state. A length-prefixed frame keeps
+  metadata in a small JSON header and stores each distinct text once in a raw
+  section, avoiding repeated large-text JSON encoding. Enrollment retires the
+  legacy Source in the same IndexedDB transaction, and conflict persistence
+  writes one stable local recovery Source with the checkpoint atomically.
+  The unversioned format has no migration or compatibility fallback while it
+  remains uncommitted.
+- A pure per-document persistence lane accepts only Autosave-eligible
+  checkpoints, permits one IndexedDB write in flight, and retains only the
+  newest follow-up. Edits during a write and an acknowledgment followed by a
+  new pending operation therefore require at most one additional encoding and
+  write. Successful and failed storage completions both carry the checkpoint
+  identity they belong to. Failures retain the newest write for explicit retry,
+  non-active completions return explicit stale-event errors, and conflict
+  recovery stays attached to its atomic checkpoint write. The lane remains
+  disconnected until account state is introduced; it adds no input callback or
+  second timer.
+- Sync ingress parses raw account IDs, operation UUIDs, server revisions, and
+  checkpoint frames into opaque domain values once. Each parser raises only its
+  exact MoonBit suberror rather than a shared catch-all error. Synchronous
+  receipt, writer, and checkpoint rejections use typed `raise`; `Result` values
+  remain at tests or asynchronous boundaries that need errors as data.
+  Reconciliation returns a typed conflict draft only for actual divergence;
+  only that draft accepts a recovery identity parsed relative to the source
+  document. Operation planning requests an operation ID only when a request can
+  start. The checkpoint state
+  is an exclusive `Ready | Sending | RemoteUpdate | Conflict` phase rather than
+  independent pending/block fields, eliminating invalid combinations. A change
+  returns its checkpoint write directly; an unchanged edit or reconciliation
+  is represented only by `None` or `Unchanged`, without copying the checkpoint
+  and a derivable directive into a second outcome object. The indivisible
+  conflict recovery write cannot be detached. The writer is an exclusive
+  `Available | Storing | RetryPending` state; stale completions are explicit
+  errors and compare only account, document, and generation rather than full
+  document text. Account selection will own the scoped state, so individual
+  transitions do not repeatedly compare a raw account string. The integration
+  must also attach a fresh owner incarnation to each account selection; account,
+  document, and generation alone do not fence a delayed A-session result after
+  A → B → A.
+- Pure MoonBit sync transitions resend the exact persisted operation after
+  restart, retain edits made during an in-flight operation, reject non-matching
+  writer completions, reconcile equal text without false conflict, and keep
+  conflicts blocked under one recovery identity. A definitive server revision
+  rejection retires the pending operation into reconciliation; an uncertain
+  delivery keeps the exact operation for retry. Once an update is available,
+  older remote revisions cannot replace it. Scheduling and HTTP integration are
+  not yet connected to the editor.
 - [Worker configuration](../../apps/loomark/wrangler.jsonc) now includes the
   same-origin API and a local D1 binding. No remote database has been provisioned.
 - Better Auth and D1 integration tests exercise authentication, revision checks,
@@ -227,12 +276,20 @@ Do not introduce pre-read races or application locks. Test failed writes and
 restart, not only in-memory behavior.
 
 For enrolled documents, store text, owning account, remote baseline/revision,
-and pending operation in one versioned local checkpoint. Persist an immutable
+and pending operation in one local checkpoint. Persist an immutable
 request before sending it. If edits happen while it is in flight, retain the
 latest local text separately from that request; first resolve/retry the original
 request, then derive the next one from the new baseline. Apply acknowledgments
 and remote checkpoints atomically. Restart must not require reconstructing a
 lost request identity from text alone.
+
+The integration boundary must not execute `Send` merely because a transition
+produced a sending checkpoint: enqueue that checkpoint, wait for its matching
+IndexedDB success, and only then send. A definitive revision-conflict response
+uses `reject_conflict`; timeout, disconnect, and other uncertain delivery retain
+and resend the persisted operation ID. Conflict recovery must enter the writer
+lane before later edits for that document so coalescing cannot detach the
+recovery Source from its checkpoint.
 
 Retain existing `source/v1` documents. Enrollment must preserve exact text and
 identity and publish the new local record atomically; failure leaves the old
@@ -240,6 +297,12 @@ record authoritative. Do not let an inactive old record reappear as a duplicate.
 Scope checkpoints and delayed results to account, document, and generation.
 Local compare-and-write must detect another tab's newer checkpoint; stale tabs
 must preserve a recovery branch instead of silently overwriting it.
+
+The current Rabbita IndexedDB binding supports atomic blind mutation but not a
+transaction-local read/compare/write operation. Therefore multi-tab CAS remains
+an integration gate rather than a property of the present checkpoint writer;
+do not connect account sync until that storage boundary and the A → B → A owner
+incarnation fence are implemented and tested.
 
 ### Authentication boundary
 

@@ -110,6 +110,62 @@ The server builds separately from the browser bundle.
 Authentication and documents share one D1 database, with document access scoped
 to the authenticated user.
 
+The Source repository now recognizes account-scoped `sync/` checkpoints.
+Each checkpoint is one length-prefixed IndexedDB string with a small JSON header
+and a deduplicated raw-text section. The latest local text, acknowledged remote
+baseline, immutable pending save or delete, local generation, and any
+remote-update or conflict state remain atomic without repeatedly JSON-encoding
+large text. Enrollment atomically replaces the legacy `source/v1` record;
+conflict preservation atomically writes the stable local recovery document with
+the blocked checkpoint. The unversioned sync format has no migration or
+compatibility fallback while it remains uncommitted. Account-scoped ownership
+keeps durable data separate. Pure MoonBit transitions resend a persisted
+operation after restart, keep newer edits separate from an older in-flight
+request, retire a definitively rejected operation into reconciliation, and
+retain the newest observed remote revision. Uncertain delivery leaves the exact
+operation pending for idempotent retry. The scheduler, HTTP client, account
+controls, and status UI are still not connected.
+
+Checkpoint persistence has a pure per-document lane. It never encodes on text
+input: callers feed it only checkpoints made eligible by the existing Autosave
+quiet/maximum/composition lifecycle. At most one IndexedDB checkpoint write is
+in flight and one newest checkpoint waits behind it, so intermediate edits and
+an acknowledgment immediately followed by another pending operation collapse
+without losing durable retry state. Storage failure retains the newest write
+for explicit retry; successful and failed completions both carry their
+checkpoint identity. A completion that does not match the active write is an
+explicit stale-event error and cannot advance the lane. Conflict recovery stays
+attached to its atomic checkpoint write while coalescing. The lane is not
+connected to the editor until account state is added. Integration must enqueue
+and successfully store a pending operation before sending it, and must enqueue
+conflict recovery before accepting later checkpoint writes for that document.
+
+The sync model parses account IDs, operation UUIDs, server revisions, and
+checkpoint frames once at their ingress. Each parser declares its exact MoonBit
+suberror; synchronous receipt, writer, and checkpoint rejections use typed
+`raise`, while IndexedDB callbacks keep failures as message data. Reconciliation
+first returns either a checkpoint write, `Unchanged`, or a typed conflict draft;
+only that draft accepts a recovery identity parsed relative to its source
+document. Operation planning likewise requests an operation ID only when a new
+request can actually start. Transitions receive those domain types rather than
+revalidating strings and numbers. A checkpoint has exactly one phase—`Ready`,
+`Sending`, `RemoteUpdate`, or `Conflict`—so combinations such as a pending
+request plus a conflict cannot be represented. The next directive is derived
+from that phase instead of being copied into every transition result. Callers
+cannot construct a conflict transition without its atomic recovery Source. The
+checkpoint writer is likewise exactly `Available`, `Storing`, or `RetryPending`.
+A delayed completion that does not match the active account, document, and
+generation returns an explicit error without comparing full document text. Account
+switching will replace the owned account-scoped state instead of passing an
+account string through every transition for repeated comparison.
+
+Two correctness gates remain for integration. Account selection needs a fresh
+owner incarnation so a delayed completion from an earlier A session cannot be
+accepted after A → B → A merely because account, document, and generation happen
+to match. Multi-tab checkpoint writes need transaction-local compare-and-write;
+the current Rabbita IndexedDB API provides atomic blind mutations but no CAS.
+Neither case is treated as solved by the pure per-document writer.
+
 From `apps/loomark`:
 
 ```bash
