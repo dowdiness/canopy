@@ -2,6 +2,7 @@ import {
   "dowdiness/loomark/internal/document_lead",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/indexed_db",
+  "moonbitlang/core/double",
   "moonbitlang/core/json",
 }
 

@@ -20,13 +20,45 @@ pub(all) suberror DocumentError {
   InvalidIdentity
 } derive(Eq, @debug.Debug)
 
+pub(all) suberror InvalidAccountId derive(Eq, @debug.Debug)
+
+pub(all) suberror InvalidCheckpoint derive(Eq, @debug.Debug)
+
+pub(all) suberror InvalidOperationId derive(Eq, @debug.Debug)
+
+pub(all) suberror InvalidRecoveryId derive(Eq, @debug.Debug)
+
+pub(all) suberror InvalidRevision derive(Eq, @debug.Debug)
+
+pub(all) suberror ReceiptMismatch {
+  NoPendingOperation
+  OperationMismatch
+  RevisionMismatch
+} derive(Eq, @debug.Debug)
+
 // Types and methods
+pub struct AccountId(String) derive(Eq, @debug.Debug)
+pub fn AccountId::parse(String) -> Self raise InvalidAccountId
+pub fn AccountId::value(Self) -> String
+
 pub struct Catalog(Array[CatalogEntry]) derive(Eq, @debug.Debug)
 pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
 
 type CatalogEntry derive(Eq, @debug.Debug)
 pub fn CatalogEntry::document_id(Self) -> String
 pub fn CatalogEntry::name(Self) -> String
+
+pub enum CheckpointWrite {
+  CheckpointOnly(SyncCheckpoint)
+  CheckpointAndRecovery(SyncCheckpoint, Document)
+} derive(Eq, @debug.Debug)
+pub fn CheckpointWrite::checkpoint(Self) -> SyncCheckpoint
+
+pub struct ConflictDraft {
+  checkpoint : SyncCheckpoint
+  remote : RemoteDocument
+} derive(Eq, @debug.Debug)
+pub fn ConflictDraft::preserve(Self, String) -> CheckpointWrite raise InvalidRecoveryId
 
 pub(all) enum CreateFailure {
   DocumentIdentityUnavailable
@@ -68,6 +100,50 @@ pub(all) enum OpenResult {
   OpenFailed(OpenFailure)
 } derive(Eq, @debug.Debug)
 
+pub struct OperationDraft {
+  checkpoint : SyncCheckpoint
+  content : PendingContent
+} derive(Eq, @debug.Debug)
+pub fn OperationDraft::start(Self, OperationId) -> CheckpointWrite
+
+pub struct OperationId(String) derive(Eq, @debug.Debug)
+pub fn OperationId::parse(String) -> Self raise InvalidOperationId
+pub fn OperationId::value(Self) -> String
+
+pub enum OperationPlan {
+  Current
+  Start(OperationDraft)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum PendingContent {
+  Save(String)
+  Delete
+} derive(Eq, @debug.Debug)
+
+pub struct PendingOperation {
+  operation_id : OperationId
+  base_revision : Double
+  content : PendingContent
+} derive(Eq, @debug.Debug)
+pub fn PendingOperation::base_revision(Self) -> Double
+pub fn PendingOperation::content(Self) -> PendingContent
+pub fn PendingOperation::operation_id(Self) -> OperationId
+
+pub enum ReconcilePlan {
+  Unchanged
+  Persist(CheckpointWrite)
+  ConflictDetected(ConflictDraft)
+} derive(Eq, @debug.Debug)
+
+pub struct RecoveryIdentity(Document) derive(Eq, @debug.Debug)
+
+pub(all) enum RemoteDocument {
+  Missing
+  Present(SavedRevision, String)
+  Deleted(SavedRevision)
+} derive(Eq, @debug.Debug)
+pub fn RemoteDocument::revision(Self) -> Double
+
 pub(all) enum RepositoryChange {
   Stored(Document)
   Deleted(String)
@@ -106,6 +182,44 @@ pub fn SavedDocuments::editing_document_hint(Self, String) -> EditingDocumentHin
 pub fn SavedDocuments::find(Self, String) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
 pub fn SavedDocuments::issues(Self) -> ArrayView[RepositoryIssue]
+
+pub struct SavedRevision(Double) derive(Eq, @debug.Debug)
+pub fn SavedRevision::parse(Double) -> Self raise InvalidRevision
+pub fn SavedRevision::value(Self) -> Double
+
+pub struct SyncCheckpoint {
+  account : AccountId
+  generation : Double
+  document : Document
+  baseline : RemoteDocument
+  phase : SyncPhase
+} derive(Eq, @debug.Debug)
+pub fn SyncCheckpoint::account(Self) -> AccountId
+pub fn SyncCheckpoint::acknowledge(Self, OperationId, SavedRevision) -> CheckpointWrite raise ReceiptMismatch
+pub fn SyncCheckpoint::directive(Self) -> SyncDirective
+pub fn SyncCheckpoint::document(Self) -> Document
+pub fn SyncCheckpoint::edit(Self, String) -> CheckpointWrite?
+pub fn SyncCheckpoint::enroll(AccountId, Document) -> Self
+pub fn SyncCheckpoint::generation(Self) -> Double
+pub fn SyncCheckpoint::plan_delete(Self) -> OperationPlan
+pub fn SyncCheckpoint::plan_save(Self) -> OperationPlan
+pub fn SyncCheckpoint::reconcile(Self, RemoteDocument) -> ReconcilePlan
+pub fn SyncCheckpoint::reject_conflict(Self, OperationId, RemoteDocument) -> ReconcilePlan raise ReceiptMismatch
+
+pub(all) enum SyncDirective {
+  Synchronized
+  SaveRequired
+  Send(PendingOperation)
+  UpdateAvailable(RemoteDocument)
+  Conflict(String, RemoteDocument)
+} derive(Eq, @debug.Debug)
+
+pub enum SyncPhase {
+  Ready
+  Sending(PendingOperation)
+  RemoteUpdate(RemoteDocument)
+  Conflict(RecoveryIdentity)
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 
