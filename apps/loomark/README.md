@@ -123,8 +123,16 @@ keeps durable data separate. Pure MoonBit transitions resend a persisted
 operation after restart, keep newer edits separate from an older in-flight
 request, retire a definitively rejected operation into reconciliation, and
 retain the newest observed remote revision. Uncertain delivery leaves the exact
-operation pending for idempotent retry. The scheduler, HTTP client, account
-controls, and status UI are still not connected.
+operation pending for idempotent retry. A separate typed account HTTP boundary
+parses a successful response directly into `AccountId`, distinguishes 401 from
+an unavailable account service, and classifies malformed success bodies as
+unavailable. After local repository open, the root Rabbita model resolves the
+account through an ordinary `Sync` message without replacing its editor page.
+`SavedDocuments` is the only owner of durable checkpoints. Account-scoped
+document keys retain every account's optimistic records while the Recent
+documents projection exposes only the selected account beside local-only
+documents. Switching accounts therefore changes visibility, not editing or
+Autosave ownership.
 
 Checkpoint persistence has a pure per-document lane. It never encodes on text
 input: callers feed it only checkpoints made eligible by the existing Autosave
@@ -135,10 +143,12 @@ without losing durable retry state. Storage failure retains the newest write
 for explicit retry; successful and failed completions both carry their
 checkpoint identity. A completion that does not match the active write is an
 explicit stale-event error and cannot advance the lane. Conflict recovery stays
-attached to its atomic checkpoint write while coalescing. The lane is not
-connected to the editor until account state is added. Integration must enqueue
-and successfully store a pending operation before sending it, and must enqueue
-conflict recovery before accepting later checkpoint writes for that document.
+attached to its atomic checkpoint write while coalescing. Synced Autosave now
+routes eligible text directly to this lane instead of recreating a retired
+`source/v1` record. Editing remains immediate while storage is pending; success
+updates the canonical checkpoint, failure keeps the optimistic text and the
+latest retryable write. Network scheduling, synchronized deletion, account
+controls, and status UI remain unconnected.
 
 The sync model parses account IDs, operation UUIDs, server revisions, and
 checkpoint frames once at their ingress. Each parser declares its exact MoonBit
@@ -157,23 +167,29 @@ checkpoint writer is likewise exactly `Available`, `Storing`, or `RetryPending`.
 A delayed completion that does not match the active account, document, and
 generation returns an explicit error without comparing full document text.
 
-Account integration will use the existing stable Rabbita message loop. Ordinary
-`Sync(SyncEvent)` messages route asynchronous results to retained per-account
-state. Each event owns exactly one account identity rather than carrying and
-cross-validating duplicate copies. Selecting B pauses A's network work without
-discarding A's writer lanes or pending operations, so returning A does not
-create a second state that can accept an unrelated old completion. The mounted
-editor remains stable across account changes. Operation IDs, revisions,
-checkpoint generations, and discovery request IDs provide ordering within each
-account; no generic account-incarnation token or callback registry is added.
-Each document request also binds the expected account as a server-checked
-precondition.
+The account-sync state is a small internal package, separate from the HTTP
+boundary and root editor package. It owns only the session lookup and transient
+writers that are storing or awaiting retry, keyed by account and document.
+Available writers and durable checkpoints are not copied into it. The root
+model is the direct product of its editor `Page` and this sync state. Existing
+editor messages remain ordinary `Msg` constructors; `Sync(SyncMsg)` carries
+account and checkpoint results without a second page-message wrapper. A → B → A
+retains optimistic records and actual in-flight work under account-qualified
+document keys, while account/document/generation identity rejects unrelated
+delayed completions. No generic account-incarnation token or callback registry
+is added. The pure document reducer emits `DocumentEffect` values containing
+the exact Source operation or checkpoint write; the root executes them without
+reconstructing persistence intent.
 
 Account lookup itself carries a latest-request ID because its result determines
 the account and cannot yet be routed by one. While that lookup is unresolved,
 local editing and checkpointing continue but network synchronization stays
-paused. A server expected-account rejection triggers a fresh lookup rather than
-guessing that the previous browser account is still current.
+paused. Local repository open deliberately precedes account lookup, so showing
+and editing local data never waits for network I/O. The HTTP task uses Rabbita's
+managed `Cmd` operation lifecycle rather than launching a detached async task.
+Future document HTTP integration must trigger a fresh lookup after an
+expected-account rejection rather than guessing that the previous browser
+account is still current.
 
 `switch_by` remains appropriate for disposable account-only presentation and
 subscriptions, but not as the sync reducer's ownership boundary: parent

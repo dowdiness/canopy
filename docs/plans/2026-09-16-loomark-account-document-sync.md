@@ -78,9 +78,11 @@ require separate permission. Local-only operation remains supported.
   write. Successful and failed storage completions both carry the checkpoint
   identity they belong to. Failures retain the newest write for explicit retry,
   non-active completions return explicit stale-event errors, and conflict
-  recovery stays attached to its atomic checkpoint write. The lane remains
-  disconnected until account state is introduced; it adds no input callback or
-  second timer.
+  recovery stays attached to its atomic checkpoint write. Synced Autosave now
+  feeds this lane only after existing quiet/maximum/composition eligibility; it
+  adds no input callback or second timer. `SavedDocuments` remains the sole
+  durable checkpoint owner, while sync state retains only storing or
+  retry-pending writers.
 - Sync ingress parses raw account IDs, operation UUIDs, server revisions, and
   checkpoint frames into opaque domain values once. Each parser raises only its
   exact MoonBit suberror rather than a shared catch-all error. Synchronous
@@ -99,9 +101,20 @@ require separate permission. Local-only operation remains supported.
   `Available | Storing | RetryPending` state; stale completions are explicit
   errors and compare only account, document, and generation rather than full
   document text. Individual transitions do not repeatedly compare a raw account
-  string. The application routes ordinary typed sync messages to retained
-  account-owned state; changing the authenticated account changes network
-  eligibility without discarding another account's pending local work.
+  string. A pure account state accepts only the latest account lookup and keys
+  actual in-flight writer lanes by account and document. The typed account HTTP
+  boundary distinguishes signed out and resolved accounts from an unavailable
+  service; malformed successful responses are unavailable. The root model owns
+  editor `Page` and sync state directly. After local repository open it resolves
+  the account through a normal `Sync` message; local rendering therefore does
+  not wait for network I/O. The account-aware projection exposes only
+  current-account checkpoints beside local documents, while account-qualified
+  document keys retain inactive accounts' optimistic records and Autosave
+  state. The document reducer emits the exact Source operation or checkpoint
+  write selected by its transition; the root executes that effect without
+  reconstructing it. Synced saves therefore update checkpoints without
+  recreating `source/v1`. Network scheduling, synchronized deletion, and status
+  UI are not connected yet.
 - Pure MoonBit sync transitions resend the exact persisted operation after
   restart, retain edits made during an in-flight operation, reject non-matching
   writer completions, reconcile equal text without false conflict, and keep
