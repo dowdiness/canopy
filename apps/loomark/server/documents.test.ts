@@ -35,10 +35,38 @@ test("a newly signed-in device can list and reopen a committed document", async 
   expect(write.status).toBe(200);
   expect(await write.json()).toMatchObject({ id, revision: 1 });
   const list = await phone.request("");
-  expect(await list.json()).toMatchObject({ documents: [{ id, revision: 1, deleted: false }] });
+  expect(await list.json()).toMatchObject({
+    documents: [{ id, revision: 1, deleted: false, preview: "スマホ" }],
+  });
   // Every request constructs a new auth instance; no live peer or in-memory room.
   const opened = await phone.request(`/${id}`);
   expect(await opened.json()).toEqual({ id, revision: 1, text: "# スマホ\n続き 🌳", deleted: false });
+});
+
+test("document discovery returns bounded previews and tombstones without text", async () => {
+  const client = await account();
+  const present = crypto.randomUUID();
+  const deleted = crypto.randomUUID();
+  const heading = "界".repeat(100);
+  for (const id of [present, deleted]) {
+    await client.request(`/${id}`, "PUT", {
+      operationId: crypto.randomUUID(), baseRevision: 0, text: `# ${heading}\nbody`,
+    });
+  }
+  await client.request(`/${deleted}`, "DELETE", {
+    operationId: crypto.randomUUID(), baseRevision: 1,
+  });
+
+  const response = await client.request("");
+  const body = await response.json() as {
+    documents: Array<Record<string, unknown>>;
+  };
+  expect(body.documents.find(document => document.id === present)).toEqual({
+    id: present, revision: 1, deleted: false, preview: "界".repeat(80),
+  });
+  expect(body.documents.find(document => document.id === deleted)).toEqual({
+    id: deleted, revision: 2, deleted: true,
+  });
 });
 
 test("a lost response retry cannot overwrite a later PC edit", async () => {

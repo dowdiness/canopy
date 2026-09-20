@@ -3,7 +3,7 @@
 pub async fn list(db : @d1.Database, owner : String, after : String?) -> Page {
   let rows = db
     .prepare(
-      "SELECT id, revision, deleted FROM loomark_document WHERE owner = ? AND id > ? ORDER BY id LIMIT 101",
+      "SELECT id, revision, deleted, preview FROM loomark_document WHERE owner = ? AND id > ? ORDER BY id LIMIT 101",
       [Text(owner), Text(after.unwrap_or(""))],
     )
     .all()
@@ -17,7 +17,7 @@ pub async fn open(db : @d1.Database, owner : String, id : String) -> Document? {
   match
     db
     .prepare(
-      "SELECT id, revision, text, deleted FROM loomark_document WHERE owner = ? AND id = ?",
+      "SELECT id, revision, text, deleted, preview FROM loomark_document WHERE owner = ? AND id = ?",
       [Text(owner), Text(id)],
     )
     .first() {
@@ -47,6 +47,10 @@ pub async fn commit(
   let next = mutation.base_revision + 1.0
   let text_parameter = match mutation.text {
     Some(text) => @d1.Value::Text(text)
+    None => @d1.Value::Null
+  }
+  let preview_parameter = match mutation.text {
+    Some(text) => @d1.Value::Text(@document_lead.extract(text).primary())
     None => @d1.Value::Null
   }
   // D1, not a pre-read in application code, enforces the atomic CAS. Admission,
@@ -80,11 +84,11 @@ pub async fn commit(
     ),
     db.prepare(
       (
-        #|INSERT INTO loomark_document (owner, id, revision, text, deleted)
-        #|SELECT ?, ?, ?, ?, ? FROM loomark_receipt
+        #|INSERT INTO loomark_document (owner, id, revision, text, deleted, preview)
+        #|SELECT ?, ?, ?, ?, ?, ? FROM loomark_receipt
         #|WHERE owner = ? AND operation_id = ? AND request_hash = ?
         #|ON CONFLICT (owner, id) DO UPDATE SET
-        #|  revision = excluded.revision, text = excluded.text, deleted = excluded.deleted
+        #|  revision = excluded.revision, text = excluded.text, deleted = excluded.deleted, preview = excluded.preview
         #|WHERE loomark_document.revision = ? AND loomark_document.deleted = 0
       ),
       [
@@ -93,6 +97,7 @@ pub async fn commit(
         Number(next),
         text_parameter,
         Number(deleted),
+        preview_parameter,
         Text(owner),
         Text(mutation.operation_id),
         Text(hash),

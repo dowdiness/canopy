@@ -29,11 +29,16 @@ fn decode_mutation(value : Json, deleting~ : Bool) -> @store.Mutation? {
 
 ///|
 fn metadata_json(value : @store.Metadata) -> Json {
-  {
+  let fields : Map[String, Json] = {
     "id": value.id.to_json(),
     "revision": value.revision.to_json(),
     "deleted": value.deleted.to_json(),
   }
+  match value.preview {
+    Some(preview) => fields["preview"] = preview.to_json()
+    None => ()
+  }
+  Json::object(fields)
 }
 
 ///|

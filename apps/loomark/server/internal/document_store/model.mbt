@@ -29,6 +29,7 @@ pub struct Metadata {
   id : String
   revision : Double
   deleted : Bool
+  preview : String?
 }
 
 ///|
@@ -79,6 +80,7 @@ fn decode_metadata(row : Json) -> Metadata raise StoreError {
       "id": String(id),
       "revision": Number(revision, ..),
       "deleted": Number(deleted, ..),
+      "preview": preview,
       ..
     } &&
     valid_identity(id) &&
@@ -86,7 +88,12 @@ fn decode_metadata(row : Json) -> Metadata raise StoreError {
     (deleted == 0.0 || deleted == 1.0) else {
     raise InvalidStoredData
   }
-  { id, revision, deleted: deleted == 1.0, }
+  let preview = match (deleted, preview) {
+    (0.0, String(preview)) if preview.char_length() <= 80 => Some(preview)
+    (1.0, Null) => None
+    _ => raise InvalidStoredData
+  }
+  { id, revision, deleted: deleted == 1.0, preview, }
 }
 
 ///|
