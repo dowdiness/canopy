@@ -32,7 +32,7 @@ In:
 - `apps/loomark/app/`: account/session state, per-document sync decisions,
   account-aware Recent documents, conflict preservation, and saving feedback.
 - `apps/loomark/app/internal/source_repository/`: atomic local checkpoints,
-  remote baselines, durable pending writes/deletes, and legacy record enrollment.
+  remote baselines, durable pending writes/deletes, and local sync start.
 - `apps/loomark/internal/text_area/`: preserve its existing editing contract;
   change only if integration tests expose a necessary boundary adjustment.
 - `apps/loomark/server/` (new): same-origin authentication and revision-checked
@@ -66,7 +66,7 @@ require separate permission. Local-only operation remains supported.
   atomically contain local text, remote baseline, generation, an immutable
   pending save/delete, and update/conflict state. A length-prefixed frame keeps
   metadata in a small JSON header and stores each distinct text once in a raw
-  section, avoiding repeated large-text JSON encoding. Enrollment retires the
+  section, avoiding repeated large-text JSON encoding. Starting sync retires the
   legacy Source in the same IndexedDB transaction, and conflict persistence
   writes one stable local recovery Source with the checkpoint atomically.
   The unversioned format has no migration or compatibility fallback while it
@@ -107,9 +107,16 @@ require separate permission. Local-only operation remains supported.
   actual in-flight writer and network work by account and document. The typed
   account HTTP boundary distinguishes signed out and resolved accounts from an
   unavailable service; malformed successful responses are unavailable. The root
-  model owns editor `Page` and sync state directly. After local repository open it resolves
-  the account through a normal `Sync` message; local rendering therefore does
-  not wait for network I/O. The account-aware projection exposes only
+  model owns editor `Page` and one replication aggregate that coordinates sync
+  protocol state with per-document Replica persistence. Remote work is admitted
+  only while the corresponding persistence lane is current; account recovery
+  retries durability before network work. Remote selection retains its open
+  intent while a Replica write is pending, retries failed durability first, and
+  admits its per-document GET only after the lane becomes current. A Replica
+  completion updates repository truth without consuming a newer working-copy
+  Autosave window, including an Undo back to equal text. After local repository
+  open it resolves the account through a normal `Sync` message; local rendering
+  therefore does not wait for network I/O. The account-aware projection exposes only
   current-account checkpoints beside local documents, while account-qualified
   document keys retain inactive accounts' optimistic records and Autosave
   state. The document reducer emits an exact Source operation for local-only
@@ -145,7 +152,16 @@ require separate permission. Local-only operation remains supported.
   already-started write. Explicit tombstones advance the catalog while absence
   from a scan does not imply deletion. The remote/local join is behind a narrow
   document-membership and catalog equality boundary, so ordinary text edits do
-  not rebuild it. Synchronized deletion controls and status UI are not
+  not rebuild it. Narrow account/document status, explicit sync start, account
+  retry, and checkpoint retry now use ordinary root messages. Sync start and
+  checkpoint retry carry opaque capabilities projected from current state
+  instead of arbitrary account/document pairs. Display and retry execution
+  share one pure next-work decision, including the exact remote read retained
+  after failure. Account resolution restarts failed local persistence through
+  the Documents lifecycle, preserving an Undo made while that write is in
+  flight. Sync start keeps the textarea mounted while its durable owner changes
+  and routes edits made during the atomic mutation to the resulting checkpoint.
+  Synchronized deletion, remote-update acceptance, and conflict actions are not
   connected yet.
 - Pure MoonBit sync transitions resend the exact persisted operation after
   restart, retain edits made during an in-flight operation, reject non-matching
@@ -208,7 +224,7 @@ type generation and required-secret configuration need no replacement.
 
 Local documents remain usable without signing in. Signing in retrieves the
 account's documents but does not silently upload pre-existing local documents.
-An explicit `Sync this document` action enrolls a local document. New documents
+An explicit `Sync this document` action starts sync for a local document. New documents
 created in the account context sync automatically. Recent documents remains one
 list; local-only and account-owned documents have clear status, not new folders.
 
@@ -321,7 +337,7 @@ receipt creation. Await batch completion before sending a success response.
 Do not introduce pre-read races or application locks. Test failed writes and
 restart, not only in-memory behavior.
 
-For enrolled documents, store text, owning account, remote baseline/revision,
+For synced documents, store text, owning account, remote baseline/revision,
 and pending operation in one local checkpoint. Persist an immutable
 request before sending it. If edits happen while it is in flight, retain the
 latest local text separately from that request; first resolve/retry the original
@@ -337,7 +353,7 @@ and resend the persisted operation ID. Conflict recovery must enter the writer
 lane before later edits for that document so coalescing cannot detach the
 recovery Source from its checkpoint.
 
-Retain existing `source/v1` documents. Enrollment must preserve exact text and
+Retain existing `source/v1` documents. Starting sync must preserve exact text and
 identity and publish the new local record atomically; failure leaves the old
 record authoritative. Do not let an inactive old record reappear as a duplicate.
 Scope checkpoints and delayed results to account, document, and generation.
@@ -532,8 +548,8 @@ release checks that a fixture cannot prove.
    duplicate delivery, lost acknowledgment, newer edits, conflict, and deletion.
 3. Implement transactional account storage and authenticated API boundaries;
    test storage failure, restart, and cross-account rejection locally.
-4. Implement local checkpoint enrollment, pending requests, atomic receipts, and
-   account separation. Test interrupted enrollment and quota/write failure.
+4. Implement local sync start, pending requests, atomic receipts, and account
+   separation. Test interrupted sync start and quota/write failure.
 5. Connect the scheduler to existing Autosave completion and lifecycle events;
    add remote list/open paths without blocking local startup or input.
 6. Add account/status/update/conflict actions using existing Rabbita/RUI patterns.
@@ -560,7 +576,7 @@ release checks that a fixture cannot prove.
   neither lose changes nor falsely acknowledge newer text.
 - [ ] Divergent edits and edit/delete races preserve the local branch without
   overwriting unseen remote content or resurrecting deleted identities.
-- [ ] Existing local records survive login, enrollment failure, logout, and
+- [ ] Existing local records survive login, sync-start failure, logout, and
   account switching; nothing is uploaded to a different account automatically.
 - [ ] Local persistence failure prevents unsafe navigation/replacement; network
   failure does not disable editing, Document switch, or Export.
@@ -600,7 +616,7 @@ and update-available states. Browser emulation is not physical-phone evidence.
 ## References
 
 - [Local ownership](../architecture/human-centered-product-principles.md):
-  managed sync is optional durability for enrolled documents, not a new
+  managed sync is optional durability for synced documents, not a new
   dependency for retaining and exporting local work. P2P library capabilities
   are not removed or claimed as implemented in Loomark.
 - [Source-first input policy](../decisions/2026-08-24-loomark-source-first-interactive-contract.md).
