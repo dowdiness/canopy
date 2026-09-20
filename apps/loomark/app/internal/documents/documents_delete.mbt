@@ -125,13 +125,12 @@ fn finish_delete(
         ),
       }
       let (restored, decisions) = match record.save {
-        Waiting(checkpoint) if checkpoint.eligibility ==
-          DocumentsCheckpointEligibility::Eligible &&
+        Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
           !is_composing(record.edit) => begin_save(documents.saved, restored)
-        Waiting(checkpoint) => {
-          let (checkpoint, decisions) = checkpoint_effect(key, checkpoint, true)
+        Waiting(replica) => {
+          let (replica, decisions) = autosave_effect(replica, true)
           (
-            { ..restored, save: DocumentsSaveStatus::Waiting(checkpoint), },
+            { ..restored, save: DocumentsSaveStatus::Waiting(replica), },
             decisions,
           )
         }

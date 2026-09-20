@@ -98,16 +98,17 @@ fn catalog_for(documents : Array[Document]) -> Catalog {
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   UnsupportedSourceSchema(String)
-  InvalidSyncCheckpoint(String)
+  InvalidDocumentReplica(String)
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
 } derive(Eq, Debug)
 
 ///|
-pub(all) suberror CheckpointApplyError {
-  StaleCheckpoint
+pub(all) suberror ReplicaApplyError {
+  StaleReplica
   StorageKeyConflict
+  InvalidReplicaWrite
 } derive(Eq, Debug)
 
 ///|
@@ -122,8 +123,8 @@ pub struct SavedDocuments {
   catalog_value : Catalog
   issues_value : Array[RepositoryIssue]
   observed_source_keys : Array[String]
-  sync_checkpoints : Array[SyncCheckpoint]
-  observed_sync_keys : Array[String]
+  replicas : Array[DocumentReplica]
+  observed_replica_keys : Array[String]
 } derive(Eq, Debug)
 
 ///|
@@ -143,7 +144,7 @@ fn sort_keys(keys : Array[String]) -> Array[String] {
 }
 
 ///|
-fn compare_checkpoints(left : SyncCheckpoint, right : SyncCheckpoint) -> Int {
+fn compare_replicas(left : DocumentReplica, right : DocumentReplica) -> Int {
   let account_order = left
     .account()
     .value()
@@ -168,8 +169,8 @@ pub fn SavedDocuments::from_documents(
     catalog_value: catalog_for(ordered),
     issues_value: [],
     observed_source_keys: observed,
-    sync_checkpoints: [],
-    observed_sync_keys: [],
+    replicas: [],
+    observed_replica_keys: [],
   })
 }
 
@@ -178,19 +179,19 @@ fn rebuild_saved_documents(
   documents : Array[Document],
   issues : Array[RepositoryIssue],
   observed_source_keys : Array[String],
-  sync_checkpoints : Array[SyncCheckpoint],
-  observed_sync_keys : Array[String],
+  replicas : Array[DocumentReplica],
+  observed_replica_keys : Array[String],
 ) -> SavedDocuments {
   let ordered = sort_documents(documents)
-  let ordered_checkpoints = sync_checkpoints.copy()
-  ordered_checkpoints.sort_by(compare_checkpoints)
+  let ordered_replicas = replicas.copy()
+  ordered_replicas.sort_by(compare_replicas)
   {
     documents: ordered,
     catalog_value: catalog_for(ordered),
     issues_value: issues.copy(),
     observed_source_keys: sort_keys(observed_source_keys),
-    sync_checkpoints: ordered_checkpoints,
-    observed_sync_keys: sort_keys(observed_sync_keys),
+    replicas: ordered_replicas,
+    observed_replica_keys: sort_keys(observed_replica_keys),
   }
 }
 
@@ -226,62 +227,60 @@ pub fn SavedDocuments::issues(self : Self) -> ArrayView[RepositoryIssue] {
 }
 
 ///|
-pub fn SavedDocuments::checkpoints_for(
+pub fn SavedDocuments::replicas_for(
   self : Self,
   account : AccountId,
-) -> Array[SyncCheckpoint] {
-  self.sync_checkpoints.filter(checkpoint => checkpoint.account() == account)
+) -> Array[DocumentReplica] {
+  self.replicas.filter(replica => replica.account() == account)
 }
 
 ///|
-fn SavedDocuments::find_checkpoint_index(
+fn SavedDocuments::find_replica_index(
   self : Self,
   account : AccountId,
   document_id : DocumentId,
 ) -> Int? {
-  self.sync_checkpoints
+  self.replicas
   .view()
-  .search_by(checkpoint => {
-    checkpoint.account == account && checkpoint.document.id() == document_id
+  .search_by(replica => {
+    replica.account == account && replica.document.id() == document_id
   })
 }
 
 ///|
-pub fn SavedDocuments::checkpoint(
+pub fn SavedDocuments::replica(
   self : Self,
   account : AccountId,
   document_id : DocumentId,
-) -> SyncCheckpoint? {
+) -> DocumentReplica? {
   self
-  .find_checkpoint_index(account, document_id)
-  .map(index => self.sync_checkpoints[index])
+  .find_replica_index(account, document_id)
+  .map(index => self.replicas[index])
 }
 
 ///|
-pub fn SavedDocuments::apply_checkpoint(
+pub fn SavedDocuments::apply_replica(
   self : Self,
-  checkpoint : SyncCheckpoint,
-) -> SavedDocuments raise CheckpointApplyError {
-  let key = sync_key(checkpoint.account, checkpoint.document.id())
-  let checkpoints = self.sync_checkpoints.copy()
-  let observed_sync = match
-    self.find_checkpoint_index(checkpoint.account, checkpoint.document.id()) {
+  replica : DocumentReplica,
+) -> SavedDocuments raise ReplicaApplyError {
+  let key = replica_key(replica.account, replica.document.id())
+  let replicas = self.replicas.copy()
+  let observed_replicas = match
+    self.find_replica_index(replica.account, replica.document.id()) {
     Some(index) => {
-      let previous = checkpoints[index]
-      guard checkpoint.generation > previous.generation else {
-        raise StaleCheckpoint
-      }
-      checkpoints[index] = checkpoint
-      self.observed_sync_keys
+      let previous = replicas[index]
+      guard replica.generation > previous.generation else { raise StaleReplica }
+      replicas[index] = replica
+      self.observed_replica_keys
     }
     None => {
-      guard !self.observed_sync(key) else { raise StorageKeyConflict }
-      let insertion = checkpoints
+      guard !self.observed_replicas(key) else { raise StorageKeyConflict }
+      let insertion = replicas
         .view()
-        .search_by(candidate => compare_checkpoints(checkpoint, candidate) < 0)
-        .unwrap_or(checkpoints.length())
-      checkpoints.insert(insertion, checkpoint)
-      let keys = self.observed_sync_keys.copy()
+        .search_by(candidate => compare_replicas(replica, candidate) < 0)
+        .unwrap_or(replicas.length())
+      replicas.insert(insertion, replica)
+      let keys = self.observed_replica_keys.copy()
       let key_insertion = keys
         .view()
         .search_by(existing => key.lexical_compare(existing) < 0)
@@ -290,7 +289,46 @@ pub fn SavedDocuments::apply_checkpoint(
       keys
     }
   }
-  { ..self, sync_checkpoints: checkpoints, observed_sync_keys: observed_sync, }
+  { ..self, replicas, observed_replica_keys: observed_replicas, }
+}
+
+///|
+pub fn SavedDocuments::apply_sync_start(
+  self : Self,
+  replica : DocumentReplica,
+) -> SavedDocuments? {
+  guard self.find(replica.document().id()) == Some(replica.document()) &&
+    self.apply(Deleted(replica.document().id())) is Some(without_source) else {
+    return None
+  }
+  Some(without_source.apply_replica(replica)) catch {
+    _ => None
+  }
+}
+
+///|
+/// Apply the complete semantic result of one committed IndexedDB transaction.
+/// Compound replica writes must become visible in memory as one change too.
+pub fn SavedDocuments::apply_replica_write(
+  self : Self,
+  write : ReplicaWrite,
+) -> SavedDocuments raise ReplicaApplyError {
+  match write {
+    Store(replica) => self.apply_replica(replica)
+    StoreWithRecovery(replica, recovery) => {
+      guard self.find(recovery.id()) is None &&
+        !self.observed(source_key(recovery.id())) &&
+        self.apply(Stored(recovery)) is Some(with_recovery) else {
+        raise InvalidReplicaWrite
+      }
+      with_recovery.apply_replica(replica)
+    }
+    PromoteSource(replica) =>
+      match self.apply_sync_start(replica) {
+        Some(saved) => saved
+        None => raise InvalidReplicaWrite
+      }
+  }
 }
 
 ///|
@@ -299,8 +337,8 @@ fn SavedDocuments::observed(self : Self, key : String) -> Bool {
 }
 
 ///|
-fn SavedDocuments::observed_sync(self : Self, key : String) -> Bool {
-  self.observed_sync_keys.contains(key)
+fn SavedDocuments::observed_replicas(self : Self, key : String) -> Bool {
+  self.observed_replica_keys.contains(key)
 }
 
 ///|
@@ -331,8 +369,8 @@ pub fn SavedDocuments::apply(
           documents,
           self.issues_value,
           observed,
-          self.sync_checkpoints,
-          self.observed_sync_keys,
+          self.replicas,
+          self.observed_replica_keys,
         ),
       )
     }
@@ -344,8 +382,8 @@ pub fn SavedDocuments::apply(
           documents.filter(document => document.id() != id),
           self.issues_value,
           observed.filter(observed_key => observed_key != key),
-          self.sync_checkpoints,
-          self.observed_sync_keys,
+          self.replicas,
+          self.observed_replica_keys,
         ),
       )
     }

@@ -1,13 +1,13 @@
 ///|
-const SYNC_KEY_PREFIX : String = "sync/"
+const REPLICA_KEY_PREFIX : String = "replica/"
 
 ///|
-const SYNC_FRAME_PREFIX : String = "loomark-sync\n"
+const REPLICA_FRAME_PREFIX : String = "loomark-replica\n"
 
 ///|
-fn sync_key(account : AccountId, document_id : DocumentId) -> String {
+fn replica_key(account : AccountId, document_id : DocumentId) -> String {
   let account_id = account.value()
-  SYNC_KEY_PREFIX +
+  REPLICA_KEY_PREFIX +
   account_id.length().to_string() +
   "/" +
   account_id +
@@ -139,7 +139,7 @@ fn decode_operation(value : Json, texts : Array[String]) -> PendingOperation? {
 }
 
 ///|
-fn encode_phase(phase : SyncPhase, texts : Array[String]) -> Json {
+fn encode_phase(phase : ReplicaPhase, texts : Array[String]) -> Json {
   match phase {
     Ready => Json::object({ "kind": "ready" })
     Sending(operation) =>
@@ -170,27 +170,27 @@ fn decode_phase(
   value : Json,
   document_id : DocumentId,
   texts : Array[String],
-) -> SyncPhase? {
+) -> ReplicaPhase? {
   guard value is Json::Object(fields) else { return None }
   match fields.get("kind") {
     Some(Json::String("ready")) if fields.length() == 1 =>
-      Some(SyncPhase::Ready)
+      Some(ReplicaPhase::Ready)
     Some(Json::String("sending")) if fields.length() == 2 =>
       match fields.get("operation") {
         Some(value) =>
           decode_operation(value, texts).map(operation => {
-            SyncPhase::Sending(operation)
+            ReplicaPhase::Sending(operation)
           })
         None => None
       }
     Some(Json::String("available")) if fields.length() == 2 =>
       match decode_remote_field(fields.get("remote"), texts) {
-        Some(remote) => Some(SyncPhase::Available(remote))
+        Some(remote) => Some(ReplicaPhase::Available(remote))
         None => None
       }
     Some(Json::String("diverged")) if fields.length() == 2 =>
       match decode_remote_field(fields.get("remote"), texts) {
-        Some(remote) => Some(SyncPhase::Diverged(remote))
+        Some(remote) => Some(ReplicaPhase::Diverged(remote))
         None => None
       }
     Some(Json::String("conflict")) if fields.length() == 2 => {
@@ -204,22 +204,22 @@ fn decode_phase(
       let recovery = recovery_identity(document_id, recovery_document_id) catch {
         _ => return None
       }
-      Some(SyncPhase::Conflict(recovery))
+      Some(ReplicaPhase::Conflict(recovery))
     }
     _ => None
   }
 }
 
 ///|
-fn encode_checkpoint(checkpoint : SyncCheckpoint) -> String {
+fn encode_replica(replica : DocumentReplica) -> String {
   let texts : Array[String] = []
-  let current = intern_text(texts, checkpoint.document.text())
-  let baseline = encode_remote(checkpoint.baseline, texts)
-  let phase = encode_phase(checkpoint.phase, texts)
+  let current = intern_text(texts, replica.document.text())
+  let baseline = encode_remote(replica.baseline, texts)
+  let phase = encode_phase(replica.phase, texts)
   let header = Json::object({
-    "account_id": checkpoint.account.value(),
-    "document_id": checkpoint.document.id().value(),
-    "generation": checkpoint.generation,
+    "account_id": replica.account.value(),
+    "document_id": replica.document.id().value(),
+    "generation": replica.generation,
     "current": current,
     "baseline": baseline,
     "phase": phase,
@@ -227,7 +227,7 @@ fn encode_checkpoint(checkpoint : SyncCheckpoint) -> String {
   }).stringify()
   let output = StringBuilder()
   output
-  ..write_string(SYNC_FRAME_PREFIX)
+  ..write_string(REPLICA_FRAME_PREFIX)
   ..write_string(header.length().to_string())
   ..write_char('\n')
   .write_string(header)
@@ -239,8 +239,8 @@ fn encode_checkpoint(checkpoint : SyncCheckpoint) -> String {
 
 ///|
 fn decode_header_length(encoded : String) -> (Int, Int)? {
-  guard encoded.has_prefix(SYNC_FRAME_PREFIX) else { return None }
-  let mut cursor = SYNC_FRAME_PREFIX.length()
+  guard encoded.has_prefix(REPLICA_FRAME_PREFIX) else { return None }
+  let mut cursor = REPLICA_FRAME_PREFIX.length()
   let start = cursor
   let mut length = 0
   while cursor < encoded.length() && encoded[cursor] != '\n' {
@@ -289,8 +289,8 @@ fn decode_texts(value : Json?, encoded : String, start : Int) -> Array[String]? 
 }
 
 ///|
-fn decode_checkpoint(storage_key : String, encoded : String) -> SyncCheckpoint? {
-  guard storage_key.strip_prefix(SYNC_KEY_PREFIX) is Some(_) &&
+fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
+  guard storage_key.strip_prefix(REPLICA_KEY_PREFIX) is Some(_) &&
     decode_header_length(encoded) is Some((header_length, header_start)) &&
     header_length <= encoded.length() - header_start else {
     return None
@@ -323,10 +323,10 @@ fn decode_checkpoint(storage_key : String, encoded : String) -> SyncCheckpoint? 
     return None
   }
   let account = AccountId::parse(account_id) catch { _ => return None }
-  guard sync_key(account, document_id) == storage_key else { return None }
+  guard replica_key(account, document_id) == storage_key else { return None }
   let document = Document::create(document_id, text)
   Some(
-    checkpoint_from_storage(account, document, generation, baseline, phase) catch {
+    replica_from_storage(account, document, generation, baseline, phase) catch {
       _ => return None
     },
   )

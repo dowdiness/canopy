@@ -3,10 +3,10 @@ fn reconcile_scan(
   entries : Array[@indexed_db.Entry],
 ) -> (SavedDocuments, Document?) {
   let documents : Array[Document] = []
-  let checkpoints : Array[SyncCheckpoint] = []
+  let replicas : Array[DocumentReplica] = []
   let issues : Array[RepositoryIssue] = []
   let observed : Array[String] = []
-  let observed_sync : Array[String] = []
+  let observed_replicas : Array[String] = []
   let mut editing : DocumentId? = None
   for entry in entries {
     match entry {
@@ -22,16 +22,16 @@ fn reconcile_scan(
               documents.push(document)
             _ => issues.push(InvalidSource(key))
           }
-        } else if key.strip_prefix(SYNC_KEY_PREFIX) is Some(_) {
-          observed_sync.push(key)
-          match decode_checkpoint(key, encoded) {
-            Some(checkpoint) if checkpoints
+        } else if key.strip_prefix(REPLICA_KEY_PREFIX) is Some(_) {
+          observed_replicas.push(key)
+          match decode_replica(key, encoded) {
+            Some(replica) if replicas
               .iter()
               .all(existing => {
-                existing.account() != checkpoint.account() ||
-                existing.document().id() != checkpoint.document().id()
-              }) => checkpoints.push(checkpoint)
-            _ => issues.push(InvalidSyncCheckpoint(key))
+                existing.account() != replica.account() ||
+                existing.document().id() != replica.document().id()
+              }) => replicas.push(replica)
+            _ => issues.push(InvalidDocumentReplica(key))
           }
         } else if key.strip_prefix("source/v") is Some(_) {
           issues.push(UnsupportedSourceSchema(key))
@@ -42,9 +42,9 @@ fn reconcile_scan(
         if key.strip_prefix(SOURCE_KEY_PREFIX) is Some(_) {
           observed.push(key)
           issues.push(InvalidSource(key))
-        } else if key.strip_prefix(SYNC_KEY_PREFIX) is Some(_) {
-          observed_sync.push(key)
-          issues.push(InvalidSyncCheckpoint(key))
+        } else if key.strip_prefix(REPLICA_KEY_PREFIX) is Some(_) {
+          observed_replicas.push(key)
+          issues.push(InvalidDocumentReplica(key))
         } else if key == EDITING_DOCUMENT_KEY {
           ()
         } else {
@@ -55,7 +55,7 @@ fn reconcile_scan(
     }
   }
   let saved = rebuild_saved_documents(
-    documents, issues, observed, checkpoints, observed_sync,
+    documents, issues, observed, replicas, observed_replicas,
   )
   let selected = match editing {
     Some(id) =>

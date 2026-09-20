@@ -6,7 +6,7 @@ const DOCUMENT_STORE_NAME = "documents"
 const LEGACY_ACTIVE_KEY = "active"
 const EDITING_DOCUMENT_KEY = "editing-document"
 const SOURCE_KEY_PREFIX = "source/v1/"
-const SYNC_KEY_PREFIX = "sync/"
+const REPLICA_KEY_PREFIX = "replica/"
 const CATALOG_KEY = "catalog/v1"
 
 type StoredDocument = {
@@ -85,8 +85,8 @@ function sourceKey(documentId: string): string {
   return `${SOURCE_KEY_PREFIX}${documentId}`
 }
 
-function syncKey(accountId: string, documentId: string): string {
-  return `${SYNC_KEY_PREFIX}${accountId.length}/${accountId}/${documentId}`
+function replicaKey(accountId: string, documentId: string): string {
+  return `${REPLICA_KEY_PREFIX}${accountId.length}/${accountId}/${documentId}`
 }
 
 function fixtureDocumentId(value: string): string {
@@ -342,7 +342,7 @@ function encodeStoredDocument(document: StoredDocument): string {
   return JSON.stringify(document)
 }
 
-function encodeReadyCheckpoint(
+function encodeReadyReplica(
   accountId: string,
   document: StoredDocument,
 ): string {
@@ -355,12 +355,12 @@ function encodeReadyCheckpoint(
     phase: { kind: "ready" },
     text_lengths: [document.text.length],
   })
-  return `loomark-sync\n${header.length}\n${header}${document.text}`
+  return `loomark-replica\n${header.length}\n${header}${document.text}`
 }
 
-function checkpointCurrentText(value: unknown): string | null {
-  if (typeof value !== "string" || !value.startsWith("loomark-sync\n")) return null
-  const lengthStart = "loomark-sync\n".length
+function replicaCurrentText(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("loomark-replica\n")) return null
+  const lengthStart = "loomark-replica\n".length
   const lengthEnd = value.indexOf("\n", lengthStart)
   if (lengthEnd < 0) return null
   const headerLength = Number(value.slice(lengthStart, lengthEnd))
@@ -781,10 +781,55 @@ test("opening and saving persist only authoritative Source records", async ({ pa
   })
 })
 
-test("account checkpoint edits persist without creating a Source copy", async ({ page }) => {
+test("Sync atomically starts document sync without replacing its textarea", async ({ page }) => {
+  const accountId = "account-a"
+  await page.route("**/api/account", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ id: accountId, name: "Account A" }),
+  }))
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Local\n")
+  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
+  const document = await readStoredDocument(page)
+  if (!document) throw new Error("baseline Source missing")
+  const key = replicaKey(accountId, document.document_id)
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    area.setSelectionRange(1, 3)
+    ;(globalThis as typeof globalThis & { __syncStartTextArea?: HTMLTextAreaElement })
+      .__syncStartTextArea = area
+  })
+
+  await page.getByRole("button", { name: "Sync", exact: true }).click()
+  await expect.poll(() => readStoredDocumentRaw(page, sourceKey(document.document_id)))
+    .toBeUndefined()
+  await expect.poll(async () => replicaCurrentText(
+    await readStoredDocumentRaw(page, key),
+  )).toBe("# Local\n")
+  expect(await text.evaluate(element => (
+    element === (globalThis as typeof globalThis & {
+      __syncStartTextArea?: HTMLTextAreaElement
+    }).__syncStartTextArea
+  ))).toBe(true)
+  expect(await text.evaluate(element => ({
+    start: (element as HTMLTextAreaElement).selectionStart,
+    end: (element as HTMLTextAreaElement).selectionEnd,
+  }))).toEqual({ start: 1, end: 3 })
+})
+
+test("account retry remains available in the narrow layout", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route("**/api/account", route => route.fulfill({ status: 503 }))
+  await page.goto("/")
+  await expect(page.getByRole("button", { name: "Retry account" })).toBeVisible()
+})
+
+test("account replica edits persist without creating a Source copy", async ({ page }) => {
   const accountId = "account-a"
   const document = { document_id: fixtureDocumentId("synced"), text: "# Synced\n" }
-  const key = syncKey(accountId, document.document_id)
+  const key = replicaKey(accountId, document.document_id)
   await page.route("**/api/account", route => route.fulfill({
     status: 200,
     contentType: "application/json",
@@ -794,7 +839,7 @@ test("account checkpoint edits persist without creating a Source copy", async ({
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
   await replaceStoreRecords(page, [{
     key,
-    value: encodeReadyCheckpoint(accountId, document),
+    value: encodeReadyReplica(accountId, document),
   }])
 
   await page.reload()
@@ -808,7 +853,7 @@ test("account checkpoint edits persist without creating a Source copy", async ({
   await text.fill("# Changed\n")
   await expect.poll(async () => {
     const value = await readStoredDocumentRaw(page, key)
-    return checkpointCurrentText(value)
+    return replicaCurrentText(value)
   }).toBe("# Changed\n")
   expect(await readStoredDocumentRaw(page, sourceKey(document.document_id)))
     .toBeUndefined()

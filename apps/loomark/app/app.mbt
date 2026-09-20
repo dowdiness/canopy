@@ -152,7 +152,12 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     },
     by=compact => if compact { "compact" } else { "wide" },
   )
-  let remote_documents = model.map(model => remote_documents(model.sync))
+  let remote_documents = model.map(model => remote_documents(model.sync()))
+  let account = model.map(model => account_status(model.sync()))
+  let document = model.map(document_sync_status)
+  let sync_status = account.map2(document, (account, document) => {
+    sync_status_view(account, document, emit)
+  })
   let membership = page.map(document_membership)
   let remote_seeds = remote_documents.map2(membership, remote_document_seeds)
   let feature_input = page.map2(remote_seeds, (page, remote) => {
@@ -197,12 +202,13 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     }),
     close_after_action=sidebar_state.collapse(),
   )
-  let layout_input = page.map4(
+  let layout_input = page.map5(
     selected_panels,
+    sync_status,
     recent_feature.dialog(),
     recent_feature.navigation(),
-    (page, editor_panels, dialog, recent_navigation) => {
-      (page, editor_panels, dialog, recent_navigation)
+    (page, editor_panels, sync_status, dialog, recent_navigation) => {
+      (page, editor_panels, sync_status, dialog, recent_navigation)
     },
   )
   @sidebar.sidebar_provider_with_state(
@@ -210,8 +216,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     input=layout_input,
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
     (sidebar, layout) => {
-      let (page, editor_panels, dialog, recent_navigation) = layout
-      view(sidebar, page, emit, editor_panels, dialog, recent_navigation)
+      let (page, editor_panels, sync_status, dialog, recent_navigation) = layout
+      view(
+        sidebar, page, emit, editor_panels, sync_status, dialog, recent_navigation,
+      )
     },
   )
 }

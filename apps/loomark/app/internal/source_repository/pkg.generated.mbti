@@ -11,31 +11,26 @@ pub fn create(SavedDocuments, @cmd.Emit[CreateResult]) -> @cmd.Cmd
 
 pub fn delete(SavedDocuments, DocumentId, @cmd.Emit[DeleteResult]) -> @cmd.Cmd
 
-pub fn enroll_for_sync(SavedDocuments, AccountId, Document, @cmd.Emit[CheckpointResult]) -> @cmd.Cmd
-
 pub fn open(@cmd.Emit[OpenResult]) -> @cmd.Cmd
 
-pub fn persist_checkpoint_write(SavedDocuments, CheckpointWrite, @cmd.Emit[CheckpointResult]) -> @cmd.Cmd
+pub fn operation_id(@cmd.Emit[OperationId?]) -> @cmd.Cmd
+
+pub fn persist_replica_write(SavedDocuments, ReplicaWrite, @cmd.Emit[Result[Unit, ReplicaFailure]]) -> @cmd.Cmd
 
 pub fn save(SavedDocuments, Document, @cmd.Emit[SaveResult]) -> @cmd.Cmd
 
 // Errors
-pub(all) suberror CheckpointApplyError {
-  StaleCheckpoint
-  StorageKeyConflict
-} derive(Eq, @debug.Debug)
-
 pub(all) suberror DocumentError {
   InvalidIdentity
 } derive(Eq, @debug.Debug)
 
 pub(all) suberror InvalidAccountId derive(Eq, @debug.Debug)
 
-pub(all) suberror InvalidCheckpoint derive(Eq, @debug.Debug)
-
 pub(all) suberror InvalidOperationId derive(Eq, @debug.Debug)
 
 pub(all) suberror InvalidRecoveryId derive(Eq, @debug.Debug)
+
+pub(all) suberror InvalidReplica derive(Eq, @debug.Debug)
 
 pub(all) suberror InvalidRevision derive(Eq, @debug.Debug)
 
@@ -43,6 +38,12 @@ pub(all) suberror ReceiptMismatch {
   NoPendingOperation
   OperationMismatch
   RevisionMismatch
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror ReplicaApplyError {
+  StaleReplica
+  StorageKeyConflict
+  InvalidReplicaWrite
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -56,31 +57,6 @@ pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
 type CatalogEntry derive(Eq, @debug.Debug)
 pub fn CatalogEntry::document_id(Self) -> DocumentId
 pub fn CatalogEntry::name(Self) -> String
-
-pub(all) enum CheckpointFailure {
-  InvalidCheckpoint
-  StorageUnavailable
-  QuotaExceeded
-  WriteFailed
-} derive(Eq, @debug.Debug)
-
-pub(all) enum CheckpointResult {
-  CheckpointStored(SyncCheckpoint)
-  CheckpointFailed(SyncCheckpoint, CheckpointFailure)
-} derive(Eq, @debug.Debug)
-
-pub enum CheckpointWrite {
-  CheckpointOnly(SyncCheckpoint)
-  CheckpointAndRecovery(SyncCheckpoint, Document)
-} derive(Eq, @debug.Debug)
-pub fn CheckpointWrite::checkpoint(Self) -> SyncCheckpoint
-pub fn CheckpointWrite::coalesce(Self, Self) -> Self
-
-pub struct ConflictDraft {
-  checkpoint : SyncCheckpoint
-  remote : RemoteDocument
-} derive(Eq, @debug.Debug)
-pub fn ConflictDraft::preserve(Self, DocumentId) -> CheckpointWrite raise InvalidRecoveryId
 
 pub(all) enum CreateFailure {
   DocumentIdentityUnavailable
@@ -113,6 +89,38 @@ pub struct DocumentId(String) derive(Eq, Hash, @debug.Debug)
 pub fn DocumentId::parse(String) -> Self raise DocumentError
 pub fn DocumentId::value(Self) -> String
 
+pub struct DocumentReplica {
+  account : AccountId
+  generation : Double
+  document : Document
+  baseline : RemoteDocument
+  phase : ReplicaPhase
+} derive(Eq, @debug.Debug)
+pub fn DocumentReplica::DocumentReplica(AccountId, Document) -> Self
+pub fn DocumentReplica::account(Self) -> AccountId
+pub fn DocumentReplica::acknowledge(Self, OperationId, SavedRevision) -> ReplicaWrite raise ReceiptMismatch
+pub fn DocumentReplica::baseline_revision(Self) -> Double
+pub fn DocumentReplica::directive(Self) -> ReplicaDirective
+pub fn DocumentReplica::document(Self) -> Document
+pub fn DocumentReplica::edit(Self, String) -> EditPlan
+pub fn DocumentReplica::generation(Self) -> Double
+pub fn DocumentReplica::observed_revision(Self) -> Double
+pub fn DocumentReplica::plan_delete(Self) -> OperationPlan
+pub fn DocumentReplica::plan_save(Self) -> OperationPlan
+pub fn DocumentReplica::preserve(Self, DocumentId) -> ReplicaWrite raise InvalidRecoveryId
+pub fn DocumentReplica::promote_source(Self) -> ReplicaWrite
+pub fn DocumentReplica::receive(AccountId, Document, SavedRevision) -> Self
+pub fn DocumentReplica::reconcile(Self, RemoteDocument) -> ReconcilePlan
+pub fn DocumentReplica::refresh(Self, RemoteDocument) -> ReplicaWrite?
+pub fn DocumentReplica::reject_conflict(Self, OperationId, RemoteDocument) -> ReconcilePlan raise ReceiptMismatch
+pub fn DocumentReplica::reject_operation(Self, OperationId) -> ReplicaWrite raise ReceiptMismatch
+pub fn DocumentReplica::store(Self) -> ReplicaWrite
+
+pub enum EditPlan {
+  Unchanged
+  Persist(ReplicaWrite)
+} derive(Eq, @debug.Debug)
+
 pub struct EditingDocumentHint(DocumentId) derive(Eq, @debug.Debug)
 pub fn EditingDocumentHint::remember(Self) -> @cmd.Cmd
 
@@ -127,10 +135,10 @@ pub(all) enum OpenResult {
 } derive(Eq, @debug.Debug)
 
 pub struct OperationDraft {
-  checkpoint : SyncCheckpoint
+  replica : DocumentReplica
   content : PendingContent
 } derive(Eq, @debug.Debug)
-pub fn OperationDraft::start(Self, OperationId) -> CheckpointWrite
+pub fn OperationDraft::start(Self, OperationId) -> ReplicaWrite
 
 pub struct OperationId(String) derive(Eq, @debug.Debug)
 pub fn OperationId::parse(String) -> Self raise InvalidOperationId
@@ -157,8 +165,7 @@ pub fn PendingOperation::operation_id(Self) -> OperationId
 
 pub enum ReconcilePlan {
   Unchanged
-  Persist(CheckpointWrite)
-  ConflictDetected(ConflictDraft)
+  Persist(ReplicaWrite)
 } derive(Eq, @debug.Debug)
 
 pub struct RecoveryIdentity(Document) derive(Eq, @debug.Debug)
@@ -170,6 +177,45 @@ pub(all) enum RemoteDocument {
 } derive(Eq, @debug.Debug)
 pub fn RemoteDocument::revision(Self) -> Double
 
+pub(all) enum RemoteEntry {
+  Present(DocumentId, SavedRevision, String)
+  Deleted(DocumentId, SavedRevision)
+} derive(Eq, @debug.Debug)
+pub fn RemoteEntry::document_id(Self) -> DocumentId
+pub fn RemoteEntry::revision(Self) -> SavedRevision
+
+pub(all) enum ReplicaDirective {
+  Synchronized
+  SaveRequired
+  Send(PendingOperation)
+  UpdateAvailable(RemoteDocument)
+  RecoveryRequired
+  Conflict(DocumentId, RemoteDocument)
+} derive(Eq, @debug.Debug)
+
+pub(all) enum ReplicaFailure {
+  InvalidReplica
+  StorageUnavailable
+  QuotaExceeded
+  WriteFailed
+} derive(Eq, @debug.Debug)
+
+pub enum ReplicaPhase {
+  Ready
+  Sending(PendingOperation)
+  Available(RemoteDocument)
+  Diverged(RemoteDocument)
+  Conflict(RecoveryIdentity)
+} derive(Eq, @debug.Debug)
+
+pub enum ReplicaWrite {
+  Store(DocumentReplica)
+  StoreWithRecovery(DocumentReplica, Document)
+  PromoteSource(DocumentReplica)
+} derive(Eq, @debug.Debug)
+pub fn ReplicaWrite::coalesce(Self, Self) -> Self
+pub fn ReplicaWrite::replica(Self) -> DocumentReplica
+
 pub(all) enum RepositoryChange {
   Stored(Document)
   Deleted(DocumentId)
@@ -178,7 +224,7 @@ pub(all) enum RepositoryChange {
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   UnsupportedSourceSchema(String)
-  InvalidSyncCheckpoint(String)
+  InvalidDocumentReplica(String)
   UnknownRecord(String)
   UnsupportedRecord(String)
   UnsupportedKey(Int)
@@ -201,57 +247,25 @@ pub struct SavedDocuments {
   catalog_value : Catalog
   issues_value : Array[RepositoryIssue]
   observed_source_keys : Array[String]
-  sync_checkpoints : Array[SyncCheckpoint]
-  observed_sync_keys : Array[String]
+  replicas : Array[DocumentReplica]
+  observed_replica_keys : Array[String]
 } derive(Eq, @debug.Debug)
 pub fn SavedDocuments::all(Self) -> ArrayView[Document]
 pub fn SavedDocuments::apply(Self, RepositoryChange) -> Self?
-pub fn SavedDocuments::apply_checkpoint(Self, SyncCheckpoint) -> Self raise CheckpointApplyError
+pub fn SavedDocuments::apply_replica(Self, DocumentReplica) -> Self raise ReplicaApplyError
+pub fn SavedDocuments::apply_replica_write(Self, ReplicaWrite) -> Self raise ReplicaApplyError
+pub fn SavedDocuments::apply_sync_start(Self, DocumentReplica) -> Self?
 pub fn SavedDocuments::catalog(Self) -> Catalog
-pub fn SavedDocuments::checkpoint(Self, AccountId, DocumentId) -> SyncCheckpoint?
-pub fn SavedDocuments::checkpoints_for(Self, AccountId) -> Array[SyncCheckpoint]
 pub fn SavedDocuments::editing_document_hint(Self, DocumentId) -> EditingDocumentHint?
 pub fn SavedDocuments::find(Self, DocumentId) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
 pub fn SavedDocuments::issues(Self) -> ArrayView[RepositoryIssue]
+pub fn SavedDocuments::replica(Self, AccountId, DocumentId) -> DocumentReplica?
+pub fn SavedDocuments::replicas_for(Self, AccountId) -> Array[DocumentReplica]
 
 pub struct SavedRevision(Double) derive(Eq, @debug.Debug)
 pub fn SavedRevision::parse(Double) -> Self raise InvalidRevision
 pub fn SavedRevision::value(Self) -> Double
-
-pub struct SyncCheckpoint {
-  account : AccountId
-  generation : Double
-  document : Document
-  baseline : RemoteDocument
-  phase : SyncPhase
-} derive(Eq, @debug.Debug)
-pub fn SyncCheckpoint::account(Self) -> AccountId
-pub fn SyncCheckpoint::acknowledge(Self, OperationId, SavedRevision) -> CheckpointWrite raise ReceiptMismatch
-pub fn SyncCheckpoint::directive(Self) -> SyncDirective
-pub fn SyncCheckpoint::document(Self) -> Document
-pub fn SyncCheckpoint::edit(Self, String) -> CheckpointWrite?
-pub fn SyncCheckpoint::enroll(AccountId, Document) -> Self
-pub fn SyncCheckpoint::generation(Self) -> Double
-pub fn SyncCheckpoint::plan_delete(Self) -> OperationPlan
-pub fn SyncCheckpoint::plan_save(Self) -> OperationPlan
-pub fn SyncCheckpoint::reconcile(Self, RemoteDocument) -> ReconcilePlan
-pub fn SyncCheckpoint::reject_conflict(Self, OperationId, RemoteDocument) -> ReconcilePlan raise ReceiptMismatch
-
-pub(all) enum SyncDirective {
-  Synchronized
-  SaveRequired
-  Send(PendingOperation)
-  UpdateAvailable(RemoteDocument)
-  Conflict(DocumentId, RemoteDocument)
-} derive(Eq, @debug.Debug)
-
-pub enum SyncPhase {
-  Ready
-  Sending(PendingOperation)
-  RemoteUpdate(RemoteDocument)
-  Conflict(RecoveryIdentity)
-} derive(Eq, @debug.Debug)
 
 // Type aliases
 

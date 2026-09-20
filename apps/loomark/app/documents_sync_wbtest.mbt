@@ -18,7 +18,7 @@ fn sync_test_key(
   account : @source_repository.AccountId,
   id : String,
 ) -> @documents.Key {
-  @documents.Key::checkpoint(account, document_id(id))
+  @documents.Key::replica(account, document_id(id))
 }
 
 ///|
@@ -28,26 +28,26 @@ fn sync_test_saved() -> @source_repository.SavedDocuments {
   let saved = @source_repository.SavedDocuments::from_documents([
     sync_test_document("local", "local"),
   ]).unwrap()
-  let saved = saved.apply_checkpoint(
-    @source_repository.SyncCheckpoint::enroll(
+  let saved = saved.apply_replica(
+    @source_repository.DocumentReplica(
       account_a,
       sync_test_document("shared", "A"),
     ),
   ) catch {
-    _ => abort("valid account A checkpoint")
+    _ => abort("valid account A replica")
   }
-  saved.apply_checkpoint(
-    @source_repository.SyncCheckpoint::enroll(
+  saved.apply_replica(
+    @source_repository.DocumentReplica(
       account_b,
       sync_test_document("shared", "B"),
     ),
   ) catch {
-    _ => abort("valid account B checkpoint")
+    _ => abort("valid account B replica")
   }
 }
 
 ///|
-test "account projection exposes local documents and only its checkpoints" {
+test "account projection exposes local documents and only its replicas" {
   let account_a = sync_test_account("account-a")
   let account_b = sync_test_account("account-b")
   let saved = sync_test_saved()

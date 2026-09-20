@@ -61,16 +61,16 @@ fn has_pending(documents : State, id : Key) -> Bool {
 
 ///|
 test "source and account identities cannot collide" {
-  let id = document_id("checkpoint/9/account-a/6/shared")
+  let id = document_id("replica/9/account-a/6/shared")
   let account_a = account_id("account-a")
   let account_b = account_id("account-b")
   let source = Key::source(id)
-  let checkpoint_a = Key::checkpoint(account_a, id)
-  let checkpoint_b = Key::checkpoint(account_b, id)
-  assert_true(source != checkpoint_a)
-  assert_true(checkpoint_a != checkpoint_b)
-  assert_true(source.lifecycle_key() != checkpoint_a.lifecycle_key())
-  assert_true(checkpoint_a.lifecycle_key() != checkpoint_b.lifecycle_key())
+  let replica_a = Key::replica(account_a, id)
+  let replica_b = Key::replica(account_b, id)
+  assert_true(source != replica_a)
+  assert_true(replica_a != replica_b)
+  assert_true(source.lifecycle_key() != replica_a.lifecycle_key())
+  assert_true(replica_a.lifecycle_key() != replica_b.lifecycle_key())
 }
 
 ///|
@@ -81,28 +81,28 @@ test "same document id remains isolated across source and accounts" {
   let saved = @source_repository.SavedDocuments::from_documents([
     @source_repository.Document::create(id, "source"),
   ]).unwrap()
-  let saved = saved.apply_checkpoint(
-    @source_repository.SyncCheckpoint::enroll(
+  let saved = saved.apply_replica(
+    @source_repository.DocumentReplica(
       account_a,
       @source_repository.Document::create(id, "account A"),
     ),
   ) catch {
-    _ => abort("valid account A checkpoint")
+    _ => abort("valid account A replica")
   }
-  let saved = saved.apply_checkpoint(
-    @source_repository.SyncCheckpoint::enroll(
+  let saved = saved.apply_replica(
+    @source_repository.DocumentReplica(
       account_b,
       @source_repository.Document::create(id, "account B"),
     ),
   ) catch {
-    _ => abort("valid account B checkpoint")
+    _ => abort("valid account B replica")
   }
   let source = Key::source(id)
-  let checkpoint_a = Key::checkpoint(account_a, id)
-  let checkpoint_b = Key::checkpoint(account_b, id)
+  let replica_a = Key::replica(account_a, id)
+  let replica_b = Key::replica(account_b, id)
   let state = State(saved).project_account(account_a).project_account(account_b)
-  let (state, _) = state.reduce(TextChanged(checkpoint_a, "edited A"))
+  let (state, _) = state.reduce(TextChanged(replica_a, "edited A"))
   assert_eq(state.text(source), Some("source"))
-  assert_eq(state.text(checkpoint_a), Some("edited A"))
-  assert_eq(state.text(checkpoint_b), Some("account B"))
+  assert_eq(state.text(replica_a), Some("edited A"))
+  assert_eq(state.text(replica_b), Some("account B"))
 }

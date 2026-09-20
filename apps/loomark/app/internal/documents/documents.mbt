@@ -45,12 +45,9 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Effect]) {
       let (record, decisions) = match record.edit {
         ComposingReady => accept_pending(self.saved, record)
         ComposingIdle =>
-          finish_composition(self.saved, document_id, { ..record, edit: Idle, })
+          finish_composition(self.saved, { ..record, edit: Idle, })
         ComposingWaiting(revision) =>
-          finish_composition(self.saved, document_id, {
-            ..record,
-            edit: Waiting(revision),
-          })
+          finish_composition(self.saved, { ..record, edit: Waiting(revision), })
         Idle | Waiting(_) => return (self, [])
       }
       (
@@ -65,9 +62,11 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Effect]) {
       apply_pending_edit(self, document_id, revision)
     FeedbackReceived(feedback) =>
       match feedback {
-        MaximumElapsed(id, checkpoint) => eligible_maximum(self, id, checkpoint)
+        MaximumElapsed(maximum) => eligible_maximum(self, maximum)
         SaveCompleted(operation, result) => complete(self, operation, result)
-        CheckpointCompleted(result) => complete_checkpoint(self, result)
+        ReplicaCommitted(write) => complete_replica(self, write)
+        PromotionCompleted(write, result) =>
+          complete_sync_start(self, write.replica(), result)
         DeleteCompleted(operation, result) =>
           finish_delete(self, operation, result)
       }
@@ -90,7 +89,8 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Effect]) {
                 | SourceDeletePhase::Waiting(_)
                 | SourceDeletePhase::Deleting(_)
               )
-              | Checkpoint(_) => r
+              | StartingSync(_, _)
+              | Replica(_) => r
             }
           }),
         },
@@ -147,8 +147,9 @@ pub fn State::resume_hint(
   match find_record(self.records, key) {
     Some(record) =>
       match record.persistence {
-        Source(_, _) => self.saved.editing_document_hint(record.document.id())
-        Checkpoint(_) => None
+        Source(_, _) | StartingSync(_, _) =>
+          self.saved.editing_document_hint(record.document.id())
+        Replica(_) => None
       }
     None => None
   }
@@ -157,6 +158,36 @@ pub fn State::resume_hint(
 ///|
 pub fn State::is_composing(self : Self, id : Key) -> Bool {
   find_record(self.records, id).map(r => is_composing(r.edit)).unwrap_or(false)
+}
+
+///|
+pub fn State::sync_start(
+  self : Self,
+  id : Key,
+  account : @source_repository.AccountId,
+) -> SyncStart {
+  match find_record(self.records, id) {
+    Some(record) if record.persistence is StartingSync(owner, _) &&
+      owner == account => Starting
+    Some(record) if record.persistence
+      is Source(Existing, SourceDeletePhase::Available) &&
+      record.save is Saved &&
+      record.edit is Idle &&
+      self.saved.find(record.document.id()) == Some(record.document) &&
+      self.saved.replica(account, record.document.id()) is None =>
+      Ready({ key: id, account, document: record.document, })
+    Some(_) | None => Unavailable
+  }
+}
+
+///|
+pub fn StartSync::account(self : Self) -> @source_repository.AccountId {
+  self.account
+}
+
+///|
+pub fn StartSync::document_id(self : Self) -> @source_repository.DocumentId {
+  self.document.id()
 }
 
 ///|
@@ -185,11 +216,27 @@ pub fn State::text(self : Self, id : Key) -> String? {
 ///|
 pub fn State::save_status(self : Self, id : Key) -> SaveStatus? {
   find_record(self.records, id).map(r => {
-    match r.save {
-      DocumentsSaveStatus::Saved => SaveStatus::Clean
-      DocumentsSaveStatus::Failed(failure) => SaveStatus::SaveFailed(failure)
-      DocumentsSaveStatus::Waiting(_) | DocumentsSaveStatus::Saving(_, _) =>
-        SaveStatus::Unsaved
+    match r.persistence {
+      Replica(account) =>
+        match r.save {
+          DocumentsSaveStatus::Waiting(_) | DocumentsSaveStatus::Saving(_, _) =>
+            SaveStatus::Unsaved
+          Failed(failure) => SaveStatus::SaveFailed(failure)
+          Saved =>
+            match self.saved.replica(account, r.document.id()) {
+              Some(replica) if replica.document() == r.document =>
+                SaveStatus::Clean
+              Some(_) | None => SaveStatus::Unsaved
+            }
+        }
+      Source(_, _) | StartingSync(_, _) =>
+        match r.save {
+          DocumentsSaveStatus::Saved => SaveStatus::Clean
+          DocumentsSaveStatus::Failed(failure) =>
+            SaveStatus::SaveFailed(failure)
+          DocumentsSaveStatus::Waiting(_) | DocumentsSaveStatus::Saving(_, _) =>
+            SaveStatus::Unsaved
+        }
     }
   })
 }

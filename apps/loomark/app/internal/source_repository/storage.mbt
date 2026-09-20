@@ -63,17 +63,11 @@ pub(all) enum DeleteResult {
 } derive(Eq, Debug)
 
 ///|
-pub(all) enum CheckpointFailure {
-  InvalidCheckpoint
+pub(all) enum ReplicaFailure {
+  InvalidReplica
   StorageUnavailable
   QuotaExceeded
   WriteFailed
-} derive(Eq, Debug)
-
-///|
-pub(all) enum CheckpointResult {
-  CheckpointStored(SyncCheckpoint)
-  CheckpointFailed(SyncCheckpoint, CheckpointFailure)
 } derive(Eq, Debug)
 
 ///|
@@ -92,87 +86,71 @@ pub fn open(msg : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
 }
 
 ///|
-fn checkpoint_failure(outcome : @indexed_db.WriteError) -> CheckpointFailure {
+fn replica_failure(outcome : @indexed_db.WriteError) -> ReplicaFailure {
   match outcome {
-    @indexed_db.WriteError::Unavailable => CheckpointFailure::StorageUnavailable
-    @indexed_db.WriteError::QuotaExceeded => CheckpointFailure::QuotaExceeded
-    Failed(_, _) => CheckpointFailure::WriteFailed
+    @indexed_db.WriteError::Unavailable => ReplicaFailure::StorageUnavailable
+    @indexed_db.WriteError::QuotaExceeded => ReplicaFailure::QuotaExceeded
+    Failed(_, _) => ReplicaFailure::WriteFailed
   }
 }
 
 ///|
-fn checkpoint_result(
-  checkpoint : SyncCheckpoint,
+fn replica_result(
   outcome : @indexed_db.WriteError?,
-) -> CheckpointResult {
+) -> Result[Unit, ReplicaFailure] {
   match outcome {
-    None => CheckpointStored(checkpoint)
-    Some(failure) => CheckpointFailed(checkpoint, checkpoint_failure(failure))
+    None => Ok(())
+    Some(failure) => Err(replica_failure(failure))
   }
 }
 
 ///|
-pub fn enroll_for_sync(
-  saved : SavedDocuments,
-  account : AccountId,
-  document : Document,
-  msg : @cmd.Emit[CheckpointResult],
-) -> @cmd.Cmd {
-  let checkpoint = SyncCheckpoint::enroll(account, document)
-  let key = sync_key(account, document.id())
-  guard saved.find(document.id()) == Some(document) && !saved.observed_sync(key) else {
-    return msg(
-      CheckpointFailed(checkpoint, CheckpointFailure::InvalidCheckpoint),
-    )
-  }
-  document_store.apply(
-    [
-      @indexed_db.Mutation::Set(key, encode_checkpoint(checkpoint)),
-      @indexed_db.Mutation::Delete(source_key(document.id())),
-    ],
-    outcome => msg(checkpoint_result(checkpoint, outcome)),
-  )
-}
-
-///|
-fn checkpoint_mutations(write : CheckpointWrite) -> Array[@indexed_db.Mutation] {
-  let checkpoint = write.checkpoint()
-  let checkpoint_mutation = @indexed_db.Mutation::Set(
-    sync_key(checkpoint.account, checkpoint.document.id()),
-    encode_checkpoint(checkpoint),
+fn replica_mutations(write : ReplicaWrite) -> Array[@indexed_db.Mutation] {
+  let replica = write.replica()
+  let replica_mutation = @indexed_db.Mutation::Set(
+    replica_key(replica.account, replica.document.id()),
+    encode_replica(replica),
   )
   match write {
-    CheckpointOnly(_) => [checkpoint_mutation]
-    CheckpointAndRecovery(_, recovery) =>
+    Store(_) => [replica_mutation]
+    StoreWithRecovery(_, recovery) =>
       [
-        checkpoint_mutation,
+        replica_mutation,
         @indexed_db.Mutation::Set(
           source_key(recovery.id()),
           encode_document(recovery),
         ),
       ]
+    PromoteSource(_) =>
+      [
+        replica_mutation,
+        @indexed_db.Mutation::Delete(source_key(replica.document.id())),
+      ]
   }
 }
 
 ///|
-pub fn persist_checkpoint_write(
+pub fn persist_replica_write(
   saved : SavedDocuments,
-  write : CheckpointWrite,
-  msg : @cmd.Emit[CheckpointResult],
+  write : ReplicaWrite,
+  msg : @cmd.Emit[Result[Unit, ReplicaFailure]],
 ) -> @cmd.Cmd {
-  let checkpoint = write.checkpoint()
+  let replica = write.replica()
   guard (match write {
-    CheckpointOnly(_) => true
-    CheckpointAndRecovery(_, recovery) =>
+    Store(_) => true
+    StoreWithRecovery(_, recovery) =>
       saved.find(recovery.id()) is None &&
       !saved.observed(source_key(recovery.id()))
+    PromoteSource(_) =>
+      saved.find(replica.document().id()) == Some(replica.document()) &&
+      !saved.observed_replicas(
+        replica_key(replica.account(), replica.document().id()),
+      )
   }) else {
-    return msg(
-      CheckpointFailed(checkpoint, CheckpointFailure::InvalidCheckpoint),
-    )
+    return msg(Err(ReplicaFailure::InvalidReplica))
   }
-  document_store.apply(checkpoint_mutations(write), outcome => {
-    msg(checkpoint_result(checkpoint, outcome))
+  document_store.apply(replica_mutations(write), outcome => {
+    msg(replica_result(outcome))
   })
 }
 

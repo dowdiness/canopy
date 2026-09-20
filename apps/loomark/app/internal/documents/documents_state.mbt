@@ -4,18 +4,18 @@ pub fn Key::source(document_id : @source_repository.DocumentId) -> Key {
 }
 
 ///|
-pub fn Key::checkpoint(
+pub fn Key::replica(
   account : @source_repository.AccountId,
   document_id : @source_repository.DocumentId,
 ) -> Key {
-  Checkpoint(account, document_id)
+  Replica(account, document_id)
 }
 
 ///|
 fn Record::key(self : Self) -> Key {
   match self.persistence {
-    Source(_, _) => Key::source(self.document.id())
-    Checkpoint(account) => Key::checkpoint(account, self.document.id())
+    Source(_, _) | StartingSync(_, _) => Key::source(self.document.id())
+    Replica(account) => Key::replica(account, self.document.id())
   }
 }
 
@@ -27,7 +27,7 @@ fn Record::delete_phase(self : Self) -> DocumentsDeletePhase {
     Source(_, SourceDeletePhase::Deleting(operation)) => Deleting(operation)
     Source(_, SourceDeletePhase::Failed(operation, failure)) =>
       Failed(operation, failure)
-    Checkpoint(_) => Unavailable
+    StartingSync(_, _) | Replica(_) => Unavailable
   }
 }
 
@@ -38,10 +38,10 @@ pub fn Key::lifecycle_key(self : Self) -> String {
       let value = document_id.value()
       "source/" + value.length().to_string() + "/" + value
     }
-    Checkpoint(account, document_id) => {
+    Replica(account, document_id) => {
       let value = account.value()
       let document = document_id.value()
-      "checkpoint/" +
+      "replica/" +
       value.length().to_string() +
       "/" +
       value +
@@ -87,19 +87,18 @@ fn is_composing(edit : EditState) -> Bool {
 }
 
 ///|
-fn replace_checkpoint(
+fn replace_autosave(
   documents : State,
   document_id : Key,
-  checkpoint : DocumentsCheckpoint,
+  replica : AutosaveWindow,
 ) -> State {
   {
     ..documents,
     records: replace_record(documents.records, document_id, r => {
       let save = match r.save {
-        DocumentsSaveStatus::Waiting(_) =>
-          DocumentsSaveStatus::Waiting(checkpoint)
+        DocumentsSaveStatus::Waiting(_) => DocumentsSaveStatus::Waiting(replica)
         DocumentsSaveStatus::Saving(operation, _) =>
-          DocumentsSaveStatus::Saving(operation, Some(checkpoint))
+          DocumentsSaveStatus::Saving(operation, Some(replica))
         Saved | Failed(_) => r.save
       }
       { ..r, save, }
@@ -112,25 +111,25 @@ fn begin_save(
   saved : @source_repository.SavedDocuments,
   record : Record,
 ) -> (Record, Array[Effect]) {
-  let key = record.key()
-  let operation = { key, document: record.document, }
   match record.persistence {
-    Source(_, _) =>
+    Source(_, _) => {
+      let operation = { key: record.key(), document: record.document, }
       (
         { ..record, save: Saving(operation, None), },
         [Effect::PersistSource(operation)],
       )
-    Checkpoint(account) =>
-      match saved.checkpoint(account, record.document.id()) {
-        Some(checkpoint) =>
-          if checkpoint.document().text() == record.document.text() {
-            ({ ..record, save: Saved, }, [])
-          } else {
-            (
-              { ..record, save: Saving(operation, None), },
-              [Effect::SaveCheckpoint(account, record.document)],
-            )
-          }
+    }
+    StartingSync(_, _) => (record, [])
+    Replica(account) =>
+      match saved.replica(account, record.document.id()) {
+        Some(_) =>
+          (
+            // The committed Replica can be older than an active persistence
+            // lane. Submit every eligible value; Replication compares it with
+            // the causal head and coalesces it when no write is needed.
+            { ..record, save: Saved, },
+            [Effect::ReplicaEligible(account, record.document)],
+          )
         None => ({ ..record, save: Failed(InvalidSource), }, [])
       }
   }
@@ -152,17 +151,17 @@ pub fn State::State(saved : @source_repository.SavedDocuments) -> State {
     saved,
     records,
     visible_account: None,
-    last_checkpoint_id: 0,
+    last_autosave_id: 0,
     last_pending_edit_revision: 0,
     last_delete_request: 0,
   }
 }
 
 ///|
-fn checkpoint_record(checkpoint : @source_repository.SyncCheckpoint) -> Record {
-  let document = checkpoint.document()
+fn replica_record(replica : @source_repository.DocumentReplica) -> Record {
+  let document = replica.document()
   {
-    persistence: Checkpoint(checkpoint.account()),
+    persistence: Replica(replica.account()),
     document,
     edit: Idle,
     save: Saved,
@@ -176,26 +175,26 @@ pub fn State::project_account(
   account : @source_repository.AccountId,
 ) -> Self {
   let records = self.saved
-    .checkpoints_for(account)
-    .fold(init=self.records, (records, checkpoint) => {
-      let key = Key::checkpoint(account, checkpoint.document().id())
+    .replicas_for(account)
+    .fold(init=self.records, (records, replica) => {
+      let key = Key::replica(account, replica.document().id())
       if find_record(records, key) is Some(_) {
         records
       } else {
-        records + [checkpoint_record(checkpoint)]
+        records + [replica_record(replica)]
       }
     })
   { ..self, records, visible_account: Some(account), }
 }
 
 ///|
-pub fn State::admit_checkpoint(
+pub fn State::admit_replica(
   self : Self,
-  checkpoint : @source_repository.SyncCheckpoint,
+  replica : @source_repository.DocumentReplica,
 ) -> Self {
-  let key = Key::checkpoint(checkpoint.account(), checkpoint.document().id())
+  let key = Key::replica(replica.account(), replica.document().id())
   guard find_record(self.records, key) is None else { return self }
-  { ..self, records: self.records + [checkpoint_record(checkpoint)], }
+  { ..self, records: self.records + [replica_record(replica)], }
 }
 
 ///|
@@ -206,27 +205,27 @@ pub fn State::hide_accounts(self : Self) -> Self {
 ///|
 fn State::record_is_visible(self : Self, record : Record) -> Bool {
   match record.persistence {
-    Source(_, _) => true
-    Checkpoint(account) => self.visible_account == Some(account)
+    Source(_, _) | StartingSync(_, _) => true
+    Replica(account) => self.visible_account == Some(account)
   }
 }
 
 ///|
-fn allocate_checkpoint(documents : State) -> (State, DocumentsCheckpoint) {
-  let id = documents.last_checkpoint_id + 1
+fn allocate_autosave(documents : State) -> (State, AutosaveWindow) {
+  let id = documents.last_autosave_id + 1
   (
-    { ..documents, last_checkpoint_id: id, },
+    { ..documents, last_autosave_id: id, },
     {
       maximum_id: id,
       maximum_armed: false,
-      eligibility: DocumentsCheckpointEligibility::Deferred,
+      eligibility: AutosaveEligibility::Deferred,
     },
   )
 }
 
 ///|
-fn revise_checkpoint(checkpoint : DocumentsCheckpoint) -> DocumentsCheckpoint {
-  { ..checkpoint, eligibility: DocumentsCheckpointEligibility::Deferred, }
+fn revise_autosave(replica : AutosaveWindow) -> AutosaveWindow {
+  { ..replica, eligibility: AutosaveEligibility::Deferred, }
 }
 
 ///|
@@ -236,18 +235,14 @@ fn next_pending_edit(documents : State) -> (State, Int) {
 }
 
 ///|
-fn checkpoint_effect(
-  document_id : Key,
-  checkpoint : DocumentsCheckpoint,
+fn autosave_effect(
+  replica : AutosaveWindow,
   rearm : Bool,
-) -> (DocumentsCheckpoint, Array[Effect]) {
-  if checkpoint.eligibility == DocumentsCheckpointEligibility::Eligible ||
-    (!rearm && checkpoint.maximum_armed) {
-    (checkpoint, [])
+) -> (AutosaveWindow, Array[Effect]) {
+  if replica.eligibility == AutosaveEligibility::Eligible ||
+    (!rearm && replica.maximum_armed) {
+    (replica, [])
   } else {
-    (
-      { ..checkpoint, maximum_armed: true, },
-      [ArmMaximum(document_id, checkpoint.maximum_id)],
-    )
+    ({ ..replica, maximum_armed: true, }, [ArmMaximum(replica.maximum_id)])
   }
 }

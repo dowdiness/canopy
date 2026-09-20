@@ -112,65 +112,79 @@ test "from_documents keeps lexical order without startup selection state" {
 }
 
 ///|
-test "checkpoint updates preserve document projections without rebuilding them" {
+test "replica updates preserve document projections without rebuilding them" {
   let saved = SavedDocuments::from_documents([doc("local", "# Local\n")]).unwrap()
   let sentinel = { ..saved, catalog_value: Catalog([]), }
-  let checkpoint = SyncCheckpoint::enroll(
-    test_account(),
-    doc("remote", "remote"),
-  )
-  let updated = sentinel.apply_checkpoint(checkpoint)
+  let replica = DocumentReplica(test_account(), doc("remote", "remote"))
+  let updated = sentinel.apply_replica(replica)
   assert_eq(updated.all(), sentinel.all())
   assert_eq(updated.catalog(), sentinel.catalog())
   assert_eq(updated.issues(), sentinel.issues())
 }
 
 ///|
-test "checkpoint insertion and replacement retain lexical order" {
+test "replica insertion and replacement retain lexical order" {
   let initial = SavedDocuments::from_documents([]).unwrap()
-  let account_b = SyncCheckpoint::enroll(
+  let account_b = DocumentReplica(
     test_account(value="account-b"),
     doc("same", "B"),
   )
-  let account_a_z = SyncCheckpoint::enroll(test_account(), doc("z", "Z"))
-  let account_a_a = SyncCheckpoint::enroll(test_account(), doc("a", "A"))
+  let account_a_z = DocumentReplica(test_account(), doc("z", "Z"))
+  let account_a_a = DocumentReplica(test_account(), doc("a", "A"))
   let saved = initial
-    .apply_checkpoint(account_b)
-    .apply_checkpoint(account_a_z)
-    .apply_checkpoint(account_a_a)
+    .apply_replica(account_b)
+    .apply_replica(account_a_z)
+    .apply_replica(account_a_a)
   assert_eq(
-    saved.checkpoints_for(test_account()).map(value => value.document().id()),
+    saved.replicas_for(test_account()).map(value => value.document().id()),
     [test_document_id("a"), test_document_id("z")],
   )
-  let replacement = edit_write(account_a_a, "new").checkpoint()
-  let replaced = saved.apply_checkpoint(replacement)
+  let replacement = edit_write(account_a_a, "new").replica()
+  let replaced = saved.apply_replica(replacement)
   assert_eq(
-    replaced.checkpoints_for(test_account()).map(value => value.document().id()),
+    replaced.replicas_for(test_account()).map(value => value.document().id()),
     [test_document_id("a"), test_document_id("z")],
   )
-  assert_eq(
-    replaced.checkpoints_for(test_account())[0].document().text(),
-    "new",
-  )
-  let stale : Result[SavedDocuments, CheckpointApplyError] = Ok(
-    replaced.apply_checkpoint(account_a_a),
+  assert_eq(replaced.replicas_for(test_account())[0].document().text(), "new")
+  let stale : Result[SavedDocuments, ReplicaApplyError] = Ok(
+    replaced.apply_replica(account_a_a),
   ) catch {
     error => Err(error)
   }
-  assert_eq(stale, Err(CheckpointApplyError::StaleCheckpoint))
+  assert_eq(stale, Err(ReplicaApplyError::StaleReplica))
 }
 
 ///|
-test "checkpoint lookup keeps account ownership explicit" {
+test "replica lookup keeps account ownership explicit" {
   let account_a = test_account()
   let account_b = test_account(value="account-b")
-  let checkpoint = SyncCheckpoint::enroll(account_a, doc("one", "a"))
-  let saved = SavedDocuments::from_documents([])
-    .unwrap()
-    .apply_checkpoint(checkpoint)
-  assert_eq(
-    saved.checkpoint(account_a, test_document_id("one")),
-    Some(checkpoint),
+  let replica = DocumentReplica(account_a, doc("one", "a"))
+  let saved = SavedDocuments::from_documents([]).unwrap().apply_replica(replica)
+  assert_eq(saved.replica(account_a, test_document_id("one")), Some(replica))
+  assert_eq(saved.replica(account_b, test_document_id("one")), None)
+}
+
+///|
+test "committed conflict applies replica and recovery source atomically" {
+  let base = DocumentReplica(test_account(), doc("one", "base"))
+  let saved = SavedDocuments::from_documents([]).unwrap().apply_replica(base)
+  let sent = start_save(base, TEST_OPERATION_1)
+  let acknowledged = sent
+    .replica()
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+  let edited = edit_write(acknowledged.replica(), "local").replica()
+  let write = preserve_conflict(
+    edited,
+    remote_present(2.0, "remote"),
+    "recovery",
   )
-  assert_eq(saved.checkpoint(account_b, test_document_id("one")), None)
+  guard write is StoreWithRecovery(replica, recovery) else {
+    fail("conflict write")
+  }
+  let committed = saved.apply_replica_write(write)
+  assert_eq(
+    committed.replica(test_account(), test_document_id("one")),
+    Some(replica),
+  )
+  assert_eq(committed.find(recovery.id()), Some(recovery))
 }

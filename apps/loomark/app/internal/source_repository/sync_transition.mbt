@@ -1,7 +1,7 @@
 ///|
-/// The action implied by a checkpoint. It is derived rather than stored beside
-/// transition results, so checkpoint state remains the single source of truth.
-pub(all) enum SyncDirective {
+/// The action implied by a replica. It is derived rather than stored beside
+/// transition results, so replica state remains the single source of truth.
+pub(all) enum ReplicaDirective {
   Synchronized
   SaveRequired
   Send(PendingOperation)
@@ -11,7 +11,7 @@ pub(all) enum SyncDirective {
 } derive(Eq, Debug)
 
 ///|
-pub fn SyncCheckpoint::directive(self : Self) -> SyncDirective {
+pub fn DocumentReplica::directive(self : Self) -> ReplicaDirective {
   match self.phase {
     Sending(operation) => Send(operation)
     Ready =>
@@ -30,15 +30,15 @@ pub fn SyncCheckpoint::directive(self : Self) -> SyncDirective {
 ///|
 pub enum EditPlan {
   Unchanged
-  Persist(CheckpointWrite)
+  Persist(ReplicaWrite)
 } derive(Eq, Debug)
 
 ///|
-pub fn SyncCheckpoint::edit(self : Self, text : String) -> EditPlan {
+pub fn DocumentReplica::edit(self : Self, text : String) -> EditPlan {
   guard text != self.document.text() else { return Unchanged }
   let edited = { ..self, document: self.document.update(text), }
-    |> SyncCheckpoint::advance
-  let checkpoint = match self.phase {
+    |> DocumentReplica::advance
+  let replica = match self.phase {
     Available(remote) | Diverged(remote) if remote.same_present_text(text) =>
       { ..edited, baseline: remote, phase: Ready, }
     Available(remote) | Diverged(remote) if self.baseline.same_present_text(
@@ -48,13 +48,13 @@ pub fn SyncCheckpoint::edit(self : Self, text : String) -> EditPlan {
       { ..edited, phase: Diverged(remote), }
     Ready | Sending(_) | Conflict(_) => edited
   }
-  Persist(CheckpointOnly(checkpoint))
+  Persist(Store(replica))
 }
 
 ///|
 /// An operation waiting only for an identifier from the effect boundary.
 pub struct OperationDraft {
-  checkpoint : SyncCheckpoint
+  replica : DocumentReplica
   content : PendingContent
 } derive(Eq, Debug)
 
@@ -67,30 +67,29 @@ pub enum OperationPlan {
 
 ///|
 fn plan_operation(
-  checkpoint : SyncCheckpoint,
+  replica : DocumentReplica,
   content : PendingContent,
 ) -> OperationPlan {
-  guard checkpoint.phase is Ready else { return Current }
+  guard replica.phase is Ready else { return Current }
   let synchronized = match content {
     Save(text) =>
-      checkpoint.baseline is Deleted(_) ||
-      checkpoint.baseline.same_present_text(text)
-    Delete => checkpoint.baseline is Deleted(_)
+      replica.baseline is Deleted(_) || replica.baseline.same_present_text(text)
+    Delete => replica.baseline is Deleted(_)
   }
   if synchronized {
     Current
   } else {
-    Start({ checkpoint, content, })
+    Start({ replica, content, })
   }
 }
 
 ///|
-pub fn SyncCheckpoint::plan_save(self : Self) -> OperationPlan {
+pub fn DocumentReplica::plan_save(self : Self) -> OperationPlan {
   plan_operation(self, Save(self.document.text()))
 }
 
 ///|
-pub fn SyncCheckpoint::plan_delete(self : Self) -> OperationPlan {
+pub fn DocumentReplica::plan_delete(self : Self) -> OperationPlan {
   plan_operation(self, Delete)
 }
 
@@ -98,14 +97,14 @@ pub fn SyncCheckpoint::plan_delete(self : Self) -> OperationPlan {
 pub fn OperationDraft::start(
   self : Self,
   operation_id : OperationId,
-) -> CheckpointWrite {
+) -> ReplicaWrite {
   let operation = {
     operation_id,
-    base_revision: self.checkpoint.baseline.revision(),
+    base_revision: self.replica.baseline.revision(),
     content: self.content,
   }
-  CheckpointOnly(
-    { ..self.checkpoint, phase: Sending(operation), } |> SyncCheckpoint::advance,
+  Store(
+    { ..self.replica, phase: Sending(operation), } |> DocumentReplica::advance,
   )
 }
 
@@ -117,11 +116,11 @@ pub(all) suberror ReceiptMismatch {
 } derive(Eq, Debug)
 
 ///|
-pub fn SyncCheckpoint::acknowledge(
+pub fn DocumentReplica::acknowledge(
   self : Self,
   operation_id : OperationId,
   revision : SavedRevision,
-) -> CheckpointWrite raise ReceiptMismatch {
+) -> ReplicaWrite raise ReceiptMismatch {
   guard self.phase is Sending(operation) else { raise NoPendingOperation }
   guard operation.operation_id == operation_id else { raise OperationMismatch }
   guard revision.value() == operation.base_revision + 1.0 else {
@@ -131,26 +130,26 @@ pub fn SyncCheckpoint::acknowledge(
     Save(text) => RemoteDocument::Present(revision, text)
     Delete => RemoteDocument::Deleted(revision)
   }
-  CheckpointOnly({ ..self, baseline, phase: Ready, } |> SyncCheckpoint::advance)
+  Store({ ..self, baseline, phase: Ready, } |> DocumentReplica::advance)
 }
 
 ///|
 /// Retire an operation that the server definitively did not apply. Delivery
 /// failures with an uncertain outcome must retain the Sending phase instead.
-pub fn SyncCheckpoint::reject_operation(
+pub fn DocumentReplica::reject_operation(
   self : Self,
   operation_id : OperationId,
-) -> CheckpointWrite raise ReceiptMismatch {
+) -> ReplicaWrite raise ReceiptMismatch {
   guard self.phase is Sending(operation) else { raise NoPendingOperation }
   guard operation.operation_id == operation_id else { raise OperationMismatch }
-  CheckpointOnly({ ..self, phase: Ready, } |> SyncCheckpoint::advance)
+  Store({ ..self, phase: Ready, } |> DocumentReplica::advance)
 }
 
 ///|
 /// Retire an operation that the server definitively rejected because a newer
 /// remote revision exists. Uncertain delivery failures must keep using the
 /// persisted operation instead.
-pub fn SyncCheckpoint::reject_conflict(
+pub fn DocumentReplica::reject_conflict(
   self : Self,
   operation_id : OperationId,
   remote : RemoteDocument,
@@ -166,24 +165,24 @@ pub fn SyncCheckpoint::reject_conflict(
 ///|
 pub enum ReconcilePlan {
   Unchanged
-  Persist(CheckpointWrite)
+  Persist(ReplicaWrite)
 } derive(Eq, Debug)
 
 ///|
-pub fn SyncCheckpoint::preserve(
+pub fn DocumentReplica::preserve(
   self : Self,
   value : DocumentId,
-) -> CheckpointWrite raise InvalidRecoveryId {
+) -> ReplicaWrite raise InvalidRecoveryId {
   guard self.phase is Diverged(remote) else { raise InvalidRecoveryId }
   let recovery = recovery_identity(self.document.id(), value)
   let recovery_document = recovery.document(self.document.text())
   let next = { ..self, baseline: remote, phase: Conflict(recovery), }
-    |> SyncCheckpoint::advance
-  CheckpointAndRecovery(next, recovery_document)
+    |> DocumentReplica::advance
+  StoreWithRecovery(next, recovery_document)
 }
 
 ///|
-pub fn SyncCheckpoint::reconcile(
+pub fn DocumentReplica::reconcile(
   self : Self,
   remote : RemoteDocument,
 ) -> ReconcilePlan {
@@ -203,25 +202,25 @@ pub fn SyncCheckpoint::reconcile(
   if remote.same_content(self.baseline) ||
     remote.same_present_text(self.document.text()) {
     let next = { ..self, baseline: remote, phase: Ready, }
-      |> SyncCheckpoint::advance
-    return Persist(CheckpointOnly(next))
+      |> DocumentReplica::advance
+    return Persist(Store(next))
   }
   if self.baseline.same_present_text(self.document.text()) {
-    let next = { ..self, phase: Available(remote), } |> SyncCheckpoint::advance
-    return Persist(CheckpointOnly(next))
+    let next = { ..self, phase: Available(remote), } |> DocumentReplica::advance
+    return Persist(Store(next))
   }
-  let next = { ..self, phase: Diverged(remote), } |> SyncCheckpoint::advance
-  Persist(CheckpointOnly(next))
+  let next = { ..self, phase: Diverged(remote), } |> DocumentReplica::advance
+  Persist(Store(next))
 }
 
 ///|
 /// Advance an unopened remote document to the exact revision selected by the
 /// user. Unlike background reconciliation, this may replace text because the
 /// document has not yet been activated for editing.
-pub fn SyncCheckpoint::refresh(
+pub fn DocumentReplica::refresh(
   self : Self,
   remote : RemoteDocument,
-) -> CheckpointWrite? {
+) -> ReplicaWrite? {
   guard remote is RemoteDocument::Present(_, text) &&
     remote.revision() > self.observed_revision() &&
     self.phase is Ready &&
@@ -229,14 +228,14 @@ pub fn SyncCheckpoint::refresh(
     return None
   }
   Some(
-    CheckpointOnly(
+    Store(
       {
         ..self,
         document: self.document.update(text),
         baseline: remote,
         phase: Ready,
       }
-      |> SyncCheckpoint::advance,
+      |> DocumentReplica::advance,
     ),
   )
 }

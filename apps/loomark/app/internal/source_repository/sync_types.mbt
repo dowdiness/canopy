@@ -11,7 +11,7 @@ pub(all) suberror InvalidRecoveryId derive(Eq, Debug)
 pub(all) suberror InvalidRevision derive(Eq, Debug)
 
 ///|
-pub(all) suberror InvalidCheckpoint derive(Eq, Debug)
+pub(all) suberror InvalidReplica derive(Eq, Debug)
 
 ///|
 pub struct AccountId(String) derive(Eq, Hash, Debug)
@@ -167,7 +167,7 @@ fn RecoveryIdentity::document(self : Self, text : String) -> Document {
 }
 
 ///|
-pub enum SyncPhase {
+pub enum ReplicaPhase {
   Ready
   Sending(PendingOperation)
   Available(RemoteDocument)
@@ -176,65 +176,65 @@ pub enum SyncPhase {
 } derive(Eq, Debug)
 
 ///|
-pub struct SyncCheckpoint {
+pub struct DocumentReplica {
   account : AccountId
   generation : Double
   document : Document
   baseline : RemoteDocument
-  phase : SyncPhase
+  phase : ReplicaPhase
 } derive(Eq, Debug)
 
 ///|
-pub fn SyncCheckpoint::enroll(
+pub fn DocumentReplica::DocumentReplica(
   account : AccountId,
   document : Document,
-) -> SyncCheckpoint {
+) -> DocumentReplica {
   {
     account,
     generation: 0.0,
     document,
     baseline: RemoteDocument::Missing,
-    phase: SyncPhase::Ready,
+    phase: ReplicaPhase::Ready,
   }
 }
 
 ///|
-pub fn SyncCheckpoint::receive(
+pub fn DocumentReplica::receive(
   account : AccountId,
   document : Document,
   revision : SavedRevision,
-) -> SyncCheckpoint {
+) -> DocumentReplica {
   {
     account,
     generation: 0.0,
     document,
     baseline: RemoteDocument::Present(revision, document.text()),
-    phase: SyncPhase::Ready,
+    phase: ReplicaPhase::Ready,
   }
 }
 
 ///|
-pub fn SyncCheckpoint::account(self : Self) -> AccountId {
+pub fn DocumentReplica::account(self : Self) -> AccountId {
   self.account
 }
 
 ///|
-pub fn SyncCheckpoint::document(self : Self) -> Document {
+pub fn DocumentReplica::document(self : Self) -> Document {
   self.document
 }
 
 ///|
-pub fn SyncCheckpoint::generation(self : Self) -> Double {
+pub fn DocumentReplica::generation(self : Self) -> Double {
   self.generation
 }
 
 ///|
-pub fn SyncCheckpoint::baseline_revision(self : Self) -> Double {
+pub fn DocumentReplica::baseline_revision(self : Self) -> Double {
   self.baseline.revision()
 }
 
 ///|
-pub fn SyncCheckpoint::observed_revision(self : Self) -> Double {
+pub fn DocumentReplica::observed_revision(self : Self) -> Double {
   match self.phase {
     Available(remote) | Diverged(remote) => remote.revision()
     Ready | Sending(_) | Conflict(_) => self.baseline.revision()
@@ -242,40 +242,40 @@ pub fn SyncCheckpoint::observed_revision(self : Self) -> Double {
 }
 
 ///|
-fn SyncCheckpoint::advance(self : Self) -> SyncCheckpoint {
+fn DocumentReplica::advance(self : Self) -> DocumentReplica {
   { ..self, generation: self.generation + 1.0, }
 }
 
 ///|
-fn checkpoint_from_storage(
+fn replica_from_storage(
   account : AccountId,
   document : Document,
   generation : Double,
   baseline : RemoteDocument,
-  phase : SyncPhase,
-) -> SyncCheckpoint raise InvalidCheckpoint {
+  phase : ReplicaPhase,
+) -> DocumentReplica raise InvalidReplica {
   guard generation >= 0.0 &&
     generation <= 9007199254740991.0 &&
     @double.floor(generation) == generation else {
-    raise InvalidCheckpoint
+    raise InvalidReplica
   }
   match phase {
     Sending(operation) => {
       guard operation.base_revision == baseline.revision() else {
-        raise InvalidCheckpoint
+        raise InvalidReplica
       }
     }
     Available(remote) => {
       guard remote.revision() > baseline.revision() &&
         baseline.same_present_text(document.text()) else {
-        raise InvalidCheckpoint
+        raise InvalidReplica
       }
     }
     Diverged(remote) => {
       guard remote.revision() > baseline.revision() &&
         !baseline.same_present_text(document.text()) &&
         !remote.same_present_text(document.text()) else {
-        raise InvalidCheckpoint
+        raise InvalidReplica
       }
     }
     Ready | Conflict(_) => ()
@@ -285,21 +285,27 @@ fn checkpoint_from_storage(
 
 ///|
 /// A write intent produced by a sync transition. Callers cannot accidentally
-/// detach conflict recovery from its checkpoint.
-pub enum CheckpointWrite {
-  CheckpointOnly(SyncCheckpoint)
-  CheckpointAndRecovery(SyncCheckpoint, Document)
+/// detach conflict recovery from its replica.
+pub enum ReplicaWrite {
+  Store(DocumentReplica)
+  StoreWithRecovery(DocumentReplica, Document)
+  PromoteSource(DocumentReplica)
 } derive(Eq, Debug)
 
 ///|
-pub fn CheckpointWrite::checkpoint(self : Self) -> SyncCheckpoint {
+pub fn ReplicaWrite::replica(self : Self) -> DocumentReplica {
   match self {
-    CheckpointOnly(checkpoint) | CheckpointAndRecovery(checkpoint, _) =>
-      checkpoint
+    Store(replica) | StoreWithRecovery(replica, _) | PromoteSource(replica) =>
+      replica
   }
 }
 
 ///|
-pub fn SyncCheckpoint::write(self : Self) -> CheckpointWrite {
-  CheckpointOnly(self)
+pub fn DocumentReplica::store(self : Self) -> ReplicaWrite {
+  Store(self)
+}
+
+///|
+pub fn DocumentReplica::promote_source(self : Self) -> ReplicaWrite {
+  PromoteSource(self)
 }

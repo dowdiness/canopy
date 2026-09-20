@@ -9,8 +9,23 @@ priv enum Page {
 ///|
 priv struct Model {
   page : Page
-  sync : @sync.State
+  replication : @replication.State
 } derive(Eq)
+
+///|
+fn Model::sync(self : Self) -> @sync.State {
+  self.replication.protocol()
+}
+
+///|
+fn Model::with_sync(self : Self, sync : @sync.State) -> Self {
+  { ..self, replication: self.replication.with_protocol(sync), }
+}
+
+///|
+fn Model::with_page(self : Self, page : Page) -> Self {
+  { ..self, page, }
+}
 
 ///|
 priv struct PreparingNewState {
@@ -77,13 +92,19 @@ priv enum DocumentDeletion {
 } derive(Eq)
 
 ///|
+priv enum SyncRetry {
+  RetryPersistence(@replica_persistence.Retry)
+  RetryNetwork(@sync.Retry)
+} derive(Eq)
+
+///|
 priv enum Msg {
   Opened(@source_repository.OpenResult)
   EmptyCreateCompleted(Int, @source_repository.CreateResult)
   ExampleSelected(Activation, String)
-  TextChanged(Activation, @text_change.TextChange)
-  CompositionStarted(Activation)
-  CompositionEnded(Activation)
+  TextChanged(Int, @text_change.TextChange)
+  CompositionStarted(Int)
+  CompositionEnded(Int)
   ModeSelected(EditorMode)
   ImportFilesSelected(FixedArray[@browser.File])
   ImportReadCompleted(Result[Bytes, Error])
@@ -96,6 +117,9 @@ priv enum Msg {
   ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
   RetrySave
+  RetryAccount
+  StartSync(@documents.StartSync)
+  RetrySync(SyncRetry)
   DocumentSelected(@documents.Key)
   CreateRequested
   CreateCompleted(@documents.Key, @source_repository.CreateResult)
@@ -104,7 +128,8 @@ priv enum Msg {
   DeleteConfirmed(@documents.Key)
   RetryDelete(@documents.Key)
   DismissDeleteFailure(@documents.Key)
-  SaveCheckpoint(@source_repository.AccountId, @source_repository.Document)
+  ReplicaEligible(@source_repository.AccountId, @source_repository.Document)
+  PersistReplica(@source_repository.ReplicaWrite)
   Sync(SyncMsg)
 }
 
@@ -116,7 +141,10 @@ priv enum SyncMsg {
     @sync.DiscoveryId,
     @document_http.DiscoveryResult
   )
-  CheckpointCompleted(@sync.RequestId, @source_repository.CheckpointResult)
+  ReplicaWriteCompleted(
+    @replica_persistence.Attempt,
+    Result[Unit, @source_repository.ReplicaFailure]
+  )
   OperationPrepared(
     @sync.PlanId,
     @source_repository.AccountId,

@@ -3,11 +3,15 @@ package "dowdiness/loomark/app/internal/documents"
 
 import {
   "dowdiness/loomark/app/internal/source_repository",
+  "moonbitlang/core/debug",
 }
 
 // Values
 
 // Errors
+pub(all) suberror ActionError {
+  ExpiredAction
+} derive(Eq, @debug.Debug)
 
 // Types and methods
 pub struct DeleteOperation {
@@ -24,25 +28,27 @@ pub(all) enum DeleteStatus {
 } derive(Eq)
 
 pub(all) enum Effect {
-  ArmMaximum(Key, Int)
+  ArmMaximum(Int)
   PersistSource(SaveOperation)
-  PersistCheckpoint(@source_repository.CheckpointWrite)
+  PersistReplica(@source_repository.ReplicaWrite)
+  ReplicaEligible(@source_repository.AccountId, @source_repository.Document)
   DeleteSource(DeleteOperation)
 }
 
 pub(all) enum Feedback {
-  MaximumElapsed(Key, Int)
+  MaximumElapsed(Int)
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
-  CheckpointCompleted(@source_repository.CheckpointResult)
+  ReplicaCommitted(@source_repository.ReplicaWrite)
+  PromotionCompleted(@source_repository.ReplicaWrite, Result[Unit, @source_repository.ReplicaFailure])
   DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
 }
 
 pub enum Key {
   Source(@source_repository.DocumentId)
-  Checkpoint(@source_repository.AccountId, @source_repository.DocumentId)
+  Replica(@source_repository.AccountId, @source_repository.DocumentId)
 } derive(Eq, Hash)
-pub fn Key::checkpoint(@source_repository.AccountId, @source_repository.DocumentId) -> Self
 pub fn Key::lifecycle_key(Self) -> String
+pub fn Key::replica(@source_repository.AccountId, @source_repository.DocumentId) -> Self
 pub fn Key::source(@source_repository.DocumentId) -> Self
 
 pub(all) enum Msg {
@@ -71,10 +77,17 @@ pub(all) enum SaveStatus {
   SaveFailed(@source_repository.SaveFailure)
 } derive(Eq)
 
+pub struct StartSync {
+  // private fields
+} derive(Eq)
+pub fn StartSync::account(Self) -> @source_repository.AccountId
+pub fn StartSync::document_id(Self) -> @source_repository.DocumentId
+
 pub struct State {
   // private fields
 } derive(Eq)
 pub fn State::State(@source_repository.SavedDocuments) -> Self
+pub fn State::admit_replica(Self, @source_repository.DocumentReplica) -> Self
 pub fn State::delete_status(Self, Key) -> DeleteStatus?
 pub fn State::document(Self, Key) -> @source_repository.Document?
 pub fn State::fallback_document(Self, Key) -> Key?
@@ -87,7 +100,15 @@ pub fn State::reduce(Self, Msg) -> (Self, Array[Effect])
 pub fn State::resume_hint(Self, Key) -> @source_repository.EditingDocumentHint?
 pub fn State::save_status(Self, Key) -> SaveStatus?
 pub fn State::snapshot(Self) -> @source_repository.SavedDocuments
+pub fn State::start_sync(Self, StartSync) -> (Self, Array[Effect]) raise ActionError
+pub fn State::sync_start(Self, Key, @source_repository.AccountId) -> SyncStart
 pub fn State::text(Self, Key) -> String?
+
+pub(all) enum SyncStart {
+  Unavailable
+  Ready(StartSync)
+  Starting
+} derive(Eq)
 
 // Type aliases
 

@@ -30,8 +30,8 @@ fn acknowledged_document(
 ) -> @source_repository.Document? {
   match key {
     Source(document_id) => saved.find(document_id)
-    Checkpoint(account, document_id) =>
-      saved.checkpoint(account, document_id).map(value => value.document())
+    Replica(account, document_id) =>
+      saved.replica(account, document_id).map(value => value.document())
   }
 }
 
@@ -54,17 +54,21 @@ fn apply_text(
     source => source
   }
   let acknowledged = acknowledged_document(documents.saved, record.key())
-  let is_clean = acknowledged is Some(saved) && saved.text() == text
+  // A committed Replica can be older than the active persistence lane. Submit
+  // every eligible Replica edit and let that lane compare against its head.
+  let is_clean = record.persistence is Source(_, _) &&
+    acknowledged is Some(saved) &&
+    saved.text() == text
   let in_flight = record.save is Saving(_, _)
-  let (documents, checkpoint) = if is_clean && !in_flight {
+  let (documents, replica) = if is_clean && !in_flight {
     (documents, None)
   } else {
     match record.save {
-      Saving(_, Some(checkpoint)) | Waiting(checkpoint) =>
-        (documents, Some(revise_checkpoint(checkpoint)))
+      Saving(_, Some(replica)) | Waiting(replica) =>
+        (documents, Some(revise_autosave(replica)))
       Saving(_, None) | Saved | Failed(_) => {
-        let (next, checkpoint) = allocate_checkpoint(documents)
-        (next, Some(checkpoint))
+        let (next, replica) = allocate_autosave(documents)
+        (next, Some(replica))
       }
     }
   }
@@ -74,9 +78,8 @@ fn apply_text(
     LeadSource::Unlisted => true
   }
   let edit = if needs_lead ||
-    (match checkpoint {
-      Some(checkpoint) =>
-        checkpoint.eligibility == DocumentsCheckpointEligibility::Deferred
+    (match replica {
+      Some(replica) => replica.eligibility == AutosaveEligibility::Deferred
       None => false
     }) {
     match record.edit {
@@ -90,13 +93,13 @@ fn apply_text(
       _ => EditState::Idle
     }
   }
-  let save = match checkpoint {
+  let save = match replica {
     None => Saved
     Some(_) if is_clean && !in_flight => Saved
-    Some(checkpoint) =>
+    Some(replica) =>
       match record.save {
-        Saving(operation, _) => Saving(operation, Some(checkpoint))
-        _ => Waiting(checkpoint)
+        Saving(operation, _) => Saving(operation, Some(replica))
+        _ => Waiting(replica)
       }
   }
   let record = { ..record, document, lead_source, edit, save, }
@@ -107,14 +110,12 @@ fn apply_text(
       record,
     ),
   }
-  match checkpoint {
+  match replica {
     None => (documents, [])
     Some(_) if is_composing(edit) => (documents, [])
-    Some(checkpoint) => {
-      let (checkpoint, decisions) = checkpoint_effect(
-        document_id, checkpoint, false,
-      )
-      (replace_checkpoint(documents, document_id, checkpoint), decisions)
+    Some(replica) => {
+      let (replica, decisions) = autosave_effect(replica, false)
+      (replace_autosave(documents, document_id, replica), decisions)
     }
   }
 }
@@ -159,15 +160,25 @@ fn apply_pending_edit(
 ///|
 fn eligible_maximum(
   documents : State,
-  document_id : Key,
   maximum_id : Int,
 ) -> (State, Array[Effect]) {
-  guard find_record(documents.records, document_id) is Some(record) else {
+  guard documents.records
+    .view()
+    .search_by(record => {
+      match record.save {
+        Waiting(replica) | Saving(_, Some(replica)) =>
+          replica.maximum_id == maximum_id
+        Saved | Saving(_, None) | Failed(_) => false
+      }
+    })
+    is Some(index) else {
     return (documents, [])
   }
+  let record = documents.records[index]
+  let document_id = record.key()
   guard !delete_is_active(record.delete_phase()) else { return (documents, []) }
   match record.save {
-    Waiting(checkpoint) if checkpoint.maximum_id == maximum_id => {
+    Waiting(replica) if replica.maximum_id == maximum_id => {
       let (record, decisions) = mark_eligible(documents.saved, record)
       (
         {
@@ -177,7 +188,7 @@ fn eligible_maximum(
         decisions,
       )
     }
-    Saving(_, Some(checkpoint)) if checkpoint.maximum_id == maximum_id => {
+    Saving(_, Some(replica)) if replica.maximum_id == maximum_id => {
       let (record, decisions) = mark_eligible(documents.saved, record)
       (
         {
@@ -197,35 +208,29 @@ fn mark_eligible(
   record : Record,
 ) -> (Record, Array[Effect]) {
   match record.save {
-    Waiting(checkpoint) if is_composing(record.edit) =>
+    Waiting(replica) if is_composing(record.edit) =>
       (
         {
           ..record,
           save: Waiting({
-            ..checkpoint,
-            eligibility: DocumentsCheckpointEligibility::Eligible,
+            ..replica,
+            eligibility: AutosaveEligibility::Eligible,
           }),
         },
         [],
       )
-    Waiting(checkpoint) =>
+    Waiting(replica) =>
       begin_save(saved, {
         ..record,
-        save: Waiting({
-          ..checkpoint,
-          eligibility: DocumentsCheckpointEligibility::Eligible,
-        }),
+        save: Waiting({ ..replica, eligibility: AutosaveEligibility::Eligible, }),
       })
-    Saving(operation, Some(checkpoint)) =>
+    Saving(operation, Some(replica)) =>
       (
         {
           ..record,
           save: Saving(
             operation,
-            Some({
-              ..checkpoint,
-              eligibility: DocumentsCheckpointEligibility::Eligible,
-            }),
+            Some({ ..replica, eligibility: AutosaveEligibility::Eligible, }),
           ),
         },
         [],
@@ -250,24 +255,19 @@ fn accept_pending(
 ///|
 fn finish_composition(
   saved : @source_repository.SavedDocuments,
-  document_id : Key,
   record : Record,
 ) -> (Record, Array[Effect]) {
   match record.save {
-    Waiting(checkpoint) if checkpoint.eligibility ==
-      DocumentsCheckpointEligibility::Eligible => begin_save(saved, record)
-    Waiting(checkpoint) => {
-      let (checkpoint, decisions) = checkpoint_effect(
-        document_id, checkpoint, false,
-      )
-      ({ ..record, save: Waiting(checkpoint), }, decisions)
+    Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible =>
+      begin_save(saved, record)
+    Waiting(replica) => {
+      let (replica, decisions) = autosave_effect(replica, false)
+      ({ ..record, save: Waiting(replica), }, decisions)
     }
-    Saving(operation, Some(checkpoint)) if checkpoint.eligibility ==
-      DocumentsCheckpointEligibility::Deferred => {
-      let (checkpoint, decisions) = checkpoint_effect(
-        document_id, checkpoint, false,
-      )
-      ({ ..record, save: Saving(operation, Some(checkpoint)), }, decisions)
+    Saving(operation, Some(replica)) if replica.eligibility ==
+      AutosaveEligibility::Deferred => {
+      let (replica, decisions) = autosave_effect(replica, false)
+      ({ ..record, save: Saving(operation, Some(replica)), }, decisions)
     }
     _ => (record, [])
   }
@@ -300,21 +300,21 @@ fn complete_waiting_delete(
 fn complete_stored(
   documents : State,
   record : Record,
-  pending : DocumentsCheckpoint?,
+  pending : AutosaveWindow?,
   saved : @source_repository.SavedDocuments,
 ) -> (State, Array[Effect]) {
   let document_id = record.key()
   let persistence = match record.persistence {
     Source(EphemeralNew | ImportedNew, deletion) =>
       DocumentPersistence::Source(Existing, deletion)
-    Source(Existing, _) | Checkpoint(_) => record.persistence
+    Source(Existing, _) | StartingSync(_, _) | Replica(_) => record.persistence
   }
   let completed = { ..record, persistence, }
   match record.persistence {
     Source(origin, SourceDeletePhase::Waiting(delete_operation)) => {
       let retained = match pending {
-        Some(checkpoint) if acknowledged_document(saved, record.key()) !=
-          Some(record.document) => DocumentsSaveStatus::Waiting(checkpoint)
+        Some(replica) if acknowledged_document(saved, record.key()) !=
+          Some(record.document) => DocumentsSaveStatus::Waiting(replica)
         _ => Saved
       }
       complete_waiting_delete(
@@ -327,14 +327,14 @@ fn complete_stored(
       | SourceDeletePhase::Available
       | SourceDeletePhase::Failed(_, _)
     )
-    | Checkpoint(_) => {
+    | StartingSync(_, _)
+    | Replica(_) => {
       let (next, decisions) = match pending {
         Some(_) if acknowledged_document(saved, record.key()) ==
           Some(record.document) => ({ ..completed, save: Saved, }, [])
-        Some(checkpoint) if checkpoint.eligibility ==
-          DocumentsCheckpointEligibility::Eligible &&
+        Some(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
           !is_composing(record.edit) => begin_save(saved, completed)
-        Some(checkpoint) => ({ ..completed, save: Waiting(checkpoint), }, [])
+        Some(replica) => ({ ..completed, save: Waiting(replica), }, [])
         None => ({ ..completed, save: Saved, }, [])
       }
       (
@@ -353,7 +353,7 @@ fn complete_stored(
 fn complete_failed(
   documents : State,
   record : Record,
-  pending : DocumentsCheckpoint?,
+  pending : AutosaveWindow?,
   failure : @source_repository.SaveFailure,
 ) -> (State, Array[Effect]) {
   let document_id = record.key()
@@ -383,7 +383,8 @@ fn complete_failed(
       | SourceDeletePhase::Available
       | SourceDeletePhase::Failed(_, _)
     )
-    | Checkpoint(_) => {
+    | StartingSync(_, _)
+    | Replica(_) => {
       let (next, decisions) = if acknowledged_document(
           documents.saved,
           record.key(),
@@ -392,11 +393,10 @@ fn complete_failed(
         ({ ..record, save: Saved, }, [])
       } else {
         match pending {
-          Some(checkpoint) if checkpoint.eligibility ==
-            DocumentsCheckpointEligibility::Eligible &&
+          Some(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
             !is_composing(record.edit) =>
-            begin_save(documents.saved, { ..record, save: Waiting(checkpoint), })
-          Some(checkpoint) => ({ ..record, save: Waiting(checkpoint), }, [])
+            begin_save(documents.saved, { ..record, save: Waiting(replica), })
+          Some(replica) => ({ ..record, save: Waiting(replica), }, [])
           None => ({ ..record, save: Failed(failure), }, [])
         }
       }
@@ -440,68 +440,114 @@ fn complete(
 }
 
 ///|
-fn checkpoint_failure(
-  failure : @source_repository.CheckpointFailure,
-) -> @source_repository.SaveFailure {
-  match failure {
-    InvalidCheckpoint => @source_repository.SaveFailure::InvalidSource
-    StorageUnavailable => @source_repository.SaveFailure::StorageUnavailable
-    QuotaExceeded => @source_repository.SaveFailure::QuotaExceeded
-    WriteFailed => @source_repository.SaveFailure::WriteFailed
+fn complete_replica(
+  documents : State,
+  write : @source_repository.ReplicaWrite,
+) -> (State, Array[Effect]) {
+  let saved = documents.saved.apply_replica_write(write) catch {
+    _ => return (documents, [])
+  }
+  // Replica persistence acknowledges repository state, not the working-copy
+  // Autosave window. A newer edit may have returned to this exact text while
+  // another Replica write is still queued.
+  ({ ..documents, saved, }, [])
+}
+
+///|
+pub fn State::start_sync(
+  documents : State,
+  action : StartSync,
+) -> (State, Array[Effect]) raise ActionError {
+  guard documents.sync_start(action.key, action.account) == Ready(action) else {
+    raise ExpiredAction
+  }
+  (
+    {
+      ..documents,
+      records: replace_record(documents.records, action.key, current => {
+        ..current,
+        persistence: StartingSync(action.account, action.document),
+      }),
+    },
+    [
+      PersistReplica(
+        @source_repository.DocumentReplica(action.account, action.document).promote_source(),
+      ),
+    ],
+  )
+}
+
+///|
+fn finish_sync_start_record(
+  saved : @source_repository.SavedDocuments,
+  record : Record,
+) -> (Record, Array[Effect]) {
+  match record.save {
+    Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
+      !is_composing(record.edit) => begin_save(saved, record)
+    Saved | Waiting(_) => (record, [])
+    Saving(_, _) | Failed(_) => (record, [])
   }
 }
 
 ///|
-fn complete_checkpoint(
+fn complete_sync_start(
   documents : State,
-  result : @source_repository.CheckpointResult,
+  replica : @source_repository.DocumentReplica,
+  result : Result[Unit, @source_repository.ReplicaFailure],
 ) -> (State, Array[Effect]) {
+  let source_key = Key::source(replica.document().id())
+  guard find_record(documents.records, source_key) is Some(record) &&
+    record.persistence is StartingSync(account, source) &&
+    account == replica.account() &&
+    source == replica.document() else {
+    return (documents, [])
+  }
   match result {
-    CheckpointStored(checkpoint) => {
-      let saved = documents.saved.apply_checkpoint(checkpoint) catch {
-        _ => return (documents, [])
-      }
-      let documents = { ..documents, saved, }
-      let key = Key::checkpoint(
-        checkpoint.account(),
-        checkpoint.document().id(),
-      )
-      let document_id = key
-      guard find_record(documents.records, document_id) is Some(record) &&
-        record.save is Saving(operation, pending) &&
-        operation.key == key &&
-        operation.document == checkpoint.document() else {
+    Ok(_) => {
+      guard documents.saved.apply_sync_start(replica) is Some(saved) else {
         return (documents, [])
       }
-      complete_stored(documents, record, pending, saved)
+      let transitioned = {
+        ..record,
+        persistence: Replica(account),
+        save: if record.document == replica.document() {
+          Saved
+        } else {
+          record.save
+        },
+      }
+      let (transitioned, effects) = finish_sync_start_record(
+        saved, transitioned,
+      )
+      (
+        {
+          ..documents,
+          saved,
+          records: prepend_record(
+            remove_record(documents.records, source_key),
+            transitioned,
+          ),
+        },
+        effects,
+      )
     }
-    CheckpointFailed(checkpoint, failure) => {
-      let key = Key::checkpoint(
-        checkpoint.account(),
-        checkpoint.document().id(),
+    Err(_) => {
+      let restored = {
+        ..record,
+        persistence: Source(Existing, SourceDeletePhase::Available),
+      }
+      let (restored, effects) = finish_sync_start_record(
+        documents.saved,
+        restored,
       )
-      let document_id = key
-      guard find_record(documents.records, document_id) is Some(record) &&
-        record.save is Saving(operation, pending) &&
-        operation.key == key else {
-        return (documents, [])
-      }
-      if operation.document == checkpoint.document() {
-        complete_failed(documents, record, pending, checkpoint_failure(failure))
-      } else if record.document == checkpoint.document() {
-        (
-          {
-            ..documents,
-            records: replace_record(documents.records, document_id, current => {
-              ..current,
-              save: Failed(checkpoint_failure(failure)),
-            }),
-          },
-          [],
-        )
-      } else {
-        (documents, [])
-      }
+      (
+        {
+          ..documents,
+          records: replace_record(documents.records, source_key, _ => restored),
+        },
+        effects,
+      )
     }
   }
 }

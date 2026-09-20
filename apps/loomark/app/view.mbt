@@ -56,9 +56,102 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 }
 
 ///|
+fn sync_status_label(text : String, compact? : String = text) -> @rabbita.Html {
+  @html.span(class="min-w-0 truncate px-1.5 py-1", title=text, [
+    @html.span(class="max-[641px]:hidden", text),
+    @html.span(class="min-[642px]:hidden", compact),
+  ])
+}
+
+///|
+fn sync_status_button(
+  text : String,
+  message : Msg,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  @html.button(
+    type_="button",
+    class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
+    on_click=emit(message),
+    text,
+  )
+}
+
+///|
+fn account_status_view(
+  status : AccountStatus,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match status {
+    Checking => sync_status_label("Checking account", compact="Checking")
+    SignedOut => sync_status_label("Signed out")
+    SignedIn(name) => sync_status_label(name)
+    Unavailable => sync_status_button("Retry account", RetryAccount, emit)
+  }
+}
+
+///|
+fn document_sync_status_view(
+  status : DocumentSyncStatus?,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match status {
+    None => @html.nothing
+    Some(SavingOnDevice) =>
+      sync_status_label("Saving on this device", compact="Saving")
+    Some(NotSaved) => sync_status_label("Not saved")
+    Some(SignInRequired) =>
+      sync_status_label("Sign in to sync", compact="Sign in")
+    Some(LocalOnly) | Some(SavedOnDevice) =>
+      sync_status_label("Saved on this device", compact="Saved")
+    Some(ReadyToSync(action)) =>
+      sync_status_button("Sync", StartSync(action), emit)
+    Some(WaitingToSync) => sync_status_label("Syncing")
+    Some(Synced) => sync_status_label("Synced")
+    Some(RetryAvailable(action)) =>
+      sync_status_button("Retry sync", RetrySync(action), emit)
+    Some(SyncBlocked) => sync_status_label("Sync paused")
+    Some(UpdateAvailable) =>
+      sync_status_label("Update available", compact="Update")
+    Some(Conflict) => sync_status_label("Sync conflict")
+  }
+}
+
+///|
+fn sync_status_view(
+  account : AccountStatus,
+  document : DocumentSyncStatus?,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  @html.div(
+    class="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-lm-muted max-[641px]:order-3 max-[641px]:w-full max-[641px]:justify-center",
+    attrs=@html.Attrs::build().role("status").aria_live("polite"),
+    [
+      @html.div(
+        class=if account == Unavailable {
+          "contents"
+        } else {
+          "contents max-[820px]:hidden"
+        },
+        [
+          account_status_view(account, emit),
+          @html.span(
+            class="text-lm-rule",
+            attrs=@html.Attrs::build().aria_hidden("true"),
+            "·",
+          ),
+        ],
+      ),
+      document_sync_status_view(document, emit),
+    ],
+  )
+}
+
+///|
 fn mode_bar(
   scope : @sidebar.SidebarScope,
   editing : EditingState,
+  sync_status : @rabbita.Html,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   @html.header(
@@ -88,6 +181,7 @@ fn mode_bar(
           ),
         ),
       ]),
+      sync_status,
       @html.div(class="flex min-w-0 items-center gap-1", [
         examples_bar(
           emit,
@@ -143,12 +237,12 @@ fn text_area_view(
           class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
           attrs=text_area.attach(
             @html.Attrs::build().aria_label("Text"),
-            change => emit(TextChanged(activation, change)),
+            change => emit(TextChanged(activation.generation, change)),
             composing => {
               if composing {
-                emit(CompositionStarted(activation))
+                emit(CompositionStarted(activation.generation))
               } else {
-                emit(CompositionEnded(activation))
+                emit(CompositionEnded(activation.generation))
               }
             },
           ),
@@ -268,6 +362,7 @@ fn view(
   model : Page,
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,
+  sync_status : @rabbita.Html,
   delete_dialog : @rabbita.Html,
   recent_navigation : @rabbita.Html,
 ) -> @rabbita.Html {
@@ -314,7 +409,7 @@ fn view(
               @html.div(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
                 [
-                  mode_bar(sidebar, editing, emit),
+                  mode_bar(sidebar, editing, sync_status, emit),
                   mode_content(editing.mode, editor_panels),
                   match
                     (

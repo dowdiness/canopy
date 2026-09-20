@@ -21,17 +21,17 @@ fn second_operation_id() -> @source_repository.OperationId {
 
 ///|
 fn pending_save() -> @source_repository.PendingOperation {
-  let checkpoint = @source_repository.SyncCheckpoint::enroll(
+  let replica = @source_repository.DocumentReplica(
     @source_repository.AccountId::parse("account") catch {
       _ => abort("valid account")
     },
     @source_repository.Document::create(document_id(), "exact text"),
   )
-  guard checkpoint.plan_save() is @source_repository.OperationPlan::Start(draft) else {
+  guard replica.plan_save() is @source_repository.OperationPlan::Start(draft) else {
     abort("save draft")
   }
-  guard draft.start(operation_id()).checkpoint().directive()
-    is @source_repository.SyncDirective::Send(operation) else {
+  guard draft.start(operation_id()).replica().directive()
+    is @source_repository.ReplicaDirective::Send(operation) else {
     abort("pending save")
   }
   operation
@@ -88,32 +88,32 @@ test "mutation JSON is derived from a typed pending operation" {
     ),
   )
 
-  let checkpoint = @source_repository.SyncCheckpoint::enroll(
+  let replica = @source_repository.DocumentReplica(
     @source_repository.AccountId::parse("account") catch {
       _ => abort("valid account")
     },
     @source_repository.Document::create(document_id(), "exact text"),
   )
-  let acknowledged = checkpoint.plan_save()
+  let acknowledged = replica.plan_save()
   guard acknowledged is @source_repository.OperationPlan::Start(save_draft) else {
     abort("save draft")
   }
   let acknowledged = save_draft
     .start(operation_id())
-    .checkpoint()
+    .replica()
     .acknowledge(
       operation_id(),
       @source_repository.SavedRevision::parse(1.0) catch {
         _ => abort("valid revision")
       },
     )
-    .checkpoint()
+    .replica()
   guard acknowledged.plan_delete()
     is @source_repository.OperationPlan::Start(delete_draft) else {
     abort("delete draft")
   }
-  guard delete_draft.start(second_operation_id()).checkpoint().directive()
-    is @source_repository.SyncDirective::Send(deletion) else {
+  guard delete_draft.start(second_operation_id()).replica().directive()
+    is @source_repository.ReplicaDirective::Send(deletion) else {
     abort("pending deletion")
   }
   assert_eq(

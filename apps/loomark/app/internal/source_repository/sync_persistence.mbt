@@ -1,24 +1,25 @@
 ///|
 fn preserve_recovery(
-  older : CheckpointWrite,
-  newer : CheckpointWrite,
-) -> CheckpointWrite {
+  older : ReplicaWrite,
+  newer : ReplicaWrite,
+) -> ReplicaWrite {
   match (older, newer) {
-    (CheckpointAndRecovery(_, recovery), CheckpointOnly(checkpoint)) =>
-      match checkpoint.phase {
-        SyncPhase::Conflict(recovery_identity) if recovery_identity.id() ==
-          recovery.id() => CheckpointAndRecovery(checkpoint, recovery)
+    (StoreWithRecovery(_, recovery), Store(replica)) =>
+      match replica.phase {
+        ReplicaPhase::Conflict(recovery_identity) if recovery_identity.id() ==
+          recovery.id() => StoreWithRecovery(replica, recovery)
         Ready | Sending(_) | Available(_) | Diverged(_) | Conflict(_) =>
-          CheckpointOnly(checkpoint)
+          Store(replica)
       }
+    (PromoteSource(_), Store(replica)) => PromoteSource(replica)
     (_, newer) => newer
   }
 }
 
 ///|
-pub fn CheckpointWrite::coalesce(
+pub fn ReplicaWrite::coalesce(
   self : Self,
-  newer : CheckpointWrite,
-) -> CheckpointWrite {
+  newer : ReplicaWrite,
+) -> ReplicaWrite {
   preserve_recovery(self, newer)
 }

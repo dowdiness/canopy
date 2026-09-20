@@ -1,7 +1,7 @@
 ///|
 pub enum Key {
   Source(@source_repository.DocumentId)
-  Checkpoint(@source_repository.AccountId, @source_repository.DocumentId)
+  Replica(@source_repository.AccountId, @source_repository.DocumentId)
 } derive(Eq, Hash)
 
 ///|
@@ -14,7 +14,8 @@ priv enum LocalDocumentOrigin {
 ///|
 priv enum DocumentPersistence {
   Source(LocalDocumentOrigin, SourceDeletePhase)
-  Checkpoint(@source_repository.AccountId)
+  StartingSync(@source_repository.AccountId, @source_repository.Document)
+  Replica(@source_repository.AccountId)
 } derive(Eq)
 
 ///|
@@ -26,23 +27,23 @@ priv enum SourceDeletePhase {
 } derive(Eq)
 
 ///|
-priv enum DocumentsCheckpointEligibility {
+priv enum AutosaveEligibility {
   Deferred
   Eligible
 } derive(Eq)
 
 ///|
-priv struct DocumentsCheckpoint {
+priv struct AutosaveWindow {
   maximum_id : Int
   maximum_armed : Bool
-  eligibility : DocumentsCheckpointEligibility
+  eligibility : AutosaveEligibility
 } derive(Eq)
 
 ///|
 priv enum DocumentsSaveStatus {
   Saved
-  Waiting(DocumentsCheckpoint)
-  Saving(SaveOperation, DocumentsCheckpoint?)
+  Waiting(AutosaveWindow)
+  Saving(SaveOperation, AutosaveWindow?)
   Failed(@source_repository.SaveFailure)
 } derive(Eq)
 
@@ -95,9 +96,13 @@ priv enum DocumentsDeletePhase {
 
 ///|
 pub(all) enum Feedback {
-  MaximumElapsed(Key, Int)
+  MaximumElapsed(Int)
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
-  CheckpointCompleted(@source_repository.CheckpointResult)
+  ReplicaCommitted(@source_repository.ReplicaWrite)
+  PromotionCompleted(
+    @source_repository.ReplicaWrite,
+    Result[Unit, @source_repository.ReplicaFailure]
+  )
   DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
 }
 
@@ -119,9 +124,10 @@ pub(all) enum Msg {
 
 ///|
 pub(all) enum Effect {
-  ArmMaximum(Key, Int)
+  ArmMaximum(Int)
   PersistSource(SaveOperation)
-  SaveCheckpoint(@source_repository.AccountId, @source_repository.Document)
+  PersistReplica(@source_repository.ReplicaWrite)
+  ReplicaEligible(@source_repository.AccountId, @source_repository.Document)
   DeleteSource(DeleteOperation)
 }
 
@@ -141,11 +147,30 @@ pub(all) enum DeleteStatus {
 } derive(Eq)
 
 ///|
+pub(all) enum SyncStart {
+  Unavailable
+  Ready(StartSync)
+  Starting
+} derive(Eq)
+
+///|
+pub struct StartSync {
+  priv key : Key
+  priv account : @source_repository.AccountId
+  priv document : @source_repository.Document
+} derive(Eq)
+
+///|
+pub(all) suberror ActionError {
+  ExpiredAction
+} derive(Eq, Debug)
+
+///|
 pub struct State {
   priv saved : @source_repository.SavedDocuments
   priv records : Array[Record]
   priv visible_account : @source_repository.AccountId?
-  priv last_checkpoint_id : Int
+  priv last_autosave_id : Int
   priv last_pending_edit_revision : Int
   priv last_delete_request : Int
 } derive(Eq)

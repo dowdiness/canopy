@@ -10,13 +10,13 @@ test "composition blocks persistence but keeps fresh revision" {
   assert_true(decisions.is_empty())
   guard find_record(documents.records, source_key("one")).unwrap().save
     is Waiting(_) else {
-    fail("waiting checkpoint")
+    fail("waiting replica")
   }
   assert_eq(pending_revision(documents, source_key("one")), 1)
   let (documents, decisions) = documents.reduce(
     CompositionEnded(source_key("one")),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("maximum") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("maximum") }
   assert_true(has_pending(documents, source_key("one")))
 }
 
@@ -24,9 +24,7 @@ test "composition blocks persistence but keeps fresh revision" {
 test "pending revision advances while maximum identity stays fresh" {
   let documents = State::State(documents_test_snapshot())
   let (documents, first) = documents.reduce(TextChanged(source_key("one"), "b"))
-  guard first is [Effect::ArmMaximum(_, maximum)] else {
-    fail("initial timers")
-  }
+  guard first is [Effect::ArmMaximum(maximum)] else { fail("initial timers") }
   assert_eq(pending_revision(documents, source_key("one")), 1)
   assert_eq(maximum, 1)
   let (documents, second) = documents.reduce(
@@ -42,12 +40,12 @@ test "maximum eligibility persists latest text during uninterrupted editing" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "b"),
   )
-  guard decisions is [Effect::ArmMaximum(_, maximum)] else {
+  guard decisions is [Effect::ArmMaximum(maximum)] else {
     fail("initial timers")
   }
   let (documents, _) = documents.reduce(TextChanged(source_key("one"), "c"))
   let (_, decisions) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(source_key("one"), maximum)),
+    FeedbackReceived(MaximumElapsed(maximum)),
   )
   guard decisions is [Effect::PersistSource(operation)] else {
     fail("maximum persist")
@@ -67,7 +65,7 @@ test "composition defers timers for an in-flight save until it ends" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "one!"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -88,17 +86,17 @@ test "composition defers timers for an in-flight save until it ends" {
   let (documents, decisions) = documents.reduce(
     CompositionEnded(source_key("one")),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("maximum") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("maximum") }
   assert_true(has_pending(documents, source_key("one")))
 }
 
 ///|
-test "visibility makes an in-flight save's latest checkpoint eligible" {
+test "visibility makes an in-flight save's latest replica eligible" {
   let documents = State::State(documents_test_snapshot())
   let (documents, timers) = documents.reduce(
     TextChanged(source_key("one"), "first"),
   )
-  guard timers is [Effect::ArmMaximum(_, _)] else { fail("initial timers") }
+  guard timers is [Effect::ArmMaximum(_)] else { fail("initial timers") }
   let (documents, persist) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -128,7 +126,7 @@ test "duplicate composition end emits one maximum decision" {
   let (documents, _) = documents.reduce(CompositionStarted(source_key("one")))
   let (documents, _) = documents.reduce(TextChanged(source_key("one"), "first"))
   let (documents, first) = documents.reduce(CompositionEnded(source_key("one")))
-  guard first is [Effect::ArmMaximum(_, _)] else {
+  guard first is [Effect::ArmMaximum(_)] else {
     fail("first composition end should arm maximum")
   }
   let (_, second) = documents.reduce(CompositionEnded(source_key("one")))
@@ -141,7 +139,7 @@ test "genuine composition cycles arm maximum once with saving pending" {
   let (documents, _) = documents.reduce(CompositionStarted(source_key("one")))
   let (documents, _) = documents.reduce(TextChanged(source_key("one"), "first"))
   let (documents, first) = documents.reduce(CompositionEnded(source_key("one")))
-  guard first is [Effect::ArmMaximum(_, _)] else { fail("first cycle maximum") }
+  guard first is [Effect::ArmMaximum(_)] else { fail("first cycle maximum") }
   let (documents, _) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -158,9 +156,7 @@ test "genuine composition cycles arm maximum once with saving pending" {
   let (documents, second) = documents.reduce(
     CompositionEnded(source_key("one")),
   )
-  guard second is [Effect::ArmMaximum(_, _)] else {
-    fail("second cycle maximum")
-  }
+  guard second is [Effect::ArmMaximum(_)] else { fail("second cycle maximum") }
   let (_, duplicate) = documents.reduce(CompositionEnded(source_key("one")))
   assert_true(duplicate.is_empty())
 }
@@ -232,7 +228,7 @@ test "composition end with no newer edit starts one pending subscription" {
   let (documents, decisions) = documents.reduce(
     CompositionEnded(source_key("one")),
   )
-  guard decisions is [ArmMaximum(_, _)] else { fail("maximum") }
+  guard decisions is [ArmMaximum(_)] else { fail("maximum") }
   assert_true(has_pending(documents, source_key("one")))
 }
 
@@ -253,13 +249,13 @@ test "eligible maximum during composition persists at composition end" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "changed"),
   )
-  guard decisions is [ArmMaximum(_, maximum)] else { fail("maximum") }
+  guard decisions is [ArmMaximum(maximum)] else { fail("maximum") }
   let (documents, decisions) = documents.reduce(
     CompositionStarted(source_key("one")),
   )
   assert_true(decisions.is_empty())
   let (documents, decisions) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(source_key("one"), maximum)),
+    FeedbackReceived(MaximumElapsed(maximum)),
   )
   assert_true(decisions.is_empty())
   let (documents, decisions) = documents.reduce(
@@ -351,7 +347,7 @@ test "ready composition end marks in-flight follow-up eligible once" {
   let (documents, first) = documents.reduce(
     TextChanged(source_key("one"), "first"),
   )
-  guard first is [ArmMaximum(_, _)] else { fail("timer") }
+  guard first is [ArmMaximum(_)] else { fail("timer") }
   let (documents, first) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -374,12 +370,10 @@ test "ready composition end marks in-flight follow-up eligible once" {
   )
   assert_true(decisions.is_empty())
   guard documents.save_phase(source_key("one"))
-    is Some(Saving(_, Some(checkpoint))) else {
-    fail("eligible queued checkpoint")
+    is Some(Saving(_, Some(replica))) else {
+    fail("eligible queued replica")
   }
-  assert_true(
-    checkpoint.eligibility == DocumentsCheckpointEligibility::Eligible,
-  )
+  assert_true(replica.eligibility == AutosaveEligibility::Eligible)
   let (_, follow_up) = documents.reduce(
     FeedbackReceived(SaveCompleted(operation, Stored(operation.document))),
   )

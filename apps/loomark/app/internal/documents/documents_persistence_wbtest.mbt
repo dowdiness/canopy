@@ -45,7 +45,7 @@ test "a second document persists while the first document is in flight" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "one!"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("initial timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("initial timers") }
   let (documents, first) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -59,7 +59,7 @@ test "a second document persists while the first document is in flight" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("two"), "two!"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("two timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("two timers") }
   let (documents, second) = documents.reduce(
     ApplyPendingEdit(
       source_key("two"),
@@ -85,7 +85,7 @@ test "reverse save acknowledgments merge into the latest snapshot" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "one!"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("one timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("one timers") }
   let (documents, one_decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -96,7 +96,7 @@ test "reverse save acknowledgments merge into the latest snapshot" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("two"), "two!"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("two timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("two timers") }
   let (documents, two_decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("two"),
@@ -126,7 +126,7 @@ test "inactive save completion updates the latest snapshot" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("two"), "two!"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("two"),
@@ -153,7 +153,7 @@ test "returning to operation text while saving preserves final fresh revision" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "b"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -166,7 +166,7 @@ test "returning to operation text while saving preserves final fresh revision" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "one"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else {
+  guard decisions is [Effect::ArmMaximum(_)] else {
     fail("new save window timers")
   }
   assert_true(has_pending(documents, source_key("one")))
@@ -189,12 +189,12 @@ test "returning to operation text while saving preserves final fresh revision" {
 }
 
 ///|
-test "deferred and eligible failures preserve or promote pending checkpoint" {
+test "deferred and eligible failures preserve or promote pending replica" {
   let documents = State::State(documents_test_snapshot())
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "b"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -207,7 +207,7 @@ test "deferred and eligible failures preserve or promote pending checkpoint" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "c"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else {
+  guard decisions is [Effect::ArmMaximum(_)] else {
     fail("pending save window timers")
   }
   let (documents, _) = documents.reduce(
@@ -228,7 +228,7 @@ test "deferred and eligible failures preserve or promote pending checkpoint" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "d"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else {
+  guard decisions is [Effect::ArmMaximum(_)] else {
     fail("latest save window timers")
   }
   let (documents, eligible) = documents.reduce(
@@ -270,7 +270,7 @@ test "confirmation waits for the matching save and then deletes" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "new"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -308,7 +308,7 @@ test "duplicate confirmation during waiting deletion preserves original operatio
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "new"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -361,7 +361,7 @@ test "failed existing save still releases a waiting delete" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "new"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -398,7 +398,7 @@ test "new in-flight stored save promotes before deletion" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("new"), "hello"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("new"),
@@ -423,7 +423,7 @@ test "new in-flight failed save is removed locally" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("new"), "hello"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("new"),
@@ -458,7 +458,7 @@ test "retry allocates a fresh operation and fences an active save" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "edited"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -486,9 +486,9 @@ test "maximum save completion then pending callback accepts source" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "maximum"),
   )
-  guard decisions is [ArmMaximum(_, maximum)] else { fail("maximum") }
+  guard decisions is [ArmMaximum(maximum)] else { fail("maximum") }
   let (documents, decisions) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(source_key("one"), maximum)),
+    FeedbackReceived(MaximumElapsed(maximum)),
   )
   guard decisions is [PersistSource(operation)] else { fail("save") }
   let (documents, _) = documents.reduce(
@@ -557,7 +557,7 @@ test "eligible pending latest text waits for delete without an intermediate writ
   )
   guard decisions is [DeleteSource(_)] else { fail("delete only") }
   guard documents.save_phase(source_key("one")) is Some(Waiting(_)) else {
-    fail("latest checkpoint must remain waiting")
+    fail("latest replica must remain waiting")
   }
 }
 
@@ -566,7 +566,7 @@ test "failed absent New completion removes the record before delete" {
   let documents = State::State(documents_test_snapshot())
   let (documents, _) = documents.reduce(New(document_id("new")))
   let (documents, timer) = documents.reduce(TextChanged(source_key("new"), "x"))
-  guard timer is [ArmMaximum(_, _)] else { fail("timer") }
+  guard timer is [ArmMaximum(_)] else { fail("timer") }
   let (documents, persist) = documents.reduce(
     ApplyPendingEdit(
       source_key("new"),
@@ -612,7 +612,7 @@ test "delete success removes acknowledged membership" {
 }
 
 ///|
-test "delete failure resumes the retained eligible latest checkpoint" {
+test "delete failure resumes the retained eligible latest replica" {
   let documents = State::State(documents_test_snapshot())
   let (documents, _) = documents.reduce(TextChanged(source_key("one"), "first"))
   let (documents, persist) = documents.reduce(

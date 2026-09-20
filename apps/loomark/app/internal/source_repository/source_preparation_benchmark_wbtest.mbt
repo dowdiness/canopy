@@ -19,19 +19,19 @@ test "bench: derive catalog name for large document" (b : @bench.T) {
 }
 
 ///|
-test "bench: encode shared 1 MiB sync checkpoint text" (b : @bench.T) {
+test "bench: encode shared 1 MiB sync replica text" (b : @bench.T) {
   let text = String::make(1024 * 1024, 'x')
-  let enrolled = SyncCheckpoint::enroll(
+  let replica = DocumentReplica(
     test_account(value="bench-account"),
     Document::create(test_document_id("bench-document"), text),
   )
-  let pending = start_save(enrolled, "11111111-1111-4111-8111-111111111111")
+  let pending = start_save(replica, "11111111-1111-4111-8111-111111111111")
   let acknowledged = pending
-    .checkpoint()
+    .replica()
     .acknowledge(
       test_operation("11111111-1111-4111-8111-111111111111"),
       test_revision(1.0),
     )
-  let checkpoint = acknowledged.checkpoint()
-  b.bench(fn() { b.keep(encode_checkpoint(checkpoint)) })
+  let replica = acknowledged.replica()
+  b.bench(fn() { b.keep(encode_replica(replica)) })
 }

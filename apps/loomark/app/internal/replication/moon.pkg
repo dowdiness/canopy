@@ -1,0 +1,7 @@
+import {
+  "dowdiness/loomark/app/internal/replica_persistence",
+  "dowdiness/loomark/app/internal/source_repository",
+  "dowdiness/loomark/app/internal/sync",
+}
+
+supported_targets = "js"

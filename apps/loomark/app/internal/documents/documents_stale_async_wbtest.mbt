@@ -6,10 +6,10 @@ test "stale timers and mismatched stored records are ignored" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "b"),
   )
-  guard decisions is [Effect::ArmMaximum(_, _)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
   let (documents, _) = documents.reduce(TextChanged(source_key("one"), "c"))
   let (documents, stale_max) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(source_key("one"), 99)),
+    FeedbackReceived(MaximumElapsed(99)),
   )
   assert_true(stale_max.is_empty())
   let (documents, decisions) = documents.reduce(
@@ -38,7 +38,7 @@ test "page-local revision orders edits across documents" {
   let (documents, first_decisions) = documents.reduce(
     TextChanged(source_key("two"), "two!"),
   )
-  guard first_decisions is [Effect::ArmMaximum(_, max_two)] else {
+  guard first_decisions is [Effect::ArmMaximum(max_two)] else {
     fail("two timers")
   }
   assert_eq(pending_revision(documents, source_key("two")), 1)
@@ -46,7 +46,7 @@ test "page-local revision orders edits across documents" {
   let (documents, second_decisions) = documents.reduce(
     TextChanged(source_key("one"), "one!"),
   )
-  guard second_decisions is [Effect::ArmMaximum(_, max_one)] else {
+  guard second_decisions is [Effect::ArmMaximum(max_one)] else {
     fail("one independent timers")
   }
   assert_eq(pending_revision(documents, source_key("one")), 2)
@@ -73,7 +73,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "changed"),
   )
-  guard decisions is [Effect::ArmMaximum(_, mid)] else { fail("timers") }
+  guard decisions is [Effect::ArmMaximum(mid)] else { fail("timers") }
   assert_eq(pending_revision(documents, source_key("one")), 1)
   assert_eq(mid, 1)
   // Stale pending_revision(documents, source_key("one")) revision is ignored
@@ -127,20 +127,20 @@ test "matching maximum after delete confirmation is ignored" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "changed"),
   )
-  guard decisions is [ArmMaximum(_, maximum)] else { fail("maximum") }
+  guard decisions is [ArmMaximum(maximum)] else { fail("maximum") }
   let (documents, decisions) = documents.reduce(
     DeleteConfirmed(source_key("one")),
   )
   guard decisions is [DeleteSource(_)] else { fail("delete") }
   let before = documents
   let (documents, decisions) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(source_key("one"), maximum)),
+    FeedbackReceived(MaximumElapsed(maximum)),
   )
   assert_true(documents == before)
   assert_true(decisions.is_empty())
 }
 
-/// The same fence applies when a newer checkpoint is queued behind a save.
+/// The same fence applies when a newer replica is queued behind a save.
 
 ///|
 test "matching maximum during waiting deletion of in-flight save is ignored" {
@@ -148,7 +148,7 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "first"),
   )
-  guard decisions is [ArmMaximum(_, _)] else { fail("maximum") }
+  guard decisions is [ArmMaximum(_)] else { fail("maximum") }
   let (documents, decisions) = documents.reduce(
     ApplyPendingEdit(
       source_key("one"),
@@ -159,14 +159,14 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "latest"),
   )
-  guard decisions is [ArmMaximum(_, maximum)] else { fail("follow-up maximum") }
+  guard decisions is [ArmMaximum(maximum)] else { fail("follow-up maximum") }
   let (documents, decisions) = documents.reduce(
     DeleteConfirmed(source_key("one")),
   )
   assert_true(decisions.is_empty())
   let before = documents
   let (documents, decisions) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(source_key("one"), maximum)),
+    FeedbackReceived(MaximumElapsed(maximum)),
   )
   assert_true(documents == before)
   assert_true(decisions.is_empty())

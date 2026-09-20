@@ -9,8 +9,8 @@ import {
 // Values
 
 // Errors
-pub(all) suberror CompletionError {
-  StaleCompletion
+pub(all) suberror WorkError {
+  StaleWork
 } derive(Eq, @debug.Debug)
 
 // Types and methods
@@ -25,14 +25,38 @@ pub enum AccountSelection {
   AccountSelected(@source_repository.AccountId)
 } derive(Eq, @debug.Debug)
 
-pub struct Attempt {
-  request_id : RequestId
-  write : @source_repository.CheckpointWrite
+pub(all) enum Action {
+  CreateOperation(PlanId, @source_repository.AccountId, @source_repository.DocumentId)
+  Deliver(EffectId, @source_repository.AccountId, @source_repository.DocumentId, @source_repository.PendingOperation)
+  GetRemote(EffectId, @source_repository.AccountId, @source_repository.DocumentId, RemoteRead)
+  CreateRecovery(EffectId, @source_repository.AccountId, @source_repository.DocumentId)
 } derive(Eq, @debug.Debug)
-pub fn Attempt::request_id(Self) -> RequestId
-pub fn Attempt::write(Self) -> @source_repository.CheckpointWrite
 
-pub struct RequestId(Int) derive(Eq, @debug.Debug)
+pub struct DiscoveryId(Int) derive(Eq, @debug.Debug)
+
+pub struct EffectId(Int) derive(Eq, @debug.Debug)
+
+pub struct OpenIntent(Int) derive(Eq, @debug.Debug)
+
+pub struct PlanId(Int) derive(Eq, @debug.Debug)
+
+pub enum Progress {
+  Inactive
+  Working
+  Retryable(Retry)
+  Blocked
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RemoteRead {
+  Conflict(@source_repository.OperationId)
+  Revision(@source_repository.SavedRevision)
+  Open(OpenIntent, @source_repository.SavedRevision)
+} derive(Eq, @debug.Debug)
+
+pub struct Retry {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Retry::replica(Self) -> @source_repository.DocumentReplica
 
 pub enum Session {
   Resolving(Int)
@@ -45,12 +69,34 @@ pub struct State {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn State::State() -> Self
+pub fn State::acknowledged(Self, @source_repository.DocumentReplica, EffectId, @source_repository.OperationId, @source_repository.SavedRevision) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
+pub fn State::activated(Self, OpenIntent) -> Self
+pub fn State::advance(Self, @source_repository.DocumentReplica) -> (Self, Action?)
+pub fn State::advance_open(Self, @source_repository.DocumentReplica?) -> (Self, Action?)
+pub fn State::begin_discovery(Self) -> (Self, DiscoveryId?)
 pub fn State::begin_lookup(Self) -> (Self, Int)
-pub fn State::failed(Self, RequestId, @source_repository.SyncCheckpoint) -> Self raise CompletionError
-pub fn State::persist(Self, @source_repository.CheckpointWrite) -> (Self, Attempt?)
+pub fn State::cancel_open(Self) -> Self
+pub fn State::catalog(Self) -> Array[@source_repository.RemoteEntry]
+pub fn State::delivery_failed(Self, @source_repository.DocumentReplica, EffectId, @source_repository.OperationId) -> Self raise WorkError
+pub fn State::delivery_too_large(Self, @source_repository.DocumentReplica, EffectId, @source_repository.OperationId) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
+pub fn State::discovered(Self, @source_repository.AccountId, DiscoveryId, Array[@source_repository.RemoteEntry]?) -> (Self, Bool)
+pub fn State::open_failed(Self, EffectId, @source_repository.AccountId, @source_repository.DocumentId, OpenIntent, @source_repository.SavedRevision) -> Self raise WorkError
+pub fn State::opened(Self, EffectId, @source_repository.AccountId, @source_repository.DocumentId, OpenIntent, @source_repository.SavedRevision, @source_repository.DocumentReplica?, @source_repository.RemoteDocument) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
+pub fn State::operation_rejected(Self, @source_repository.DocumentReplica, EffectId, @source_repository.OperationId) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
+pub fn State::pending_open(Self) -> (OpenIntent, @source_repository.AccountId, @source_repository.DocumentId, @source_repository.SavedRevision)?
+pub fn State::planning_failed(Self, PlanId, @source_repository.AccountId, @source_repository.DocumentId) -> Self
+pub fn State::prepared(Self, PlanId, @source_repository.DocumentReplica, @source_repository.OperationId) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
+pub fn State::progress(Self, @source_repository.DocumentReplica) -> Progress
+pub fn State::received(Self, @source_repository.DocumentReplica, EffectId, RemoteRead, @source_repository.RemoteDocument) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
+pub fn State::recover(Self, @source_repository.DocumentReplica, EffectId, @source_repository.DocumentId) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
+pub fn State::recovery_failed(Self, @source_repository.AccountId, @source_repository.DocumentId, EffectId) -> Self
+pub fn State::remote_entry(Self, @source_repository.DocumentId) -> @source_repository.RemoteEntry?
+pub fn State::remote_failed(Self, @source_repository.DocumentReplica, EffectId, RemoteRead) -> Self raise WorkError
 pub fn State::resolved(Self, Int, AccountResult) -> (Self, AccountSelection?)
+pub fn State::revision_conflict(Self, @source_repository.DocumentReplica, EffectId, @source_repository.OperationId) -> Self raise WorkError
+pub fn State::save(Self, @source_repository.DocumentReplica, String) -> (Self, @source_repository.ReplicaWrite?)
+pub fn State::select_open(Self, @source_repository.RemoteEntry) -> Self
 pub fn State::session(Self) -> Session
-pub fn State::stored(Self, RequestId, @source_repository.SyncCheckpoint) -> (Self, Attempt?) raise CompletionError
 
 // Type aliases
 

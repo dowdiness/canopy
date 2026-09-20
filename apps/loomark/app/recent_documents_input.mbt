@@ -45,7 +45,7 @@ fn remote_document_seeds(
         guard entry is @source_repository.RemoteEntry::Present(id, _, preview) else {
           return None
         }
-        let key = @documents.Key::checkpoint(account, id)
+        let key = @documents.Key::replica(account, id)
         guard !membership.keys.contains(key) else { return None }
         Some(
           @recent_documents.Seed::Seed(
