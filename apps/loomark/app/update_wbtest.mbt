@@ -145,6 +145,17 @@ fn current_sync(account : @source_repository.AccountId) -> @sync.State {
 }
 
 ///|
+fn checkpoint_edit(
+  checkpoint : @source_repository.SyncCheckpoint,
+  text : String,
+) -> @source_repository.SyncCheckpoint {
+  guard checkpoint.edit(text) is @source_repository.EditPlan::Persist(write) else {
+    abort("checkpoint edit")
+  }
+  write.checkpoint()
+}
+
+///|
 test "compact viewport preserves the fractional breakpoint boundary" {
   assert_true(compact_viewport(640.0))
   assert_true(!compact_viewport(640.5))
@@ -198,7 +209,8 @@ test "account resolution schedules durable sync work" {
     @sync.Resolved(account, "Writer"),
   )
   let checkpoint = saved.checkpoint(account, document_id("one")).unwrap()
-  let (expected, action) = resolved.schedule(checkpoint)
+  let (expected, action) = resolved.drive(checkpoint)
+  let expected = expected.begin_discovery().0
   assert_true(action is Some(@sync.Action::CreateOperation(_, _, _)))
 
   let (model, _) = test_root_update(
@@ -222,13 +234,16 @@ test "delivery receipt enters the checkpoint writer before becoming durable" {
     },
     documents: @documents.State::State(saved).project_account(account),
   })
-  let (sync, action) = current_sync(account).schedule(checkpoint)
-  assert_true(action is Some(@sync.Action::Deliver(_, _, _)))
+  let (sync, action) = current_sync(account).drive(checkpoint)
+  guard action is Some(@sync.Action::Deliver(effect, _, _, _)) else {
+    fail("delivery")
+  }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
   let (expected, attempt) = sync.acknowledged(
     checkpoint,
+    effect,
     sync_operation_id(),
     revision,
   )
@@ -237,6 +252,7 @@ test "delivery receipt enters the checkpoint writer before becoming durable" {
     { page, sync, },
     Sync(
       DeliveryCompleted(
+        effect,
         account,
         document_id("one"),
         sync_operation_id(),
@@ -285,12 +301,16 @@ test "failed acknowledgment exposes the newest queued text for retry" {
     activation: { key: token, generation: 0, },
     documents: @documents.State::State(saved).project_account(account),
   })
-  let (sync, _) = current_sync(account).schedule(checkpoint)
+  guard current_sync(account).drive(checkpoint)
+    is (sync, Some(@sync.Action::Deliver(effect, _, _, _))) else {
+    fail("delivery")
+  }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
   let (sync, acknowledgment) = sync.acknowledged(
     checkpoint,
+    effect,
     sync_operation_id(),
     revision,
   )
@@ -393,13 +413,17 @@ test "account switch defers a conflict fetch until its account is current" {
     },
     documents: @documents.State::State(saved).project_account(account_a),
   })
-  let (sync, _) = current_sync(account_a).schedule(checkpoint)
+  guard current_sync(account_a).drive(checkpoint)
+    is (sync, Some(@sync.Action::Deliver(effect, _, _, _))) else {
+    fail("delivery")
+  }
   let (sync, lookup) = sync.begin_lookup()
   let (sync, _) = sync.resolved(lookup, @sync.Resolved(account_b, "B"))
   let (deferred, _) = test_root_update(
     { page, sync, },
     Sync(
       DeliveryCompleted(
+        effect,
         account_a,
         document_id("one"),
         sync_operation_id(),
@@ -407,7 +431,7 @@ test "account switch defers a conflict fetch until its account is current" {
       ),
     ),
   )
-  let expected = sync.revision_conflict(checkpoint, sync_operation_id())
+  let expected = sync.revision_conflict(checkpoint, effect, sync_operation_id())
   assert_true(deferred.sync == expected)
 
   let (resolving, lookup) = deferred.sync.begin_lookup()
@@ -418,8 +442,9 @@ test "account switch defers a conflict fetch until its account is current" {
   let (expected, action) = expected.begin_lookup().0.resolved(
     lookup,
     @sync.Resolved(account_a, "A"),
-  ).0.schedule(checkpoint)
-  assert_true(action is Some(@sync.Action::FetchRemote(_, _, _)))
+  ).0.drive(checkpoint)
+  let expected = expected.begin_discovery().0
+  assert_true(action is Some(@sync.Action::GetRemote(_, _, _, _)))
   assert_true(current.sync == expected)
 }
 
@@ -437,24 +462,33 @@ test "revision conflict waits for recovery identity before atomic persistence" {
     },
     documents: @documents.State::State(saved).project_account(account),
   })
-  let (sync, _) = current_sync(account).schedule(checkpoint)
+  guard current_sync(account).drive(checkpoint)
+    is (sync, Some(@sync.Action::Deliver(delivery, _, _, _))) else {
+    fail("delivery")
+  }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
   let remote = @source_repository.RemoteDocument::Present(revision, "remote")
-  let conflicted = sync.revision_conflict(checkpoint, sync_operation_id())
-  let (fetching, fetch) = conflicted.schedule(checkpoint)
-  assert_true(fetch is Some(@sync.Action::FetchRemote(_, _, _)))
-  let (expected, action) = fetching.rejected(
+  let conflicted = sync.revision_conflict(
     checkpoint,
+    delivery,
     sync_operation_id(),
-    remote,
   )
-  assert_eq(action, @sync.ConflictAction::CreateRecovery)
+  let (fetching, fetch) = conflicted.drive(checkpoint)
+  guard fetch is Some(@sync.Action::GetRemote(read_effect, _, _, read)) else {
+    fail("conflict read")
+  }
+  let (expected, attempt) = fetching.received(
+    checkpoint, read_effect, read, remote,
+  )
+  let attempt = attempt.unwrap()
+  let diverged = attempt.write().checkpoint()
   let (fetching_model, _) = test_root_update(
     { page, sync, },
     Sync(
       DeliveryCompleted(
+        delivery,
         account,
         document_id("one"),
         sync_operation_id(),
@@ -467,20 +501,57 @@ test "revision conflict waits for recovery identity before atomic persistence" {
     fetching_model,
     Sync(
       RemoteCompleted(
+        read_effect,
         account,
         document_id("one"),
-        sync_operation_id(),
+        read,
         @document_http.RemoteResult::Found(remote),
       ),
     ),
   )
   assert_true(recovering.sync == expected)
 
-  let recovery_id = document_id("recovery")
-  let (expected, attempt) = expected.recover(
-    checkpoint,
-    sync_operation_id(),
-    recovery_id,
+  let (durable, _) = expected.stored(attempt.request_id(), diverged)
+  guard durable.drive(diverged)
+    is (
+      awaiting_recovery,
+      Some(@sync.Action::CreateRecovery(recovery_effect, _, _)),
+    ) else {
+    fail("recovery")
+  }
+  let mut created : @source_repository.DocumentId? = None
+  let (recovering, _) = update(
+    recovering,
+    Sync(
+      CheckpointCompleted(
+        attempt.request_id(),
+        @source_repository.CheckpointStored(diverged),
+      ),
+    ),
+    @cmd.Emit(message => {
+      match message {
+        Sync(
+          RecoveryCreated(
+            effect,
+            owner,
+            source,
+            @source_repository.CreateResult::Created(recovery_id)
+          )
+        ) if effect == recovery_effect &&
+          owner == account &&
+          source == document_id("one") => created = Some(recovery_id)
+        _ => ()
+      }
+      @cmd.none
+    }),
+    @text_area.TextArea::TextArea("loomark-test-text"),
+    @preview.PreviewEngine::PreviewEngine(),
+  )
+  assert_true(recovering.sync == awaiting_recovery)
+
+  let recovery_id = created.unwrap()
+  let (expected, attempt) = awaiting_recovery.recover(
+    diverged, recovery_effect, recovery_id,
   )
   guard attempt.unwrap().write()
     is @source_repository.CheckpointAndRecovery(_, recovery) else {
@@ -491,9 +562,9 @@ test "revision conflict waits for recovery identity before atomic persistence" {
     recovering,
     Sync(
       RecoveryCreated(
+        recovery_effect,
         account,
         document_id("one"),
-        sync_operation_id(),
         @source_repository.CreateResult::Created(recovery_id),
       ),
     ),
@@ -502,7 +573,7 @@ test "revision conflict waits for recovery identity before atomic persistence" {
 }
 
 ///|
-test "failed conflict recovery identity permits a later delivery retry" {
+test "failed conflict recovery identity leaves durable recovery work retryable" {
   let account = @source_repository.AccountId::parse("account") catch {
     _ => abort("valid test account")
   }
@@ -515,15 +586,33 @@ test "failed conflict recovery identity permits a later delivery retry" {
     },
     documents: @documents.State::State(saved).project_account(account),
   })
-  let (sync, _) = current_sync(account).schedule(checkpoint)
+  guard current_sync(account).drive(checkpoint)
+    is (sync, Some(@sync.Action::Deliver(delivery, _, _, _))) else {
+    fail("delivery")
+  }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
   let remote = @source_repository.RemoteDocument::Present(revision, "remote")
+  let conflicted = sync.revision_conflict(
+    checkpoint,
+    delivery,
+    sync_operation_id(),
+  )
+  guard conflicted.drive(checkpoint)
+    is (driven, Some(@sync.Action::GetRemote(read_effect, _, _, read))) else {
+    fail("conflict read")
+  }
+  let (persisting, divergence) = driven.received(
+    checkpoint, read_effect, read, remote,
+  )
+  let divergence = divergence.unwrap()
+  let diverged = divergence.write().checkpoint()
   let (fetching, _) = test_root_update(
     { page, sync, },
     Sync(
       DeliveryCompleted(
+        delivery,
         account,
         document_id("one"),
         sync_operation_id(),
@@ -531,24 +620,45 @@ test "failed conflict recovery identity permits a later delivery retry" {
       ),
     ),
   )
+  assert_true(fetching.sync == driven)
   let (recovering, _) = test_root_update(
     fetching,
     Sync(
       RemoteCompleted(
+        read_effect,
         account,
         document_id("one"),
-        sync_operation_id(),
+        read,
         @document_http.RemoteResult::Found(remote),
       ),
     ),
   )
+  assert_true(recovering.sync == persisting)
+  let (durable, _) = persisting.stored(divergence.request_id(), diverged)
+  guard durable.drive(diverged)
+    is (
+      awaiting_recovery,
+      Some(@sync.Action::CreateRecovery(recovery_effect, _, _)),
+    ) else {
+    fail("recovery")
+  }
+  let (recovering, _) = test_root_update(
+    recovering,
+    Sync(
+      CheckpointCompleted(
+        divergence.request_id(),
+        @source_repository.CheckpointStored(diverged),
+      ),
+    ),
+  )
+  assert_true(recovering.sync == awaiting_recovery)
   let (retryable, _) = test_root_update(
     recovering,
     Sync(
       RecoveryCreated(
+        recovery_effect,
         account,
         document_id("one"),
-        sync_operation_id(),
         @source_repository.CreateResult::CreateFailed(
           DocumentIdentityUnavailable,
         ),
@@ -556,7 +666,7 @@ test "failed conflict recovery identity permits a later delivery retry" {
     ),
   )
   assert_true(
-    retryable.sync.schedule(checkpoint).1 is Some(@sync.Deliver(_, _, _)),
+    retryable.sync.drive(diverged).1 is Some(@sync.CreateRecovery(_, _, _)),
   )
 }
 
@@ -642,6 +752,474 @@ test "synced Autosave updates only its canonical checkpoint" {
 }
 
 ///|
+fn discovered_sync(
+  account : @source_repository.AccountId,
+  entry : @source_repository.RemoteEntry,
+) -> @sync.State {
+  let (state, discovery) = current_sync(account).begin_discovery()
+  state.discovered(account, discovery.unwrap(), Some([entry])).0
+}
+
+///|
+fn discover_entry(
+  model : Model,
+  account : @source_repository.AccountId,
+  entry : @source_repository.RemoteEntry,
+) -> Model {
+  let (sync, discovery) = model.sync.begin_discovery()
+  let (sync, accepted) = sync.discovered(
+    account,
+    discovery.unwrap(),
+    Some([entry]),
+  )
+  guard accepted else { abort("discovery rejected") }
+  { ..model, sync, }
+}
+
+///|
+fn select_remote(
+  model : Model,
+  key : @documents.Key,
+  entry : @source_repository.RemoteEntry,
+) -> (Model, @sync.EffectId, @sync.RemoteRead) {
+  guard model.sync.begin_open(entry)
+    is (expected, None, Some(@sync.GetRemote(effect, _, _, read))) else {
+    abort("expected remote open")
+  }
+  let (selected, _) = test_root_update(model, DocumentSelected(key))
+  guard selected.sync == expected else { abort("remote selection mismatch") }
+  (selected, effect, read)
+}
+
+///|
+fn receive_open(
+  model : Model,
+  account : @source_repository.AccountId,
+  document_id : @source_repository.DocumentId,
+  effect : @sync.EffectId,
+  read : @sync.RemoteRead,
+  remote : @source_repository.RemoteDocument,
+) -> (Model, @sync.Attempt?) {
+  guard read is @sync.RemoteRead::Open(intent, expected_revision) else {
+    abort("expected open read")
+  }
+  let durable = match model.page.saved_documents() {
+    Some(saved) => saved.checkpoint(account, document_id)
+    None => None
+  }
+  let (expected, attempt) = model.sync.opened(
+    effect, account, document_id, intent, expected_revision, durable, remote,
+  ) catch {
+    _ => abort("remote open rejected")
+  }
+  let (received, _) = test_root_update(
+    model,
+    Sync(
+      RemoteCompleted(
+        effect,
+        account,
+        document_id,
+        read,
+        @document_http.RemoteResult::Found(remote),
+      ),
+    ),
+  )
+  guard received.sync == expected else { abort("remote receipt mismatch") }
+  (received, attempt)
+}
+
+///|
+fn store_sync_attempt(
+  model : Model,
+  attempt : @sync.Attempt,
+) -> (Model, @sync.Attempt?) {
+  let checkpoint = attempt.write().checkpoint()
+  let (_, next) = model.sync.stored(attempt.request_id(), checkpoint) catch {
+    _ => abort("checkpoint completion rejected")
+  }
+  let (stored, _) = test_root_update(
+    model,
+    Sync(
+      CheckpointCompleted(
+        attempt.request_id(),
+        @source_repository.CheckpointStored(checkpoint),
+      ),
+    ),
+  )
+  (stored, next)
+}
+
+///|
+test "remote selection persists its received checkpoint before activation" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let remote_id = document_id("remote")
+  let revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("valid revision")
+  }
+  let entry = @source_repository.RemoteEntry::Present(
+    remote_id, revision, "Remote",
+  )
+  let key = @documents.Key::checkpoint(account, remote_id)
+  let initial = {
+    page: Editing(test_editing()),
+    sync: discovered_sync(account, entry),
+  }
+  guard initial.sync.begin_open(entry)
+    is (expected, None, Some(@sync.GetRemote(effect, _, _, read))) &&
+    read is @sync.RemoteRead::Open(intent, expected_revision) else {
+    fail("open")
+  }
+  let (fetching, _) = test_root_update(initial, DocumentSelected(key))
+  assert_true(fetching.sync == expected)
+  guard fetching.page is Editing(before) else { fail("editing") }
+  assert_true(before.activation.key == source_key("one"))
+  assert_eq(before.documents.text(key), None)
+
+  let remote = @source_repository.RemoteDocument::Present(
+    revision, "# Remote\nBody",
+  )
+  let (expected, attempt) = fetching.sync.opened(
+    effect,
+    account,
+    remote_id,
+    intent,
+    expected_revision,
+    None,
+    remote,
+  )
+  let attempt = attempt.unwrap()
+  let (storing, _) = test_root_update(
+    fetching,
+    Sync(
+      RemoteCompleted(
+        effect,
+        account,
+        remote_id,
+        read,
+        @document_http.RemoteResult::Found(remote),
+      ),
+    ),
+  )
+  assert_true(storing.sync == expected)
+  guard storing.page is Editing(before) else { fail("editing") }
+  assert_eq(before.documents.text(key), None)
+
+  let (opened, _) = test_root_update(
+    storing,
+    Sync(
+      CheckpointCompleted(
+        attempt.request_id(),
+        @source_repository.CheckpointStored(attempt.write().checkpoint()),
+      ),
+    ),
+  )
+  guard opened.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.documents.text(key), Some("# Remote\nBody"))
+}
+
+///|
+test "newer remote GET queues one successor and activates only its text" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let id = document_id("remote-race")
+  let first_revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("first revision")
+  }
+  let second_revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("second revision")
+  }
+  let first_entry = @source_repository.RemoteEntry::Present(
+    id, first_revision, "First",
+  )
+  let second_entry = @source_repository.RemoteEntry::Present(
+    id, second_revision, "Second",
+  )
+  let key = @documents.Key::checkpoint(account, id)
+  let initial = {
+    page: Editing(test_editing()),
+    sync: discovered_sync(account, first_entry),
+  }
+  let (opening_first, first_effect, first_read) = select_remote(
+    initial, key, first_entry,
+  )
+  let first_remote = @source_repository.RemoteDocument::Present(
+    first_revision, "first text",
+  )
+  let (storing_first, first_attempt) = receive_open(
+    opening_first, account, id, first_effect, first_read, first_remote,
+  )
+  let first_attempt = first_attempt.unwrap()
+
+  let newer = discover_entry(storing_first, account, second_entry)
+  let (opening_second, second_effect, second_read) = select_remote(
+    newer, key, second_entry,
+  )
+  let second_remote = @source_repository.RemoteDocument::Present(
+    second_revision, "second text",
+  )
+  let (queued, duplicate) = receive_open(
+    opening_second, account, id, second_effect, second_read, second_remote,
+  )
+  assert_eq(duplicate, None)
+
+  let (stored_first, second_attempt) = store_sync_attempt(queued, first_attempt)
+  guard stored_first.page is Editing(editing) else { fail("editing") }
+  assert_eq(editing.documents.text(key), None)
+  assert_true(editing.activation.key == source_key("one"))
+
+  let second_attempt = second_attempt.unwrap()
+  assert_eq(
+    second_attempt.write().checkpoint().generation(),
+    first_attempt.write().checkpoint().generation() + 1.0,
+  )
+  let (opened, next) = store_sync_attempt(stored_first, second_attempt)
+  assert_eq(next, None)
+  guard opened.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.documents.text(key), Some("second text"))
+  assert_eq(
+    editing.documents
+    .snapshot()
+    .checkpoint(account, id)
+    .unwrap()
+    .baseline_revision(),
+    2.0,
+  )
+}
+
+///|
+test "newer remote GET advances a checkpoint stored while it was in flight" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let id = document_id("remote-durable-race")
+  let first_revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("first revision")
+  }
+  let second_revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("second revision")
+  }
+  let first_entry = @source_repository.RemoteEntry::Present(
+    id, first_revision, "First",
+  )
+  let second_entry = @source_repository.RemoteEntry::Present(
+    id, second_revision, "Second",
+  )
+  let key = @documents.Key::checkpoint(account, id)
+  let initial = {
+    page: Editing(test_editing()),
+    sync: discovered_sync(account, first_entry),
+  }
+  let (opening_first, first_effect, first_read) = select_remote(
+    initial, key, first_entry,
+  )
+  let first_remote = @source_repository.RemoteDocument::Present(
+    first_revision, "first text",
+  )
+  let (storing_first, first_attempt) = receive_open(
+    opening_first, account, id, first_effect, first_read, first_remote,
+  )
+  let first_attempt = first_attempt.unwrap()
+
+  let newer = discover_entry(storing_first, account, second_entry)
+  let (opening_second, second_effect, second_read) = select_remote(
+    newer, key, second_entry,
+  )
+  let (stored_first, next) = store_sync_attempt(opening_second, first_attempt)
+  assert_eq(next, None)
+  guard stored_first.page is Editing(editing) else { fail("editing") }
+  assert_eq(editing.documents.text(key), None)
+
+  let second_remote = @source_repository.RemoteDocument::Present(
+    second_revision, "second text",
+  )
+  let (storing_second, second_attempt) = receive_open(
+    stored_first, account, id, second_effect, second_read, second_remote,
+  )
+  let second_attempt = second_attempt.unwrap()
+  assert_eq(
+    second_attempt.write().checkpoint().generation(),
+    first_attempt.write().checkpoint().generation() + 1.0,
+  )
+  let (opened, next) = store_sync_attempt(storing_second, second_attempt)
+  assert_eq(next, None)
+  guard opened.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.documents.text(key), Some("second text"))
+  assert_eq(
+    editing.documents
+    .snapshot()
+    .checkpoint(account, id)
+    .unwrap()
+    .baseline_revision(),
+    2.0,
+  )
+}
+
+///|
+test "remote persistence never interrupts an active composition" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let remote_id = document_id("remote")
+  let revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid revision")
+  }
+  let entry = @source_repository.RemoteEntry::Present(
+    remote_id, revision, "Remote",
+  )
+  let key = @documents.Key::checkpoint(account, remote_id)
+  let initial = {
+    page: Editing(test_editing()),
+    sync: discovered_sync(account, entry),
+  }
+  guard initial.sync.begin_open(entry)
+    is (_, None, Some(@sync.GetRemote(effect, _, _, read))) &&
+    read is @sync.RemoteRead::Open(intent, expected) else {
+    fail("open")
+  }
+  let (fetching, _) = test_root_update(initial, DocumentSelected(key))
+  let remote = @source_repository.RemoteDocument::Present(revision, "remote")
+  let attempt = fetching.sync.opened(
+    effect,
+    account,
+    remote_id,
+    intent,
+    expected,
+    None,
+    remote,
+  ).1.unwrap()
+  let (storing, _) = test_root_update(
+    fetching,
+    Sync(
+      RemoteCompleted(
+        effect,
+        account,
+        remote_id,
+        read,
+        @document_http.RemoteResult::Found(remote),
+      ),
+    ),
+  )
+  let (composing, _) = test_root_update(
+    storing,
+    CompositionStarted({ key: source_key("one"), generation: 0, }),
+  )
+  let (completed, _) = test_root_update(
+    composing,
+    Sync(
+      CheckpointCompleted(
+        attempt.request_id(),
+        @source_repository.CheckpointStored(attempt.write().checkpoint()),
+      ),
+    ),
+  )
+  guard completed.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == source_key("one"))
+  assert_eq(editing.documents.text(key), None)
+
+  let (activated, _) = test_root_update(
+    completed,
+    CompositionEnded({ key: source_key("one"), generation: 0, }),
+  )
+  guard activated.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.documents.text(key), Some("remote"))
+  assert_eq(activated.sync.pending_open(), None)
+}
+
+///|
+test "discovery persists a newer remote revision without replacing the editor" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let id = document_id("one")
+  let first = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid revision")
+  }
+  let next = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("valid revision")
+  }
+  let checkpoint = @source_repository.SyncCheckpoint::receive(
+    account,
+    documents_test_document("one", "local"),
+    first,
+  )
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_checkpoint(checkpoint)
+  let key = @documents.Key::checkpoint(account, id)
+  let page = Editing({
+    ..test_editing(),
+    activation: { key, generation: 0, },
+    documents: @documents.State::State(saved).project_account(account),
+  })
+  let (sync, discovery) = current_sync(account).begin_discovery()
+  let discovery = discovery.unwrap()
+  let entry = @source_repository.RemoteEntry::Present(id, next, "Remote")
+  let (discovered, _) = test_root_update(
+    { page, sync, },
+    Sync(
+      DiscoveryCompleted(
+        account,
+        discovery,
+        @document_http.DiscoveryResult::Discovered([entry]),
+      ),
+    ),
+  )
+  let (expected, _) = sync.discovered(account, discovery, Some([entry]))
+  let (expected, action) = expected.drive(checkpoint)
+  guard action is Some(@sync.Action::GetRemote(effect, _, _, read)) else {
+    fail("remote revision read")
+  }
+  assert_true(discovered.sync == expected)
+
+  let remote = @source_repository.RemoteDocument::Present(next, "remote")
+  let (expected, attempt) = expected.received(checkpoint, effect, read, remote)
+  guard attempt is Some(attempt) else { fail("persist observed revision") }
+  let (storing, _) = test_root_update(
+    discovered,
+    Sync(
+      RemoteCompleted(
+        effect,
+        account,
+        id,
+        read,
+        @document_http.RemoteResult::Found(remote),
+      ),
+    ),
+  )
+  assert_true(storing.sync == expected)
+  guard storing.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.documents.text(key), Some("local"))
+
+  let (stored, _) = test_root_update(
+    storing,
+    Sync(
+      CheckpointCompleted(
+        attempt.request_id(),
+        @source_repository.CheckpointStored(attempt.write().checkpoint()),
+      ),
+    ),
+  )
+  guard stored.page.saved_documents().unwrap().checkpoint(account, id)
+    is Some(durable) else {
+    fail("stored observation")
+  }
+  assert_true(
+    durable.directive() is @source_repository.SyncDirective::UpdateAvailable(_),
+  )
+  guard stored.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.documents.text(key), Some("local"))
+}
+
+///|
 test "synced completion recognizes newer text that returned to stored text" {
   let account = @source_repository.AccountId::parse("account") catch {
     _ => abort("valid test account")
@@ -658,12 +1236,10 @@ test "synced completion recognizes newer text that returned to stored text" {
   guard effects is [@documents.Effect::SaveCheckpoint(owner, document)] else {
     fail("first write")
   }
-  let checkpoint = saved
-    .checkpoint(owner, document.id())
-    .unwrap()
-    .edit(document.text())
-    .unwrap()
-    .checkpoint()
+  let checkpoint = checkpoint_edit(
+    saved.checkpoint(owner, document.id()).unwrap(),
+    document.text(),
+  )
   let (documents, _) = documents.reduce(
     @documents.Msg::TextChanged(token, "newer"),
   )
@@ -700,12 +1276,10 @@ test "failed synced write recognizes a newer revert to durable text" {
   guard effects is [@documents.Effect::SaveCheckpoint(owner, document)] else {
     fail("first write")
   }
-  let checkpoint = saved
-    .checkpoint(owner, document.id())
-    .unwrap()
-    .edit(document.text())
-    .unwrap()
-    .checkpoint()
+  let checkpoint = checkpoint_edit(
+    saved.checkpoint(owner, document.id()).unwrap(),
+    document.text(),
+  )
   let (documents, _) = documents.reduce(
     @documents.Msg::TextChanged(token, "one"),
   )

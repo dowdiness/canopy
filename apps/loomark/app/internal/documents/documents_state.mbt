@@ -189,6 +189,16 @@ pub fn State::project_account(
 }
 
 ///|
+pub fn State::admit_checkpoint(
+  self : Self,
+  checkpoint : @source_repository.SyncCheckpoint,
+) -> Self {
+  let key = Key::checkpoint(checkpoint.account(), checkpoint.document().id())
+  guard find_record(self.records, key) is None else { return self }
+  { ..self, records: self.records + [checkpoint_record(checkpoint)], }
+}
+
+///|
 pub fn State::hide_accounts(self : Self) -> Self {
   { ..self, visible_account: None, }
 }

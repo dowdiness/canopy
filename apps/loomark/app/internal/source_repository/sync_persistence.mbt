@@ -8,7 +8,7 @@ fn preserve_recovery(
       match checkpoint.phase {
         SyncPhase::Conflict(recovery_identity) if recovery_identity.id() ==
           recovery.id() => CheckpointAndRecovery(checkpoint, recovery)
-        Ready | Sending(_) | RemoteUpdate(_) | Conflict(_) =>
+        Ready | Sending(_) | Available(_) | Diverged(_) | Conflict(_) =>
           CheckpointOnly(checkpoint)
       }
     (_, newer) => newer

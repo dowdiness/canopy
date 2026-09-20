@@ -2,7 +2,7 @@
 fn input_for(
   documents : @documents.State,
 ) -> Array[@recent_documents.Seed[@documents.Key]] {
-  recent_document_seeds({ ..test_editing(), documents, }).to_array()
+  recent_document_seeds({ ..test_editing(), documents, }, []).to_array()
 }
 
 ///|
@@ -79,7 +79,7 @@ test "untouched New is excluded while loaded saved empty is admitted" {
 ///|
 test "creation gating produces blocked typed deletion presentation" {
   let editing = { ..test_editing(), creation: Creating, }
-  let seeds = recent_document_seeds(editing).to_array()
+  let seeds = recent_document_seeds(editing, []).to_array()
   assert_true(
     seeds.all(seed => {
       seed.deletion() is @recent_documents.DeletionAvailability::Blocked

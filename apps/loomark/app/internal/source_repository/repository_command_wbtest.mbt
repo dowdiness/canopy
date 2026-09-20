@@ -127,7 +127,7 @@ test "conflict checkpoint and recovery source share one transaction" {
   let acknowledged = sent
     .checkpoint()
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
-  let edited = acknowledged.checkpoint().edit("local").unwrap().checkpoint()
+  let edited = edit_write(acknowledged.checkpoint(), "local").checkpoint()
   let conflicted = preserve_conflict(
     edited,
     remote_present(2.0, "remote"),

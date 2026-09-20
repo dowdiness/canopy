@@ -111,6 +111,11 @@ priv enum Msg {
 ///|
 priv enum SyncMsg {
   AccountResolved(Int, @sync.AccountResult)
+  DiscoveryCompleted(
+    @source_repository.AccountId,
+    @sync.DiscoveryId,
+    @document_http.DiscoveryResult
+  )
   CheckpointCompleted(@sync.RequestId, @source_repository.CheckpointResult)
   OperationPrepared(
     @sync.PlanId,
@@ -119,21 +124,23 @@ priv enum SyncMsg {
     @source_repository.OperationId?
   )
   DeliveryCompleted(
+    @sync.EffectId,
     @source_repository.AccountId,
     @source_repository.DocumentId,
     @source_repository.OperationId,
     @document_http.DeliveryResult
   )
   RemoteCompleted(
+    @sync.EffectId,
     @source_repository.AccountId,
     @source_repository.DocumentId,
-    @source_repository.OperationId,
+    @sync.RemoteRead,
     @document_http.RemoteResult
   )
   RecoveryCreated(
+    @sync.EffectId,
     @source_repository.AccountId,
     @source_repository.DocumentId,
-    @source_repository.OperationId,
     @source_repository.CreateResult
   )
 }

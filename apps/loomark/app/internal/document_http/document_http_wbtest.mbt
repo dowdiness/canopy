@@ -1,26 +1,20 @@
 ///|
 fn document_id() -> @source_repository.DocumentId {
-  @source_repository.DocumentId::parse(
-    "10000000-0000-4000-8000-000000000001",
-  ) catch {
+  @source_repository.DocumentId::parse("10000000-0000-4000-8000-000000000001") catch {
     _ => abort("valid document id")
   }
 }
 
 ///|
 fn operation_id() -> @source_repository.OperationId {
-  @source_repository.OperationId::parse(
-    "20000000-0000-4000-8000-000000000002",
-  ) catch {
+  @source_repository.OperationId::parse("20000000-0000-4000-8000-000000000002") catch {
     _ => abort("valid operation id")
   }
 }
 
 ///|
 fn second_operation_id() -> @source_repository.OperationId {
-  @source_repository.OperationId::parse(
-    "20000000-0000-4000-8000-000000000003",
-  ) catch {
+  @source_repository.OperationId::parse("20000000-0000-4000-8000-000000000003") catch {
     _ => abort("valid operation id")
   }
 }
@@ -45,22 +39,36 @@ fn pending_save() -> @source_repository.PendingOperation {
 
 ///|
 fn parse_json(value : String) -> Json {
-  @json.parse(value) catch { _ => abort("valid JSON") }
+  @json.parse(value) catch {
+    _ => abort("valid JSON")
+  }
 }
 
 ///|
-extern "js" fn install_interrupted_response(body : String) -> Unit =
-  #| body => {
+extern "js" fn install_test_fetch(
+  receipt : String,
+  first : String,
+  second : String,
+  partial : String,
+) -> Unit =
+  #| (receipt, first, second, partial) => {
   #|   globalThis.__loomarkDocumentHttpFetch = globalThis.fetch;
-  #|   globalThis.fetch = async () => new Response(
-  #|     new ReadableStream({
-  #|       start(controller) {
-  #|         controller.enqueue(new TextEncoder().encode(body));
-  #|         controller.error(new Error("interrupted response"));
-  #|       },
-  #|     }),
-  #|     { status: 200 },
-  #|   );
+  #|   globalThis.fetch = async url => {
+  #|     const request = new URL(String(url));
+  #|     if (request.hostname === "discovery.test") {
+  #|       return new Response(request.search ? second : first, { status: 200 });
+  #|     }
+  #|     const body = request.hostname === "delivery.test" ? receipt : partial;
+  #|     return new Response(
+  #|       new ReadableStream({
+  #|         start(controller) {
+  #|           controller.enqueue(new TextEncoder().encode(body));
+  #|           controller.error(new Error("interrupted response"));
+  #|         },
+  #|       }),
+  #|       { status: 200 },
+  #|     );
+  #|   };
   #| }
 
 ///|
@@ -86,8 +94,7 @@ test "mutation JSON is derived from a typed pending operation" {
     },
     @source_repository.Document::create(document_id(), "exact text"),
   )
-  let acknowledged = checkpoint
-    .plan_save()
+  let acknowledged = checkpoint.plan_save()
   guard acknowledged is @source_repository.OperationPlan::Start(save_draft) else {
     abort("save draft")
   }
@@ -119,8 +126,7 @@ test "mutation JSON is derived from a typed pending operation" {
 
 ///|
 test "receipt parser accepts only the matching operation" {
-  let valid =
-    "{\"id\":\"10000000-0000-4000-8000-000000000001\",\"operationId\":\"20000000-0000-4000-8000-000000000002\",\"revision\":1}"
+  let valid = "{\"id\":\"10000000-0000-4000-8000-000000000001\",\"operationId\":\"20000000-0000-4000-8000-000000000002\",\"revision\":1}"
   let pending = pending_save()
   assert_eq(receipt(valid, document_id(), pending).unwrap().value(), 1.0)
   assert_eq(
@@ -169,28 +175,64 @@ test "remote parser distinguishes present documents and tombstones" {
 }
 
 ///|
-test "error parser rejects ambiguous response shapes" {
-  assert_eq(error_code("{\"error\":\"revision_conflict\"}"), Some("revision_conflict"))
-  assert_eq(
-    error_code("{\"error\":\"revision_conflict\",\"extra\":true}"),
-    None,
+test "discovery parser admits only ordered bounded metadata" {
+  let first = "10000000-0000-4000-8000-000000000001"
+  let second = "10000000-0000-4000-8000-000000000002"
+  let body = "{\"documents\":[{\"id\":\"\{first}\",\"revision\":1,\"deleted\":false,\"preview\":\"First\"},{\"id\":\"\{second}\",\"revision\":2,\"deleted\":true}],\"next\":\"\{second}\"}"
+  guard discovery_page(body, None) is Some(page) else {
+    fail("valid discovery page")
+  }
+  assert_eq(page.documents.length(), 2)
+  assert_eq(page.next, Some(second))
+  assert_true(discovery_page(body.replace(old=second, new=first), None) is None)
+  assert_true(
+    discovery_page(
+      body.replace(old="\"next\":\"\{second}\"", new="\"next\":\"other\""),
+      None,
+    )
+    is None,
   )
 }
 
 ///|
-async test "interrupted response cannot acknowledge a pending operation" {
-  let body =
-    "{\"id\":\"10000000-0000-4000-8000-000000000001\",\"operationId\":\"20000000-0000-4000-8000-000000000002\",\"revision\":1}"
-  install_interrupted_response(body)
+async test "HTTP requests complete pagination and reject interrupted bodies" {
+  let first_id = "10000000-0000-4000-8000-000000000001"
+  let second_id = "10000000-0000-4000-8000-000000000002"
+  install_test_fetch(
+    "{\"id\":\"\{first_id}\",\"operationId\":\"20000000-0000-4000-8000-000000000002\",\"revision\":1}",
+    "{\"documents\":[{\"id\":\"\{first_id}\",\"revision\":1,\"deleted\":false,\"preview\":\"First\"}],\"next\":\"\{first_id}\"}",
+    "{\"documents\":[{\"id\":\"\{second_id}\",\"revision\":2,\"deleted\":false,\"preview\":\"Second\"}],\"next\":null}",
+    "{\"documents\":[{\"id\":\"\{first_id}\",\"revision\":1,\"deleted\":false,\"preview\":\"Partial\"}],\"next\":null}",
+  )
   defer restore_fetch()
   let account = @source_repository.AccountId::parse("account") catch {
     _ => abort("valid account")
   }
-  let result = request(
-    "https://loomark.test",
-    account,
-    document_id(),
-    pending_save(),
+  guard request_discovery("https://discovery.test", account)
+    is DiscoveryResult::Discovered(entries) else {
+    fail("discovered documents")
+  }
+  assert_eq(entries.length(), 2)
+  assert_eq(entries[0].document_id().value(), first_id)
+  assert_eq(entries[1].document_id().value(), second_id)
+  assert_eq(
+    request("https://delivery.test", account, document_id(), pending_save()),
+    DeliveryResult::Unavailable,
   )
-  assert_eq(result, DeliveryResult::Unavailable)
+  assert_eq(
+    request_discovery("https://interrupted.test", account),
+    DiscoveryResult::Unavailable,
+  )
+}
+
+///|
+test "error parser rejects ambiguous response shapes" {
+  assert_eq(
+    error_code("{\"error\":\"revision_conflict\"}"),
+    Some("revision_conflict"),
+  )
+  assert_eq(
+    error_code("{\"error\":\"revision_conflict\",\"extra\":true}"),
+    None,
+  )
 }

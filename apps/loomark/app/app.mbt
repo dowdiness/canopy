@@ -152,9 +152,12 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     },
     by=compact => if compact { "compact" } else { "wide" },
   )
-  let feature_input = page.map(page => {
+  let remote_documents = model.map(model => remote_documents(model.sync))
+  let membership = page.map(document_membership)
+  let remote_seeds = remote_documents.map2(membership, remote_document_seeds)
+  let feature_input = page.map2(remote_seeds, (page, remote) => {
     match page {
-      Editing(editing) => recent_document_seeds(editing)
+      Editing(editing) => recent_document_seeds(editing, remote)
       Loading(_) | PreparingNew(_) | Recovery(_, _) => @vector.Vector([])
     }
   })

@@ -6,6 +6,7 @@ pub(all) enum SyncDirective {
   SaveRequired
   Send(PendingOperation)
   UpdateAvailable(RemoteDocument)
+  RecoveryRequired
   Conflict(DocumentId, RemoteDocument)
 } derive(Eq, Debug)
 
@@ -20,20 +21,34 @@ pub fn SyncCheckpoint::directive(self : Self) -> SyncDirective {
       } else {
         SaveRequired
       }
-    RemoteUpdate(remote) => UpdateAvailable(remote)
+    Available(remote) => UpdateAvailable(remote)
+    Diverged(_) => RecoveryRequired
     Conflict(recovery) => Conflict(recovery.id(), self.baseline)
   }
 }
 
 ///|
-pub fn SyncCheckpoint::edit(self : Self, text : String) -> CheckpointWrite? {
-  guard text != self.document.text() else { return None }
-  Some(
-    CheckpointOnly(
-      { ..self, document: self.document.update(text), }
-      |> SyncCheckpoint::advance,
-    ),
-  )
+pub enum EditPlan {
+  Unchanged
+  Persist(CheckpointWrite)
+} derive(Eq, Debug)
+
+///|
+pub fn SyncCheckpoint::edit(self : Self, text : String) -> EditPlan {
+  guard text != self.document.text() else { return Unchanged }
+  let edited = { ..self, document: self.document.update(text), }
+    |> SyncCheckpoint::advance
+  let checkpoint = match self.phase {
+    Available(remote) | Diverged(remote) if remote.same_present_text(text) =>
+      { ..edited, baseline: remote, phase: Ready, }
+    Available(remote) | Diverged(remote) if self.baseline.same_present_text(
+        text,
+      ) => { ..edited, phase: Available(remote), }
+    Available(remote) | Diverged(remote) =>
+      { ..edited, phase: Diverged(remote), }
+    Ready | Sending(_) | Conflict(_) => edited
+  }
+  Persist(CheckpointOnly(checkpoint))
 }
 
 ///|
@@ -149,32 +164,20 @@ pub fn SyncCheckpoint::reject_conflict(
 }
 
 ///|
-/// A detected divergence waiting only for a recovery identity. No recovery ID
-/// is requested for the non-conflict reconciliation paths.
-pub struct ConflictDraft {
-  checkpoint : SyncCheckpoint
-  remote : RemoteDocument
-} derive(Eq, Debug)
-
-///|
 pub enum ReconcilePlan {
   Unchanged
   Persist(CheckpointWrite)
-  ConflictDetected(ConflictDraft)
 } derive(Eq, Debug)
 
 ///|
-pub fn ConflictDraft::preserve(
+pub fn SyncCheckpoint::preserve(
   self : Self,
   value : DocumentId,
 ) -> CheckpointWrite raise InvalidRecoveryId {
-  let recovery = recovery_identity(self.checkpoint.document.id(), value)
-  let recovery_document = recovery.document(self.checkpoint.document.text())
-  let next = {
-      ..self.checkpoint,
-      baseline: self.remote,
-      phase: Conflict(recovery),
-    }
+  guard self.phase is Diverged(remote) else { raise InvalidRecoveryId }
+  let recovery = recovery_identity(self.document.id(), value)
+  let recovery_document = recovery.document(self.document.text())
+  let next = { ..self, baseline: remote, phase: Conflict(recovery), }
     |> SyncCheckpoint::advance
   CheckpointAndRecovery(next, recovery_document)
 }
@@ -186,13 +189,13 @@ pub fn SyncCheckpoint::reconcile(
 ) -> ReconcilePlan {
   match self.phase {
     Sending(_) | Conflict(_) => return Unchanged
-    SyncPhase::RemoteUpdate(available) if remote.revision() <
-      available.revision() ||
-      (remote.revision() == available.revision() && remote != available) =>
+    Available(observed) | Diverged(observed) if remote.revision() <
+      observed.revision() ||
+      (remote.revision() == observed.revision() && remote != observed) =>
       return Unchanged
-    SyncPhase::RemoteUpdate(available) if remote == available &&
-      self.baseline.same_present_text(self.document.text()) => return Unchanged
-    Ready | RemoteUpdate(_) => ()
+    Available(observed) | Diverged(observed) if remote == observed =>
+      return Unchanged
+    Ready | Available(_) | Diverged(_) => ()
   }
   if remote.revision() < self.baseline.revision() || remote == self.baseline {
     return Unchanged
@@ -204,9 +207,36 @@ pub fn SyncCheckpoint::reconcile(
     return Persist(CheckpointOnly(next))
   }
   if self.baseline.same_present_text(self.document.text()) {
-    let next = { ..self, phase: RemoteUpdate(remote), }
-      |> SyncCheckpoint::advance
+    let next = { ..self, phase: Available(remote), } |> SyncCheckpoint::advance
     return Persist(CheckpointOnly(next))
   }
-  ConflictDetected({ checkpoint: self, remote, })
+  let next = { ..self, phase: Diverged(remote), } |> SyncCheckpoint::advance
+  Persist(CheckpointOnly(next))
+}
+
+///|
+/// Advance an unopened remote document to the exact revision selected by the
+/// user. Unlike background reconciliation, this may replace text because the
+/// document has not yet been activated for editing.
+pub fn SyncCheckpoint::refresh(
+  self : Self,
+  remote : RemoteDocument,
+) -> CheckpointWrite? {
+  guard remote is RemoteDocument::Present(_, text) &&
+    remote.revision() > self.observed_revision() &&
+    self.phase is Ready &&
+    self.baseline.same_present_text(self.document.text()) else {
+    return None
+  }
+  Some(
+    CheckpointOnly(
+      {
+        ..self,
+        document: self.document.update(text),
+        baseline: remote,
+        phase: Ready,
+      }
+      |> SyncCheckpoint::advance,
+    ),
+  )
 }

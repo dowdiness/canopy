@@ -192,6 +192,36 @@ fn EditingState::activate(
 }
 
 ///|
+fn activate_pending_open(
+  page : Page,
+  sync : @sync.State,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
+) -> (Page, @sync.State, @rabbita.Cmd) {
+  guard sync.pending_open() is Some((intent, account, document_id, revision)) &&
+    page is Editing(editing) &&
+    editing.can_activate() &&
+    editing.documents.snapshot().checkpoint(account, document_id)
+    is Some(checkpoint) &&
+    checkpoint.baseline_revision() >= revision.value() else {
+    return (page, sync, @cmd.none)
+  }
+  let documents = editing.documents.admit_checkpoint(checkpoint)
+  guard activation_target(
+      documents,
+      @documents.Key::checkpoint(account, document_id),
+    )
+    is Some(target) else {
+    return (page, sync, @cmd.none)
+  }
+  let (editing, command) = editing.activate(
+    target, emit, text_area, preview_engine,
+  )
+  (Editing({ ..editing, documents, }), sync.activated(intent), command)
+}
+
+///|
 fn reduce_documents(
   editing : EditingState,
   event : @documents.Msg,
@@ -715,6 +745,7 @@ fn persist_checkpoint(
 ///|
 fn run_sync_action(
   action : @sync.Action,
+  saved : @source_repository.SavedDocuments,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Cmd {
   match action {
@@ -724,7 +755,7 @@ fn run_sync_action(
           Sync(OperationPrepared(plan, account, document_id, result))
         }),
       )
-    Deliver(account, document_id, operation) =>
+    Deliver(effect, account, document_id, operation) =>
       @document_http.deliver(
         account,
         document_id,
@@ -732,6 +763,7 @@ fn run_sync_action(
         emit.map(result => {
           Sync(
             DeliveryCompleted(
+              effect,
               account,
               document_id,
               operation.operation_id(),
@@ -740,20 +772,48 @@ fn run_sync_action(
           )
         }),
       )
-    FetchRemote(account, document_id, operation_id) =>
-      @document_http.fetch_remote(
+    GetRemote(effect, account, document_id, read) =>
+      @document_http.get(
         account,
         document_id,
         emit.map(result => {
-          Sync(RemoteCompleted(account, document_id, operation_id, result))
+          Sync(RemoteCompleted(effect, account, document_id, read, result))
+        }),
+      )
+    CreateRecovery(effect, account, document_id) =>
+      @source_repository.create(
+        saved,
+        emit.map(result => {
+          Sync(RecoveryCreated(effect, account, document_id, result))
         }),
       )
   }
 }
 
 ///|
-fn schedule_checkpoint(
+fn discover(
   sync : @sync.State,
+  account : @source_repository.AccountId,
+  emit : @rabbita.Emit[Msg],
+) -> (@sync.State, @rabbita.Cmd) {
+  let (sync, discovery) = sync.begin_discovery()
+  match discovery {
+    Some(id) =>
+      (
+        sync,
+        @document_http.discover(
+          account,
+          emit.map(result => Sync(DiscoveryCompleted(account, id, result))),
+        ),
+      )
+    None => (sync, @cmd.none)
+  }
+}
+
+///|
+fn drive_checkpoint(
+  sync : @sync.State,
+  saved : @source_repository.SavedDocuments,
   checkpoint : @source_repository.SyncCheckpoint,
   emit : @rabbita.Emit[Msg],
 ) -> (@sync.State, @rabbita.Cmd) {
@@ -761,8 +821,13 @@ fn schedule_checkpoint(
     account == checkpoint.account() else {
     return (sync, @cmd.none)
   }
-  let (sync, action) = sync.schedule(checkpoint)
-  (sync, action.map(value => run_sync_action(value, emit)).unwrap_or(@cmd.none))
+  let (sync, action) = sync.drive(checkpoint)
+  (
+    sync,
+    action
+    .map(value => run_sync_action(value, saved, emit))
+    .unwrap_or(@cmd.none),
+  )
 }
 
 ///|
@@ -780,10 +845,48 @@ fn schedule_account(
       let retry_command = retry
         .map(attempt => persist_checkpoint(page, attempt, emit))
         .unwrap_or(@cmd.none)
-      let (sync, network_command) = schedule_checkpoint(sync, checkpoint, emit)
+      let (sync, network_command) = drive_checkpoint(
+        sync, saved, checkpoint, emit,
+      )
       (sync, state.1 + [retry_command, network_command])
     })
   (sync, @cmd.batch(commands))
+}
+
+///|
+fn drive_account(
+  sync : @sync.State,
+  page : Page,
+  account : @source_repository.AccountId,
+  emit : @rabbita.Emit[Msg],
+) -> (@sync.State, @rabbita.Cmd) {
+  guard page.saved_documents() is Some(saved) else { return (sync, @cmd.none) }
+  let (sync, commands) = saved
+    .checkpoints_for(account)
+    .fold(init=(sync, []), (state, checkpoint) => {
+      let (sync, command) = drive_checkpoint(state.0, saved, checkpoint, emit)
+      (sync, state.1 + [command])
+    })
+  (sync, @cmd.batch(commands))
+}
+
+///|
+fn resolve_changed_account(
+  sync : @sync.State,
+  account : @source_repository.AccountId,
+  emit : @rabbita.Emit[Msg],
+) -> (@sync.State, @rabbita.Cmd) {
+  guard sync.session() is @sync.Session::Current(current, _) &&
+    current == account else {
+    return (sync, @cmd.none)
+  }
+  let (sync, lookup_id) = sync.begin_lookup()
+  (
+    sync,
+    @account_http.resolve(
+      emit.map(value => Sync(AccountResolved(lookup_id, value))),
+    ),
+  )
 }
 
 ///|
@@ -809,8 +912,9 @@ fn update(
       let (page, sync, command) = match selection {
         Some(@sync.AccountSelection::AccountSelected(account)) => {
           let page = model.page.project_account(account)
-          let (sync, command) = schedule_account(sync, page, account, emit)
-          (page, sync, command)
+          let (sync, schedule) = schedule_account(sync, page, account, emit)
+          let (sync, discovery) = discover(sync, account, emit)
+          (page, sync, @cmd.batch([schedule, discovery]))
         }
         Some(@sync.AccountSelection::NoAccountSelected) =>
           (model.page.hide_accounts(), sync, @cmd.none)
@@ -818,32 +922,54 @@ fn update(
       }
       ({ page, sync, }, command)
     }
+    Sync(DiscoveryCompleted(account, id, result)) => {
+      let entries = match result {
+        @document_http.DiscoveryResult::Discovered(entries) => Some(entries)
+        AccountChanged | Unavailable => None
+      }
+      let (sync, accepted) = model.sync.discovered(account, id, entries)
+      guard accepted else { return (model, @cmd.none) }
+      match result {
+        @document_http.DiscoveryResult::Discovered(_) => {
+          let (sync, command) = drive_account(sync, model.page, account, emit)
+          ({ ..model, sync, }, command)
+        }
+        AccountChanged => {
+          let (sync, command) = resolve_changed_account(sync, account, emit)
+          ({ ..model, sync, }, command)
+        }
+        Unavailable => ({ ..model, sync, }, @cmd.none)
+      }
+    }
     SaveCheckpoint(account, document) => {
       guard model.page.saved_documents() is Some(saved) &&
         saved.checkpoint(account, document.id()) is Some(durable) else {
         return (model, @cmd.none)
       }
       let (sync, start) = model.sync.save(durable, document.text())
-      let command = start
+      let store = start
         .map(attempt => persist_checkpoint(model.page, attempt, emit))
         .unwrap_or(@cmd.none)
-      ({ ..model, sync, }, command)
+      ({ ..model, sync, }, store)
     }
     Sync(CheckpointCompleted(request_id, result)) => {
       let transition = match result {
         @source_repository.CheckpointResult::CheckpointStored(checkpoint) =>
-          Some((model.sync.stored(request_id, checkpoint), result)) catch {
+          try {
+            let (sync, next) = model.sync.stored(request_id, checkpoint)
+            Some((sync, next, result))
+          } catch {
             _ => None
           }
         CheckpointFailed(checkpoint, failure) =>
           try {
             let (sync, retained) = model.sync.failed(request_id, checkpoint)
-            Some(((sync, None), CheckpointFailed(retained, failure)))
+            Some((sync, None, CheckpointFailed(retained, failure)))
           } catch {
             _ => None
           }
       }
-      guard transition is Some(((sync, next), feedback)) else {
+      guard transition is Some((sync, next, feedback)) else {
         return (model, @cmd.none)
       }
       let (page, page_command) = update_page(
@@ -866,14 +992,22 @@ fn update(
                   checkpoint.account(),
                   checkpoint.document().id(),
                 ) {
-                Some(durable) => schedule_checkpoint(sync, durable, emit)
+                Some(durable) => drive_checkpoint(sync, saved, durable, emit)
                 None => (sync, @cmd.none)
               }
             None => (sync, @cmd.none)
           }
         _ => (sync, @cmd.none)
       }
-      ({ page, sync, }, @cmd.batch([page_command, next_command, sync_command]))
+      let (page, sync, activation_command) = activate_pending_open(
+        page, sync, emit, text_area, preview_engine,
+      )
+      (
+        { page, sync, },
+        @cmd.batch([
+          page_command, next_command, sync_command, activation_command,
+        ]),
+      )
     }
     Sync(OperationPrepared(plan, account, document_id, result)) => {
       guard model.page.saved_documents() is Some(saved) &&
@@ -912,7 +1046,7 @@ fn update(
         }
       }
     }
-    Sync(DeliveryCompleted(account, document_id, operation_id, result)) => {
+    Sync(DeliveryCompleted(effect, account, document_id, operation_id, result)) => {
       guard model.page.saved_documents() is Some(saved) &&
         saved.checkpoint(account, document_id) is Some(durable) else {
         return (model, @cmd.none)
@@ -920,7 +1054,7 @@ fn update(
       match result {
         @document_http.DeliveryResult::Acknowledged(revision) => {
           let transition = Some(
-            model.sync.acknowledged(durable, operation_id, revision),
+            model.sync.acknowledged(durable, effect, operation_id, revision),
           ) catch {
             // A delayed response cannot complete a different durable operation.
             _ => None
@@ -934,15 +1068,15 @@ fn update(
           ({ ..model, sync, }, command)
         }
         RevisionConflict => {
-          let sync = model.sync.revision_conflict(durable, operation_id) catch {
+          let sync = model.sync.revision_conflict(durable, effect, operation_id) catch {
             _ => return (model, @cmd.none)
           }
-          let (sync, command) = schedule_checkpoint(sync, durable, emit)
+          let (sync, command) = drive_checkpoint(sync, saved, durable, emit)
           ({ ..model, sync, }, command)
         }
         DocumentTooLarge => {
           let transition = Some(
-            model.sync.delivery_too_large(durable, operation_id),
+            model.sync.delivery_too_large(durable, effect, operation_id),
           ) catch {
             _ => None
           }
@@ -956,7 +1090,7 @@ fn update(
         }
         OperationRejected => {
           let transition = Some(
-            model.sync.operation_rejected(durable, operation_id),
+            model.sync.operation_rejected(durable, effect, operation_id),
           ) catch {
             _ => None
           }
@@ -969,26 +1103,68 @@ fn update(
           ({ ..model, sync, }, command)
         }
         AccountChanged | Unavailable => {
-          let sync = model.sync.delivery_failed(durable, operation_id) catch {
+          let sync = model.sync.delivery_failed(durable, effect, operation_id) catch {
             _ => return (model, @cmd.none)
           }
-          if result is AccountChanged &&
-            sync.session() is @sync.Session::Current(current, _) &&
-            current == account {
-            let (sync, lookup_id) = sync.begin_lookup()
-            (
-              { ..model, sync, },
-              @account_http.resolve(
-                emit.map(value => Sync(AccountResolved(lookup_id, value))),
-              ),
-            )
+          if result is AccountChanged {
+            let (sync, command) = resolve_changed_account(sync, account, emit)
+            ({ ..model, sync, }, command)
           } else {
             ({ ..model, sync, }, @cmd.none)
           }
         }
       }
     }
-    Sync(RemoteCompleted(account, document_id, operation_id, result)) => {
+    Sync(RemoteCompleted(effect, account, document_id, read, result)) => {
+      if read is @sync.RemoteRead::Open(intent, expected) {
+        let durable = match model.page.saved_documents() {
+          Some(saved) => saved.checkpoint(account, document_id)
+          None => None
+        }
+        let transition = match result {
+          @document_http.RemoteResult::Found(remote) =>
+            Some(
+              model.sync.opened(
+                effect, account, document_id, intent, expected, durable, remote,
+              ),
+            ) catch {
+              _ => None
+            }
+          AccountChanged | Unavailable =>
+            Some(
+              (
+                model.sync.open_failed(
+                  effect, account, document_id, intent, expected,
+                ),
+                None,
+              ),
+            ) catch {
+              _ => None
+            }
+        }
+        guard transition is Some((sync, attempt)) else {
+          return (model, @cmd.none)
+        }
+        let store = attempt
+          .map(value => persist_checkpoint(model.page, value, emit))
+          .unwrap_or(@cmd.none)
+        if result is @document_http.RemoteResult::AccountChanged {
+          let (sync, lookup) = resolve_changed_account(sync, account, emit)
+          return ({ ..model, sync, }, @cmd.batch([store, lookup]))
+        }
+        let (page, sync, activate) = if attempt is None {
+          activate_pending_open(
+            model.page,
+            sync,
+            emit,
+            text_area,
+            preview_engine,
+          )
+        } else {
+          (model.page, sync, @cmd.none)
+        }
+        return ({ page, sync, }, @cmd.batch([store, activate]))
+      }
       guard model.page.saved_documents() is Some(saved) &&
         saved.checkpoint(account, document_id) is Some(durable) else {
         return (model, @cmd.none)
@@ -996,51 +1172,37 @@ fn update(
       match result {
         @document_http.RemoteResult::Found(remote) => {
           let transition = Some(
-            model.sync.rejected(durable, operation_id, remote),
+            model.sync.received(durable, effect, read, remote),
           ) catch {
             _ => None
           }
-          guard transition is Some((sync, action)) else {
+          guard transition is Some((sync, attempt)) else {
             return (model, @cmd.none)
           }
-          let command = match action {
-            @sync.ConflictAction::Persisting(attempt) =>
-              attempt
-              .map(value => persist_checkpoint(model.page, value, emit))
-              .unwrap_or(@cmd.none)
-            CreateRecovery =>
-              @source_repository.create(
-                saved,
-                emit.map(created => {
-                  Sync(
-                    RecoveryCreated(account, document_id, operation_id, created),
-                  )
-                }),
-              )
+          let store = attempt
+            .map(value => persist_checkpoint(model.page, value, emit))
+            .unwrap_or(@cmd.none)
+          let (sync, drive) = if attempt is None {
+            drive_checkpoint(sync, saved, durable, emit)
+          } else {
+            (sync, @cmd.none)
           }
-          ({ ..model, sync, }, command)
+          ({ ..model, sync, }, @cmd.batch([store, drive]))
         }
         AccountChanged | Unavailable => {
-          let sync = model.sync.remote_failed(durable, operation_id) catch {
+          let sync = model.sync.remote_failed(durable, effect, read) catch {
             _ => return (model, @cmd.none)
           }
-          if result is AccountChanged &&
-            sync.session() is @sync.Session::Current(current, _) &&
-            current == account {
-            let (sync, lookup_id) = sync.begin_lookup()
-            (
-              { ..model, sync, },
-              @account_http.resolve(
-                emit.map(value => Sync(AccountResolved(lookup_id, value))),
-              ),
-            )
+          if result is AccountChanged {
+            let (sync, command) = resolve_changed_account(sync, account, emit)
+            ({ ..model, sync, }, command)
           } else {
             ({ ..model, sync, }, @cmd.none)
           }
         }
       }
     }
-    Sync(RecoveryCreated(account, document_id, operation_id, result)) => {
+    Sync(RecoveryCreated(effect, account, document_id, result)) => {
       guard model.page.saved_documents() is Some(saved) &&
         saved.checkpoint(account, document_id) is Some(durable) else {
         return (model, @cmd.none)
@@ -1049,14 +1211,12 @@ fn update(
         return (
           {
             ..model,
-            sync: model.sync.recovery_failed(account, document_id, operation_id),
+            sync: model.sync.recovery_failed(account, document_id, effect),
           },
           @cmd.none,
         )
       }
-      let transition = Some(
-        model.sync.recover(durable, operation_id, recovery_id),
-      ) catch {
+      let transition = Some(model.sync.recover(durable, effect, recovery_id)) catch {
         _ => None
       }
       guard transition is Some((sync, attempt)) else {
@@ -1067,7 +1227,33 @@ fn update(
         .unwrap_or(@cmd.none)
       ({ ..model, sync, }, command)
     }
+    DocumentSelected(@documents.Key::Checkpoint(account, document_id)) if model.page
+      is Editing(editing) &&
+      editing.documents.text(@documents.Key::checkpoint(account, document_id))
+      is None &&
+      model.sync.session() is @sync.Session::Current(current, _) &&
+      current == account => {
+      guard model.sync.remote_entry(document_id) is Some(entry) &&
+        entry is @source_repository.RemoteEntry::Present(_, _, _) &&
+        editing.can_activate() &&
+        model.page.saved_documents() is Some(saved) else {
+        return (model, @cmd.none)
+      }
+      let (sync, attempt, action) = model.sync.begin_open(entry)
+      let store = attempt
+        .map(value => persist_checkpoint(model.page, value, emit))
+        .unwrap_or(@cmd.none)
+      let remote = action
+        .map(value => run_sync_action(value, saved, emit))
+        .unwrap_or(@cmd.none)
+      ({ ..model, sync, }, @cmd.batch([store, remote]))
+    }
     message => {
+      let sync = match message {
+        DocumentSelected(_) | CreateRequested | ImportFilesSelected(_) =>
+          model.sync.cancel_open()
+        _ => model.sync
+      }
       let (page, command) = update_page(
         model.page,
         message,
@@ -1075,22 +1261,26 @@ fn update(
         text_area,
         preview_engine,
       )
+      let (page, sync, activation_command) = activate_pending_open(
+        page, sync, emit, text_area, preview_engine,
+      )
+      let command = @cmd.batch([command, activation_command])
       match message {
         Opened(_) => {
-          let (sync, lookup_id) = model.sync.begin_lookup()
+          let (sync, lookup_id) = sync.begin_lookup()
           let account_command = @account_http.resolve(
             emit.map(result => Sync(AccountResolved(lookup_id, result))),
           )
           ({ page, sync, }, @cmd.batch([command, account_command]))
         }
         VisibilityChanged(false) => {
-          let (sync, lookup_id) = model.sync.begin_lookup()
+          let (sync, lookup_id) = sync.begin_lookup()
           let account_command = @account_http.resolve(
             emit.map(result => Sync(AccountResolved(lookup_id, result))),
           )
           ({ page, sync, }, @cmd.batch([command, account_command]))
         }
-        _ => ({ ..model, page, }, command)
+        _ => ({ page, sync, }, command)
       }
     }
   }

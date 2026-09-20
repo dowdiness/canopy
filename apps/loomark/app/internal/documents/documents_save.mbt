@@ -482,7 +482,8 @@ fn complete_checkpoint(
       )
       let document_id = key
       guard find_record(documents.records, document_id) is Some(record) &&
-        record.save is Saving(operation, pending) && operation.key == key else {
+        record.save is Saving(operation, pending) &&
+        operation.key == key else {
         return (documents, [])
       }
       if operation.document == checkpoint.document() {

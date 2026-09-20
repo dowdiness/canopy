@@ -89,7 +89,7 @@ test "account switch retains optimistic text under its original owner" {
     activation: { key: token_a, generation: 0, },
     documents: account_b_documents,
   }
-  let visible = recent_document_seeds(editing).to_array()
+  let visible = recent_document_seeds(editing, []).to_array()
   assert_false(visible.exists(seed => seed.docid() == token_a))
   assert_true(visible.exists(seed => seed.docid() == token_b))
 
@@ -120,7 +120,7 @@ test "synced document remains selectable while deletion is unavailable" {
   )
   let editing = { ..test_editing(), documents, }
   let token = sync_test_key(account, "shared")
-  let shared = recent_document_seeds(editing)
+  let shared = recent_document_seeds(editing, [])
     .iter()
     .find_first(seed => seed.docid() == token)
     .unwrap()

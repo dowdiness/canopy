@@ -72,6 +72,14 @@ fn sending_checkpoint(text : String, operation_id : String) -> SyncCheckpoint {
 }
 
 ///|
+fn edit_write(checkpoint : SyncCheckpoint, text : String) -> CheckpointWrite {
+  guard checkpoint.edit(text) is EditPlan::Persist(write) else {
+    abort("expected edit write")
+  }
+  write
+}
+
+///|
 fn reconcile_change(
   checkpoint : SyncCheckpoint,
   remote : RemoteDocument,
@@ -88,10 +96,10 @@ fn preserve_conflict(
   remote : RemoteDocument,
   recovery_id : String,
 ) -> CheckpointWrite {
-  guard checkpoint.reconcile(remote) is ReconcilePlan::ConflictDetected(draft) else {
-    abort("expected conflict")
+  guard checkpoint.reconcile(remote) is ReconcilePlan::Persist(diverged) else {
+    abort("expected divergence")
   }
-  draft.preserve(test_document_id(recovery_id)) catch {
+  diverged.checkpoint().preserve(test_document_id(recovery_id)) catch {
     _ => abort("invalid test recovery identity")
   }
 }
@@ -110,7 +118,7 @@ test "restart resends the exact parsed durable pending operation" {
 ///|
 test "acknowledgment retains an edit made during sending" {
   let sending = sending_checkpoint("first", TEST_OPERATION_1)
-  let edited = sending.edit("newer").unwrap().checkpoint()
+  let edited = edit_write(sending, "newer").checkpoint()
   let completed = edited
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .checkpoint()
@@ -164,21 +172,28 @@ test "definitive save rejection retires pending operation into conflict" {
   let saved = sending_checkpoint("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .checkpoint()
-  let edited = saved.edit("local").unwrap().checkpoint()
+  let edited = edit_write(saved, "local").checkpoint()
   let pending = start_save(edited, TEST_OPERATION_2).checkpoint()
   guard pending.reject_conflict(
       test_operation(TEST_OPERATION_2),
       remote_present(2.0, "remote"),
     )
-    is ReconcilePlan::ConflictDetected(draft) else {
-    fail("expected conflict draft")
+    is ReconcilePlan::Persist(diverged) else {
+    fail("expected durable divergence")
   }
-  let recovery_id = test_document_id("rejected-save-recovery")
-  let conflicted = draft.preserve(recovery_id)
+  assert_eq(diverged.checkpoint().directive(), SyncDirective::RecoveryRequired)
+  let conflicted = diverged
+    .checkpoint()
+    .preserve(test_document_id("rejected-save-recovery")) catch {
+      _ => abort("recovery identity")
+    }
   assert_true(conflicted is CheckpointAndRecovery(_, _))
   assert_eq(
     conflicted.checkpoint().directive(),
-    SyncDirective::Conflict(recovery_id, remote_present(2.0, "remote")),
+    SyncDirective::Conflict(
+      test_document_id("rejected-save-recovery"),
+      remote_present(2.0, "remote"),
+    ),
   )
 }
 
@@ -240,13 +255,36 @@ test "delayed remote revisions cannot replace a newer available update" {
 }
 
 ///|
+test "a newer remote revision can converge an available update to local text" {
+  let saved = sending_checkpoint("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .checkpoint()
+  let available = reconcile_change(saved, remote_present(2.0, "remote")).checkpoint()
+  let converged = reconcile_change(available, remote_present(3.0, "base")).checkpoint()
+  assert_eq(converged.directive(), SyncDirective::Synchronized)
+  assert_eq(converged.baseline_revision(), 3.0)
+  assert_eq(converged.document().text(), "base")
+}
+
+///|
+test "a newer tombstone replaces an available update" {
+  let saved = sending_checkpoint("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .checkpoint()
+  let available = reconcile_change(saved, remote_present(2.0, "remote")).checkpoint()
+  let tombstone = RemoteDocument::Deleted(test_revision(3.0))
+  let deleted = reconcile_change(available, tombstone).checkpoint()
+  assert_eq(deleted.directive(), SyncDirective::UpdateAvailable(tombstone))
+  assert_eq(deleted.observed_revision(), 3.0)
+  assert_eq(deleted.document().text(), "base")
+}
+
+///|
 test "divergence produces one atomic conflict write" {
   let checkpoint = sending_checkpoint("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .checkpoint()
-    .edit("local")
-    .unwrap()
-    .checkpoint()
+  let checkpoint = edit_write(checkpoint, "local").checkpoint()
   let conflicted = preserve_conflict(
     checkpoint,
     remote_present(2.0, "remote"),
@@ -266,7 +304,7 @@ test "divergence produces one atomic conflict write" {
 }
 
 ///|
-test "editing after a remote-update notice becomes a conflict" {
+test "editing after a remote-update notice persists divergence before recovery" {
   let checkpoint = sending_checkpoint("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .checkpoint()
@@ -275,13 +313,12 @@ test "editing after a remote-update notice becomes a conflict" {
     available.directive(),
     SyncDirective::UpdateAvailable(remote_present(2.0, "remote")),
   )
-  let edited = available.edit("local after notice").unwrap().checkpoint()
+  guard available.edit("local after notice") is EditPlan::Persist(diverged) else {
+    fail("expected durable divergence")
+  }
+  assert_eq(diverged.checkpoint().directive(), SyncDirective::RecoveryRequired)
   assert_true(
-    preserve_conflict(
-      edited,
-      remote_present(2.0, "remote"),
-      "recovery-after-notice",
-    )
+    diverged.checkpoint().preserve(test_document_id("recovery-after-notice"))
     is CheckpointAndRecovery(_, _),
   )
 }

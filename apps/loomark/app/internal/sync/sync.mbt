@@ -26,6 +26,36 @@ pub struct RequestId(Int) derive(Eq, Debug)
 pub struct PlanId(Int) derive(Eq, Debug)
 
 ///|
+pub struct DiscoveryId(Int) derive(Eq, Debug)
+
+///|
+pub struct EffectId(Int) derive(Eq, Debug)
+
+///|
+pub struct OpenIntent(Int) derive(Eq, Debug)
+
+///|
+priv struct OpenTarget {
+  intent : OpenIntent
+  account : @source_repository.AccountId
+  document_id : @source_repository.DocumentId
+  revision : @source_repository.SavedRevision
+} derive(Eq, Debug)
+
+///|
+pub(all) enum RemoteRead {
+  Conflict(@source_repository.OperationId)
+  Revision(@source_repository.SavedRevision)
+  Open(OpenIntent, @source_repository.SavedRevision)
+} derive(Eq, Debug)
+
+///|
+priv enum Catalog {
+  Idle(Array[@source_repository.RemoteEntry])
+  Loading(DiscoveryId, Array[@source_repository.RemoteEntry])
+} derive(Eq, Debug)
+
+///|
 pub struct Attempt {
   request_id : RequestId
   write : @source_repository.CheckpointWrite
@@ -57,10 +87,10 @@ priv struct Lane {
 ///|
 priv enum NetworkState {
   Planning(PlanId, Double)
-  Delivering(@source_repository.OperationId)
+  Delivering(EffectId, @source_repository.OperationId)
   ConflictPending(@source_repository.OperationId)
-  FetchingRemote(@source_repository.OperationId)
-  Recovering(@source_repository.OperationId, @source_repository.RemoteDocument)
+  FetchingRemote(EffectId, RemoteRead)
+  Recovering(EffectId)
   Blocked
 } derive(Eq, Debug)
 
@@ -76,24 +106,25 @@ pub(all) enum Action {
   CreateOperation(
     PlanId,
     @source_repository.AccountId,
-    @source_repository.DocumentId,
+    @source_repository.DocumentId
   )
   Deliver(
+    EffectId,
     @source_repository.AccountId,
     @source_repository.DocumentId,
-    @source_repository.PendingOperation,
+    @source_repository.PendingOperation
   )
-  FetchRemote(
+  GetRemote(
+    EffectId,
     @source_repository.AccountId,
     @source_repository.DocumentId,
-    @source_repository.OperationId,
+    RemoteRead
   )
-} derive(Eq, Debug)
-
-///|
-pub(all) enum ConflictAction {
-  Persisting(Attempt?)
-  CreateRecovery
+  CreateRecovery(
+    EffectId,
+    @source_repository.AccountId,
+    @source_repository.DocumentId
+  )
 } derive(Eq, Debug)
 
 ///|
@@ -109,22 +140,34 @@ pub(all) suberror WorkError {
 ///|
 pub struct State {
   priv session : Session
+  priv catalog_account : @source_repository.AccountId?
+  priv catalog : Catalog
+  priv open_target : OpenTarget?
   priv lanes : Array[Lane]
   priv network : Array[Network]
   priv last_lookup_id : Int
   priv last_request_id : Int
   priv last_plan_id : Int
+  priv last_discovery_id : Int
+  priv last_effect_id : Int
+  priv last_open_intent : Int
 } derive(Eq, Debug)
 
 ///|
 pub fn State::State() -> State {
   {
     session: SessionUnavailable,
+    catalog_account: None,
+    catalog: Idle([]),
+    open_target: None,
     lanes: [],
     network: [],
     last_lookup_id: 0,
     last_request_id: 0,
     last_plan_id: 0,
+    last_discovery_id: 0,
+    last_effect_id: 0,
+    last_open_intent: 0,
   }
 }
 
@@ -137,7 +180,12 @@ pub fn State::session(self : Self) -> Session {
 pub fn State::begin_lookup(self : Self) -> (Self, Int) {
   let request_id = self.last_lookup_id + 1
   (
-    { ..self, session: Resolving(request_id), last_lookup_id: request_id, },
+    {
+      ..self,
+      session: Resolving(request_id),
+      open_target: None,
+      last_lookup_id: request_id,
+    },
     request_id,
   )
 }
@@ -159,7 +207,289 @@ pub fn State::resolved(
     SignedOut => Some(AccountSelection::NoAccountSelected)
     AccountUnavailable => None
   }
-  ({ ..self, session, }, account)
+  let (catalog_account, catalog) = match result {
+    Resolved(id, _) if self.catalog_account == Some(id) =>
+      (self.catalog_account, self.catalog)
+    Resolved(id, _) => (Some(id), Idle([]))
+    SignedOut => (None, Idle([]))
+    AccountUnavailable => (self.catalog_account, self.catalog)
+  }
+  ({ ..self, session, catalog_account, catalog, }, account)
+}
+
+///|
+fn Catalog::entries(self : Self) -> Array[@source_repository.RemoteEntry] {
+  match self {
+    Idle(entries) | Loading(_, entries) => entries
+  }
+}
+
+///|
+pub fn State::catalog(self : Self) -> Array[@source_repository.RemoteEntry] {
+  match (self.session, self.catalog_account) {
+    (Current(account, _), Some(owner)) if account == owner =>
+      self.catalog.entries()
+    _ => []
+  }
+}
+
+///|
+pub fn State::remote_entry(
+  self : Self,
+  document_id : @source_repository.DocumentId,
+) -> @source_repository.RemoteEntry? {
+  self
+  .catalog()
+  .view()
+  .search_by(entry => entry.document_id() == document_id)
+  .map(index => self.catalog()[index])
+}
+
+///|
+pub fn State::begin_discovery(self : Self) -> (Self, DiscoveryId?) {
+  guard self.session is Current(account, _) &&
+    self.catalog_account == Some(account) else {
+    return (self, None)
+  }
+  let value = self.last_discovery_id + 1
+  let id = DiscoveryId(value)
+  (
+    {
+      ..self,
+      catalog: Loading(id, self.catalog.entries()),
+      last_discovery_id: value,
+    },
+    Some(id),
+  )
+}
+
+///|
+fn merge_catalog(
+  old : Array[@source_repository.RemoteEntry],
+  fresh : Array[@source_repository.RemoteEntry],
+) -> Array[@source_repository.RemoteEntry] {
+  let merged = old.copy()
+  for candidate in fresh {
+    match
+      merged
+      .view()
+      .search_by(entry => entry.document_id() == candidate.document_id()) {
+      Some(index) if candidate.revision().value() >
+        merged[index].revision().value() => merged[index] = candidate
+      Some(_) => ()
+      None => merged.push(candidate)
+    }
+  }
+  merged.sort_by((left, right) => {
+    left.document_id().value().lexical_compare(right.document_id().value())
+  })
+  merged
+}
+
+///|
+pub fn State::discovered(
+  self : Self,
+  account : @source_repository.AccountId,
+  id : DiscoveryId,
+  entries : Array[@source_repository.RemoteEntry]?,
+) -> (Self, Bool) {
+  guard self.session is Current(current, _) &&
+    current == account &&
+    self.catalog_account == Some(account) &&
+    self.catalog is Loading(active, old) &&
+    active == id else {
+    return (self, false)
+  }
+  let catalog = match entries {
+    Some(fresh) => Idle(merge_catalog(old, fresh))
+    None => Idle(old)
+  }
+  ({ ..self, catalog, }, true)
+}
+
+///|
+fn State::effect(self : Self) -> (Self, EffectId) {
+  let value = self.last_effect_id + 1
+  ({ ..self, last_effect_id: value, }, EffectId(value))
+}
+
+///|
+pub fn State::cancel_open(self : Self) -> Self {
+  {
+    ..self,
+    open_target: None,
+    network: self.network.filter(task => {
+      !(task.state is FetchingRemote(_, RemoteRead::Open(_, _)))
+    }),
+  }
+}
+
+///|
+fn checkpoint_covers(
+  checkpoint : @source_repository.SyncCheckpoint,
+  revision : @source_repository.SavedRevision,
+) -> Bool {
+  checkpoint.baseline_revision() >= revision.value()
+}
+
+///|
+fn State::continue_open(
+  self : Self,
+  index : Int,
+  revision : @source_repository.SavedRevision,
+) -> (Self, Attempt?)? {
+  match self.lanes[index].state {
+    Storing(_, Some(waiting)) if checkpoint_covers(
+        waiting.checkpoint(),
+        revision,
+      ) => Some((self, None))
+    Storing(active, None) if checkpoint_covers(
+        active.write.checkpoint(),
+        revision,
+      ) => Some((self, None))
+    RetryPending(write) if checkpoint_covers(write.checkpoint(), revision) =>
+      Some(self.persist(write))
+    Storing(_, _) | RetryPending(_) => None
+  }
+}
+
+///|
+pub fn State::begin_open(
+  self : Self,
+  entry : @source_repository.RemoteEntry,
+) -> (Self, Attempt?, Action?) {
+  guard entry
+    is @source_repository.RemoteEntry::Present(document_id, revision, _) &&
+    self.session is Current(account, _) else {
+    return (self, None, None)
+  }
+  let intent_value = self.last_open_intent + 1
+  let intent = OpenIntent(intent_value)
+  let self = self.cancel_open()
+  let self = {
+    ..self,
+    open_target: Some({ intent, account, document_id, revision, }),
+    last_open_intent: intent_value,
+  }
+  match self.find_lane(account, document_id) {
+    Some(index) =>
+      match self.continue_open(index, revision) {
+        Some((self, attempt)) => return (self, attempt, None)
+        None => ()
+      }
+    None => ()
+  }
+  let (self, effect) = self.effect()
+  let read = RemoteRead::Open(intent, revision)
+  let task : Network = {
+    account,
+    document_id,
+    state: FetchingRemote(effect, read),
+  }
+  (
+    { ..self, network: self.network + [task], },
+    None,
+    Some(GetRemote(effect, account, document_id, read)),
+  )
+}
+
+///|
+pub fn State::opened(
+  self : Self,
+  effect : EffectId,
+  account : @source_repository.AccountId,
+  document_id : @source_repository.DocumentId,
+  intent : OpenIntent,
+  expected : @source_repository.SavedRevision,
+  durable : @source_repository.SyncCheckpoint?,
+  remote : @source_repository.RemoteDocument,
+) -> (Self, Attempt?) raise WorkError {
+  guard self.find_network(account, document_id) is Some(index) &&
+    self.network[index].state
+    is FetchingRemote(
+      active,
+      RemoteRead::Open(expected_intent, expected_revision)
+    ) &&
+    active == effect &&
+    expected_intent == intent &&
+    expected_revision == expected else {
+    raise StaleWork
+  }
+  let self = self.remove_network(index)
+  guard self.open_target ==
+    Some({ intent, account, document_id, revision: expected, }) &&
+    self.session is Current(current, _) &&
+    current == account &&
+    remote is @source_repository.RemoteDocument::Present(actual, text) &&
+    actual.value() >= expected.value() else {
+    return (self, None)
+  }
+  let document = @source_repository.Document::create(document_id, text)
+  let head = match self.find_lane(account, document_id) {
+    Some(index) => Some(self.lane_head(index))
+    None => durable
+  }
+  match head {
+    Some(checkpoint) if checkpoint.account() == account &&
+      checkpoint.document().id() == document_id =>
+      match checkpoint.refresh(remote) {
+        Some(write) => self.persist(write)
+        None => (self, None)
+      }
+    Some(_) => raise StaleWork
+    None =>
+      self.persist(
+        @source_repository.SyncCheckpoint::receive(account, document, actual).write(),
+      )
+  }
+}
+
+///|
+pub fn State::open_failed(
+  self : Self,
+  effect : EffectId,
+  account : @source_repository.AccountId,
+  document_id : @source_repository.DocumentId,
+  intent : OpenIntent,
+  expected : @source_repository.SavedRevision,
+) -> Self raise WorkError {
+  guard self.find_network(account, document_id) is Some(index) &&
+    self.network[index].state
+    is FetchingRemote(active, RemoteRead::Open(active_intent, active_revision)) &&
+    active == effect &&
+    active_intent == intent &&
+    active_revision == expected else {
+    raise StaleWork
+  }
+  let self = self.remove_network(index)
+  if self.open_target ==
+    Some({ intent, account, document_id, revision: expected, }) {
+    { ..self, open_target: None, }
+  } else {
+    self
+  }
+}
+
+///|
+pub fn State::pending_open(
+  self : Self,
+) -> (
+  OpenIntent,
+  @source_repository.AccountId,
+  @source_repository.DocumentId,
+  @source_repository.SavedRevision,
+)? {
+  self.open_target.map(target => {
+    (target.intent, target.account, target.document_id, target.revision)
+  })
+}
+
+///|
+pub fn State::activated(self : Self, intent : OpenIntent) -> Self {
+  match self.open_target {
+    Some(target) if target.intent == intent => { ..self, open_target: None, }
+    Some(_) | None => self
+  }
 }
 
 ///|
@@ -200,7 +530,11 @@ fn State::replace_network(
   {
     ..self,
     network: self.network.mapi((i, task) => {
-      if i == index { { ..task, state, } } else { task }
+      if i == index {
+        { ..task, state, }
+      } else {
+        task
+      }
     }),
   }
 }
@@ -221,6 +555,18 @@ fn State::head(
         Storing(active, None) => active.write.checkpoint()
         RetryPending(retained) => retained.checkpoint()
       }
+  }
+}
+
+///|
+fn State::lane_head(
+  self : Self,
+  index : Int,
+) -> @source_repository.SyncCheckpoint {
+  match self.lanes[index].state {
+    Storing(_, Some(waiting)) => waiting.checkpoint()
+    Storing(active, None) => active.write.checkpoint()
+    RetryPending(retained) => retained.checkpoint()
   }
 }
 
@@ -270,11 +616,7 @@ fn State::persist(
   match self.find_lane(account, document_id) {
     None => {
       let (self, attempt) = self.attempt(write)
-      let lane : Lane = {
-        account,
-        document_id,
-        state: Storing(attempt, None),
-      }
+      let lane : Lane = { account, document_id, state: Storing(attempt, None), }
       ({ ..self, lanes: self.lanes + [lane], }, Some(attempt))
     }
     Some(index) =>
@@ -303,19 +645,30 @@ pub fn State::save(
   durable : @source_repository.SyncCheckpoint,
   text : String,
 ) -> (Self, Attempt?) {
-  let self = match self.find_network(durable.account(), durable.document().id()) {
-    Some(index) if self.network[index].state is (Planning(_, _) | Blocked) =>
-      self.remove_network(index)
-    _ => self
-  }
   let head = self.head(durable)
   match head.edit(text) {
-    Some(write) => self.persist(write)
-    None =>
+    @source_repository.EditPlan::Persist(write) => {
+      let self = match
+        self.find_network(durable.account(), durable.document().id()) {
+        Some(index) if self.network[index].state is (Planning(_, _) | Blocked) =>
+          self.remove_network(index)
+        Some(index) if self.network[index].state is Recovering(_) &&
+          !(write.checkpoint().directive()
+          is @source_repository.SyncDirective::RecoveryRequired) =>
+          self.remove_network(index)
+        _ => self
+      }
+      let (self, attempt) = self.persist(write)
+      (self, attempt)
+    }
+    @source_repository.EditPlan::Unchanged =>
       match self.find_lane(durable.account(), durable.document().id()) {
         Some(index) =>
           match self.lanes[index].state {
-            RetryPending(retained) => self.persist(retained)
+            RetryPending(retained) => {
+              let (self, attempt) = self.persist(retained)
+              (self, attempt)
+            }
             Storing(_, _) => (self, None)
           }
         None => (self, None)
@@ -324,55 +677,113 @@ pub fn State::save(
 }
 
 ///|
-/// Schedule only work whose prerequisite checkpoint is already durable.
-pub fn State::schedule(
+fn State::fetch_newer(
+  self : Self,
+  durable : @source_repository.SyncCheckpoint,
+) -> (Self, Action?)? {
+  let document_id = durable.document().id()
+  guard self.remote_entry(document_id) is Some(entry) &&
+    entry.revision().value() > durable.observed_revision() else {
+    return None
+  }
+  let account = durable.account()
+  let (self, effect) = self.effect()
+  let read = RemoteRead::Revision(entry.revision())
+  let task : Network = {
+    account,
+    document_id,
+    state: FetchingRemote(effect, read),
+  }
+  Some(
+    (
+      { ..self, network: self.network + [task], },
+      Some(Action::GetRemote(effect, account, document_id, read)),
+    ),
+  )
+}
+
+///|
+/// Derive the next effect from durable checkpoint and catalog facts.
+pub fn State::drive(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
 ) -> (Self, Action?) {
   let account = durable.account()
   let document_id = durable.document().id()
-  guard self.find_lane(account, document_id) is None else {
+  guard self.session is Current(current, _) &&
+    current == account &&
+    self.find_lane(account, document_id) is None else {
     return (self, None)
   }
   match self.find_network(account, document_id) {
     Some(index) =>
       return match self.network[index].state {
-        ConflictPending(operation_id) =>
+        ConflictPending(operation_id) => {
+          let (self, effect) = self.effect()
+          let read = RemoteRead::Conflict(operation_id)
           (
-            self.replace_network(index, FetchingRemote(operation_id)),
-            Some(Action::FetchRemote(account, document_id, operation_id)),
+            self.replace_network(index, FetchingRemote(effect, read)),
+            Some(Action::GetRemote(effect, account, document_id, read)),
           )
-        Planning(_, _) | Delivering(_) | FetchingRemote(_) | Recovering(_, _) | Blocked =>
-          (self, None)
+        }
+        Planning(_, _)
+        | Delivering(_, _)
+        | FetchingRemote(_, _)
+        | Recovering(_)
+        | Blocked => (self, None)
       }
     None => ()
   }
-  match durable.directive() {
-    @source_repository.SyncDirective::SaveRequired => {
-      let value = self.last_plan_id + 1
-      let id = PlanId(value)
-      let task : Network = {
-        account,
-        document_id,
-        state: Planning(id, durable.generation()),
-      }
-      (
-        { ..self, network: self.network + [task], last_plan_id: value, },
-        Some(Action::CreateOperation(id, account, document_id)),
-      )
-    }
+  let directive = durable.directive()
+  match directive {
     Send(operation) => {
+      let (self, effect) = self.effect()
       let task : Network = {
         account,
         document_id,
-        state: Delivering(operation.operation_id()),
+        state: Delivering(effect, operation.operation_id()),
       }
       (
         { ..self, network: self.network + [task], },
-        Some(Action::Deliver(account, document_id, operation)),
+        Some(Action::Deliver(effect, account, document_id, operation)),
       )
     }
-    Synchronized | UpdateAvailable(_) | Conflict(_, _) => (self, None)
+    Conflict(_, _) => (self, None)
+    RecoveryRequired =>
+      match self.fetch_newer(durable) {
+        Some(next) => next
+        None => {
+          let (self, effect) = self.effect()
+          let task : Network = {
+            account,
+            document_id,
+            state: Recovering(effect),
+          }
+          (
+            { ..self, network: self.network + [task], },
+            Some(Action::CreateRecovery(effect, account, document_id)),
+          )
+        }
+      }
+    SaveRequired =>
+      match self.fetch_newer(durable) {
+        Some(next) => next
+        None => {
+          let value = self.last_plan_id + 1
+          let id = PlanId(value)
+          let task : Network = {
+            account,
+            document_id,
+            state: Planning(id, durable.generation()),
+          }
+          (
+            { ..self, network: self.network + [task], last_plan_id: value, },
+            Some(Action::CreateOperation(id, account, document_id)),
+          )
+        }
+      }
+    Synchronized | UpdateAvailable(_) =>
+      self.fetch_newer(durable).unwrap_or((self, None))
   }
 }
 
@@ -385,7 +796,8 @@ pub fn State::prepared(
 ) -> (Self, Attempt?) raise WorkError {
   guard self.find_network(durable.account(), durable.document().id())
     is Some(index) &&
-    self.network[index].state is Planning(active, generation) && active == id &&
+    self.network[index].state is Planning(active, generation) &&
+    active == id &&
     generation == durable.generation() else {
     raise StaleWork
   }
@@ -404,8 +816,8 @@ pub fn State::planning_failed(
   document_id : @source_repository.DocumentId,
 ) -> Self {
   match self.find_network(account, document_id) {
-    Some(index) if self.network[index].state is Planning(active, _) && active == id =>
-      self.remove_network(index)
+    Some(index) if self.network[index].state is Planning(active, _) &&
+      active == id => self.remove_network(index)
     _ => self
   }
 }
@@ -414,11 +826,14 @@ pub fn State::planning_failed(
 fn State::delivery(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
   operation_id : @source_repository.OperationId,
 ) -> Int raise WorkError {
   guard self.find_network(durable.account(), durable.document().id())
     is Some(index) &&
-    self.network[index].state is Delivering(active) && active == operation_id else {
+    self.network[index].state is Delivering(active_effect, active_operation) &&
+    active_effect == effect &&
+    active_operation == operation_id else {
     raise StaleWork
   }
   index
@@ -428,10 +843,11 @@ fn State::delivery(
 pub fn State::acknowledged(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
   operation_id : @source_repository.OperationId,
   revision : @source_repository.SavedRevision,
 ) -> (Self, Attempt?) raise WorkError {
-  let index = self.delivery(durable, operation_id)
+  let index = self.delivery(durable, effect, operation_id)
   self.remove_network(index).acknowledge(durable, operation_id, revision) catch {
     _ => raise StaleWork
   }
@@ -441,9 +857,10 @@ pub fn State::acknowledged(
 pub fn State::delivery_failed(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
   operation_id : @source_repository.OperationId,
 ) -> Self raise WorkError {
-  let index = self.delivery(durable, operation_id)
+  let index = self.delivery(durable, effect, operation_id)
   self.remove_network(index)
 }
 
@@ -451,9 +868,10 @@ pub fn State::delivery_failed(
 pub fn State::revision_conflict(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
   operation_id : @source_repository.OperationId,
 ) -> Self raise WorkError {
-  let index = self.delivery(durable, operation_id)
+  let index = self.delivery(durable, effect, operation_id)
   self.replace_network(index, ConflictPending(operation_id))
 }
 
@@ -461,12 +879,14 @@ pub fn State::revision_conflict(
 fn State::remote_fetch(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
-  operation_id : @source_repository.OperationId,
+  effect : EffectId,
+  read : RemoteRead,
 ) -> Int raise WorkError {
   guard self.find_network(durable.account(), durable.document().id())
     is Some(index) &&
-    self.network[index].state is FetchingRemote(active) &&
-    active == operation_id else {
+    self.network[index].state is FetchingRemote(active_effect, active_read) &&
+    active_effect == effect &&
+    active_read == read else {
     raise StaleWork
   }
   index
@@ -476,23 +896,29 @@ fn State::remote_fetch(
 pub fn State::remote_failed(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
-  operation_id : @source_repository.OperationId,
+  effect : EffectId,
+  read : RemoteRead,
 ) -> Self raise WorkError {
-  let index = self.remote_fetch(durable, operation_id)
-  self.replace_network(index, ConflictPending(operation_id))
+  let index = self.remote_fetch(durable, effect, read)
+  match read {
+    RemoteRead::Conflict(operation_id) =>
+      self.replace_network(index, ConflictPending(operation_id))
+    Revision(_) | Open(_, _) => self.remove_network(index)
+  }
 }
 
 ///|
 fn State::reject_delivery(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
   operation_id : @source_repository.OperationId,
   block : Bool,
 ) -> (Self, Attempt?) raise WorkError {
-  let index = self.delivery(durable, operation_id)
+  let index = self.delivery(durable, effect, operation_id)
   let write = self.head(durable).reject_operation(operation_id) catch {
-    _ => raise StaleWork
-  }
+      _ => raise StaleWork
+    }
   let self = if block {
     self.replace_network(index, Blocked)
   } else {
@@ -505,6 +931,7 @@ fn State::reject_delivery(
 pub fn State::delivery_too_large(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
   operation_id : @source_repository.OperationId,
 ) -> (Self, Attempt?) raise WorkError {
   let head = self.head(durable)
@@ -513,44 +940,60 @@ pub fn State::delivery_too_large(
     raise StaleWork
   }
   let unchanged = match operation.content() {
-    @source_repository.PendingContent::Save(text) => head.document().text() == text
+    @source_repository.PendingContent::Save(text) =>
+      head.document().text() == text
     Delete => true
   }
-  self.reject_delivery(durable, operation_id, unchanged)
+  self.reject_delivery(durable, effect, operation_id, unchanged)
 }
 
 ///|
 pub fn State::operation_rejected(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
   operation_id : @source_repository.OperationId,
 ) -> (Self, Attempt?) raise WorkError {
-  self.reject_delivery(durable, operation_id, false)
+  self.reject_delivery(durable, effect, operation_id, false)
 }
 
 ///|
-pub fn State::rejected(
+fn State::reconcile(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
-  operation_id : @source_repository.OperationId,
+  read : RemoteRead,
   remote : @source_repository.RemoteDocument,
-) -> (Self, ConflictAction) raise WorkError {
-  let index = self.remote_fetch(durable, operation_id)
-  let plan = self.head(durable).reject_conflict(operation_id, remote) catch {
-    _ => raise StaleWork
+) -> @source_repository.ReconcilePlan raise WorkError {
+  match read {
+    RemoteRead::Conflict(operation_id) =>
+      self.head(durable).reject_conflict(operation_id, remote) catch {
+        _ => raise StaleWork
+      }
+    Revision(expected) => {
+      guard remote.revision() >= expected.value() else { raise StaleWork }
+      self.head(durable).reconcile(remote)
+    }
+    Open(_, _) => raise StaleWork
   }
+}
+
+///|
+pub fn State::received(
+  self : Self,
+  durable : @source_repository.SyncCheckpoint,
+  effect : EffectId,
+  read : RemoteRead,
+  remote : @source_repository.RemoteDocument,
+) -> (Self, Attempt?) raise WorkError {
+  let index = self.remote_fetch(durable, effect, read)
+  let plan = self.reconcile(durable, read, remote)
   match plan {
     @source_repository.ReconcilePlan::Unchanged =>
-      (self.remove_network(index), ConflictAction::Persisting(None))
+      (self.remove_network(index), None)
     Persist(write) => {
       let (self, attempt) = self.remove_network(index).persist(write)
-      (self, ConflictAction::Persisting(attempt))
+      (self, attempt)
     }
-    ConflictDetected(_) =>
-      (
-        self.replace_network(index, Recovering(operation_id, remote)),
-        ConflictAction::CreateRecovery,
-      )
   }
 }
 
@@ -558,22 +1001,18 @@ pub fn State::rejected(
 pub fn State::recover(
   self : Self,
   durable : @source_repository.SyncCheckpoint,
-  operation_id : @source_repository.OperationId,
+  effect : EffectId,
   recovery_id : @source_repository.DocumentId,
 ) -> (Self, Attempt?) raise WorkError {
   guard self.find_network(durable.account(), durable.document().id())
     is Some(index) &&
-    self.network[index].state is Recovering(active, remote) &&
-    active == operation_id else {
+    self.network[index].state is Recovering(active) &&
+    active == effect else {
     raise StaleWork
   }
-  let plan = self.head(durable).reject_conflict(operation_id, remote) catch {
-    _ => raise StaleWork
-  }
-  guard plan is @source_repository.ReconcilePlan::ConflictDetected(draft) else {
-    raise StaleWork
-  }
-  let write = draft.preserve(recovery_id) catch { _ => raise StaleWork }
+  let write = self.head(durable).preserve(recovery_id) catch {
+      _ => raise StaleWork
+    }
   self.remove_network(index).persist(write)
 }
 
@@ -582,12 +1021,11 @@ pub fn State::recovery_failed(
   self : Self,
   account : @source_repository.AccountId,
   document_id : @source_repository.DocumentId,
-  operation_id : @source_repository.OperationId,
+  effect : EffectId,
 ) -> Self {
   match self.find_network(account, document_id) {
-    Some(index) if self.network[index].state
-      is Recovering(active, _) && active == operation_id =>
-      self.remove_network(index)
+    Some(index) if self.network[index].state is Recovering(active) &&
+      active == effect => self.remove_network(index)
     _ => self
   }
 }

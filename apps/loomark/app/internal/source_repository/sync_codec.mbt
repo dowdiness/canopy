@@ -147,9 +147,14 @@ fn encode_phase(phase : SyncPhase, texts : Array[String]) -> Json {
         "kind": "sending",
         "operation": encode_operation(operation, texts),
       })
-    RemoteUpdate(remote) =>
+    Available(remote) =>
       Json::object({
-        "kind": "remote_update",
+        "kind": "available",
+        "remote": encode_remote(remote, texts),
+      })
+    Diverged(remote) =>
+      Json::object({
+        "kind": "diverged",
         "remote": encode_remote(remote, texts),
       })
     Conflict(recovery) =>
@@ -178,9 +183,14 @@ fn decode_phase(
           })
         None => None
       }
-    Some(Json::String("remote_update")) if fields.length() == 2 =>
+    Some(Json::String("available")) if fields.length() == 2 =>
       match decode_remote_field(fields.get("remote"), texts) {
-        Some(remote) => Some(SyncPhase::RemoteUpdate(remote))
+        Some(remote) => Some(SyncPhase::Available(remote))
+        None => None
+      }
+    Some(Json::String("diverged")) if fields.length() == 2 =>
+      match decode_remote_field(fields.get("remote"), texts) {
+        Some(remote) => Some(SyncPhase::Diverged(remote))
         None => None
       }
     Some(Json::String("conflict")) if fields.length() == 2 => {

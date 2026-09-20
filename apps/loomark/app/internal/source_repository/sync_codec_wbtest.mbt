@@ -13,10 +13,10 @@ fn checkpoint_key(
 
 ///|
 test "codec retains parsed pending operation and newer text" {
-  let checkpoint = sending_checkpoint("sent", TEST_OPERATION_1)
-    .edit("newer")
-    .unwrap()
-    .checkpoint()
+  let checkpoint = edit_write(
+    sending_checkpoint("sent", TEST_OPERATION_1),
+    "newer",
+  ).checkpoint()
   let reopened = decode_checkpoint(
     checkpoint_key(),
     encode_checkpoint(checkpoint),
@@ -76,9 +76,7 @@ test "codec retains exclusive conflict phase" {
   let edited = sending_checkpoint("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .checkpoint()
-    .edit("local")
-    .unwrap()
-    .checkpoint()
+  let edited = edit_write(edited, "local").checkpoint()
   let checkpoint = preserve_conflict(
     edited,
     remote_present(2.0, "remote"),
@@ -99,6 +97,23 @@ test "codec retains exclusive conflict phase" {
 }
 
 ///|
+test "codec retains available and diverged observations" {
+  let synchronized = sending_checkpoint("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .checkpoint()
+  let available = reconcile_change(synchronized, remote_present(2.0, "remote")).checkpoint()
+  let diverged = edit_write(available, "local").checkpoint()
+  for checkpoint in [available, diverged] {
+    assert_eq(
+      decode_checkpoint(checkpoint_key(), encode_checkpoint(checkpoint)),
+      Some(checkpoint),
+    )
+  }
+  assert_true(available.phase is SyncPhase::Available(_))
+  assert_true(diverged.phase is SyncPhase::Diverged(_))
+}
+
+///|
 test "checkpoint key binds parsed account and document identity" {
   let checkpoint = enrolled("text")
   let encoded = encode_checkpoint(checkpoint)
@@ -112,12 +127,16 @@ test "checkpoint key binds parsed account and document identity" {
 ///|
 test "codec parser rejects malformed fields, revisions, and impossible phases" {
   let valid = encode_checkpoint(enrolled("text"))
-  let extra =
-    #|{"account_id":"account-a","document_id":"document","generation":0,"current":0,"baseline":{"kind":"missing"},"phase":{"kind":"ready"},"text_lengths":[1],"extra":true}
-  let invalid_revision =
-    #|{"account_id":"account-a","document_id":"document","generation":0,"current":0,"baseline":{"kind":"present","revision":0,"text":0},"phase":{"kind":"ready"},"text_lengths":[1]}
-  let impossible_sending =
-    #|{"account_id":"account-a","document_id":"document","generation":1,"current":0,"baseline":{"kind":"missing"},"phase":{"kind":"sending","operation":{"kind":"save","operation_id":"a0000000-0000-4000-8000-000000000001","base_revision":1,"text":0}},"text_lengths":[1]}
+  let document_id = test_document_id("document").value()
+  let prefix = "{\"account_id\":\"account-a\",\"document_id\":\"" +
+    document_id +
+    "\","
+  let extra = prefix +
+    "\"generation\":0,\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"ready\"},\"text_lengths\":[1],\"extra\":true}"
+  let invalid_revision = prefix +
+    "\"generation\":0,\"current\":0,\"baseline\":{\"kind\":\"present\",\"revision\":0,\"text\":0},\"phase\":{\"kind\":\"ready\"},\"text_lengths\":[1]}"
+  let impossible_sending = prefix +
+    "\"generation\":1,\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"sending\",\"operation\":{\"kind\":\"save\",\"operation_id\":\"a0000000-0000-4000-8000-000000000001\",\"base_revision\":1,\"text\":0}},\"text_lengths\":[1]}"
   let malformed = [
     "{}",
     "loomark-sync\n",

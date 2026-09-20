@@ -79,6 +79,26 @@ pub fn RemoteDocument::revision(self : Self) -> Double {
 }
 
 ///|
+pub(all) enum RemoteEntry {
+  Present(DocumentId, SavedRevision, String)
+  Deleted(DocumentId, SavedRevision)
+} derive(Eq, Debug)
+
+///|
+pub fn RemoteEntry::document_id(self : Self) -> DocumentId {
+  match self {
+    Present(id, _, _) | Deleted(id, _) => id
+  }
+}
+
+///|
+pub fn RemoteEntry::revision(self : Self) -> SavedRevision {
+  match self {
+    Present(_, revision, _) | Deleted(_, revision) => revision
+  }
+}
+
+///|
 fn RemoteDocument::same_content(self : Self, other : Self) -> Bool {
   match (self, other) {
     (Missing, Missing) | (Deleted(_), Deleted(_)) => true
@@ -150,7 +170,8 @@ fn RecoveryIdentity::document(self : Self, text : String) -> Document {
 pub enum SyncPhase {
   Ready
   Sending(PendingOperation)
-  RemoteUpdate(RemoteDocument)
+  Available(RemoteDocument)
+  Diverged(RemoteDocument)
   Conflict(RecoveryIdentity)
 } derive(Eq, Debug)
 
@@ -178,6 +199,21 @@ pub fn SyncCheckpoint::enroll(
 }
 
 ///|
+pub fn SyncCheckpoint::receive(
+  account : AccountId,
+  document : Document,
+  revision : SavedRevision,
+) -> SyncCheckpoint {
+  {
+    account,
+    generation: 0.0,
+    document,
+    baseline: RemoteDocument::Present(revision, document.text()),
+    phase: SyncPhase::Ready,
+  }
+}
+
+///|
 pub fn SyncCheckpoint::account(self : Self) -> AccountId {
   self.account
 }
@@ -190,6 +226,19 @@ pub fn SyncCheckpoint::document(self : Self) -> Document {
 ///|
 pub fn SyncCheckpoint::generation(self : Self) -> Double {
   self.generation
+}
+
+///|
+pub fn SyncCheckpoint::baseline_revision(self : Self) -> Double {
+  self.baseline.revision()
+}
+
+///|
+pub fn SyncCheckpoint::observed_revision(self : Self) -> Double {
+  match self.phase {
+    Available(remote) | Diverged(remote) => remote.revision()
+    Ready | Sending(_) | Conflict(_) => self.baseline.revision()
+  }
 }
 
 ///|
@@ -216,7 +265,20 @@ fn checkpoint_from_storage(
         raise InvalidCheckpoint
       }
     }
-    Ready | RemoteUpdate(_) | Conflict(_) => ()
+    Available(remote) => {
+      guard remote.revision() > baseline.revision() &&
+        baseline.same_present_text(document.text()) else {
+        raise InvalidCheckpoint
+      }
+    }
+    Diverged(remote) => {
+      guard remote.revision() > baseline.revision() &&
+        !baseline.same_present_text(document.text()) &&
+        !remote.same_present_text(document.text()) else {
+        raise InvalidCheckpoint
+      }
+    }
+    Ready | Conflict(_) => ()
   }
   { account, generation, document, baseline, phase, }
 }
@@ -235,4 +297,9 @@ pub fn CheckpointWrite::checkpoint(self : Self) -> SyncCheckpoint {
     CheckpointOnly(checkpoint) | CheckpointAndRecovery(checkpoint, _) =>
       checkpoint
   }
+}
+
+///|
+pub fn SyncCheckpoint::write(self : Self) -> CheckpointWrite {
+  CheckpointOnly(self)
 }

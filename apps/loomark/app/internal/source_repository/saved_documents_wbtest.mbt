@@ -142,7 +142,7 @@ test "checkpoint insertion and replacement retain lexical order" {
     saved.checkpoints_for(test_account()).map(value => value.document().id()),
     [test_document_id("a"), test_document_id("z")],
   )
-  let replacement = account_a_a.edit("new").unwrap().checkpoint()
+  let replacement = edit_write(account_a_a, "new").checkpoint()
   let replaced = saved.apply_checkpoint(replacement)
   assert_eq(
     replaced.checkpoints_for(test_account()).map(value => value.document().id()),

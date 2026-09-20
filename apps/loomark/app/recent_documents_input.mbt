@@ -1,10 +1,77 @@
 ///|
+priv struct RemoteDocuments {
+  account : @source_repository.AccountId?
+  entries : Array[@source_repository.RemoteEntry]
+} derive(Eq)
+
+///|
+priv struct DocumentMembership {
+  keys : Array[@documents.Key]
+  can_activate : Bool
+} derive(Eq)
+
+///|
+fn document_membership(page : Page) -> DocumentMembership {
+  match page {
+    Editing(editing) =>
+      {
+        keys: editing.documents.recent().map(item => item.0),
+        can_activate: editing.can_activate(),
+      }
+    Loading(_) | PreparingNew(_) | Recovery(_, _) =>
+      { keys: [], can_activate: false, }
+  }
+}
+
+///|
+fn remote_documents(sync : @sync.State) -> RemoteDocuments {
+  {
+    account: match sync.session() {
+      @sync.Session::Current(account, _) => Some(account)
+      _ => None
+    },
+    entries: sync.catalog(),
+  }
+}
+
+///|
+fn remote_document_seeds(
+  remote : RemoteDocuments,
+  membership : DocumentMembership,
+) -> Array[@recent_documents.Seed[@documents.Key]] {
+  match remote.account {
+    Some(account) =>
+      remote.entries.filter_map(entry => {
+        guard entry is @source_repository.RemoteEntry::Present(id, _, preview) else {
+          return None
+        }
+        let key = @documents.Key::checkpoint(account, id)
+        guard !membership.keys.contains(key) else { return None }
+        Some(
+          @recent_documents.Seed::Seed(
+            docid=key,
+            source=preview,
+            selection=if membership.can_activate {
+              @recent_documents.Selection::Selectable
+            } else {
+              @recent_documents.Selection::Blocked
+            },
+            deletion=@recent_documents.DeletionAvailability::Blocked,
+            status=@recent_documents.RowStatus::Saved,
+          ),
+        )
+      })
+    None => []
+  }
+}
+
+///|
 /// Resolve app state into the narrow Recent documents feature input.
 fn recent_document_seeds(
   editing : EditingState,
+  remote : Array[@recent_documents.Seed[@documents.Key]],
 ) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
-  @vector.Vector(
-    editing.documents
+  let saved = editing.documents
     .recent()
     .map(item => {
       let (id, source, save, deletion_status) = item
@@ -40,6 +107,6 @@ fn recent_document_seeds(
         deletion~,
         status~,
       )
-    })[:],
-  )
+    })
+  @vector.Vector((saved + remote)[:])
 }
