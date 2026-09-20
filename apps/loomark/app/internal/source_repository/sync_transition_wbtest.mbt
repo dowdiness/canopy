@@ -13,7 +13,15 @@ fn test_account(value? : String = "account-a") -> AccountId {
 
 ///|
 fn test_document_id(value : String) -> DocumentId {
-  DocumentId::parse(value) catch {
+  let mut hash = 0
+  for byte in value {
+    hash = (hash * 131 + byte.to_int()) % 65521
+  }
+  let hex = hash.to_string(radix=16)
+  let id = "a0000000-0000-4000-8000-" +
+    String::make(12 - hex.length(), '0') +
+    hex
+  DocumentId::parse(id) catch {
     _ => abort("invalid test document identity")
   }
 }
@@ -165,14 +173,12 @@ test "definitive save rejection retires pending operation into conflict" {
     is ReconcilePlan::ConflictDetected(draft) else {
     fail("expected conflict draft")
   }
-  let conflicted = draft.preserve("rejected-save-recovery")
+  let recovery_id = test_document_id("rejected-save-recovery")
+  let conflicted = draft.preserve(recovery_id)
   assert_true(conflicted is CheckpointAndRecovery(_, _))
   assert_eq(
     conflicted.checkpoint().directive(),
-    SyncDirective::Conflict(
-      "rejected-save-recovery",
-      remote_present(2.0, "remote"),
-    ),
+    SyncDirective::Conflict(recovery_id, remote_present(2.0, "remote")),
   )
 }
 
@@ -252,7 +258,10 @@ test "divergence produces one atomic conflict write" {
   assert_eq(recovery.text(), "local")
   assert_eq(
     checkpoint.directive(),
-    SyncDirective::Conflict("recovery", remote_present(2.0, "remote")),
+    SyncDirective::Conflict(
+      test_document_id("recovery"),
+      remote_present(2.0, "remote"),
+    ),
   )
 }
 

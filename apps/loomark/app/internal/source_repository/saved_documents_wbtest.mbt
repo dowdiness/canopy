@@ -10,9 +10,25 @@ fn rejects_empty_id() -> Bool {
 }
 
 ///|
+test "DocumentId admits only UUID identities" {
+  for invalid in ["", "document", "a0000000-0000-9000-8000-000000000001"] {
+    assert_true(
+      try {
+        DocumentId::parse(invalid) |> ignore
+        false
+      } catch {
+        InvalidIdentity => true
+      },
+    )
+  }
+  let valid = "a0000000-0000-4000-8000-000000000001"
+  assert_eq(DocumentId::parse(valid).value(), valid)
+}
+
+///|
 test "DocumentId parses identity and Document updates exactly" {
   assert_true(rejects_empty_id())
-  assert_eq(test_document_id("identity").value(), "identity")
+  assert_true(valid_uuid(test_document_id("identity").value()))
   let first = doc("a", "old")
   assert_eq(first.update("new").text(), "new")
   assert_eq(first.text(), "old")
@@ -22,14 +38,17 @@ test "DocumentId parses identity and Document updates exactly" {
 test "Document accessors preserve ownership" {
   let text = "exact\n日本語"
   let value = doc("id", text)
-  assert_eq(value.id().value(), "id")
+  assert_eq(value.id(), test_document_id("id"))
   assert_eq(value.text(), text)
 }
 
 ///|
 test "from_documents sorts lexical and accepts empty" {
   let saved = SavedDocuments::from_documents([doc("z", "z"), doc("a", "a")]).unwrap()
-  assert_eq(saved.all().map(x => x.id().value()), ["a", "z"])
+  assert_eq(saved.all().map(x => x.id()), [
+    test_document_id("a"),
+    test_document_id("z"),
+  ])
   assert_eq(SavedDocuments::from_documents([]).unwrap().all(), [])
 }
 
@@ -65,14 +84,17 @@ test "apply stores replacement and preserves unrelated issue" {
 test "apply inserts and deletes while retaining lexical order" {
   let saved = SavedDocuments::from_documents([doc("b", "b")]).unwrap()
   let inserted = saved.apply(RepositoryChange::Stored(doc("a", "a"))).unwrap()
-  assert_eq(inserted.all().map(x => x.id().value()), ["a", "b"])
+  assert_eq(inserted.all().map(x => x.id()), [
+    test_document_id("a"),
+    test_document_id("b"),
+  ])
   assert_eq(
     inserted
     .apply(RepositoryChange::Deleted(test_document_id("a")))
     .unwrap()
     .all()
-    .map(x => x.id().value()),
-    ["b"],
+    .map(x => x.id()),
+    [test_document_id("b")],
   )
   assert_eq(
     inserted.apply(RepositoryChange::Deleted(test_document_id("missing"))),
@@ -83,7 +105,10 @@ test "apply inserts and deletes while retaining lexical order" {
 ///|
 test "from_documents keeps lexical order without startup selection state" {
   let saved = SavedDocuments::from_documents([doc("b", "b"), doc("a", "a")]).unwrap()
-  assert_eq(saved.all().map(document => document.id().value()), ["a", "b"])
+  assert_eq(saved.all().map(document => document.id()), [
+    test_document_id("a"),
+    test_document_id("b"),
+  ])
 }
 
 ///|
@@ -114,18 +139,14 @@ test "checkpoint insertion and replacement retain lexical order" {
     .apply_checkpoint(account_a_z)
     .apply_checkpoint(account_a_a)
   assert_eq(
-    saved
-    .checkpoints_for(test_account())
-    .map(value => value.document().id().value()),
-    ["a", "z"],
+    saved.checkpoints_for(test_account()).map(value => value.document().id()),
+    [test_document_id("a"), test_document_id("z")],
   )
   let replacement = account_a_a.edit("new").unwrap().checkpoint()
   let replaced = saved.apply_checkpoint(replacement)
   assert_eq(
-    replaced
-    .checkpoints_for(test_account())
-    .map(value => value.document().id().value()),
-    ["a", "z"],
+    replaced.checkpoints_for(test_account()).map(value => value.document().id()),
+    [test_document_id("a"), test_document_id("z")],
   )
   assert_eq(
     replaced.checkpoints_for(test_account())[0].document().text(),

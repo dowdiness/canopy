@@ -31,4 +31,12 @@ test "UUID validation checks the entire value, version and variant" {
     valid_identity("a2000000-0000-4000-8000-000000000001/x"),
     content="false",
   )
+  inspect(
+    valid_identity("00000000-0000-0000-0000-000000000000"),
+    content="false",
+  )
+  inspect(
+    valid_identity("FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"),
+    content="false",
+  )
 }

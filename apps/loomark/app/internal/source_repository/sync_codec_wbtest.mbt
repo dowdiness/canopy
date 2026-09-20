@@ -91,7 +91,10 @@ test "codec retains exclusive conflict phase" {
   assert_true(checkpoint.phase is SyncPhase::Conflict(_))
   assert_eq(
     checkpoint.directive(),
-    SyncDirective::Conflict("recovery", remote_present(2.0, "remote")),
+    SyncDirective::Conflict(
+      test_document_id("recovery"),
+      remote_present(2.0, "remote"),
+    ),
   )
 }
 

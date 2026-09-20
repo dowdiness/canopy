@@ -3,8 +3,23 @@
 pub struct DocumentId(String) derive(Eq, Hash, Debug)
 
 ///|
+fn valid_uuid(value : String) -> Bool {
+  guard value.length() == 36 else { return false }
+  for i in 0..<36 {
+    if i == 8 || i == 13 || i == 18 || i == 23 {
+      guard value[i] == '-' else { return false }
+    } else {
+      guard value[i] is ('0'..='9' | 'a'..='f' | 'A'..='F') else {
+        return false
+      }
+    }
+  }
+  value[14] is ('1'..='8') && value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B')
+}
+
+///|
 pub fn DocumentId::parse(value : String) -> DocumentId raise DocumentError {
-  guard !value.is_empty() else { raise InvalidIdentity }
+  guard valid_uuid(value) else { raise InvalidIdentity }
   DocumentId(value)
 }
 

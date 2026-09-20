@@ -89,6 +89,23 @@ function syncKey(accountId: string, documentId: string): string {
   return `${SYNC_KEY_PREFIX}${accountId.length}/${accountId}/${documentId}`
 }
 
+function fixtureDocumentId(value: string): string {
+  const bytes = new TextEncoder().encode(value)
+  let hash = 0
+  for (const byte of bytes) hash = (hash * 131 + byte) & 0xffff
+  const identity = Array.from({ length: 16 }, (_, index) => (
+    index < 14 ? bytes[index] ?? 0 : index === 14 ? hash >>> 8 : hash & 0xff
+  ))
+  const digits = identity
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .split("")
+  digits[12] = "4"
+  digits[16] = "8"
+  const hex = digits.join("")
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
 async function scanStoreRecords(page: Page): Promise<StoreRecord[]> {
   return page.evaluate(({ databaseName, databaseVersion, storeName }) => (
     new Promise<StoreRecord[]>((resolve, reject) => {
@@ -339,6 +356,35 @@ function encodeReadyCheckpoint(
     text_lengths: [document.text.length],
   })
   return `loomark-sync\n${header.length}\n${header}${document.text}`
+}
+
+function checkpointCurrentText(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("loomark-sync\n")) return null
+  const lengthStart = "loomark-sync\n".length
+  const lengthEnd = value.indexOf("\n", lengthStart)
+  if (lengthEnd < 0) return null
+  const headerLength = Number(value.slice(lengthStart, lengthEnd))
+  if (!Number.isSafeInteger(headerLength) || headerLength < 0) return null
+  const headerStart = lengthEnd + 1
+  try {
+    const header = JSON.parse(value.slice(headerStart, headerStart + headerLength)) as {
+      current?: unknown
+      text_lengths?: unknown
+    }
+    if (
+      !Number.isSafeInteger(header.current)
+      || !Array.isArray(header.text_lengths)
+      || !header.text_lengths.every(length => Number.isSafeInteger(length) && length >= 0)
+    ) return null
+    const current = header.current as number
+    if (current < 0 || current >= header.text_lengths.length) return null
+    const lengths = header.text_lengths as number[]
+    const start = headerStart + headerLength
+      + lengths.slice(0, current).reduce((sum, length) => sum + length, 0)
+    return value.slice(start, start + lengths[current])
+  } catch (_) {
+    return null
+  }
 }
 
 async function openStoredDocuments(page: Page, documents: StoredDocument[]): Promise<void> {
@@ -737,7 +783,7 @@ test("opening and saving persist only authoritative Source records", async ({ pa
 
 test("account checkpoint edits persist without creating a Source copy", async ({ page }) => {
   const accountId = "account-a"
-  const document = { document_id: "synced", text: "# Synced\n" }
+  const document = { document_id: fixtureDocumentId("synced"), text: "# Synced\n" }
   const key = syncKey(accountId, document.document_id)
   await page.route("**/api/account", route => route.fulfill({
     status: 200,
@@ -762,8 +808,8 @@ test("account checkpoint edits persist without creating a Source copy", async ({
   await text.fill("# Changed\n")
   await expect.poll(async () => {
     const value = await readStoredDocumentRaw(page, key)
-    return typeof value === "string" && value.endsWith("# Changed\n")
-  }).toBe(true)
+    return checkpointCurrentText(value)
+  }).toBe("# Changed\n")
   expect(await readStoredDocumentRaw(page, sourceKey(document.document_id)))
     .toBeUndefined()
   await expect(documents.getByRole("button", { name: 'Delete "Changed"' }))
@@ -771,8 +817,8 @@ test("account checkpoint edits persist without creating a Source copy", async ({
 })
 
 test("duplicate leads select and delete by Document ID", async ({ page }) => {
-  const documentA = { document_id: "document-a", text: "# Same\n" }
-  const documentB = { document_id: "document-b", text: "# Same\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# Same\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# Same\n" }
   await openStoredDocuments(page, [documentB, documentA])
   const documents = page.getByRole("complementary", { name: "Documents" })
   const selected = documents.getByRole("button", { name: "Same (2 of 2)", exact: true })
@@ -792,9 +838,9 @@ test("duplicate leads select and delete by Document ID", async ({ page }) => {
 test("page-local recency reorders edits but reload restores lexical order", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
-  const documentC = { document_id: "document-c", text: "# C\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
+  const documentC = { document_id: fixtureDocumentId("document-c"), text: "# C\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -838,8 +884,8 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
 test("startup is read-only and restores an accepted Editing Document", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -858,7 +904,7 @@ test("startup is read-only and restores an accepted Editing Document", async ({ 
 test("a non-string Editing Document is equivalent to no Editing Document", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: EDITING_DOCUMENT_KEY, value: { unsupported: true } },
@@ -872,8 +918,8 @@ test("a non-string Editing Document is equivalent to no Editing Document", async
 test("Document Sidebar switches saved Sources A to B to A without cross-document undo", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -920,8 +966,8 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
 test("Editing Document writes are last-invocation-wins", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -950,8 +996,8 @@ test("remember failure cannot affect editing or Source recovery", async ({ page 
   await page.addInitScript(installDocumentPutFailure, EDITING_DOCUMENT_KEY)
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -1018,8 +1064,8 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
 })
 
 test("Delete document removes a non-active Source without moving the editor", async ({ page }) => {
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await openStoredDocuments(page, [documentA, documentB])
 
   const text = page.getByRole("textbox", { name: "Text" })
@@ -1039,8 +1085,8 @@ test("Delete document removes a non-active Source without moving the editor", as
 test("Delete icon is disabled while deletion is pending", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -1080,9 +1126,9 @@ test("Delete icon is disabled while deletion is pending", async ({ page }) => {
 test("Delete document activates and remembers the newest fallback", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
-  const documentC = { document_id: "document-c", text: "# C\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
+  const documentC = { document_id: fixtureDocumentId("document-c"), text: "# C\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -1113,8 +1159,8 @@ test("Delete document activates and remembers the newest fallback", async ({ pag
 })
 
 test("Delete document cancellation preserves the Source and editor", async ({ page }) => {
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await openStoredDocuments(page, [documentA, documentB])
 
   await openDeleteConfirmation(page, "B")
@@ -1198,8 +1244,8 @@ test("Sidebar visibility survives breakpoints but resets on reload", async ({ pa
 test("Document switch does not wait for the active Source to save", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
@@ -1221,7 +1267,7 @@ test("Document switch does not wait for the active Source to save", async ({ pag
 test("active remains unknown and does not hide valid Documents", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const valid = { document_id: "valid-document", text: "# Valid\n" }
+  const valid = { document_id: fixtureDocumentId("valid-document"), text: "# Valid\n" }
   const legacy = JSON.stringify({ document_id: "legacy-document", text: "# Legacy\n", change_order: 1 })
   await replaceStoreRecords(page, [
     { key: LEGACY_ACTIVE_KEY, value: legacy },
@@ -1236,7 +1282,7 @@ test("active remains unknown and does not hide valid Documents", async ({ page }
 test("old three-field Source records remain preserved and unreadable", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const valid = { document_id: "valid-document", text: "# Valid\n" }
+  const valid = { document_id: fixtureDocumentId("valid-document"), text: "# Valid\n" }
   const legacyKey = sourceKey("legacy-document")
   const legacy = JSON.stringify({ document_id: "legacy-document", text: "# Legacy\n", change_order: 7 })
   await replaceStoreRecords(page, [
@@ -1254,9 +1300,9 @@ test("old three-field Source records remain preserved and unreadable", async ({ 
 test("unknown metadata is preserved and cannot override a Source", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const document = { document_id: "document-a", text: "# Current\n" }
+  const document = { document_id: fixtureDocumentId("document-a"), text: "# Current\n" }
   const metadata = JSON.stringify({
-    entries: [{ document_id: "document-a", name: "Stale" }],
+    entries: [{ document_id: document.document_id, name: "Stale" }],
   })
   await replaceStoreRecords(page, [
     { key: sourceKey(document.document_id), value: encodeStoredDocument(document) },
@@ -1275,7 +1321,7 @@ test("IndexedDB cursor scan measures 10, 100, and 1000 Source records", async ({
   for (const count of [10, 100, 1000]) {
     const records = Array.from({ length: count }, (_, index): StoreRecord => {
       const document = {
-        document_id: `scan-${index}`,
+        document_id: fixtureDocumentId(`scan-${index}`),
         text: `# Scan ${index}\n\n${index % 100 === 0 ? largeBody : "Small body.\n"}`,
       }
       return {
@@ -1307,7 +1353,7 @@ test("IndexedDB Source put measures small and 1 MiB records", async ({ page }, t
     ["small", "# Small\n"],
     ["1 MiB", `# Large\n${"x".repeat(1024 * 1024)}`],
   ] as const) {
-    const document = { document_id: `put-${name}`, text }
+    const document = { document_id: fixtureDocumentId(`put-${name}`), text }
     const key = sourceKey(document.document_id)
     const encoded = encodeStoredDocument(document)
     const samples: number[] = []
@@ -1662,7 +1708,7 @@ test("production keyed lead subscriptions reconcile timer lifecycles", async ({ 
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const seed = (await readStoredDocument(page))!
-  const imported = { document_id: "imported-document", text: "# Imported\n" }
+  const imported = { document_id: fixtureDocumentId("imported-document"), text: "# Imported\n" }
   await replaceStoreRecords(page, [
     { key: sourceKey(seed.document_id), value: encodeStoredDocument(seed) },
     { key: sourceKey(imported.document_id), value: encodeStoredDocument(imported) },
@@ -1717,7 +1763,7 @@ test("production keyed lead subscriptions reconcile timer lifecycles", async ({ 
   await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 3, canceled: 2, fired: 0 })
   await page.clock.runFor(250)
   await expect.poll(() => pendingTimerObservation(page)).toEqual({ scheduled: 3, canceled: 2, fired: 1 })
-  const documentId = (await readStoredDocument(page))!.document_id
+  const documentId = seed.document_id
   await expectStoredDocument(page, { document_id: documentId, text: "# Composing again\n" })
 
   // Deleting with a pending timer cancels it; advancing beyond the delay cannot resurrect a save.
@@ -2170,8 +2216,8 @@ test("active failure after acknowledged revert restores truthful Saved", async (
 test("saving one Source preserves unrelated Sources and unknown metadata", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
-  const documentA = { document_id: "document-a", text: "# A\n" }
-  const documentB = { document_id: "document-b", text: "# B\n" }
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   const encodedB = encodeStoredDocument(documentB)
   const catalogMetadata = "opaque-catalog"
   const futureMetadata = "opaque-future"

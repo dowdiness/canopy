@@ -34,20 +34,7 @@ pub struct OperationId(String) derive(Eq, Debug)
 pub fn OperationId::parse(
   value : String,
 ) -> OperationId raise InvalidOperationId {
-  guard value.length() == 36 else { raise InvalidOperationId }
-  for i in 0..<36 {
-    if i == 8 || i == 13 || i == 18 || i == 23 {
-      guard value[i] == '-' else { raise InvalidOperationId }
-    } else {
-      guard value[i] is ('0'..='9' | 'a'..='f' | 'A'..='F') else {
-        raise InvalidOperationId
-      }
-    }
-  }
-  guard value[14] is ('1'..='8') &&
-    value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B') else {
-    raise InvalidOperationId
-  }
+  guard valid_uuid(value) else { raise InvalidOperationId }
   OperationId(value)
 }
 

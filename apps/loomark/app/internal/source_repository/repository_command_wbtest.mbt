@@ -46,7 +46,7 @@ test "save inserts only at unobserved key" {
     ),
   )
   let (saved, _) = reconcile_scan([
-    @indexed_db.Entry::StringRecord("source/v1/new", "bad"),
+    @indexed_db.Entry::StringRecord(source_key(test_document_id("new")), "bad"),
   ])
   assert_false(
     @debug.to_string(save(saved, command_doc("new"), _ => @cmd.none)).contains(
@@ -142,7 +142,7 @@ test "conflict checkpoint and recovery source share one transaction" {
       encode_checkpoint(checkpoint),
     ),
     @indexed_db.Mutation::Set(
-      SOURCE_KEY_PREFIX + "recovery",
+      source_key(test_document_id("recovery")),
       encode_document(recovery),
     ),
   ])

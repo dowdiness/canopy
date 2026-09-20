@@ -16,14 +16,9 @@ fn sync_test_document(
 ///|
 fn sync_test_key(
   account : @source_repository.AccountId,
-  document_id : String,
+  id : String,
 ) -> @documents.Key {
-  @documents.Key::checkpoint(
-    account,
-    @source_repository.DocumentId::parse(document_id) catch {
-      _ => abort("valid test document id")
-    },
-  )
+  @documents.Key::checkpoint(account, document_id(id))
 }
 
 ///|

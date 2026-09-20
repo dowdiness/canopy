@@ -52,10 +52,6 @@ pub enum CommitResult {
 
 ///|
 pub fn valid_identity(value : String) -> Bool {
-  if value == "00000000-0000-0000-0000-000000000000" ||
-    value.to_upper() == "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF" {
-    return true
-  }
   guard value.length() == 36 else { return false }
   for i in 0..<36 {
     if i == 8 || i == 13 || i == 18 || i == 23 {

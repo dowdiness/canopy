@@ -2,7 +2,15 @@
 
 ///|
 fn document_id(value : String) -> @source_repository.DocumentId {
-  @source_repository.DocumentId::parse(value) catch {
+  let mut hash = 0
+  for byte in value {
+    hash = (hash * 131 + byte.to_int()) % 65521
+  }
+  let hex = hash.to_string(radix=16)
+  let id = "a0000000-0000-4000-8000-" +
+    String::make(12 - hex.length(), '0') +
+    hex
+  @source_repository.DocumentId::parse(id) catch {
     _ => abort("invalid test document id")
   }
 }

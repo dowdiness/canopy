@@ -5,9 +5,10 @@ fn rdoc(id : String, text : String) -> Document {
 
 ///|
 fn rentry(id : String, text : String) -> @indexed_db.Entry {
+  let document = rdoc(id, text)
   @indexed_db.Entry::StringRecord(
-    "source/v1/" + id,
-    encode_document(rdoc(id, text)),
+    source_key(document.id()),
+    encode_document(document),
   )
 }
 
@@ -19,8 +20,11 @@ test "reconciliation derives catalog and preserves unrelated observations" {
     @indexed_db.Entry::StringRecord("other", "x"),
   ])
   guard selected is Some(selected) else { fail("missing selection") }
-  assert_eq(selected.id().value(), "a")
-  assert_eq(saved.all().map(x => x.id().value()), ["a", "b"])
+  assert_eq(selected.id(), test_document_id("a"))
+  assert_eq(saved.all().map(x => x.id()), [
+    test_document_id("a"),
+    test_document_id("b"),
+  ])
   assert_eq(saved.issues(), [RepositoryIssue::UnknownRecord("other")])
 }
 
@@ -49,17 +53,20 @@ test "only exact editing-document string selects a valid document" {
   let entries = [
     rentry("a", "a"),
     rentry("b", "b"),
-    @indexed_db.Entry::StringRecord("editing-document", "b"),
+    @indexed_db.Entry::StringRecord(
+      "editing-document",
+      test_document_id("b").value(),
+    ),
   ]
   let (_, selected) = reconcile_scan(entries)
   guard selected is Some(selected) else { fail("missing selection") }
-  assert_eq(selected.id().value(), "b")
+  assert_eq(selected.id(), test_document_id("b"))
   let (_, fallback) = reconcile_scan([
     rentry("a", "a"),
     @indexed_db.Entry::StringRecord("editing-document", "missing"),
   ])
   guard fallback is Some(fallback) else { fail("missing fallback") }
-  assert_eq(fallback.id().value(), "a")
+  assert_eq(fallback.id(), test_document_id("a"))
   let (_, non_string_fallback) = reconcile_scan([
     rentry("a", "a"),
     @indexed_db.Entry::UnsupportedValue("editing-document"),
@@ -67,7 +74,7 @@ test "only exact editing-document string selects a valid document" {
   guard non_string_fallback is Some(non_string_fallback) else {
     fail("missing non-string fallback")
   }
-  assert_eq(non_string_fallback.id().value(), "a")
+  assert_eq(non_string_fallback.id(), test_document_id("a"))
 }
 
 ///|
@@ -75,12 +82,14 @@ test "duplicate valid payload ids are not admitted twice" {
   let (saved, _) = reconcile_scan([
     rentry("a", "a"),
     @indexed_db.Entry::StringRecord(
-      "source/v1/b",
+      source_key(test_document_id("b")),
       encode_document(rdoc("a", "other")),
     ),
   ])
-  assert_eq(saved.all().map(x => x.id().value()), ["a"])
-  assert_eq(saved.issues(), [RepositoryIssue::InvalidSource("source/v1/b")])
+  assert_eq(saved.all().map(x => x.id()), [test_document_id("a")])
+  assert_eq(saved.issues(), [
+    RepositoryIssue::InvalidSource(source_key(test_document_id("b"))),
+  ])
 }
 
 ///|
