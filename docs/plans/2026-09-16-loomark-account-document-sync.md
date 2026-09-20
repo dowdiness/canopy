@@ -79,27 +79,28 @@ require separate permission. Local-only operation remains supported.
   overwrite each other. Successful and failed storage completions both carry
   the checkpoint identity they belong to. Failures retain the newest write for
   explicit retry, non-active completions return explicit stale-event errors,
-  and conflict recovery stays attached to its atomic checkpoint write. This
-  adds no input callback or second timer. `SavedDocuments` remains the sole
-  durable checkpoint owner, while sync state retains only storing or
-  retry-pending writers.
-- Sync ingress parses raw account IDs, operation UUIDs, server revisions, and
-  checkpoint frames into opaque domain values once. Each parser raises only its
-  exact MoonBit suberror rather than a shared catch-all error. Synchronous
-  receipt, writer, and checkpoint rejections use typed `raise`; `Result` values
-  remain at tests or asynchronous boundaries that need errors as data.
-  Reconciliation returns a typed conflict draft only for actual divergence;
-  only that draft accepts a recovery identity parsed relative to the source
-  document. Operation planning requests an operation ID only when a request can
-  start. The checkpoint state
-  is an exclusive `Ready | Sending | RemoteUpdate | Conflict` phase rather than
-  independent pending/block fields, eliminating invalid combinations. A change
-  returns its checkpoint write directly; an unchanged edit or reconciliation
-  is represented only by `None` or `Unchanged`, without copying the checkpoint
-  and a derivable directive into a second outcome object. The indivisible
-  conflict recovery write cannot be detached. A writer lane is present only
-  while `Storing` or `RetryPending`; its absence means the durable checkpoint is
-  current. Stale completions are explicit errors and compare only account,
+  and conflict recovery transforms the newest causal head before atomically
+  storing its checkpoint and recovery document. This adds no input callback or
+  second timer. `SavedDocuments` remains the sole durable checkpoint owner,
+  while sync state retains only storing or retry-pending writers.
+- Sync ingress parses raw account IDs, UUID document and operation IDs, server
+  revisions, and checkpoint frames into opaque domain values once. Local and
+  remote documents use the same UUID-shaped identity space; there is no legacy
+  ID fallback. Each parser raises only its exact MoonBit suberror rather than a
+  shared catch-all error. Synchronous receipt, writer, and checkpoint rejections
+  use typed `raise`; `Result` values remain at tests or asynchronous boundaries
+  that need errors as data. Reconciliation returns only a checkpoint write or
+  `Unchanged`. Operation and recovery identities are requested only when their
+  effects can start. The checkpoint state is an exclusive `Ready | Sending |
+  Available | Diverged | Conflict` phase rather than independent pending/block
+  fields, eliminating invalid combinations. `Diverged` is persisted before
+  recovery identity creation, and recovery completion applies to the lane's
+  newest head, preserving intervening edits. A change returns its checkpoint
+  write directly; an unchanged edit or reconciliation is represented only by
+  `None` or `Unchanged`, without copying the checkpoint and a derivable
+  directive into a second outcome object. A writer lane is present only while
+  `Storing` or `RetryPending`; its absence means the durable checkpoint is
+  current. Stale completions are explicit errors and compare effect, account,
   document, and generation rather than full document text. Individual
   transitions do not repeatedly compare a raw account string. A pure account
   state accepts only the latest account lookup and keys
@@ -114,8 +115,10 @@ require separate permission. Local-only operation remains supported.
   state. The document reducer emits an exact Source operation for local-only
   data and an account-qualified eligible Document for synced data. Only the sync
   lane derives checkpoint writes from its causal head; the root merely executes
-  the resulting attempt. Synced saves therefore update checkpoints without
-  recreating `source/v1`. The typed document HTTP boundary preserves custom
+  the resulting attempt. Action interpretation requires the current
+  `SavedDocuments`, eliminating a scheduled recovery with no executable
+  command. Synced saves therefore update checkpoints without recreating
+  `source/v1`. The typed document HTTP boundary preserves custom
   account headers and non-2xx bodies, strictly parses receipts and remote
   documents, and returns normal messages. A new operation is persisted before
   delivery; successful receipts, definitive rejection, and 409 reconciliation
@@ -124,8 +127,26 @@ require separate permission. Local-only operation remains supported.
   only after complete `arrayBuffer()` consumption and strict UTF-8 decoding.
   Uncertain delivery retries only from a later lifecycle trigger. Oversized
   content waits without an automatic loop unless its text changed during
-  delivery; a rejected operation identity is replaced. Remote list polling,
-  synchronized deletion controls, and status UI are not connected yet.
+  delivery; a rejected operation identity is replaced. Account discovery now
+  consumes the server's lexical pages inside one managed command and publishes
+  only a complete typed catalog. Each present row carries a bounded server-side
+  Markdown lead, not a full body. Selecting a remote-only row performs GET,
+  persists a received synchronized checkpoint, and activates only after storage
+  succeeds. Newer metadata for an existing checkpoint performs GET and enters
+  the same reconciliation/writer path as a rejected save; mounted editor text is
+  never replaced. Available and diverged checkpoints include the newest observed
+  revision, so later catalog revisions continue through reconciliation. Reopen
+  advances the newest waiting, active, or durable writer head monotonically
+  rather than creating another generation-zero checkpoint. Editor admission
+  and activation use the exact durable checkpoint that satisfies the selected
+  revision; checkpoint completion no longer reprojects every account document.
+  A selection that becomes durable during IME composition stays pending until
+  composition ends; newer navigation cancels activation without canceling an
+  already-started write. Explicit tombstones advance the catalog while absence
+  from a scan does not imply deletion. The remote/local join is behind a narrow
+  document-membership and catalog equality boundary, so ordinary text edits do
+  not rebuild it. Synchronized deletion controls and status UI are not
+  connected yet.
 - Pure MoonBit sync transitions resend the exact persisted operation after
   restart, retain edits made during an in-flight operation, reject non-matching
   writer completions, reconcile equal text without false conflict, and keep
@@ -139,7 +160,8 @@ require separate permission. Local-only operation remains supported.
   same-origin API and a local D1 binding. No remote database has been provisioned.
 - Better Auth and D1 integration tests exercise authentication, revision checks,
   duplicate receipts, tombstones, and account isolation. The MoonBit document
-  API is connected for outbound durable operations; remote discovery remains.
+  API is connected for outbound durable operations, remote discovery, and
+  remote-only document opening.
 - No auth configuration appeared in the inspected Loomark/relay configuration,
   relevant environment-variable names, or their local `.dev.vars` locations.
   This does not establish what is configured in the Cloudflare dashboard.

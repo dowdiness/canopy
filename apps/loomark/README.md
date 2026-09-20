@@ -145,30 +145,33 @@ edits collapse without losing durable retry state. Storage failure retains the
 newest write for explicit retry; successful and failed completions both carry
 their checkpoint identity. A completion that does not match the active write is
 an explicit stale-event error and cannot advance the lane. Conflict recovery
-stays attached to its atomic checkpoint write while coalescing. Editing remains
-immediate while storage is pending; success updates the canonical checkpoint,
-failure keeps the optimistic text and the latest retryable write. After a
-Sending checkpoint is durable, the root schedules its HTTP command. Network
-list polling, synchronized deletion controls, account controls, and status UI
-remain unconnected.
+first persists divergence, then applies its generated identity to the lane's
+newest causal head and stores the checkpoint and recovery document atomically.
+Editing remains immediate while storage is pending; success updates the
+canonical checkpoint, while failure keeps the optimistic text and newest
+retryable write. Once a checkpoint is durable, the root derives its next HTTP
+or identity-creation command. The command interpreter requires the current
+`SavedDocuments`, so a scheduled recovery cannot silently become `Cmd.none`.
+Synchronized deletion controls, account controls, and status UI remain
+unconnected.
 
-The sync model parses account IDs, operation UUIDs, server revisions, and
-checkpoint frames once at their ingress. Each parser declares its exact MoonBit
-suberror; synchronous receipt, writer, and checkpoint rejections use typed
-`raise`, while IndexedDB callbacks keep failures as message data. Reconciliation
-first returns either a checkpoint write, `Unchanged`, or a typed conflict draft;
-only that draft accepts a recovery identity parsed relative to its source
-document. Operation planning likewise requests an operation ID only when a new
-request can actually start. Transitions receive those domain types rather than
+The sync model parses account IDs, UUID document and operation IDs, server
+revisions, and checkpoint frames once at their ingress. Document IDs use one
+UUID-shaped identity space locally and remotely; malformed IDs never enter the
+model. Each parser declares its exact MoonBit suberror; synchronous receipt,
+writer, and checkpoint rejections use typed `raise`, while IndexedDB callbacks
+keep failures as message data. Reconciliation returns either a checkpoint write
+or `Unchanged`. Operation and recovery identities are requested only when their
+effects can start. Transitions receive those domain types rather than
 revalidating strings and numbers. A checkpoint has exactly one phase—`Ready`,
-`Sending`, `RemoteUpdate`, or `Conflict`—so combinations such as a pending
-request plus a conflict cannot be represented. The next directive is derived
-from that phase instead of being copied into every transition result. Callers
-cannot construct a conflict transition without its atomic recovery Source. A
-writer lane is present only while `Storing` or `RetryPending`; its absence means
-the durable checkpoint is current. A delayed completion that does not match the
-active account, document, and generation returns an explicit error without
-comparing full document text.
+`Sending`, `Available`, `Diverged`, or `Conflict`—so invalid combinations cannot
+be represented. `Diverged` is durable before recovery identity creation;
+recovery completion transforms the newest lane head, preserving edits made
+while that effect was running. The next directive is derived from the phase
+instead of being copied into every transition result. A writer lane is present
+only while `Storing` or `RetryPending`; its absence means the durable checkpoint
+is current. A delayed completion that does not match its effect, account,
+document, and generation returns an explicit error without comparing full text.
 
 The account-sync state is a small internal package, separate from the HTTP
 boundary and root editor package. It owns the session lookup plus transient
@@ -209,6 +212,31 @@ operation identity is replaced automatically. HTTP bodies are accepted only
 after complete `arrayBuffer()` consumption and strict UTF-8 decoding; an
 interrupted stream cannot produce a receipt from a valid prefix.
 
+Remote discovery is one managed command whose private loop consumes every
+lexically paged metadata response before publishing a catalog message. D1 stores
+an 80-scalar Markdown lead beside each present revision, so listing never reads
+or serializes full document bodies. The transient account catalog is not copied
+into IndexedDB; explicit tombstones and only newer revisions update it. Opening
+a remote-only row fetches its body, persists a received synchronized checkpoint,
+and activates it only after that write succeeds. A newer revision of an existing
+checkpoint is fetched and reconciled through the same causal writer. It becomes
+`Available`, or persists `Diverged` before recovery, without assigning text to
+the mounted textarea. `observed_revision` includes both phases, so an available
+update continues observing newer catalog revisions rather than freezing at the
+first notice. Reopening a newer remote revision advances the existing writer
+head—including a checkpoint that became durable while GET was in flight—instead
+of creating another generation-zero checkpoint. A remote-only record is
+admitted from that exact durable checkpoint only when its selected revision can
+activate; revision and textarea text therefore cannot come from different
+snapshots. If IME composition starts while a remote row is loading, admission
+and activation remain pending until composition ends. A canceled selection
+still allows its already-started checkpoint write to finish without activating
+it. Account, discovery, effect, revision, and checkpoint identities fence
+delayed results. The expensive remote/local join depends only on a narrow
+document-membership projection and the remote catalog, and checkpoint success
+does not rescan and reproject the account, so ordinary edits do not rebuild
+either graph.
+
 `switch_by` remains appropriate for disposable account-only presentation and
 subscriptions, but not as the sync reducer's ownership boundary: parent
 Autosave input must enter the normal root `update` without a stored child
@@ -234,11 +262,12 @@ utilities, not real Google credentials or a production login bypass. The
 Worker build also builds this artifact. Database schema generation is a
 development tool, never a public endpoint.
 
-The editor now sends durable pending operations and applies receipts and
-revision conflicts. Remote document discovery/list polling, synchronized delete
-controls, and sync status UI are not connected yet, so this does not establish
-the complete phone-to-PC editing experience or real Google callback flow. The
-remaining work is tracked in the [account sync plan](../../docs/plans/2026-09-16-loomark-account-document-sync.md).
+The editor now sends durable pending operations, applies receipts and revision
+conflicts, discovers remote metadata, and opens remote-only documents. Periodic
+list polling, synchronized delete controls, and sync status UI are not connected
+yet, so this does not establish the complete phone-to-PC editing experience or
+real Google callback flow. The remaining work is tracked in the
+[account sync plan](../../docs/plans/2026-09-16-loomark-account-document-sync.md).
 No shared database or deployment is provisioned by these test commands.
 
 ## Production validation
