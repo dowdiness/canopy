@@ -176,6 +176,34 @@ Saving the current Document text after input is quiet for 250 ms and IME
 composition has ended.
 _Avoid_: periodic backup, manual save
 
+**Synced document**:
+A Loomark document explicitly connected to the signed-in account. Its current
+text is `Synced` only after that exact text has a remote durability
+acknowledgment. Signing in does not turn existing local documents into Synced
+documents; the person must choose `Sync` for each one.
+_Avoid_: cloud file, shared document
+
+**Update available**:
+A newer remote revision retained beside an unchanged Editing Document. Loomark
+does not apply it automatically. `Open update` is offered only while the action
+still names the current account, Replica revision, and unedited working copy.
+Opening it replaces the text once and starts a fresh native Undo history.
+_Avoid_: live update, automatic merge
+
+**Remote deletion**:
+A server tombstone newer than the Editing Document's acknowledged revision.
+Loomark keeps the current text visible until `Remove deleted document` is
+chosen. The action expires if its account, revision, or working copy changes.
+_Avoid_: local deletion, missing document
+
+**Recovery document**:
+A new local-only Loomark document created when local and remote text have both
+diverged. It retains the local branch under a fresh identity while the original
+identity follows the server branch. Creating it does not upload the recovery
+text. If the conflicted document is being edited, its TextArea, IME composition,
+selection, and native Undo continue under the recovery identity.
+_Avoid_: merged document, conflict marker, backup
+
 **Uncoordinated tabs**:
 Separate browser tabs editing Loomark without shared operation ordering. A later
 Browser storage write may overwrite Saved text or recreate a deleted document.

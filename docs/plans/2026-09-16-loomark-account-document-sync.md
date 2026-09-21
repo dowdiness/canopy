@@ -31,7 +31,7 @@ the phone nor another connected peer may be required to recover the document.
 In:
 - `apps/loomark/app/`: account/session state, per-document sync decisions,
   account-aware Recent documents, conflict preservation, and saving feedback.
-- `apps/loomark/app/internal/source_repository/`: atomic local checkpoints,
+- `apps/loomark/app/internal/source_repository/`: atomic local Replicas,
   remote baselines, durable pending writes/deletes, and local sync start.
 - `apps/loomark/internal/text_area/`: preserve its existing editing contract;
   change only if integration tests expose a necessary boundary adjustment.
@@ -57,49 +57,50 @@ require separate permission. Local-only operation remains supported.
   uses one IndexedDB store and acknowledges each local transaction.
 - [Source codec](../../apps/loomark/app/internal/source_repository/source_codec.mbt)
   stores exactly document identity and text. Opening isolates unsupported data.
-- [Save transitions](../../apps/loomark/app/documents_save.mbt) already serialize
-  local saves per document and fence delayed work.
+- [Save transitions](../../apps/loomark/app/internal/documents/documents_save.mbt)
+  serialize local saves per document and fence delayed work.
 - [Application update](../../apps/loomark/app/update.mbt) owns activation and IME
   gating; [textarea policy](../decisions/2026-08-25-loomark-textarea-edit-boundary.md)
   keeps native Undo while the current editor remains mounted.
-- The Source repository recognizes account-scoped `sync/` checkpoints that
+- The Source repository recognizes account-scoped `replica/` records that
   atomically contain local text, remote baseline, generation, an immutable
   pending save/delete, and update/conflict state. A length-prefixed frame keeps
   metadata in a small JSON header and stores each distinct text once in a raw
   section, avoiding repeated large-text JSON encoding. Starting sync retires the
   legacy Source in the same IndexedDB transaction, and conflict persistence
-  writes one stable local recovery Source with the checkpoint atomically.
-  The unversioned format has no migration or compatibility fallback while it
-  remains uncommitted.
+  writes one stable local recovery Source with its Replica atomically.
+  The in-progress format intentionally has no migration or compatibility
+  fallback; disposable development records may be discarded.
 - A pure per-document causal lane accepts text only after Autosave eligibility,
   permits one IndexedDB write in flight, and retains only the newest follow-up.
   Every transition starts from the newest waiting write, active write, or
-  durable checkpoint, in that order. Local edits and future acknowledgments
+  durable Replica, in that order. Local edits and future acknowledgments
   therefore cannot branch independently from one stored generation and then
   overwrite each other. Successful and failed storage completions both carry
-  the checkpoint identity they belong to. Failures retain the newest write for
+  the Replica identity they belong to. Failures retain the newest write for
   explicit retry, non-active completions return explicit stale-event errors,
   and conflict recovery transforms the newest causal head before atomically
-  storing its checkpoint and recovery document. This adds no input callback or
-  second timer. `SavedDocuments` remains the sole durable checkpoint owner,
+  storing its Replica and recovery document. This adds no input callback or
+  second timer. `SavedDocuments` remains the sole durable Replica owner,
   while sync state retains only storing or retry-pending writers.
 - Sync ingress parses raw account IDs, UUID document and operation IDs, server
-  revisions, and checkpoint frames into opaque domain values once. Local and
+  revisions, and Replica frames into opaque domain values once. Local and
   remote documents use the same UUID-shaped identity space; there is no legacy
   ID fallback. Each parser raises only its exact MoonBit suberror rather than a
-  shared catch-all error. Synchronous receipt, writer, and checkpoint rejections
+  shared catch-all error. Synchronous receipt, writer, and Replica rejections
   use typed `raise`; `Result` values remain at tests or asynchronous boundaries
-  that need errors as data. Reconciliation returns only a checkpoint write or
+  that need errors as data. Reconciliation returns only a Replica write or
   `Unchanged`. Operation and recovery identities are requested only when their
-  effects can start. The checkpoint state is an exclusive `Ready | Sending |
-  Available | Diverged | Conflict` phase rather than independent pending/block
-  fields, eliminating invalid combinations. `Diverged` is persisted before
-  recovery identity creation, and recovery completion applies to the lane's
-  newest head, preserving intervening edits. A change returns its checkpoint
-  write directly; an unchanged edit or reconciliation is represented only by
-  `None` or `Unchanged`, without copying the checkpoint and a derivable
+  effects can start. Replica state has one exclusive `Ready | Sending |
+  Available | Diverged` phase rather than independent pending/block fields,
+  eliminating invalid combinations. Recovery identity is an orthogonal relation
+  rather than a `Conflict` phase. `Diverged` is persisted before recovery
+  identity creation, and recovery completion applies to the lane's newest head,
+  preserving intervening edits. A change returns its Replica write directly;
+  an unchanged edit or reconciliation is represented only by
+  `None` or `Unchanged`, without copying the Replica and a derivable
   directive into a second outcome object. A writer lane is present only while
-  `Storing` or `RetryPending`; its absence means the durable checkpoint is
+  `Storing` or `RetryPending`; its absence means the durable Replica is
   current. Stale completions are explicit errors and compare effect, account,
   document, and generation rather than full document text. Individual
   transitions do not repeatedly compare a raw account string. A pure account
@@ -117,14 +118,14 @@ require separate permission. Local-only operation remains supported.
   Autosave window, including an Undo back to equal text. After local repository
   open it resolves the account through a normal `Sync` message; local rendering
   therefore does not wait for network I/O. The account-aware projection exposes only
-  current-account checkpoints beside local documents, while account-qualified
+  current-account Replicas beside local documents, while account-qualified
   document keys retain inactive accounts' optimistic records and Autosave
   state. The document reducer emits an exact Source operation for local-only
   data and an account-qualified eligible Document for synced data. Only the sync
-  lane derives checkpoint writes from its causal head; the root merely executes
+  lane derives Replica writes from its causal head; the root merely executes
   the resulting attempt. Action interpretation requires the current
   `SavedDocuments`, eliminating a scheduled recovery with no executable
-  command. Synced saves therefore update checkpoints without recreating
+  command. Synced saves therefore update Replicas without recreating
   `source/v1`. The typed document HTTP boundary preserves custom
   account headers and non-2xx bodies, strictly parses receipts and remote
   documents, and returns normal messages. A new operation is persisted before
@@ -138,35 +139,46 @@ require separate permission. Local-only operation remains supported.
   consumes the server's lexical pages inside one managed command and publishes
   only a complete typed catalog. Each present row carries a bounded server-side
   Markdown lead, not a full body. Selecting a remote-only row performs GET,
-  persists a received synchronized checkpoint, and activates only after storage
-  succeeds. Newer metadata for an existing checkpoint performs GET and enters
+  persists a received synchronized Replica, and activates only after storage
+  succeeds. Newer metadata for an existing Replica performs GET and enters
   the same reconciliation/writer path as a rejected save; mounted editor text is
-  never replaced. Available and diverged checkpoints include the newest observed
+  never replaced. Available and diverged Replicas include the newest observed
   revision, so later catalog revisions continue through reconciliation. Reopen
   advances the newest waiting, active, or durable writer head monotonically
-  rather than creating another generation-zero checkpoint. Editor admission
-  and activation use the exact durable checkpoint that satisfies the selected
-  revision; checkpoint completion no longer reprojects every account document.
+  rather than creating another generation-zero Replica. Editor admission and
+  activation use the exact durable Replica that satisfies the selected
+  revision; Replica completion no longer reprojects every account document.
   A selection that becomes durable during IME composition stays pending until
   composition ends; newer navigation cancels activation without canceling an
-  already-started write. Explicit tombstones advance the catalog while absence
-  from a scan does not imply deletion. The remote/local join is behind a narrow
-  document-membership and catalog equality boundary, so ordinary text edits do
-  not rebuild it. Narrow account/document status, explicit sync start, account
-  retry, and checkpoint retry now use ordinary root messages. Sync start and
-  checkpoint retry carry opaque capabilities projected from current state
+  already-started write. A selected present row that becomes a tombstone before
+  its GET completes persists that tombstone but ends its open intent, preventing
+  activation after the write. Explicit tombstones advance the catalog while
+  absence from a scan does not imply deletion. The remote/local join is behind
+  a narrow document-membership and catalog equality boundary, so ordinary text
+  edits do not rebuild it. Narrow account/document status, explicit sync start,
+  account retry, and Replica retry now use ordinary root messages. Sync start
+  and Replica retry carry opaque capabilities projected from current state
   instead of arbitrary account/document pairs. Display and retry execution
   share one pure next-work decision, including the exact remote read retained
   after failure. Account resolution restarts failed local persistence through
   the Documents lifecycle, preserving an Undo made while that write is in
   flight. Sync start keeps the textarea mounted while its durable owner changes
-  and routes edits made during the atomic mutation to the resulting checkpoint.
-  Synchronized deletion, remote-update acceptance, and conflict actions are not
-  connected yet.
+  and routes edits made during the atomic mutation to the resulting Replica.
+  Remote updates and tombstones are exposed only as opaque actions parsed from
+  the current clean, idle working copy. They expire after a local edit, account
+  switch, or newer Replica revision. Opening an update deliberately starts a new
+  editor activation and native Undo history; accepting a tombstone removes the
+  working copy without manufacturing replacement text. Divergence produces one
+  atomic `Fork`: the original UUID follows the server branch and the current
+  local text moves to a recovery UUID. A temporary `Forking` document owner
+  preserves edits, IME, selection, and native Undo until persistence completes,
+  then resumes ordinary Source saving. Synchronized deletion initiated from
+  this device is not connected yet. The recovery relation is durable but is not
+  yet presented in Recent documents.
 - Pure MoonBit sync transitions resend the exact persisted operation after
   restart, retain edits made during an in-flight operation, reject non-matching
-  writer completions, reconcile equal text without false conflict, and keep
-  conflicts blocked under one recovery identity. A definitive server revision
+  writer completions, reconcile equal text without false conflict, and fork
+  divergence under one recovery identity. A definitive server revision
   rejection retires the pending operation into reconciliation; an uncertain
   delivery keeps the exact operation for retry. Once an update is available,
   older remote revisions cannot replace it. Operation planning, durable-send
@@ -233,9 +245,9 @@ implementation, or generic provider framework. Better Auth owns provider
 identity validation and account/session records; document ownership uses its
 verified user ID, not an email address supplied by the client.
 
-Sign-in navigation must checkpoint current edits first. If browser saving fails,
+Sign-in navigation must save current edits to Browser storage first. If saving fails,
 stay in the editor and offer Retry/Export rather than navigate away. Composition
-must finish before that checkpoint. A cancelled login returns to the same work.
+must finish before that save. A cancelled login returns to the same work.
 
 Logout stops network synchronization, not local recovery. Preserve pending work
 under its original account namespace. Switching accounts never uploads it to the
@@ -330,7 +342,7 @@ revision, apply the change, and record its receipt. Reusing an operation ID with
 different content is rejected. Repeating an accepted operation returns its
 original receipt, even after another device advances the document. A tombstone
 cannot be replaced through the create path. A receipt never proves that a newer
-local checkpoint is synced.
+local Replica is synced.
 
 Use D1's transactional batch for conditional admission, document mutation, and
 receipt creation. Await batch completion before sending a success response.
@@ -338,31 +350,31 @@ Do not introduce pre-read races or application locks. Test failed writes and
 restart, not only in-memory behavior.
 
 For synced documents, store text, owning account, remote baseline/revision,
-and pending operation in one local checkpoint. Persist an immutable
+and pending operation in one local Replica. Persist an immutable
 request before sending it. If edits happen while it is in flight, retain the
 latest local text separately from that request; first resolve/retry the original
 request, then derive the next one from the new baseline. Apply acknowledgments
-and remote checkpoints atomically. Restart must not require reconstructing a
+and remote Replica transitions atomically. Restart must not require reconstructing a
 lost request identity from text alone.
 
 The integration boundary must not execute `Send` merely because a transition
-produced a sending checkpoint: enqueue that checkpoint, wait for its matching
+produced a sending Replica: enqueue that Replica, wait for its matching
 IndexedDB success, and only then send. A definitive revision-conflict response
 uses `reject_conflict`; timeout, disconnect, and other uncertain delivery retain
 and resend the persisted operation ID. Conflict recovery must enter the writer
 lane before later edits for that document so coalescing cannot detach the
-recovery Source from its checkpoint.
+recovery Source from its Replica.
 
 Retain existing `source/v1` documents. Starting sync must preserve exact text and
 identity and publish the new local record atomically; failure leaves the old
 record authoritative. Do not let an inactive old record reappear as a duplicate.
-Scope checkpoints and delayed results to account, document, and generation.
-Local compare-and-write must detect another tab's newer checkpoint; stale tabs
+Scope Replicas and delayed results to account, document, and generation.
+Local compare-and-write must detect another tab's newer Replica; stale tabs
 must preserve a recovery branch instead of silently overwriting it.
 
 The current Rabbita IndexedDB binding supports atomic blind mutation but not a
 transaction-local read/compare/write operation. Therefore multi-tab CAS remains
-an integration gate rather than a property of the present checkpoint writer;
+an integration gate rather than a property of the present Replica writer;
 implement it before claiming multi-tab support and before final sync acceptance,
 not as a prerequisite for the initial single-tab integration.
 
@@ -381,35 +393,56 @@ compromise local editor availability.
 Keep one stable Rabbita application state so account changes never recreate the
 textarea or disturb IME, selection, or native Undo. The model retains the sync
 state of every account observed during the page lifetime, loaded lazily from its
-account-scoped IndexedDB checkpoints. Authentication selects which retained
-account may perform network work; it does not transfer or delete checkpoint
-ownership. Logging out therefore pauses network synchronization while local
-checkpointing and Export remain available.
+account-scoped IndexedDB Replicas. Authentication selects which retained account
+may perform network work; it does not transfer or delete Replica ownership.
+Logging out therefore pauses network synchronization while local Replica
+persistence and Export remain available.
 
 Use ordinary nested messages rather than a callback registry, custom event bus,
 or account-incarnation framework:
 
 ```moonbit nocheck
-priv enum Msg {
-  // Existing editor messages remain unchanged.
-  AccountResolved(Int, AccountResult)
-  Sync(SyncEvent)
+pub(all) enum Action {
+  ArmMaximum(Int)
+  PersistSource(SaveOperation)
+  StoreReplica(ReplicaWrite)
+  SaveReplica(ReplicaEdit)
+  DeleteSource(DeleteOperation)
 }
 
-priv enum SyncEvent {
-  CheckpointCompleted(CheckpointResult)
-  MutationCompleted(AccountId, OperationId, MutationResult)
+priv enum Msg {
+  // Existing editor messages remain unchanged.
+  DocumentsLifecycle(DocumentsFeedback)
+  Sync(SyncMsg)
+}
+
+priv enum SyncMsg {
+  AccountResolved(Int, AccountResult)
+  ReplicaWriteCompleted(ReplicaAttempt, Result[Unit, ReplicaFailure])
+  OperationPrepared(PlanId, AccountId, DocumentId, OperationId?)
+  DeliveryCompleted(EffectId, AccountId, DocumentId, OperationId, DeliveryResult)
+  RemoteCompleted(EffectId, AccountId, DocumentId, RemoteRead, RemoteResult)
+  RecoveryCreated(EffectId, AccountId, DocumentId, CreateResult)
   DiscoveryCompleted(AccountId, Int, DiscoveryResult)
 }
 ```
 
-The exact constructors may follow the implemented HTTP result types, but the
-ownership rule is fixed: every `SyncEvent` contains exactly one parsed account
-authority. `CheckpointResult` derives it from its originating checkpoint;
-network events carry it directly. Do not duplicate the account in an outer
+`@documents.Action` is a synchronous child-to-parent result, not another queued
+application message. Root `update` consumes `SaveReplica` and `StoreReplica`
+before returning from the same transition and updates the causal Replica lane;
+only the resulting IndexedDB or HTTP work becomes a `Cmd`. This removes the
+state in which a delayed internal message can cross a fork, tombstone, account
+projection, or newer edit. `ReplicaEdit` carries the parsed durable Replica and
+the eligible working copy, so the root neither looks the owner up again nor
+revalidates mutable document state. Browser completions still return through
+ordinary `Sync(SyncMsg)` values.
+
+The ownership rule is fixed: every `SyncMsg` contains exactly one parsed account
+authority. `ReplicaWriteCompleted` derives it from its opaque attempt; network
+events carry it directly. Do not duplicate the account in an outer
 message and then validate two copies. Each callback only emits `Sync(event)` and
 contains no state logic. Root `update` routes the event to that account's
-retained state, where the checkpoint writer, operation ID, remote revision, or
+retained state, where the Replica writer, operation ID, remote revision, or
 discovery request ID decides whether the completion is current. Do not allocate
 a second generic request identity when an existing domain identity already
 distinguishes the operation.
@@ -417,13 +450,13 @@ distinguishes the operation.
 Account lookup is the one result that cannot yet be routed by `AccountId`,
 because it determines that identity. Keep its latest request ID in the session
 state and accept only the matching `AccountResolved` message. While account
-lookup is pending or unavailable, preserve editing and local checkpoint writes
+lookup is pending or unavailable, preserve editing and local Replica writes
 but start no network synchronization. Refresh account identity after auth
 navigation, logout, visibility recovery, and an expected-account rejection; do
 not poll it from the input path.
 
 An inactive account may accept a valid completion for work already started and
-persist its receipt or newest checkpoint. It must not start another network
+persist its receipt or newest Replica. It must not start another network
 request, expose its documents as belonging to the authenticated account, or
 replace the mounted editor. When the same account is selected again, its
 original writer lanes and request identities continue; A → B → A therefore does
@@ -463,7 +496,7 @@ grants authority. If another tab changes the shared cookie before a request is
 admitted, the mismatch is rejected rather than returning one account's data to
 another account's retained state.
 
-Tests must cover delayed checkpoint, mutation, and discovery messages through
+Tests must cover delayed Replica, mutation, and discovery messages through
 A → B → A; valid results return to the original retained A state, stale request
 identities are rejected, and no A result starts network work while B is selected.
 Account switches must leave the same textarea mounted. Expected-account mismatch
@@ -473,10 +506,10 @@ tests continue to own ordering within one account.
 The acceptance matrix is:
 
 - Reverse-ordered account lookups: only the latest lookup selects an account.
-- A mutation completes while B is selected: update A's retained checkpoint and
+- A mutation completes while B is selected: update A's retained Replica and
   schedule no A network follow-up.
 - A completion arrives after A → B → A: accept it only when its existing
-  checkpoint, operation, revision, or discovery identity is still current in
+  Replica, operation, revision, or discovery identity is still current in
   the same retained A state.
 - The shared cookie changes before server admission: expected-account mismatch
   performs no document access and requests a fresh account lookup.
@@ -542,6 +575,11 @@ release checks that a fixture cannot prove.
 
 ## Implementation order
 
+Steps 2–5 and the remote-update/conflict portion of step 6 are implemented for
+the initial single-tab integration. Step 1 still requires permission to publish
+the owning issue. Synchronized deletion and recovery-relation presentation
+remain in step 6; steps 7–8 remain acceptance work.
+
 1. After design review and permission, publish the owning issue and add the
    reciprocal link. Record the accepted sync additions in Loomark's contract.
 2. Specify and test pure mutation/reconciliation decisions: stale version,
@@ -597,8 +635,12 @@ MoonBit server artifact before running integration tests or TypeScript checks.
 Run `NEW_MOON_MOD=0 moon test --target js -p dowdiness/loomark/server/documents dowdiness/loomark/server/internal/document_store`
 for pure codec/model tests, plus the package tests in the
 [worker-platform README](../../modules/worker-platform/README.md).
-Still to add: `scripts/test-loomark-sync-e2e.sh` for the authenticated
-production artifact and persistent local Worker.
+`scripts/test-loomark-sync-e2e.sh` now exercises the production artifact and
+document handlers with isolated Better Auth test sessions and persistent local
+D1. It covers process replacement, exact resend after a committed response is
+lost, divergent-browser recovery, and account switching/isolation. The broader
+phone-to-PC sequence, local-storage failure, multi-tab races, performance
+measurements, and real-provider/deployed checks remain.
 Run affected MoonBit package tests/checks using the repository toolchain.
 
 New tests must include server process replacement, two isolated authenticated

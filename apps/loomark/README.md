@@ -118,13 +118,14 @@ baseline, immutable pending save or delete, local generation, and any
 remote-update or conflict state remain atomic without repeatedly JSON-encoding
 large text. Starting sync atomically replaces the local `source/v1` record;
 conflict preservation atomically writes the stable local recovery document with
-the blocked replica. The unversioned sync format has no migration or
-compatibility fallback while it remains uncommitted. Account-scoped ownership
-keeps durable data separate. Pure MoonBit transitions resend a persisted
-operation after restart, keep newer edits separate from an older in-flight
-request, retire a definitively rejected operation into reconciliation, and
-retain the newest observed remote revision. Uncertain delivery leaves the exact
-operation pending for idempotent retry. A separate typed account HTTP boundary
+the blocked replica. The in-progress sync format intentionally has no migration
+or compatibility fallback; disposable development records may be discarded.
+Account-scoped ownership keeps durable data separate. Pure MoonBit transitions
+resend a persisted operation after restart, keep newer edits separate from an
+older in-flight request, retire a definitively rejected operation into
+reconciliation, and retain the newest observed remote revision. Uncertain
+delivery leaves the exact operation pending for idempotent retry. A separate
+typed account HTTP boundary
 parses a successful response directly into `AccountId`, distinguishes 401 from
 an unavailable account service, and classifies malformed success bodies as
 unavailable. After local repository open, the root Rabbita model resolves the
@@ -154,7 +155,14 @@ canonical replica, while failure keeps the optimistic text and newest
 retryable write without creating a second Documents failure lifecycle. A
 Replica completion updates repository truth but never acknowledges or clears a
 newer working-copy Autosave window, even when both contain equal text. Once a
-replica is durable, the root derives its next HTTP
+replica is eligible, the Documents reducer returns a synchronous action carrying
+its durable base and optimistic working copy. Root `update` applies that action
+to the Replica lane in the same transition; it does not queue another Rabbita
+message that could arrive after a fork, tombstone, or newer edit. Only actual
+IndexedDB and HTTP work becomes a `Cmd`. All nondeleted durable replicas are
+materialized once when the repository opens; account projection changes only
+visibility, so A → B → A cannot reconstruct a record removed by an accepted
+tombstone or fork. Once a replica is durable, the root derives its next HTTP
 or identity-creation command. The command interpreter requires the current
 `SavedDocuments`, so a scheduled recovery cannot silently become `Cmd.none`.
 The header derives narrow account and active-document status values from the
@@ -170,8 +178,21 @@ acknowledged Source may enter it, edits remain optimistic while its atomic
 IndexedDB mutation is pending, success transfers pending text to replica
 persistence, and failure resumes Source persistence. The active textarea keeps
 its activation generation while the durable owner changes, so selection,
-composition, and native Undo remain mounted. Synchronized deletion,
-remote-update acceptance, and conflict actions remain unconnected.
+composition, and native Undo remain mounted. A remote revision never replaces
+the mounted editor automatically. The header instead exposes an opaque
+`Open update` action derived from the current Replica and working copy. The
+action expires after another edit, account change, or newer Replica revision;
+accepting it starts a fresh editor activation and native Undo history. A remote
+tombstone similarly remains explicit through `Remove deleted document`.
+
+When both local and remote text diverge, the sync transition first persists
+`Diverged`, obtains one recovery UUID, and produces one atomic `Fork` write. The
+original identity advances to the server branch while the current local text
+moves to a local-only recovery document. While that transaction is pending, a
+private `Forking` document state owns further edits and retains the textarea's
+activation generation, composition, selection, and native Undo. Completion
+resumes ordinary Source persistence for edits newer than the recovery snapshot.
+Synchronized deletion initiated from this device remains unconnected.
 
 The sync model parses account IDs, UUID document and operation IDs, server
 revisions, and replica frames once at their ingress. Document IDs use one
@@ -182,14 +203,15 @@ keep failures as message data. Reconciliation returns either a replica write
 or `Unchanged`. Operation and recovery identities are requested only when their
 effects can start. Transitions receive those domain types rather than
 revalidating strings and numbers. A replica has exactly one phase—`Ready`,
-`Sending`, `Available`, `Diverged`, or `Conflict`—so invalid combinations cannot
-be represented. `Diverged` is durable before recovery identity creation;
-recovery completion transforms the newest lane head, preserving edits made
-while that effect was running. The next directive is derived from the phase
-instead of being copied into every transition result. A persistence lane is
-present only while `Persisting` or `Failed`; its absence means the durable
-replica is current. A delayed completion that does not carry the lane's
-active attempt returns an explicit error without comparing full text.
+`Sending`, `Available`, or `Diverged`—so invalid combinations cannot be
+represented. Recovery identity is an orthogonal relation on a Replica rather
+than another blocking phase. `Diverged` is durable before recovery identity
+creation; recovery completion transforms the newest lane head, preserving edits
+made while that effect was running. The next directive is derived from the
+phase instead of being copied into every transition result. A persistence lane
+is present only while `Persisting` or `Failed`; its absence means the durable
+replica is current. A delayed completion that does not carry the lane's active
+attempt returns an explicit error without comparing full text.
 
 The account-sync state owns session lookup, the transient remote catalog, and
 network work keyed by account and document. It does not copy durable replicas.
@@ -256,11 +278,13 @@ activate; revision and textarea text therefore cannot come from different
 snapshots. If IME composition starts while a remote row is loading, admission
 and activation remain pending until composition ends. A canceled selection
 still allows its already-started replica write to finish without activating
-it. Account, discovery, effect, revision, and replica identities fence
-delayed results. The expensive remote/local join depends only on a narrow
-document-membership projection and the remote catalog, and replica success
-does not rescan and reproject the account, so ordinary edits do not rebuild
-either graph.
+it. If that row becomes a tombstone before its body arrives, the tombstone
+enters the same causal writer but ends the open intent, so persistence cannot
+activate a deleted document. Account, discovery, effect, revision, and replica
+identities fence delayed results. The expensive remote/local join depends only
+on a narrow document-membership projection and the remote catalog, and replica
+success does not rescan and reproject the account, so ordinary edits do not
+rebuild either graph.
 
 `switch_by` remains appropriate for disposable account-only presentation and
 subscriptions, but not as the sync reducer's ownership boundary: parent
@@ -289,21 +313,32 @@ development tool, never a public endpoint.
 
 The editor now sends durable pending operations, applies receipts and revision
 conflicts, discovers remote metadata, opens remote-only documents, displays
-account/document sync status, and explicitly starts sync for local documents. Periodic
-list polling, synchronized delete controls, and remote-update/conflict actions
-are not connected yet, so this does not establish the complete phone-to-PC
-editing experience or real Google callback flow. The remaining work is tracked
-in the [account sync plan](../../docs/plans/2026-09-16-loomark-account-document-sync.md).
+account/document sync status, and explicitly starts sync for local documents.
+It also exposes current-state capabilities for remote updates and tombstones,
+and preserves divergent local text through an atomic recovery fork without
+replacing a mounted editor. Periodic list polling, synchronized deletion
+initiated from this device, and recovery-relation presentation in Recent
+documents remain unfinished. A separate local browser suite now runs the
+production UI and HTTP/document handlers against Better Auth test sessions and
+persistent local D1. It covers Worker restart, response-loss replay, independent
+browser conflict recovery, and account switching/isolation without adding a
+route to the production Worker. This still does not establish the full
+phone-to-PC acceptance sequence, real Google callback flow, or physical-device
+performance. The remaining work is tracked in the
+[account sync plan](../../docs/plans/2026-09-16-loomark-account-document-sync.md).
 No shared database or deployment is provisioned by these test commands.
 
 ## Production validation
 
 ```bash
 ./scripts/test-loomark-standalone-e2e.sh
+./scripts/test-loomark-sync-e2e.sh
 ```
 
 This performs a clean Warren production build, rejects removed Worker and
-private-control artifacts, and runs Playwright against the release output.
+private-control artifacts, and runs Playwright against the release output. The
+sync suite uses a separate test-only Worker configuration and disposable local
+D1; production authentication configuration is unchanged.
 
 Demand tests use `npm run test:demand` from `examples/vanilla`. Its
 [artifact builder](../../scripts/build-loomark-demand-artifact.sh) copies the
