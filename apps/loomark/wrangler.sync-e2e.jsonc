@@ -1,0 +1,25 @@
+{
+  "name": "loomark-sync-e2e",
+  "main": "examples/vanilla/sync-worker.ts",
+  "compatibility_date": "2026-09-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "BETTER_AUTH_URL": "http://127.0.0.1:4327",
+    "BETTER_AUTH_SECRET": "loomark-sync-e2e-secret-with-more-than-32-characters",
+    "GOOGLE_CLIENT_ID": "sync-e2e-google-client",
+    "GOOGLE_CLIENT_SECRET": "sync-e2e-google-secret"
+  },
+  "d1_databases": [
+    {
+      "binding": "AUTH_DB",
+      "database_name": "loomark-sync-e2e",
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "server/migrations"
+    }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/__e2e__/*"]
+  }
+}
