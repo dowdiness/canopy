@@ -3,7 +3,6 @@ fn replica_test_frame(header : String, payload : String) -> String {
   "loomark-replica\n" + header.length().to_string() + "\n" + header + payload
 }
 
-///|
 fn test_replica_key(
   account? : String = "account-a",
   document? : String = "document",
@@ -63,7 +62,7 @@ test "frame stores one copy of shared large text" {
 }
 
 ///|
-test "codec retains exclusive conflict phase" {
+test "codec retains recovery relation independently of sync phase" {
   let edited = sending_replica("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
@@ -77,13 +76,10 @@ test "codec retains exclusive conflict phase" {
     decode_replica(test_replica_key(), encode_replica(replica)),
     Some(replica),
   )
-  assert_true(replica.phase is ReplicaPhase::Conflict(_))
+  assert_true(replica.phase is ReplicaPhase::Ready)
   assert_eq(
-    replica.directive(),
-    ReplicaDirective::Conflict(
-      test_document_id("recovery"),
-      remote_present(2.0, "remote"),
-    ),
+    replica.recovery_document_id(),
+    Some(test_document_id("recovery")),
   )
 }
 

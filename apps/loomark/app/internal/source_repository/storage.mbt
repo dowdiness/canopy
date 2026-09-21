@@ -113,7 +113,7 @@ fn replica_mutations(write : ReplicaWrite) -> Array[@indexed_db.Mutation] {
   )
   match write {
     Store(_) => [replica_mutation]
-    StoreWithRecovery(_, recovery) =>
+    Fork(_, recovery) =>
       [
         replica_mutation,
         @indexed_db.Mutation::Set(
@@ -138,7 +138,7 @@ pub fn persist_replica_write(
   let replica = write.replica()
   guard (match write {
     Store(_) => true
-    StoreWithRecovery(_, recovery) =>
+    Fork(_, recovery) =>
       saved.find(recovery.id()) is None &&
       !saved.observed(source_key(recovery.id()))
     PromoteSource(_) =>

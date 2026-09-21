@@ -16,6 +16,7 @@ fn Record::key(self : Self) -> Key {
   match self.persistence {
     Source(_, _) | StartingSync(_, _) => Key::source(self.document.id())
     Replica(account) => Key::replica(account, self.document.id())
+    Forking(_) => Key::source(self.document.id())
   }
 }
 
@@ -27,7 +28,7 @@ fn Record::delete_phase(self : Self) -> DocumentsDeletePhase {
     Source(_, SourceDeletePhase::Deleting(operation)) => Deleting(operation)
     Source(_, SourceDeletePhase::Failed(operation, failure)) =>
       Failed(operation, failure)
-    StartingSync(_, _) | Replica(_) => Unavailable
+    StartingSync(_, _) | Replica(_) | Forking(_) => Unavailable
   }
 }
 
@@ -110,25 +111,30 @@ fn replace_autosave(
 fn begin_save(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Effect]) {
+) -> (Record, Array[Action]) {
   match record.persistence {
     Source(_, _) => {
       let operation = { key: record.key(), document: record.document, }
       (
         { ..record, save: Saving(operation, None), },
-        [Effect::PersistSource(operation)],
+        [Action::PersistSource(operation)],
       )
     }
-    StartingSync(_, _) => (record, [])
+    StartingSync(_, _) | Forking(_) => (record, [])
     Replica(account) =>
       match saved.replica(account, record.document.id()) {
-        Some(_) =>
+        Some(durable) =>
           (
             // The committed Replica can be older than an active persistence
             // lane. Submit every eligible value; Replication compares it with
             // the causal head and coalesces it when no write is needed.
             { ..record, save: Saved, },
-            [Effect::ReplicaEligible(account, record.document)],
+            [
+              Action::SaveReplica({
+                durable,
+                document: record.document,
+              }),
+            ],
           )
         None => ({ ..record, save: Failed(InvalidSource), }, [])
       }
@@ -137,22 +143,30 @@ fn begin_save(
 
 ///|
 pub fn State::State(saved : @source_repository.SavedDocuments) -> State {
-  let records = saved
+  let sources = saved
     .all()
     .to_owned()
     .map(document => {
       persistence: Source(Existing, SourceDeletePhase::Available),
       document,
+      version: 0,
       edit: Idle,
       save: Saved,
       lead_source: Available(document.text()),
     })
+  let replicas = saved.replicas().filter_map(replica => {
+    if replica.is_deleted() {
+      None
+    } else {
+      Some(replica_record(replica))
+    }
+  })
   {
     saved,
-    records,
+    records: sources + replicas,
     visible_account: None,
     last_autosave_id: 0,
-    last_pending_edit_revision: 0,
+    last_working_copy_version: 0,
     last_delete_request: 0,
   }
 }
@@ -163,6 +177,7 @@ fn replica_record(replica : @source_repository.DocumentReplica) -> Record {
   {
     persistence: Replica(replica.account()),
     document,
+    version: 0,
     edit: Idle,
     save: Saved,
     lead_source: Available(document.text()),
@@ -174,17 +189,7 @@ pub fn State::project_account(
   self : Self,
   account : @source_repository.AccountId,
 ) -> Self {
-  let records = self.saved
-    .replicas_for(account)
-    .fold(init=self.records, (records, replica) => {
-      let key = Key::replica(account, replica.document().id())
-      if find_record(records, key) is Some(_) {
-        records
-      } else {
-        records + [replica_record(replica)]
-      }
-    })
-  { ..self, records, visible_account: Some(account), }
+  { ..self, visible_account: Some(account), }
 }
 
 ///|
@@ -193,8 +198,25 @@ pub fn State::admit_replica(
   replica : @source_repository.DocumentReplica,
 ) -> Self {
   let key = Key::replica(replica.account(), replica.document().id())
+  guard !replica.is_deleted() else {
+    return { ..self, records: remove_record(self.records, key), }
+  }
   guard find_record(self.records, key) is None else { return self }
   { ..self, records: self.records + [replica_record(replica)], }
+}
+
+///|
+pub fn ReplicaEdit::durable(
+  self : Self,
+) -> @source_repository.DocumentReplica {
+  self.durable
+}
+
+///|
+pub fn ReplicaEdit::document(
+  self : Self,
+) -> @source_repository.Document {
+  self.document
 }
 
 ///|
@@ -205,7 +227,7 @@ pub fn State::hide_accounts(self : Self) -> Self {
 ///|
 fn State::record_is_visible(self : Self, record : Record) -> Bool {
   match record.persistence {
-    Source(_, _) | StartingSync(_, _) => true
+    Source(_, _) | StartingSync(_, _) | Forking(_) => true
     Replica(account) => self.visible_account == Some(account)
   }
 }
@@ -229,16 +251,16 @@ fn revise_autosave(replica : AutosaveWindow) -> AutosaveWindow {
 }
 
 ///|
-fn next_pending_edit(documents : State) -> (State, Int) {
-  let revision = documents.last_pending_edit_revision + 1
-  ({ ..documents, last_pending_edit_revision: revision, }, revision)
+fn allocate_working_copy_version(documents : State) -> (State, Int) {
+  let version = documents.last_working_copy_version + 1
+  ({ ..documents, last_working_copy_version: version, }, version)
 }
 
 ///|
 fn autosave_effect(
   replica : AutosaveWindow,
   rearm : Bool,
-) -> (AutosaveWindow, Array[Effect]) {
+) -> (AutosaveWindow, Array[Action]) {
   if replica.eligibility == AutosaveEligibility::Eligible ||
     (!rearm && replica.maximum_armed) {
     (replica, [])

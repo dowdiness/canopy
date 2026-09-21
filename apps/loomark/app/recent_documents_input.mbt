@@ -82,7 +82,7 @@ fn recent_document_seeds(
       } else {
         @recent_documents.Selection::Blocked
       }
-      let deletion = if editing.creation == Creating {
+      let deletion = if editing.creation is Creating(_) {
         @recent_documents.DeletionAvailability::Blocked
       } else {
         match deletion_status {

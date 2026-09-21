@@ -535,7 +535,6 @@ fn State::next(
   }
   match replica.directive() {
     Send(operation) => Deliver(operation)
-    Conflict(_, _) => NoWork
     RecoveryRequired =>
       match self.newer_revision(replica) {
         Some(revision) => Fetch(revision)
@@ -892,7 +891,7 @@ pub fn State::recover(
     active == effect else {
     raise StaleWork
   }
-  let write = durable.preserve(recovery_id) catch { _ => raise StaleWork }
+  let write = durable.fork(recovery_id) catch { _ => raise StaleWork }
   (self.remove_network(index), Some(write))
 }
 

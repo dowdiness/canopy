@@ -129,7 +129,7 @@ test "conflict replica and recovery source share one transaction" {
     remote_present(2.0, "remote"),
     "recovery",
   )
-  guard conflicted is StoreWithRecovery(replica, recovery) else {
+  guard conflicted is Fork(replica, recovery) else {
     fail("expected conflict recovery")
   }
   assert_eq(replica_mutations(conflicted), [

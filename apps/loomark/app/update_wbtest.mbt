@@ -65,13 +65,14 @@ fn test_editing() -> EditingState {
 
 ///|
 fn test_update(model : Page, msg : Msg) -> (Page, @cmd.Cmd) {
-  update_page(
-    model,
+  let (model, command) = update(
+    test_model(model, @sync.State()),
     msg,
     @cmd.Emit(_ => @cmd.none),
     @text_area.TextArea::TextArea("loomark-test-text"),
     @preview.PreviewEngine::PreviewEngine(),
   )
+  (model.page, command)
 }
 
 ///|
@@ -107,6 +108,23 @@ fn begin_replica(
     { ..model, replication: @replication.State(protocol=sync, persistence~), },
     attempt.unwrap(),
   )
+}
+
+///|
+fn make_replica_eligible(
+  model : Model,
+  key : @documents.Key,
+) -> (Model, @documents.ReplicaEdit) {
+  guard model.page is Editing(editing) else { abort("editing") }
+  let revision = pending_revision(editing.documents, key)
+  let (_, actions) = editing.documents.reduce(
+    @documents.Msg::ApplyPendingEdit(key, revision),
+  )
+  guard actions is [@documents.Action::SaveReplica(edit)] else {
+    abort("replica eligible")
+  }
+  let (model, _) = test_root_update(model, ApplyPendingEdit(key, revision))
+  (model, edit)
 }
 
 ///|
@@ -396,13 +414,7 @@ test "account retry keeps an Undo made while replica storage is in flight" {
     model,
     TextChanged(0, @text_change.TextChange::ReplaceAll("newer")),
   )
-  guard model.page is Editing(editing) else { fail("editing") }
-  let (model, _) = test_root_update(
-    model,
-    ApplyPendingEdit(token, pending_revision(editing.documents, token)),
-  )
-  let newer = documents_test_document("one", "newer")
-  let (model, _) = test_root_update(model, ReplicaEligible(account, newer))
+  let (model, _) = make_replica_eligible(model, token)
 
   let (failed, _) = test_root_update(
     model,
@@ -435,19 +447,18 @@ test "account retry keeps an Undo made while replica storage is in flight" {
     fail("retryable persistence")
   }
   let (_, retry) = failed.replication.persistence().retry(retry_action)
-  let (retrying, _) = test_root_update(
-    retrying,
-    ReplicaEligible(account, newer),
-  )
   let (undone, _) = test_root_update(
     retrying,
     TextChanged(0, @text_change.TextChange::ReplaceAll("one")),
   )
-  guard undone.page is Editing(undone_editor) else { fail("editing") }
-  let (undone, _) = test_root_update(
-    undone,
-    ApplyPendingEdit(token, pending_revision(undone_editor.documents, token)),
-  )
+  let (undone, _) = make_replica_eligible(undone, token)
+  let (_, completion) = undone.replication.complete(retry, Ok(())) catch {
+    _ => abort("revert completion")
+  }
+  guard completion
+    is @replica_persistence.Completion::Superseded(_, reverting_attempt) else {
+    fail("revert must follow the retried write")
+  }
   let (stored_newer, _) = test_root_update(
     undone,
     Sync(ReplicaWriteCompleted(retry, Ok(()))),
@@ -463,22 +474,8 @@ test "account retry keeps an Undo made while replica storage is in flight" {
     .replica(account, document_id("one"))
     .unwrap()
   assert_eq(stored_replica.document().text(), "newer")
-  let reverted = documents_test_document("one", "one")
-  let (reverting_sync, reverting) = stored_newer
-    .sync()
-    .save(stored_replica, reverted.text())
-  let reverting = reverting.unwrap()
-  let (_, reverting_attempt) = stored_newer.replication
-    .persistence()
-    .submit(reverting)
-  let reverting_attempt = reverting_attempt.unwrap()
-  let (reverting_model, _) = test_root_update(
-    stored_newer,
-    ReplicaEligible(account, reverted),
-  )
-  assert_true(reverting_model.sync() == reverting_sync)
   let (stored, _) = test_root_update(
-    reverting_model,
+    stored_newer,
     Sync(ReplicaWriteCompleted(reverting_attempt, Ok(()))),
   )
   assert_eq(
@@ -528,15 +525,7 @@ test "intermediate Replica commit cannot discard a pending Undo" {
     model,
     TextChanged(0, @text_change.TextChange::ReplaceAll("newer")),
   )
-  guard edited.page is Editing(editor) else { fail("editing") }
-  let (eligible, _) = test_root_update(
-    edited,
-    ApplyPendingEdit(key, pending_revision(editor.documents, key)),
-  )
-  let (queued, _) = test_root_update(
-    eligible,
-    ReplicaEligible(account, documents_test_document("one", "newer")),
-  )
+  let (queued, _) = make_replica_eligible(edited, key)
   let (undone, _) = test_root_update(
     queued,
     TextChanged(0, @text_change.TextChange::ReplaceAll("one")),
@@ -558,14 +547,7 @@ test "intermediate Replica commit cannot discard a pending Undo" {
     editor.documents.save_status(key) == Some(@documents.SaveStatus::Unsaved),
   )
 
-  let (revert_eligible, _) = test_root_update(
-    stored_active,
-    ApplyPendingEdit(key, pending_revision(editor.documents, key)),
-  )
-  let (revert_queued, _) = test_root_update(
-    revert_eligible,
-    ReplicaEligible(account, documents_test_document("one", "one")),
-  )
+  let (revert_queued, _) = make_replica_eligible(stored_active, key)
   let (_, newer_completion) = revert_queued.replication.complete(
     newer_attempt,
     Ok(()),
@@ -849,12 +831,22 @@ test "revision conflict waits for recovery identity before atomic persistence" {
   let (expected, write) = awaiting_recovery.recover(
     diverged, recovery_effect, recovery_id,
   )
-  guard write.unwrap() is @source_repository.StoreWithRecovery(_, recovery) else {
+  let write = write.unwrap()
+  guard write is @source_repository.Fork(_, recovery) else {
     fail("atomic recovery")
   }
   assert_eq(recovery.text(), "local")
+  guard recovering.replication.submit(write)
+    is (_, Some(@replication.Persist(fork_attempt))) else {
+    fail("fork persistence")
+  }
+  let (creating, _) = test_root_update(recovering, CreateRequested)
+  guard creating.page is Editing(creating_editor) &&
+    creating_editor.creation is Creating(0) else {
+    fail("creation in flight")
+  }
   let (persisting, _) = test_root_update(
-    recovering,
+    creating,
     Sync(
       RecoveryCreated(
         recovery_effect,
@@ -865,6 +857,34 @@ test "revision conflict waits for recovery identity before atomic persistence" {
     ),
   )
   assert_true(persisting.sync() == expected)
+  guard persisting.page is Editing(forking) else { fail("editing") }
+  let recovery_key = @documents.Key::source(recovery_id)
+  assert_true(forking.activation.key == recovery_key)
+  assert_eq(forking.activation.generation, 0)
+  assert_eq(forking.documents.text(recovery_key), Some("local"))
+  let (created_after_rekey, _) = test_root_update(
+    persisting,
+    CreateCompleted(0, Created(document_id("created-during-fork"))),
+  )
+  guard created_after_rekey.page is Editing(created_editor) else {
+    fail("created document")
+  }
+  assert_true(
+    created_editor.activation.key == source_key("created-during-fork"),
+  )
+
+  let (committed, _) = test_root_update(
+    persisting,
+    Sync(ReplicaWriteCompleted(fork_attempt, Ok(()))),
+  )
+  guard committed.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == recovery_key)
+  assert_eq(editing.activation.generation, 0)
+  assert_eq(editing.documents.text(recovery_key), Some("local"))
+  assert_eq(
+    editing.documents.text(@documents.Key::replica(account, document_id("one"))),
+    Some("remote"),
+  )
 }
 
 ///|
@@ -973,6 +993,52 @@ test "sync messages preserve the editor page" {
 }
 
 ///|
+test "accepting a remote update starts a fresh editor activation" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let document = documents_test_document("one", "base")
+  let base_revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid revision")
+  }
+  let remote_revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("valid revision")
+  }
+  let synchronized = @source_repository.DocumentReplica::receive(
+    account, document, base_revision,
+  )
+  guard synchronized.reconcile(
+      @source_repository.RemoteDocument::Present(remote_revision, "remote"),
+    )
+    is @source_repository.ReconcilePlan::Persist(write) else {
+    fail("remote update")
+  }
+  let replica = write.replica()
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(replica) catch {
+      _ => abort("valid replica")
+    }
+  let key = @documents.Key::replica(account, document.id())
+  let documents = @documents.State::State(saved).project_account(account)
+  guard documents.remote_change(replica)
+    is Some(@documents.RemoteChange::UpdateAvailable(action)) else {
+    fail("update action")
+  }
+  let base = test_editing()
+  let model = test_model(
+    Editing({ ..base, activation: { key, generation: 0, }, documents, }),
+    current_sync(account),
+  )
+
+  let (accepted, _) = test_root_update(model, AcceptRemote(action))
+  guard accepted.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.activation.generation, 1)
+  assert_eq(editing.documents.text(key), Some("remote"))
+}
+
+///|
 test "editor messages change the root model" {
   let page = Editing(test_editing())
   let model = test_model(page, @sync.State())
@@ -981,6 +1047,34 @@ test "editor messages change the root model" {
     TextChanged(0, @text_change.TextChange::ReplaceAll("changed")),
   )
   assert_true(updated != model)
+}
+
+///|
+test "eligible Replica edit enters persistence in the same root update" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid test account")
+  }
+  let saved = test_sync_snapshot(account)
+  let key = @documents.Key::replica(account, document_id("one"))
+  let model = test_model(
+    Editing({
+      ..test_editing(),
+      activation: { key, generation: 0, },
+      documents: @documents.State::State(saved).project_account(account),
+    }),
+    current_sync(account),
+  )
+  let (edited, _) = test_root_update(
+    model,
+    TextChanged(0, @text_change.TextChange::ReplaceAll("edited")),
+  )
+  guard edited.page is Editing(editing) else { fail("editing") }
+  let revision = pending_revision(editing.documents, key)
+  let (submitted, _) = test_root_update(edited, ApplyPendingEdit(key, revision))
+  assert_true(
+    submitted.replication.status(account, document_id("one"))
+    is @replica_persistence.Status::Persisting,
+  )
 }
 
 ///|
@@ -1001,9 +1095,11 @@ test "synced Autosave updates only its canonical replica" {
   let (documents, decisions) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
   )
-  guard decisions is [@documents.Effect::ReplicaEligible(owner, document)] else {
+  guard decisions is [@documents.Action::SaveReplica(submission)] else {
     fail("replica persistence")
   }
+  let owner = submission.durable().account()
+  let document = submission.document()
   assert_true(owner == account)
   let model = test_model(Editing({ ..initial, documents, }), @sync.State())
   let (storing, attempt) = begin_replica(model, owner, document)
@@ -1573,9 +1669,11 @@ test "replica completion preserves a newer Autosave window at equal text" {
   let (documents, effects) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
   )
-  guard effects is [@documents.Effect::ReplicaEligible(owner, document)] else {
+  guard effects is [@documents.Action::SaveReplica(submission)] else {
     fail("first write")
   }
+  let owner = submission.durable().account()
+  let document = submission.document()
   let replica = replica_edit(
     saved.replica(owner, document.id()).unwrap(),
     document.text(),
@@ -1598,11 +1696,11 @@ test "replica completion preserves a newer Autosave window at equal text" {
   let (_, effects) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
   )
-  guard effects is [@documents.Effect::ReplicaEligible(owner, document)] else {
+  guard effects is [@documents.Action::SaveReplica(submission)] else {
     fail("newer equal-text edit remains eligible")
   }
-  assert_eq(owner, account)
-  assert_eq(document.text(), "sent")
+  assert_eq(submission.durable().account(), account)
+  assert_eq(submission.document().text(), "sent")
 }
 
 ///|
@@ -1619,7 +1717,7 @@ test "replica revert remains eligible while a newer write may be in flight" {
   let (documents, effects) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
   )
-  guard effects is [@documents.Effect::ReplicaEligible(_, _)] else {
+  guard effects is [@documents.Action::SaveReplica(_)] else {
     fail("first write")
   }
   let (documents, _) = documents.reduce(
@@ -1632,11 +1730,11 @@ test "replica revert remains eligible while a newer write may be in flight" {
   let (_, effects) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
   )
-  guard effects is [@documents.Effect::ReplicaEligible(owner, reverted)] else {
+  guard effects is [@documents.Action::SaveReplica(submission)] else {
     fail("revert must reach the replica head")
   }
-  assert_eq(owner, account)
-  assert_eq(reverted.text(), "one")
+  assert_eq(submission.durable().account(), account)
+  assert_eq(submission.document().text(), "one")
 }
 
 ///|
@@ -1657,9 +1755,11 @@ test "replica failure keeps optimistic text and retries the same write" {
   let (documents, decisions) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
   )
-  guard decisions is [@documents.Effect::ReplicaEligible(owner, document)] else {
+  guard decisions is [@documents.Action::SaveReplica(submission)] else {
     fail("persist")
   }
+  let owner = submission.durable().account()
+  let document = submission.document()
   let model = test_model(Editing({ ..initial, documents, }), @sync.State())
   let (storing, attempt) = begin_replica(model, owner, document)
   let replica = attempt.write().replica()
@@ -1716,9 +1816,11 @@ test "an edit after replica failure immediately replaces the failed write" {
   let (documents, first) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
   )
-  guard first is [@documents.Effect::ReplicaEligible(owner, document)] else {
+  guard first is [@documents.Action::SaveReplica(submission)] else {
     fail("first eligible edit")
   }
+  let owner = submission.durable().account()
+  let document = submission.document()
   let model = test_model(Editing({ ..initial, documents, }), @sync.State())
   let (storing, attempt) = begin_replica(model, owner, document)
   let (failed, _) = test_root_update(
@@ -1735,19 +1837,20 @@ test "an edit after replica failure immediately replaces the failed write" {
     TextChanged(0, @text_change.TextChange::ReplaceAll("small")),
   )
   guard edited.page is Editing(editing) else { fail("editing") }
-  let (documents, next) = editing.documents.reduce(
+  let (_, next) = editing.documents.reduce(
     @documents.Msg::ApplyPendingEdit(
       token,
       pending_revision(editing.documents, token),
     ),
   )
-  guard next is [@documents.Effect::ReplicaEligible(owner, document)] else {
+  guard next is [@documents.Action::SaveReplica(submission)] else {
     fail("replacement eligible edit")
   }
   let (replacing, _) = test_root_update(
-    { ..edited, page: Editing({ ..editing, documents, }), },
-    ReplicaEligible(owner, document),
+    edited,
+    ApplyPendingEdit(token, pending_revision(editing.documents, token)),
   )
+  let document = submission.document()
   let durable = saved.replica(account, document.id()).unwrap()
   assert_eq(replacing.replication.head(durable).document().text(), "small")
   assert_true(
@@ -1805,7 +1908,7 @@ test "each completed Import is retained and the latest completion activates" {
 
 ///|
 test "accepted Import supersedes an unfinished New action" {
-  let initial = { ..test_editing(), creation: Creating, }
+  let initial = { ..test_editing(), creation: Creating(0), }
   let (model, _) = test_update(
     Editing(initial),
     ImportCreateCompleted("Imported", Created(document_id("imported"))),
@@ -1816,7 +1919,7 @@ test "accepted Import supersedes an unfinished New action" {
 
   let (after_stale_new, _) = test_update(
     Editing(imported),
-    CreateCompleted(source_key("one"), Created(document_id("unused-new"))),
+    CreateCompleted(0, Created(document_id("unused-new"))),
   )
   assert_true(after_stale_new == Editing(imported))
 }
@@ -1865,7 +1968,7 @@ test "repository open activates its resolved initial Document" {
 
 ///|
 test "delete is rejected while creation is in flight and completion still activates" {
-  let initial = { ..test_editing(), creation: Creating, }
+  let initial = { ..test_editing(), creation: Creating(0), }
   let (after_delete, _) = test_update(
     Editing(initial),
     DeleteRequested(source_key("one")),
@@ -1873,7 +1976,7 @@ test "delete is rejected while creation is in flight and completion still activa
   assert_true(after_delete == Editing(initial))
   let (after_create, _) = test_update(
     after_delete,
-    CreateCompleted(source_key("one"), Created(document_id("new"))),
+    CreateCompleted(0, Created(document_id("new"))),
   )
   guard after_create is Editing(editing) else { fail("editing") }
   assert_true(editing.activation.key == source_key("new"))
@@ -1924,14 +2027,14 @@ test "same document selection is a no-op" {
 
 ///|
 test "stale create completion is ignored" {
-  let initial = { ..test_editing(), creation: Creating, }
+  let initial = { ..test_editing(), creation: Creating(0), }
   let (model, _) = test_update(
     Editing(initial),
-    CreateCompleted(source_key("other"), Created(document_id("new"))),
+    CreateCompleted(1, Created(document_id("new"))),
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_true(editing.activation == initial.activation)
-  assert_true(editing.creation is Creating)
+  assert_true(editing.creation is Creating(_))
 }
 
 ///|
@@ -1957,7 +2060,7 @@ test "deleting the Editing Document activates its saved fallback" {
   let (_, effects) = initial.documents.reduce(
     @documents.Msg::DeleteConfirmed(source_key("one")),
   )
-  guard effects is [@documents.Effect::DeleteSource(operation)] else {
+  guard effects is [@documents.Action::DeleteSource(operation)] else {
     fail("delete operation")
   }
   let (model, _) = test_update(
@@ -2010,7 +2113,7 @@ test "failed first save of active new document reconciles activation" {
   let (documents, decisions) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(source_key("new"), 1),
   )
-  guard decisions[0] is @documents.Effect::PersistSource(operation) else {
+  guard decisions[0] is @documents.Action::PersistSource(operation) else {
     fail("save")
   }
   let (documents, _) = documents.reduce(
@@ -2040,7 +2143,7 @@ test "save completion updates inactive document without switching" {
   let (documents, decisions) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(source_key("two"), 1),
   )
-  guard decisions[0] is @documents.Effect::PersistSource(operation) else {
+  guard decisions[0] is @documents.Action::PersistSource(operation) else {
     fail("persist")
   }
   let state = { ..initial, documents, }
@@ -2089,7 +2192,7 @@ fn preparing_after_active_delete() -> (Page, @cmd.Cmd) {
     @documents.Msg::DeleteConfirmed(source_key("one")),
   )
   match decisions[0] {
-    @documents.Effect::DeleteSource(operation) =>
+    @documents.Action::DeleteSource(operation) =>
       test_update(
         Editing({ ..initial, documents, }),
         DocumentsLifecycle(
@@ -2138,7 +2241,7 @@ test "final active delete falls back to a new document" {
   let (documents, decisions) = initial.documents.reduce(
     @documents.Msg::DeleteConfirmed(source_key("one")),
   )
-  guard decisions[0] is @documents.Effect::DeleteSource(operation) else {
+  guard decisions[0] is @documents.Action::DeleteSource(operation) else {
     fail("delete")
   }
   let state = { ..initial, documents, }
@@ -2196,7 +2299,7 @@ test "page-local revision restores authoritative text and preview" {
   let (documents, decisions) = initial.documents.reduce(
     @documents.Msg::TextChanged(source_key("one"), "one!"),
   )
-  guard decisions is [@documents.Effect::ArmMaximum(_)] else { fail("timers") }
+  guard decisions is [@documents.Action::ArmMaximum(_)] else { fail("timers") }
   // Simulate stale pending_revision(documents, source_key("one")) timer with wrong revision: should be ignored by documents layer
   let (documents, stale) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(source_key("one"), 99),
@@ -2209,7 +2312,7 @@ test "page-local revision restores authoritative text and preview" {
       pending_revision(documents, source_key("one")),
     ),
   )
-  guard decisions[0] is @documents.Effect::PersistSource(op) else {
+  guard decisions[0] is @documents.Action::PersistSource(op) else {
     fail("persist")
   }
   assert_eq(op.document.text(), "one!")
@@ -2234,7 +2337,7 @@ test "preparing new reduces unrelated inactive save completion" {
   let (documents, decisions) = documents.reduce(
     @documents.Msg::ApplyPendingEdit(source_key("two"), 1),
   )
-  guard decisions[0] is @documents.Effect::PersistSource(operation) else {
+  guard decisions[0] is @documents.Action::PersistSource(operation) else {
     fail("persist")
   }
   let (model, _) = test_update(

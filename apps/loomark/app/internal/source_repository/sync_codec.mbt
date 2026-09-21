@@ -157,18 +157,12 @@ fn encode_phase(phase : ReplicaPhase, texts : Array[String]) -> Json {
         "kind": "diverged",
         "remote": encode_remote(remote, texts),
       })
-    Conflict(recovery) =>
-      Json::object({
-        "kind": "conflict",
-        "recovery_document_id": recovery.id().value(),
-      })
   }
 }
 
 ///|
 fn decode_phase(
   value : Json,
-  document_id : DocumentId,
   texts : Array[String],
 ) -> ReplicaPhase? {
   guard value is Json::Object(fields) else { return None }
@@ -193,19 +187,6 @@ fn decode_phase(
         Some(remote) => Some(ReplicaPhase::Diverged(remote))
         None => None
       }
-    Some(Json::String("conflict")) if fields.length() == 2 => {
-      guard fields.get("recovery_document_id")
-        is Some(Json::String(recovery_document_id)) else {
-        return None
-      }
-      let recovery_document_id = DocumentId::parse(recovery_document_id) catch {
-        _ => return None
-      }
-      let recovery = recovery_identity(document_id, recovery_document_id) catch {
-        _ => return None
-      }
-      Some(ReplicaPhase::Conflict(recovery))
-    }
     _ => None
   }
 }
@@ -223,6 +204,10 @@ fn encode_replica(replica : DocumentReplica) -> String {
     "current": current,
     "baseline": baseline,
     "phase": phase,
+    "recovery_document_id": match replica.recovery {
+      Some(recovery) => recovery.id().value().to_json()
+      None => Json::null()
+    },
     "text_lengths": Json::array(texts.map(text => text.length().to_json())),
   }).stringify()
   let output = StringBuilder()
@@ -300,7 +285,7 @@ fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
     _ => return None
   }
   guard header is Json::Object(fields) &&
-    fields.length() == 7 &&
+    fields.length() == 8 &&
     decode_texts(fields.get("text_lengths"), encoded, payload_start)
     is Some(texts) else {
     return None
@@ -315,8 +300,20 @@ fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
   let document_id = DocumentId::parse(document_id_value) catch {
     _ => return None
   }
+  let recovery = match fields.get("recovery_document_id") {
+    Some(Json::Null) => None
+    Some(Json::String(value)) => {
+      let recovery_document_id = DocumentId::parse(value) catch {
+        _ => return None
+      }
+      Some(recovery_identity(document_id, recovery_document_id) catch {
+        _ => return None
+      })
+    }
+    _ => return None
+  }
   guard (match fields.get("phase") {
-      Some(value) => decode_phase(value, document_id, texts)
+      Some(value) => decode_phase(value, texts)
       None => None
     })
     is Some(phase) else {
@@ -326,8 +323,13 @@ fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
   guard replica_key(account, document_id) == storage_key else { return None }
   let document = Document::create(document_id, text)
   Some(
-    replica_from_storage(account, document, generation, baseline, phase) catch {
-      _ => return None
-    },
+    replica_from_storage(
+      account,
+      document,
+      generation,
+      baseline,
+      phase,
+      recovery,
+    ) catch { _ => return None },
   )
 }

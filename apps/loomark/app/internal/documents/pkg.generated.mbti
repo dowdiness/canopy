@@ -14,6 +14,18 @@ pub(all) suberror ActionError {
 } derive(Eq, @debug.Debug)
 
 // Types and methods
+pub struct AcceptRemote {
+  // private fields
+} derive(Eq)
+
+pub(all) enum Action {
+  ArmMaximum(Int)
+  PersistSource(SaveOperation)
+  StoreReplica(@source_repository.ReplicaWrite)
+  SaveReplica(ReplicaEdit)
+  DeleteSource(DeleteOperation)
+}
+
 pub struct DeleteOperation {
   key : Key
   document_id : @source_repository.DocumentId
@@ -26,14 +38,6 @@ pub(all) enum DeleteStatus {
   DeletePending
   DeleteFailed(@source_repository.DeleteFailure)
 } derive(Eq)
-
-pub(all) enum Effect {
-  ArmMaximum(Int)
-  PersistSource(SaveOperation)
-  PersistReplica(@source_repository.ReplicaWrite)
-  ReplicaEligible(@source_repository.AccountId, @source_repository.Document)
-  DeleteSource(DeleteOperation)
-}
 
 pub(all) enum Feedback {
   MaximumElapsed(Int)
@@ -66,6 +70,22 @@ pub(all) enum Msg {
   DismissDeleteFailure(Key)
 }
 
+pub(all) enum RemoteAcceptance {
+  Opened(State, @source_repository.Document, @source_repository.ReplicaWrite)
+  Removed(State, @source_repository.ReplicaWrite)
+}
+
+pub(all) enum RemoteChange {
+  UpdateAvailable(AcceptRemote)
+  DeletedRemotely(AcceptRemote)
+} derive(Eq)
+
+pub struct ReplicaEdit {
+  // private fields
+} derive(Eq)
+pub fn ReplicaEdit::document(Self) -> @source_repository.Document
+pub fn ReplicaEdit::durable(Self) -> @source_repository.DocumentReplica
+
 pub struct SaveOperation {
   key : Key
   document : @source_repository.Document
@@ -87,7 +107,9 @@ pub struct State {
   // private fields
 } derive(Eq)
 pub fn State::State(@source_repository.SavedDocuments) -> Self
+pub fn State::accept_remote(Self, @source_repository.DocumentReplica, AcceptRemote) -> RemoteAcceptance raise ActionError
 pub fn State::admit_replica(Self, @source_repository.DocumentReplica) -> Self
+pub fn State::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise ActionError
 pub fn State::delete_status(Self, Key) -> DeleteStatus?
 pub fn State::document(Self, Key) -> @source_repository.Document?
 pub fn State::fallback_document(Self, Key) -> Key?
@@ -96,11 +118,13 @@ pub fn State::is_composing(Self, Key) -> Bool
 pub fn State::pending_edits(Self) -> Array[(Key, Int)]
 pub fn State::project_account(Self, @source_repository.AccountId) -> Self
 pub fn State::recent(Self) -> Array[(Key, String, SaveStatus, DeleteStatus)]
-pub fn State::reduce(Self, Msg) -> (Self, Array[Effect])
+pub fn State::reduce(Self, Msg) -> (Self, Array[Action])
+pub fn State::remote_change(Self, @source_repository.DocumentReplica) -> RemoteChange?
+pub fn State::replica_owner(Self, Key) -> (@source_repository.AccountId, @source_repository.DocumentId)?
 pub fn State::resume_hint(Self, Key) -> @source_repository.EditingDocumentHint?
 pub fn State::save_status(Self, Key) -> SaveStatus?
 pub fn State::snapshot(Self) -> @source_repository.SavedDocuments
-pub fn State::start_sync(Self, StartSync) -> (Self, Array[Effect]) raise ActionError
+pub fn State::start_sync(Self, StartSync) -> (Self, Array[Action]) raise ActionError
 pub fn State::sync_start(Self, Key, @source_repository.AccountId) -> SyncStart
 pub fn State::text(Self, Key) -> String?
 

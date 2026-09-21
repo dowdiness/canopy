@@ -3,7 +3,7 @@ fn import_document(
   documents : State,
   document_id : @source_repository.DocumentId,
   text : String,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let key = Key::source(document_id)
   guard find_record(documents.records, key) is None else {
     return (documents, [])
@@ -12,6 +12,7 @@ fn import_document(
   let record = {
     persistence: Source(ImportedNew, SourceDeletePhase::Available),
     document,
+    version: 0,
     edit: Idle,
     save: Saved,
     lead_source: LeadSource::Available(text),
@@ -36,11 +37,41 @@ fn acknowledged_document(
 }
 
 ///|
+/// Transfer the current working copy to the durable recovery identity without
+/// changing its text or editing lifecycle. The compound Replica write remains
+/// the only persistence operation until it commits.
+pub fn State::begin_fork(
+  self : Self,
+  write : @source_repository.ReplicaWrite,
+) -> State raise ActionError {
+  guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
+    raise ExpiredAction
+  }
+  let original = replica.document().id()
+  let key = Key::replica(replica.account(), original)
+  guard find_record(self.records, key) is Some(record) &&
+    record.persistence is Replica(account) &&
+    account == replica.account() else {
+    raise ExpiredAction
+  }
+  let ownership = { account, original, recovery, }
+  let transferred = {
+    ..record,
+    persistence: Forking(ownership),
+    document: recovery.update(record.document.text()),
+  }
+  {
+    ..self,
+    records: prepend_record(remove_record(self.records, key), transferred),
+  }
+}
+
+///|
 fn apply_text(
   documents : State,
   document_id : Key,
   text : String,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
@@ -72,7 +103,7 @@ fn apply_text(
       }
     }
   }
-  let (documents, revision) = next_pending_edit(documents)
+  let (documents, revision) = allocate_working_copy_version(documents)
   let needs_lead = match lead_source {
     LeadSource::Available(source) => source != text
     LeadSource::Unlisted => true
@@ -102,7 +133,14 @@ fn apply_text(
         _ => Waiting(replica)
       }
   }
-  let record = { ..record, document, lead_source, edit, save, }
+  let record = {
+    ..record,
+    document,
+    version: revision,
+    lead_source,
+    edit,
+    save,
+  }
   let documents = {
     ..documents,
     records: prepend_record(
@@ -125,7 +163,7 @@ fn apply_pending_edit(
   documents : State,
   document_id : Key,
   revision : Int,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
@@ -161,7 +199,7 @@ fn apply_pending_edit(
 fn eligible_maximum(
   documents : State,
   maximum_id : Int,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   guard documents.records
     .view()
     .search_by(record => {
@@ -206,7 +244,7 @@ fn eligible_maximum(
 fn mark_eligible(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Effect]) {
+) -> (Record, Array[Action]) {
   match record.save {
     Waiting(replica) if is_composing(record.edit) =>
       (
@@ -243,7 +281,7 @@ fn mark_eligible(
 fn accept_pending(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Effect]) {
+) -> (Record, Array[Action]) {
   let record = {
     ..record,
     edit: Idle,
@@ -256,7 +294,7 @@ fn accept_pending(
 fn finish_composition(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Effect]) {
+) -> (Record, Array[Action]) {
   match record.save {
     Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible =>
       begin_save(saved, record)
@@ -281,7 +319,7 @@ fn complete_waiting_delete(
   delete_operation : DeleteOperation,
   retained : DocumentsSaveStatus,
   saved : @source_repository.SavedDocuments,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let document_id = record.key()
   let (deleting, decision) = issue_delete_record(
     record, origin, delete_operation, retained,
@@ -302,12 +340,13 @@ fn complete_stored(
   record : Record,
   pending : AutosaveWindow?,
   saved : @source_repository.SavedDocuments,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let document_id = record.key()
   let persistence = match record.persistence {
     Source(EphemeralNew | ImportedNew, deletion) =>
       DocumentPersistence::Source(Existing, deletion)
-    Source(Existing, _) | StartingSync(_, _) | Replica(_) => record.persistence
+    Source(Existing, _) | StartingSync(_, _) | Replica(_) | Forking(_) =>
+      record.persistence
   }
   let completed = { ..record, persistence, }
   match record.persistence {
@@ -328,7 +367,8 @@ fn complete_stored(
       | SourceDeletePhase::Failed(_, _)
     )
     | StartingSync(_, _)
-    | Replica(_) => {
+    | Replica(_)
+    | Forking(_) => {
       let (next, decisions) = match pending {
         Some(_) if acknowledged_document(saved, record.key()) ==
           Some(record.document) => ({ ..completed, save: Saved, }, [])
@@ -355,7 +395,7 @@ fn complete_failed(
   record : Record,
   pending : AutosaveWindow?,
   failure : @source_repository.SaveFailure,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let document_id = record.key()
   match record.persistence {
     Source(origin, SourceDeletePhase::Waiting(delete_operation)) =>
@@ -384,7 +424,8 @@ fn complete_failed(
       | SourceDeletePhase::Failed(_, _)
     )
     | StartingSync(_, _)
-    | Replica(_) => {
+    | Replica(_)
+    | Forking(_) => {
       let (next, decisions) = if acknowledged_document(
           documents.saved,
           record.key(),
@@ -416,7 +457,7 @@ fn complete(
   documents : State,
   operation : SaveOperation,
   result : @source_repository.SaveResult,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let document_id = operation.key
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
@@ -443,21 +484,55 @@ fn complete(
 fn complete_replica(
   documents : State,
   write : @source_repository.ReplicaWrite,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let saved = documents.saved.apply_replica_write(write) catch {
     _ => return (documents, [])
   }
-  // Replica persistence acknowledges repository state, not the working-copy
-  // Autosave window. A newer edit may have returned to this exact text while
-  // another Replica write is still queued.
-  ({ ..documents, saved, }, [])
+  guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
+    // Replica persistence acknowledges repository state, not the working-copy
+    // Autosave window. A newer edit may have returned to this exact text while
+    // another Replica write is still queued.
+    return ({ ..documents, saved, }, [])
+  }
+  let recovery_key = Key::source(recovery.id())
+  guard find_record(documents.records, recovery_key) is Some(record) &&
+    record.persistence is Forking(ownership) &&
+    ownership.account == replica.account() &&
+    ownership.original == replica.document().id() &&
+    ownership.recovery == recovery else {
+    return (documents, [])
+  }
+  let recovered = {
+    ..record,
+    persistence: Source(Existing, SourceDeletePhase::Available),
+    save: if record.document == recovery { Saved } else { record.save },
+  }
+  let (recovered, effects) = finish_sync_start_record(saved, recovered)
+  let records = prepend_record(
+    remove_record(documents.records, recovery_key),
+    recovered,
+  )
+  if replica.is_deleted() {
+    ({ ..documents, saved, records, }, effects)
+  } else {
+    let (documents, version) = allocate_working_copy_version({
+      ..documents,
+      saved,
+      records,
+    })
+    let original = { ..replica_record(replica), version, }
+    (
+      { ..documents, records: prepend_record(documents.records, original), },
+      effects,
+    )
+  }
 }
 
 ///|
 pub fn State::start_sync(
   documents : State,
   action : StartSync,
-) -> (State, Array[Effect]) raise ActionError {
+) -> (State, Array[Action]) raise ActionError {
   guard documents.sync_start(action.key, action.account) == Ready(action) else {
     raise ExpiredAction
   }
@@ -470,7 +545,7 @@ pub fn State::start_sync(
       }),
     },
     [
-      PersistReplica(
+      StoreReplica(
         @source_repository.DocumentReplica(action.account, action.document).promote_source(),
       ),
     ],
@@ -481,7 +556,7 @@ pub fn State::start_sync(
 fn finish_sync_start_record(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Effect]) {
+) -> (Record, Array[Action]) {
   match record.save {
     Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
       !is_composing(record.edit) => begin_save(saved, record)
@@ -495,7 +570,7 @@ fn complete_sync_start(
   documents : State,
   replica : @source_repository.DocumentReplica,
   result : Result[Unit, @source_repository.ReplicaFailure],
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let source_key = Key::source(replica.document().id())
   guard find_record(documents.records, source_key) is Some(record) &&
     record.persistence is StartingSync(account, source) &&

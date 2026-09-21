@@ -235,6 +235,11 @@ pub fn SavedDocuments::replicas_for(
 }
 
 ///|
+pub fn SavedDocuments::replicas(self : Self) -> ArrayView[DocumentReplica] {
+  self.replicas.view()
+}
+
+///|
 fn SavedDocuments::find_replica_index(
   self : Self,
   account : AccountId,
@@ -315,7 +320,7 @@ pub fn SavedDocuments::apply_replica_write(
 ) -> SavedDocuments raise ReplicaApplyError {
   match write {
     Store(replica) => self.apply_replica(replica)
-    StoreWithRecovery(replica, recovery) => {
+    Fork(replica, recovery) => {
       guard self.find(recovery.id()) is None &&
         !self.observed(source_key(recovery.id())) &&
         self.apply(Stored(recovery)) is Some(with_recovery) else {

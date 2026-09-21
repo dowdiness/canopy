@@ -10,7 +10,7 @@ fn begin_sync_start(
   let (documents, effects) = documents.start_sync(action) catch {
     _ => abort("valid sync start")
   }
-  guard effects is [PersistReplica(write)] &&
+  guard effects is [StoreReplica(write)] &&
     write is @source_repository.ReplicaWrite::PromoteSource(replica) &&
     replica.account() == account &&
     replica.document() == document else {
@@ -60,11 +60,11 @@ test "edit during sync start follows the document into replica storage" {
   let (documents, effects) = documents.reduce(
     FeedbackReceived(PromotionCompleted(replica.promote_source(), Ok(()))),
   )
-  guard effects is [ReplicaEligible(owner, latest)] else {
+  guard effects is [SaveReplica(submission)] else {
     fail("latest text must continue through replica persistence")
   }
-  assert_eq(owner, account)
-  assert_eq(latest.text(), "latest")
+  assert_eq(submission.durable().account(), account)
+  assert_eq(submission.document().text(), "latest")
   assert_eq(
     documents.text(Key::replica(account, document_id("one"))),
     Some("latest"),
@@ -127,11 +127,11 @@ test "composition remains active while sync start changes persistence owner" {
   let key = Key::replica(account, document_id("one"))
   assert_true(documents.is_composing(key))
   let (_, effects) = documents.reduce(CompositionEnded(key))
-  guard effects is [ReplicaEligible(owner, document)] else {
+  guard effects is [SaveReplica(submission)] else {
     fail("composition end must save through replica persistence")
   }
-  assert_eq(owner, account)
-  assert_eq(document.text(), "composing")
+  assert_eq(submission.durable().account(), account)
+  assert_eq(submission.document().text(), "composing")
 }
 
 ///|
@@ -157,9 +157,9 @@ test "maximum timer follows a document across sync-start rekeying" {
     FeedbackReceived(PromotionCompleted(replica.promote_source(), Ok(()))),
   )
   let (_, effects) = documents.reduce(FeedbackReceived(MaximumElapsed(maximum)))
-  guard effects is [ReplicaEligible(owner, latest)] else {
+  guard effects is [SaveReplica(submission)] else {
     fail("replica save")
   }
-  assert_eq(owner, account)
-  assert_eq(latest.text(), "latest")
+  assert_eq(submission.durable().account(), account)
+  assert_eq(submission.document().text(), "latest")
 }

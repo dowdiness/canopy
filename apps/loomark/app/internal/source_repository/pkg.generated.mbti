@@ -95,6 +95,7 @@ pub struct DocumentReplica {
   document : Document
   baseline : RemoteDocument
   phase : ReplicaPhase
+  recovery : RecoveryIdentity?
 } derive(Eq, @debug.Debug)
 pub fn DocumentReplica::DocumentReplica(AccountId, Document) -> Self
 pub fn DocumentReplica::account(Self) -> AccountId
@@ -103,17 +104,20 @@ pub fn DocumentReplica::baseline_revision(Self) -> Double
 pub fn DocumentReplica::directive(Self) -> ReplicaDirective
 pub fn DocumentReplica::document(Self) -> Document
 pub fn DocumentReplica::edit(Self, String) -> EditPlan
+pub fn DocumentReplica::fork(Self, DocumentId) -> ReplicaWrite raise InvalidRecoveryId
 pub fn DocumentReplica::generation(Self) -> Double
+pub fn DocumentReplica::is_deleted(Self) -> Bool
 pub fn DocumentReplica::observed_revision(Self) -> Double
 pub fn DocumentReplica::plan_delete(Self) -> OperationPlan
 pub fn DocumentReplica::plan_save(Self) -> OperationPlan
-pub fn DocumentReplica::preserve(Self, DocumentId) -> ReplicaWrite raise InvalidRecoveryId
 pub fn DocumentReplica::promote_source(Self) -> ReplicaWrite
 pub fn DocumentReplica::receive(AccountId, Document, SavedRevision) -> Self
 pub fn DocumentReplica::reconcile(Self, RemoteDocument) -> ReconcilePlan
+pub fn DocumentReplica::recovery_document_id(Self) -> DocumentId?
 pub fn DocumentReplica::refresh(Self, RemoteDocument) -> ReplicaWrite?
 pub fn DocumentReplica::reject_conflict(Self, OperationId, RemoteDocument) -> ReconcilePlan raise ReceiptMismatch
 pub fn DocumentReplica::reject_operation(Self, OperationId) -> ReplicaWrite raise ReceiptMismatch
+pub fn DocumentReplica::remote_update(Self) -> RemoteUpdate?
 pub fn DocumentReplica::store(Self) -> ReplicaWrite
 
 pub enum EditPlan {
@@ -184,13 +188,18 @@ pub(all) enum RemoteEntry {
 pub fn RemoteEntry::document_id(Self) -> DocumentId
 pub fn RemoteEntry::revision(Self) -> SavedRevision
 
+pub struct RemoteUpdate {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn RemoteUpdate::accept(Self) -> ReplicaWrite
+pub fn RemoteUpdate::remote(Self) -> RemoteDocument
+
 pub(all) enum ReplicaDirective {
   Synchronized
   SaveRequired
   Send(PendingOperation)
   UpdateAvailable(RemoteDocument)
   RecoveryRequired
-  Conflict(DocumentId, RemoteDocument)
 } derive(Eq, @debug.Debug)
 
 pub(all) enum ReplicaFailure {
@@ -205,15 +214,15 @@ pub enum ReplicaPhase {
   Sending(PendingOperation)
   Available(RemoteDocument)
   Diverged(RemoteDocument)
-  Conflict(RecoveryIdentity)
 } derive(Eq, @debug.Debug)
 
 pub enum ReplicaWrite {
   Store(DocumentReplica)
-  StoreWithRecovery(DocumentReplica, Document)
+  Fork(DocumentReplica, Document)
   PromoteSource(DocumentReplica)
 } derive(Eq, @debug.Debug)
 pub fn ReplicaWrite::coalesce(Self, Self) -> Self
+pub fn ReplicaWrite::recovery(Self) -> Document?
 pub fn ReplicaWrite::replica(Self) -> DocumentReplica
 
 pub(all) enum RepositoryChange {
@@ -261,6 +270,7 @@ pub fn SavedDocuments::find(Self, DocumentId) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
 pub fn SavedDocuments::issues(Self) -> ArrayView[RepositoryIssue]
 pub fn SavedDocuments::replica(Self, AccountId, DocumentId) -> DocumentReplica?
+pub fn SavedDocuments::replicas(Self) -> ArrayView[DocumentReplica]
 pub fn SavedDocuments::replicas_for(Self, AccountId) -> Array[DocumentReplica]
 
 pub struct SavedRevision(Double) derive(Eq, @debug.Debug)

@@ -4,12 +4,11 @@ fn preserve_recovery(
   newer : ReplicaWrite,
 ) -> ReplicaWrite {
   match (older, newer) {
-    (StoreWithRecovery(_, recovery), Store(replica)) =>
-      match replica.phase {
-        ReplicaPhase::Conflict(recovery_identity) if recovery_identity.id() ==
-          recovery.id() => StoreWithRecovery(replica, recovery)
-        Ready | Sending(_) | Available(_) | Diverged(_) | Conflict(_) =>
-          Store(replica)
+    (Fork(_, recovery), Store(replica)) =>
+      if replica.recovery_document_id() == Some(recovery.id()) {
+        Fork(replica, recovery)
+      } else {
+        Store(replica)
       }
     (PromoteSource(_), Store(replica)) => PromoteSource(replica)
     (_, newer) => newer

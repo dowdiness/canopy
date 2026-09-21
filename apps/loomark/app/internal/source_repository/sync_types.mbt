@@ -172,7 +172,20 @@ pub enum ReplicaPhase {
   Sending(PendingOperation)
   Available(RemoteDocument)
   Diverged(RemoteDocument)
-  Conflict(RecoveryIdentity)
+} derive(Eq, Debug)
+
+///|
+/// A remote revision parsed from the only Replica phase in which it may be
+/// explicitly opened. Callers cannot manufacture one from another phase.
+pub struct RemoteUpdate {
+  priv replica : DocumentReplica
+  priv content : RemoteUpdateContent
+} derive(Eq, Debug)
+
+///|
+priv enum RemoteUpdateContent {
+  PresentUpdate(SavedRevision, String)
+  DeletedUpdate(SavedRevision)
 } derive(Eq, Debug)
 
 ///|
@@ -182,6 +195,7 @@ pub struct DocumentReplica {
   document : Document
   baseline : RemoteDocument
   phase : ReplicaPhase
+  recovery : RecoveryIdentity?
 } derive(Eq, Debug)
 
 ///|
@@ -195,6 +209,7 @@ pub fn DocumentReplica::DocumentReplica(
     document,
     baseline: RemoteDocument::Missing,
     phase: ReplicaPhase::Ready,
+    recovery: None,
   }
 }
 
@@ -210,6 +225,7 @@ pub fn DocumentReplica::receive(
     document,
     baseline: RemoteDocument::Present(revision, document.text()),
     phase: ReplicaPhase::Ready,
+    recovery: None,
   }
 }
 
@@ -237,7 +253,27 @@ pub fn DocumentReplica::baseline_revision(self : Self) -> Double {
 pub fn DocumentReplica::observed_revision(self : Self) -> Double {
   match self.phase {
     Available(remote) | Diverged(remote) => remote.revision()
-    Ready | Sending(_) | Conflict(_) => self.baseline.revision()
+    Ready | Sending(_) => self.baseline.revision()
+  }
+}
+
+///|
+pub fn DocumentReplica::remote_update(self : Self) -> RemoteUpdate? {
+  match self.phase {
+    Available(RemoteDocument::Present(revision, text)) =>
+      Some({ replica: self, content: PresentUpdate(revision, text), })
+    Available(Deleted(revision)) =>
+      Some({ replica: self, content: DeletedUpdate(revision), })
+    Available(Missing) => None
+    Ready | Sending(_) | Diverged(_) => None
+  }
+}
+
+///|
+pub fn RemoteUpdate::remote(self : Self) -> RemoteDocument {
+  match self.content {
+    PresentUpdate(revision, text) => RemoteDocument::Present(revision, text)
+    DeletedUpdate(revision) => RemoteDocument::Deleted(revision)
   }
 }
 
@@ -253,6 +289,7 @@ fn replica_from_storage(
   generation : Double,
   baseline : RemoteDocument,
   phase : ReplicaPhase,
+  recovery : RecoveryIdentity?,
 ) -> DocumentReplica raise InvalidReplica {
   guard generation >= 0.0 &&
     generation <= 9007199254740991.0 &&
@@ -278,9 +315,19 @@ fn replica_from_storage(
         raise InvalidReplica
       }
     }
-    Ready | Conflict(_) => ()
+    Ready => ()
   }
-  { account, generation, document, baseline, phase, }
+  { account, generation, document, baseline, phase, recovery, }
+}
+
+///|
+pub fn DocumentReplica::recovery_document_id(self : Self) -> DocumentId? {
+  self.recovery.map(recovery => recovery.id())
+}
+
+///|
+pub fn DocumentReplica::is_deleted(self : Self) -> Bool {
+  self.baseline is RemoteDocument::Deleted(_)
 }
 
 ///|
@@ -288,15 +335,23 @@ fn replica_from_storage(
 /// detach conflict recovery from its replica.
 pub enum ReplicaWrite {
   Store(DocumentReplica)
-  StoreWithRecovery(DocumentReplica, Document)
+  Fork(DocumentReplica, Document)
   PromoteSource(DocumentReplica)
 } derive(Eq, Debug)
 
 ///|
 pub fn ReplicaWrite::replica(self : Self) -> DocumentReplica {
   match self {
-    Store(replica) | StoreWithRecovery(replica, _) | PromoteSource(replica) =>
+    Store(replica) | Fork(replica, _) | PromoteSource(replica) =>
       replica
+  }
+}
+
+///|
+pub fn ReplicaWrite::recovery(self : Self) -> Document? {
+  match self {
+    Fork(_, recovery) => Some(recovery)
+    Store(_) | PromoteSource(_) => None
   }
 }
 

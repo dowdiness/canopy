@@ -7,7 +7,6 @@ pub(all) enum ReplicaDirective {
   Send(PendingOperation)
   UpdateAvailable(RemoteDocument)
   RecoveryRequired
-  Conflict(DocumentId, RemoteDocument)
 } derive(Eq, Debug)
 
 ///|
@@ -23,7 +22,6 @@ pub fn DocumentReplica::directive(self : Self) -> ReplicaDirective {
       }
     Available(remote) => UpdateAvailable(remote)
     Diverged(_) => RecoveryRequired
-    Conflict(recovery) => Conflict(recovery.id(), self.baseline)
   }
 }
 
@@ -46,9 +44,33 @@ pub fn DocumentReplica::edit(self : Self, text : String) -> EditPlan {
       ) => { ..edited, phase: Available(remote), }
     Available(remote) | Diverged(remote) =>
       { ..edited, phase: Diverged(remote), }
-    Ready | Sending(_) | Conflict(_) => edited
+    Ready | Sending(_) => edited
   }
   Persist(Store(replica))
+}
+
+///|
+/// Open the parsed remote revision as the Replica's current content. The
+/// mounted editor lifecycle decides when to expose that document to the user.
+pub fn RemoteUpdate::accept(self : Self) -> ReplicaWrite {
+  let (document, baseline) = match self.content {
+    PresentUpdate(revision, text) =>
+      (
+        self.replica.document.update(text),
+        RemoteDocument::Present(revision, text),
+      )
+    DeletedUpdate(revision) =>
+      (self.replica.document, RemoteDocument::Deleted(revision))
+  }
+  Store(
+    {
+      ..self.replica,
+      document,
+      baseline,
+      phase: ReplicaPhase::Ready,
+    }
+    |> DocumentReplica::advance,
+  )
 }
 
 ///|
@@ -169,16 +191,27 @@ pub enum ReconcilePlan {
 } derive(Eq, Debug)
 
 ///|
-pub fn DocumentReplica::preserve(
+pub fn DocumentReplica::fork(
   self : Self,
   value : DocumentId,
 ) -> ReplicaWrite raise InvalidRecoveryId {
   guard self.phase is Diverged(remote) else { raise InvalidRecoveryId }
   let recovery = recovery_identity(self.document.id(), value)
   let recovery_document = recovery.document(self.document.text())
-  let next = { ..self, baseline: remote, phase: Conflict(recovery), }
+  let document = match remote {
+    RemoteDocument::Present(_, text) => self.document.update(text)
+    Deleted(_) => self.document
+    Missing => raise InvalidRecoveryId
+  }
+  let next = {
+    ..self,
+    document,
+    baseline: remote,
+    phase: Ready,
+    recovery: Some(recovery),
+  }
     |> DocumentReplica::advance
-  StoreWithRecovery(next, recovery_document)
+  Fork(next, recovery_document)
 }
 
 ///|
@@ -187,7 +220,7 @@ pub fn DocumentReplica::reconcile(
   remote : RemoteDocument,
 ) -> ReconcilePlan {
   match self.phase {
-    Sending(_) | Conflict(_) => return Unchanged
+    Sending(_) => return Unchanged
     Available(observed) | Diverged(observed) if remote.revision() <
       observed.revision() ||
       (remote.revision() == observed.revision() && remote != observed) =>

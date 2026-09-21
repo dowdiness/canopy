@@ -11,7 +11,7 @@ test "empty imported document remains listed after failed save and deletes local
   let (documents, decisions) = documents.reduce(
     @documents.Msg::Imported(document_id("empty"), ""),
   )
-  guard decisions is [@documents.Effect::PersistSource(operation)] else {
+  guard decisions is [@documents.Action::PersistSource(operation)] else {
     fail("import save")
   }
   let (documents, _) = documents.reduce(
@@ -78,7 +78,7 @@ test "untouched New is excluded while loaded saved empty is admitted" {
 
 ///|
 test "creation gating produces blocked typed deletion presentation" {
-  let editing = { ..test_editing(), creation: Creating, }
+  let editing = { ..test_editing(), creation: Creating(0), }
   let seeds = recent_document_seeds(editing, []).to_array()
   assert_true(
     seeds.all(seed => {

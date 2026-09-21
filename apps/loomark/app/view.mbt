@@ -111,9 +111,10 @@ fn document_sync_status_view(
     Some(RetryAvailable(action)) =>
       sync_status_button("Retry sync", RetrySync(action), emit)
     Some(SyncBlocked) => sync_status_label("Sync paused")
-    Some(UpdateAvailable) =>
-      sync_status_label("Update available", compact="Update")
-    Some(Conflict) => sync_status_label("Sync conflict")
+    Some(UpdateAvailable(action)) =>
+      sync_status_button("Open update", AcceptRemote(action), emit)
+    Some(DeletedRemotely(action)) =>
+      sync_status_button("Remove deleted document", AcceptRemote(action), emit)
   }
 }
 
@@ -186,7 +187,7 @@ fn mode_bar(
         examples_bar(
           emit,
           editing.activation,
-          disabled=editing.creation == Creating,
+          disabled=editing.creation is Creating(_),
         ),
         @html.label(
           class="relative flex min-h-8 shrink-0 cursor-pointer items-center rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent max-[641px]:min-h-11",

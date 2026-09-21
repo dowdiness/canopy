@@ -46,7 +46,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       Editing(editing) =>
         Some({
           activation: editing.activation,
-          disabled: editing.creation == Creating,
+          disabled: editing.creation is Creating(_),
           read_only: editing.deletion_blocks_document_changes(),
           mode: editing.mode,
           preview: editing.preview,

@@ -52,7 +52,7 @@ fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
 
 ///|
 fn EditingState::can_activate(self : Self) -> Bool {
-  self.creation != Creating &&
+  !(self.creation is Creating(_)) &&
   !self.documents.is_composing(self.activation.key) &&
   !self.deletion_blocks_document_changes()
 }
@@ -88,18 +88,18 @@ fn EditingState::can_select(self : Self, key : @documents.Key) -> Bool {
 }
 
 ///|
-fn run_effect(
+fn run_action(
   documents : @documents.State,
-  effect : @documents.Effect,
+  action : @documents.Action,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Cmd {
-  match effect {
-    @documents.Effect::ArmMaximum(id) =>
+  match action {
+    @documents.Action::ArmMaximum(id) =>
       @cmd.delay(
         emit(DocumentsLifecycle(@documents.Feedback::MaximumElapsed(id))),
         AUTOSAVE_MAXIMUM_MS,
       )
-    @documents.Effect::PersistSource(operation) =>
+    @documents.Action::PersistSource(operation) =>
       @source_repository.save(
         documents.snapshot(),
         operation.document,
@@ -109,10 +109,9 @@ fn run_effect(
           )
         }),
       )
-    @documents.Effect::PersistReplica(write) => emit(PersistReplica(write))
-    @documents.Effect::ReplicaEligible(account, document) =>
-      emit(Msg::ReplicaEligible(account, document))
-    @documents.Effect::DeleteSource(operation) =>
+    @documents.Action::StoreReplica(_) | @documents.Action::SaveReplica(_) =>
+      abort("Replica actions must be consumed synchronously by the root")
+    @documents.Action::DeleteSource(operation) =>
       @source_repository.delete(
         documents.snapshot(),
         operation.document_id,
@@ -126,12 +125,12 @@ fn run_effect(
 }
 
 ///|
-fn run_effects(
+fn run_actions(
   documents : @documents.State,
-  effects : Array[@documents.Effect],
+  actions : Array[@documents.Action],
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Cmd {
-  @cmd.batch(effects.map(effect => run_effect(documents, effect, emit)))
+  @cmd.batch(actions.map(action => run_action(documents, action, emit)))
 }
 
 ///|
@@ -223,8 +222,8 @@ fn reduce_documents(
   event : @documents.Msg,
   emit : @rabbita.Emit[Msg],
 ) -> (EditingState, @rabbita.Cmd) {
-  let (documents, effects) = editing.documents.reduce(event)
-  ({ ..editing, documents, }, run_effects(documents, effects, emit))
+  let (documents, actions) = editing.documents.reduce(event)
+  ({ ..editing, documents, }, run_actions(documents, actions, emit))
 }
 
 ///|
@@ -344,7 +343,7 @@ fn update_page(
     (Editing(editing), ExampleSelected(owner, text)) =>
       if owner != editing.activation {
         (Editing(editing), @cmd.none)
-      } else if editing.creation == Creating ||
+      } else if editing.creation is Creating(_) ||
         editing.deletion_blocks_document_changes() {
         (
           Editing(editing),
@@ -367,7 +366,7 @@ fn update_page(
     (Editing(editing), TextChanged(generation, change)) =>
       if generation != editing.activation.generation {
         (Editing(editing), @cmd.none)
-      } else if editing.creation == Creating ||
+      } else if editing.creation is Creating(_) ||
         editing.deletion_blocks_document_changes() {
         (
           Editing(editing),
@@ -420,24 +419,13 @@ fn update_page(
       }
     (Editing(editing), CompositionStarted(generation)) =>
       if generation != editing.activation.generation ||
-        editing.creation == Creating ||
+        editing.creation is Creating(_) ||
         editing.deletion_blocks_document_changes() {
         (Editing(editing), @cmd.none)
       } else {
         let (editing, command) = reduce_documents(
           editing,
           @documents.Msg::CompositionStarted(editing.activation.key),
-          emit,
-        )
-        (Editing(editing), command)
-      }
-    (Editing(editing), CompositionEnded(generation)) =>
-      if generation != editing.activation.generation {
-        (Editing(editing), @cmd.none)
-      } else {
-        let (editing, command) = reduce_documents(
-          editing,
-          @documents.Msg::CompositionEnded(editing.activation.key),
           emit,
         )
         (Editing(editing), command)
@@ -528,27 +516,6 @@ fn update_page(
     }
     (Loading(_), ViewportChanged(width)) =>
       (Loading(compact_viewport(width)), @cmd.none)
-    (Editing(editing), ApplyPendingEdit(document_id, revision)) => {
-      let (editing, command) = reduce_documents(
-        editing,
-        @documents.Msg::ApplyPendingEdit(document_id, revision),
-        emit,
-      )
-      reconcile_active(editing, emit, text_area, preview_engine, command)
-    }
-    (PreparingNew(preparing), ApplyPendingEdit(document_id, revision)) => {
-      let (documents, effects) = preparing.documents.reduce(
-        @documents.Msg::ApplyPendingEdit(document_id, revision),
-      )
-      (
-        PreparingNew({ ..preparing, documents, }),
-        run_effects(documents, effects, emit),
-      )
-    }
-    (model, DocumentsLifecycle(feedback)) =>
-      reduce_documents_feedback(
-        model, feedback, emit, text_area, preview_engine,
-      )
     (PreparingNew(preparing), ViewportChanged(width)) =>
       (
         PreparingNew({ ..preparing, compact: compact_viewport(width), }),
@@ -562,17 +529,17 @@ fn update_page(
       if !editing.can_activate() {
         (Editing(editing), @cmd.none)
       } else {
-        let owner = editing.activation.key
+        let generation = editing.activation.generation
         (
-          Editing({ ..editing, creation: Creating, }),
+          Editing({ ..editing, creation: Creating(generation), }),
           @source_repository.create(
             editing.documents.snapshot(),
-            emit.map(result => CreateCompleted(owner, result)),
+            emit.map(result => CreateCompleted(generation, result)),
           ),
         )
       }
-    (Editing(editing), CreateCompleted(owner, Created(document_id))) =>
-      if editing.creation != Creating || owner != editing.activation.key {
+    (Editing(editing), CreateCompleted(generation, Created(document_id))) =>
+      if !(editing.creation is Creating(current) && current == generation) {
         (Editing(editing), @cmd.none)
       } else {
         let (editing, _) = reduce_documents(
@@ -595,8 +562,8 @@ fn update_page(
           }
         }
       }
-    (Editing(editing), CreateCompleted(owner, CreateFailed(failure))) =>
-      if editing.creation == Creating && owner == editing.activation.key {
+    (Editing(editing), CreateCompleted(generation, CreateFailed(failure))) =>
+      if editing.creation is Creating(current) && current == generation {
         (Editing({ ..editing, creation: CreationFailed(failure), }), @cmd.none)
       } else {
         (Editing(editing), @cmd.none)
@@ -612,7 +579,7 @@ fn update_page(
         }
       }
     (Editing(editing), DeleteRequested(document_id)) =>
-      if editing.creation == Creating ||
+      if editing.creation is Creating(_) ||
         editing.deletion != NoDeletion ||
         editing.documents.text(document_id) is None {
         (Editing(editing), @cmd.none)
@@ -657,22 +624,6 @@ fn update_page(
       )
       (Editing(next), command)
     }
-    (Editing(editing), VisibilityChanged(true)) => {
-      let (editing, command) = reduce_documents(
-        editing,
-        @documents.Msg::VisibilityFlush(editing.activation.key),
-        emit,
-      )
-      (Editing(editing), command)
-    }
-    (Editing(editing), RetrySave) => {
-      let (editing, command) = reduce_documents(
-        editing,
-        @documents.Msg::RetrySave(editing.activation.key),
-        emit,
-      )
-      (Editing(editing), command)
-    }
     (Editing(editing), DismissDeleteFailure(document_id)) => {
       let (editing, command) = reduce_documents(
         editing,
@@ -690,6 +641,49 @@ fn Page::saved_documents(self : Self) -> @source_repository.SavedDocuments? {
   match self {
     Editing(editing) => Some(editing.documents.snapshot())
     PreparingNew(preparing) => Some(preparing.documents.snapshot())
+    Loading(_) | Recovery(_, _) => None
+  }
+}
+
+///|
+fn Page::documents_state(self : Self) -> @documents.State? {
+  match self {
+    Editing(editing) => Some(editing.documents)
+    PreparingNew(preparing) => Some(preparing.documents)
+    Loading(_) | Recovery(_, _) => None
+  }
+}
+
+///|
+fn Page::begin_fork(
+  self : Self,
+  write : @source_repository.ReplicaWrite,
+) -> Page? {
+  guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
+    return None
+  }
+  match self {
+    Editing(editing) => {
+      let documents = editing.documents.begin_fork(write) catch {
+        _ => return None
+      }
+      let original = @documents.Key::replica(
+        replica.account(),
+        replica.document().id(),
+      )
+      let activation = if editing.activation.key == original {
+        { ..editing.activation, key: @documents.Key::source(recovery.id()), }
+      } else {
+        editing.activation
+      }
+      Some(Editing({ ..editing, documents, activation, }))
+    }
+    PreparingNew(preparing) => {
+      let documents = preparing.documents.begin_fork(write) catch {
+        _ => return None
+      }
+      Some(PreparingNew({ ..preparing, documents, }))
+    }
     Loading(_) | Recovery(_, _) => None
   }
 }
@@ -758,6 +752,46 @@ fn submit_replica(
     .map(value => run_replication_effect(saved, value, emit))
     .unwrap_or(@cmd.none),
   )
+}
+
+///|
+/// Apply child actions before returning from the current root update. Only
+/// browser work becomes a Cmd; Documents-to-Replication handoffs stay atomic.
+fn apply_document_actions(
+  model : Model,
+  actions : Array[@documents.Action],
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @rabbita.Cmd) {
+  let (model, commands) = actions.fold(init=(model, []), (state, action) => {
+    let (model, commands) = state
+    match action {
+      @documents.Action::SaveReplica(edit) => {
+        let durable = edit.durable()
+        let head = model.replication.head(durable)
+        let (sync, write) = model.sync().save(head, edit.document().text())
+        let model = model.with_sync(sync)
+        match write {
+          Some(write) => {
+            let (model, command) = submit_replica(model, write, emit)
+            (model, commands + [command])
+          }
+          None => (model, commands)
+        }
+      }
+      @documents.Action::StoreReplica(write) => {
+        let (model, command) = submit_replica(model, write, emit)
+        (model, commands + [command])
+      }
+      ArmMaximum(_) | PersistSource(_) | DeleteSource(_) => {
+        let documents = match model.page.documents_state() {
+          Some(documents) => documents
+          None => abort("Document actions require an open repository")
+        }
+        (model, commands + [run_action(documents, action, emit)])
+      }
+    }
+  })
+  (model, @cmd.batch(commands))
 }
 
 ///|
@@ -939,6 +973,39 @@ fn initial_state(
 }
 
 ///|
+fn update_documents(
+  model : Model,
+  event : @documents.Msg,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
+) -> (Model, @rabbita.Cmd) {
+  let (page, actions, page_command) = reduce_page_documents(
+    model.page,
+    event,
+    emit,
+    text_area,
+    preview_engine,
+  )
+  let (model, action_command) = apply_document_actions(
+    model.with_page(page),
+    actions,
+    emit,
+  )
+  let (page, sync, activation_command) = activate_pending_open(
+    model.page,
+    model.sync(),
+    emit,
+    text_area,
+    preview_engine,
+  )
+  (
+    model.with_page(page).with_sync(sync),
+    @cmd.batch([page_command, action_command, activation_command]),
+  )
+}
+
+///|
 fn update(
   model : Model,
   msg : Msg,
@@ -947,6 +1014,58 @@ fn update(
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   match msg {
+    ApplyPendingEdit(document_id, revision) =>
+      update_documents(
+        model,
+        @documents.Msg::ApplyPendingEdit(document_id, revision),
+        emit,
+        text_area,
+        preview_engine,
+      )
+    DocumentsLifecycle(feedback) =>
+      update_documents(
+        model,
+        @documents.Msg::FeedbackReceived(feedback),
+        emit,
+        text_area,
+        preview_engine,
+      )
+    CompositionEnded(generation) =>
+      match model.page {
+        Editing(editing) if generation == editing.activation.generation =>
+          update_documents(
+            model,
+            @documents.Msg::CompositionEnded(editing.activation.key),
+            emit,
+            text_area,
+            preview_engine,
+          )
+        _ => (model, @cmd.none)
+      }
+    VisibilityChanged(true) =>
+      match model.page {
+        Editing(editing) =>
+          update_documents(
+            model,
+            @documents.Msg::VisibilityFlush(editing.activation.key),
+            emit,
+            text_area,
+            preview_engine,
+          )
+        _ => (model, @cmd.none)
+      }
+    RetrySave =>
+      match model.page {
+        Editing(editing) =>
+          update_documents(
+            model,
+            @documents.Msg::RetrySave(editing.activation.key),
+            emit,
+            text_area,
+            preview_engine,
+          )
+        _ => (model, @cmd.none)
+      }
     RetryAccount => {
       let (sync, lookup_id) = model.sync().begin_lookup()
       (
@@ -965,9 +1084,57 @@ fn update(
       let (documents, effects) = editing.documents.start_sync(action) catch {
         _ => return (model, @cmd.none)
       }
-      let command = run_effects(documents, effects, emit)
       let editing = { ..editing, documents, }
-      ({ ..model, page: Editing(editing), }, command)
+      apply_document_actions(
+        { ..model, page: Editing(editing), },
+        effects,
+        emit,
+      )
+    }
+    AcceptRemote(action) => {
+      guard model.page is Editing(editing) &&
+        editing.activation.key is @documents.Key::Replica(account, document_id) &&
+        model.sync().session() is @sync.Session::Current(current, _) &&
+        current == account &&
+        model.replication.status(account, document_id)
+        is @replica_persistence.Status::Current &&
+        editing.documents.snapshot().replica(account, document_id)
+        is Some(replica) else {
+        return (model, @cmd.none)
+      }
+      let accepted = Some(editing.documents.accept_remote(replica, action)) catch {
+        _ => None
+      }
+      guard accepted is Some(accepted) else { return (model, @cmd.none) }
+      match accepted {
+        @documents.RemoteAcceptance::Opened(documents, document, write) => {
+          let target : ActivationTarget = {
+            key: editing.activation.key,
+            document,
+            resume_hint: None,
+          }
+          let (editing, activate) = { ..editing, documents, }.activate(
+            target, emit, text_area, preview_engine,
+          )
+          let (model, persist) = submit_replica(
+            { ..model, page: Editing(editing), },
+            write,
+            emit,
+          )
+          (model, @cmd.batch([activate, persist]))
+        }
+        Removed(documents, write) => {
+          let (page, activate) = reconcile_active(
+            { ..editing, documents, },
+            emit,
+            text_area,
+            preview_engine,
+            @cmd.none,
+          )
+          let (model, persist) = submit_replica({ ..model, page, }, write, emit)
+          (model, @cmd.batch([activate, persist]))
+        }
+      }
     }
     RetrySync(action) =>
       match action {
@@ -1029,20 +1196,6 @@ fn update(
         Unavailable => (model.with_sync(sync), @cmd.none)
       }
     }
-    ReplicaEligible(account, document) => {
-      guard model.page.saved_documents() is Some(saved) &&
-        saved.replica(account, document.id()) is Some(durable) else {
-        return (model, @cmd.none)
-      }
-      let head = model.replication.head(durable)
-      let (sync, write) = model.sync().save(head, document.text())
-      let model = model.with_sync(sync)
-      match write {
-        Some(write) => submit_replica(model, write, emit)
-        None => (model, @cmd.none)
-      }
-    }
-    PersistReplica(write) => submit_replica(model, write, emit)
     Sync(ReplicaWriteCompleted(attempt, result)) => {
       guard model.page.saved_documents() is Some(saved) else {
         return (model, @cmd.none)
@@ -1073,35 +1226,39 @@ fn update(
           Err(_) => None
         }
       }
-      let (page, page_command) = match feedback {
+      let (page, page_actions, page_command) = match feedback {
         Some(feedback) =>
-          update_page(
+          reduce_page_documents(
             model.page,
-            DocumentsLifecycle(feedback),
+            @documents.Msg::FeedbackReceived(feedback),
             emit,
             text_area,
             preview_engine,
           )
-        None => (model.page, @cmd.none)
+        None => (model.page, [], @cmd.none)
       }
       let next_command = next
         .map(attempt => persist_replica(saved, attempt, emit))
         .unwrap_or(@cmd.none)
+      let (model, page_actions_command) = apply_document_actions(
+        { page, replication, },
+        page_actions,
+        emit,
+      )
       let (model, sync_command) = if current {
-        match page.saved_documents() {
+        match model.page.saved_documents() {
           Some(saved) =>
             match saved.replica(replica.account(), replica.document().id()) {
-              Some(durable) =>
-                settle_replica({ page, replication, }, durable, emit)
-              None => ({ page, replication, }, @cmd.none)
+              Some(durable) => settle_replica(model, durable, emit)
+              None => (model, @cmd.none)
             }
-          None => ({ page, replication, }, @cmd.none)
+          None => (model, @cmd.none)
         }
       } else {
-        ({ page, replication, }, @cmd.none)
+        (model, @cmd.none)
       }
       let (page, sync, activation_command) = activate_pending_open(
-        page,
+        model.page,
         model.sync(),
         emit,
         text_area,
@@ -1110,7 +1267,7 @@ fn update(
       (
         model.with_sync(sync).with_page(page),
         @cmd.batch([
-          page_command, next_command, sync_command, activation_command,
+          page_command, page_actions_command, next_command, sync_command, activation_command,
         ]),
       )
     }
@@ -1331,7 +1488,15 @@ fn update(
         _ => None
       }
       guard transition is Some((sync, write)) else { return (model, @cmd.none) }
-      submit_sync_replica(model, sync, write, emit)
+      let page = match write {
+        Some(fork) =>
+          match model.page.begin_fork(fork) {
+            Some(page) => page
+            None => return (model, @cmd.none)
+          }
+        None => model.page
+      }
+      submit_sync_replica({ ..model, page, }, sync, write, emit)
     }
     DocumentSelected(@documents.Key::Replica(account, document_id)) if model.page
       is Editing(editing) &&
@@ -1413,20 +1578,22 @@ fn update(
 }
 
 ///|
-fn reduce_documents_feedback(
+fn reduce_page_documents(
   model : Page,
-  feedback : @documents.Feedback,
+  event : @documents.Msg,
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
-) -> (Page, @rabbita.Cmd) {
-  let event = @documents.Msg::FeedbackReceived(feedback)
+) -> (Page, Array[@documents.Action], @rabbita.Cmd) {
   match model {
     Editing(editing) => {
       let active = editing.activation
-      let (editing, command) = reduce_documents(editing, event, emit)
-      let editing = match feedback {
-        @documents.Feedback::PromotionCompleted(write, Ok(_)) if active.key ==
+      let (documents, actions) = editing.documents.reduce(event)
+      let editing = { ..editing, documents, }
+      let editing = match event {
+        @documents.Msg::FeedbackReceived(
+          @documents.Feedback::PromotionCompleted(write, Ok(_))
+        ) if active.key ==
           @documents.Key::source(write.replica().document().id()) => {
           let replica = write.replica()
           let key = @documents.Key::replica(
@@ -1442,16 +1609,16 @@ fn reduce_documents_feedback(
         }
         _ => editing
       }
-      reconcile_active(editing, emit, text_area, preview_engine, command)
+      let (page, command) = reconcile_active(
+        editing, emit, text_area, preview_engine, @cmd.none,
+      )
+      (page, actions, command)
     }
     PreparingNew(preparing) => {
-      let (documents, effects) = preparing.documents.reduce(event)
-      (
-        PreparingNew({ ..preparing, documents, }),
-        run_effects(documents, effects, emit),
-      )
+      let (documents, actions) = preparing.documents.reduce(event)
+      (PreparingNew({ ..preparing, documents, }), actions, @cmd.none)
     }
-    Loading(_) | Recovery(_, _) => (model, @cmd.none)
+    Loading(_) | Recovery(_, _) => (model, [], @cmd.none)
   }
 }
 

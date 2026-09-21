@@ -81,7 +81,7 @@ priv struct EditorPanelsInput {
 ///|
 priv enum DocumentCreation {
   Idle
-  Creating
+  Creating(Int)
   CreationFailed(@source_repository.CreateFailure)
 } derive(Eq)
 
@@ -119,17 +119,16 @@ priv enum Msg {
   RetrySave
   RetryAccount
   StartSync(@documents.StartSync)
+  AcceptRemote(@documents.AcceptRemote)
   RetrySync(SyncRetry)
   DocumentSelected(@documents.Key)
   CreateRequested
-  CreateCompleted(@documents.Key, @source_repository.CreateResult)
+  CreateCompleted(Int, @source_repository.CreateResult)
   DeleteRequested(@documents.Key)
   DeleteCancelled
   DeleteConfirmed(@documents.Key)
   RetryDelete(@documents.Key)
   DismissDeleteFailure(@documents.Key)
-  ReplicaEligible(@source_repository.AccountId, @source_repository.Document)
-  PersistReplica(@source_repository.ReplicaWrite)
   Sync(SyncMsg)
 }
 

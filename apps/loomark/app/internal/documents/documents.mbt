@@ -1,5 +1,5 @@
 ///|
-pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Effect]) {
+pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Action]) {
   match event {
     New(document_id) => {
       let key = Key::source(document_id)
@@ -8,6 +8,7 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Effect]) {
       let record = {
         persistence: Source(EphemeralNew, SourceDeletePhase::Available),
         document,
+        version: 0,
         edit: Idle,
         save: Saved,
         lead_source: Unlisted,
@@ -90,7 +91,8 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Effect]) {
                 | SourceDeletePhase::Deleting(_)
               )
               | StartingSync(_, _)
-              | Replica(_) => r
+              | Replica(_)
+              | Forking(_) => r
             }
           }),
         },
@@ -149,7 +151,7 @@ pub fn State::resume_hint(
       match record.persistence {
         Source(_, _) | StartingSync(_, _) =>
           self.saved.editing_document_hint(record.document.id())
-        Replica(_) => None
+        Replica(_) | Forking(_) => None
       }
     None => None
   }
@@ -177,6 +179,72 @@ pub fn State::sync_start(
       self.saved.replica(account, record.document.id()) is None =>
       Ready({ key: id, account, document: record.document, })
     Some(_) | None => Unavailable
+  }
+}
+
+///|
+/// Project a remote revision only while the matching working copy is clean and
+/// idle. Persistence and account admission remain owned by the caller.
+pub fn State::remote_change(
+  self : Self,
+  replica : @source_repository.DocumentReplica,
+) -> RemoteChange? {
+  let key = Key::replica(replica.account(), replica.document().id())
+  guard find_record(self.records, key) is Some(record) &&
+    record.persistence is Replica(account) &&
+    account == replica.account() &&
+    self.visible_account == Some(account) &&
+    record.document == replica.document() &&
+    record.save is DocumentsSaveStatus::Saved &&
+    record.edit is EditState::Idle &&
+    self.saved.replica(account, replica.document().id()) == Some(replica) &&
+    replica.remote_update() is Some(update) else {
+    return None
+  }
+  let action = { key, version: record.version, update, }
+  match update.remote() {
+    @source_repository.RemoteDocument::Present(_, _) =>
+      Some(RemoteChange::UpdateAvailable(action))
+    Deleted(_) => Some(RemoteChange::DeletedRemotely(action))
+    Missing => None
+  }
+}
+
+///|
+pub fn State::accept_remote(
+  self : Self,
+  replica : @source_repository.DocumentReplica,
+  action : AcceptRemote,
+) -> RemoteAcceptance raise ActionError {
+  guard self.remote_change(replica) is Some(change) else {
+    raise ExpiredAction
+  }
+  let current = match change {
+    RemoteChange::UpdateAvailable(current) | DeletedRemotely(current) => current
+  }
+  guard current == action else { raise ExpiredAction }
+  let write = action.update.accept()
+  let accepted = write.replica()
+  let (self, version) = allocate_working_copy_version(self)
+  match action.update.remote() {
+    @source_repository.RemoteDocument::Present(_, _) => {
+      let document = accepted.document()
+      let records = replace_record(self.records, action.key, record => {
+        ..record,
+        document,
+        version,
+        edit: EditState::Idle,
+        save: DocumentsSaveStatus::Saved,
+        lead_source: LeadSource::Available(document.text()),
+      })
+      Opened({ ..self, records, }, document, write)
+    }
+    Deleted(_) =>
+      Removed(
+        { ..self, records: remove_record(self.records, action.key), },
+        write,
+      )
+    Missing => raise ExpiredAction
   }
 }
 
@@ -237,8 +305,27 @@ pub fn State::save_status(self : Self, id : Key) -> SaveStatus? {
           DocumentsSaveStatus::Waiting(_) | DocumentsSaveStatus::Saving(_, _) =>
             SaveStatus::Unsaved
         }
+      Forking(_) => SaveStatus::Unsaved
     }
   })
+}
+
+///|
+/// Return the Replica persistence lane that currently owns this working copy.
+/// A recovery Source keeps its original owner until the atomic fork commits.
+pub fn State::replica_owner(
+  self : Self,
+  key : Key,
+) -> (@source_repository.AccountId, @source_repository.DocumentId)? {
+  match find_record(self.records, key) {
+    Some(record) =>
+      match record.persistence {
+        Replica(account) => Some((account, record.document.id()))
+        Forking(ownership) => Some((ownership.account, ownership.original))
+        Source(_, _) | StartingSync(_, _) => None
+      }
+    None => None
+  }
 }
 
 ///|

@@ -6,7 +6,7 @@ test "stale timers and mismatched stored records are ignored" {
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "b"),
   )
-  guard decisions is [Effect::ArmMaximum(_)] else { fail("timers") }
+  guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, _) = documents.reduce(TextChanged(source_key("one"), "c"))
   let (documents, stale_max) = documents.reduce(
     FeedbackReceived(MaximumElapsed(99)),
@@ -18,7 +18,7 @@ test "stale timers and mismatched stored records are ignored" {
       pending_revision(documents, source_key("one")),
     ),
   )
-  guard decisions is [Effect::PersistSource(operation)] else {
+  guard decisions is [Action::PersistSource(operation)] else {
     fail("latest quiet")
   }
   let bogus = documents_test_document("one", "not-the-operation-text")
@@ -38,7 +38,7 @@ test "page-local revision orders edits across documents" {
   let (documents, first_decisions) = documents.reduce(
     TextChanged(source_key("two"), "two!"),
   )
-  guard first_decisions is [Effect::ArmMaximum(max_two)] else {
+  guard first_decisions is [Action::ArmMaximum(max_two)] else {
     fail("two timers")
   }
   assert_eq(pending_revision(documents, source_key("two")), 1)
@@ -46,7 +46,7 @@ test "page-local revision orders edits across documents" {
   let (documents, second_decisions) = documents.reduce(
     TextChanged(source_key("one"), "one!"),
   )
-  guard second_decisions is [Effect::ArmMaximum(max_one)] else {
+  guard second_decisions is [Action::ArmMaximum(max_one)] else {
     fail("one independent timers")
   }
   assert_eq(pending_revision(documents, source_key("one")), 2)
@@ -73,7 +73,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
   let (documents, decisions) = documents.reduce(
     TextChanged(source_key("one"), "changed"),
   )
-  guard decisions is [Effect::ArmMaximum(mid)] else { fail("timers") }
+  guard decisions is [Action::ArmMaximum(mid)] else { fail("timers") }
   assert_eq(pending_revision(documents, source_key("one")), 1)
   assert_eq(mid, 1)
   // Stale pending_revision(documents, source_key("one")) revision is ignored
@@ -88,7 +88,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
       pending_revision(documents, source_key("one")),
     ),
   )
-  guard decisions[0] is Effect::PersistSource(operation) else {
+  guard decisions[0] is Action::PersistSource(operation) else {
     fail("persist")
   }
   assert_eq(operation.document.text(), "changed")
@@ -96,7 +96,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
   let (documents, decisions) = documents.reduce(
     Imported(document_id("imported"), "text"),
   )
-  guard decisions is [Effect::PersistSource(op2)] else {
+  guard decisions is [Action::PersistSource(op2)] else {
     fail("imported persist")
   }
   assert_eq(op2.document.text(), "text")

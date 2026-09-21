@@ -96,7 +96,7 @@ fn preserve_conflict(
   guard replica.reconcile(remote) is ReconcilePlan::Persist(diverged) else {
     abort("expected divergence")
   }
-  diverged.replica().preserve(test_document_id(recovery_id)) catch {
+  diverged.replica().fork(test_document_id(recovery_id)) catch {
     _ => abort("invalid test recovery identity")
   }
 }
@@ -181,16 +181,14 @@ test "definitive save rejection retires pending operation into conflict" {
   assert_eq(diverged.replica().directive(), ReplicaDirective::RecoveryRequired)
   let conflicted = diverged
     .replica()
-    .preserve(test_document_id("rejected-save-recovery")) catch {
+    .fork(test_document_id("rejected-save-recovery")) catch {
       _ => abort("recovery identity")
     }
-  assert_true(conflicted is StoreWithRecovery(_, _))
+  assert_true(conflicted is Fork(_, _))
+  assert_eq(conflicted.replica().directive(), ReplicaDirective::Synchronized)
   assert_eq(
-    conflicted.replica().directive(),
-    ReplicaDirective::Conflict(
-      test_document_id("rejected-save-recovery"),
-      remote_present(2.0, "remote"),
-    ),
+    conflicted.replica().recovery_document_id(),
+    Some(test_document_id("rejected-save-recovery")),
   )
 }
 
@@ -287,16 +285,14 @@ test "divergence produces one atomic conflict write" {
     remote_present(2.0, "remote"),
     "recovery",
   )
-  guard conflicted is StoreWithRecovery(replica, recovery) else {
+  guard conflicted is Fork(replica, recovery) else {
     fail("expected atomic conflict write")
   }
   assert_eq(recovery.text(), "local")
+  assert_eq(replica.directive(), ReplicaDirective::Synchronized)
   assert_eq(
-    replica.directive(),
-    ReplicaDirective::Conflict(
-      test_document_id("recovery"),
-      remote_present(2.0, "remote"),
-    ),
+    replica.recovery_document_id(),
+    Some(test_document_id("recovery")),
   )
 }
 
@@ -315,8 +311,8 @@ test "editing after a remote-update notice persists divergence before recovery" 
   }
   assert_eq(diverged.replica().directive(), ReplicaDirective::RecoveryRequired)
   assert_true(
-    diverged.replica().preserve(test_document_id("recovery-after-notice"))
-    is StoreWithRecovery(_, _),
+    diverged.replica().fork(test_document_id("recovery-after-notice"))
+    is Fork(_, _),
   )
 }
 

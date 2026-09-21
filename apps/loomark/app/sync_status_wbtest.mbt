@@ -194,12 +194,8 @@ test "sync start preserves editor activation and starts replica sync" {
   let (_, attempt) = initial.replication
     .persistence()
     .submit(replica.promote_source())
-  let (persisting, _) = test_root_update(
-    starting,
-    PersistReplica(replica.promote_source()),
-  )
   let (completed, _) = test_root_update(
-    persisting,
+    starting,
     Sync(ReplicaWriteCompleted(attempt.unwrap(), Ok(()))),
   )
   guard completed.page is Editing(after) else { fail("editing") }
@@ -226,12 +222,8 @@ test "native callbacks keep their activation across sync-start rekeying" {
   let (_, attempt) = initial.replication
     .persistence()
     .submit(replica.promote_source())
-  let (persisting, _) = test_root_update(
-    composing,
-    PersistReplica(replica.promote_source()),
-  )
   let (rekeyed, _) = test_root_update(
-    persisting,
+    composing,
     Sync(ReplicaWriteCompleted(attempt.unwrap(), Ok(()))),
   )
   let (changed, _) = test_root_update(
@@ -265,12 +257,8 @@ test "account switch does not redirect an in-flight sync start" {
   let (_, attempt) = initial.replication
     .persistence()
     .submit(replica.promote_source())
-  let (persisting, _) = test_root_update(
-    switched,
-    PersistReplica(replica.promote_source()),
-  )
   let (completed, _) = test_root_update(
-    persisting,
+    switched,
     Sync(ReplicaWriteCompleted(attempt.unwrap(), Ok(()))),
   )
   assert_true(

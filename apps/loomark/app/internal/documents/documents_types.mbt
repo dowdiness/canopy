@@ -16,6 +16,14 @@ priv enum DocumentPersistence {
   Source(LocalDocumentOrigin, SourceDeletePhase)
   StartingSync(@source_repository.AccountId, @source_repository.Document)
   Replica(@source_repository.AccountId)
+  Forking(ForkOwnership)
+} derive(Eq)
+
+///|
+priv struct ForkOwnership {
+  account : @source_repository.AccountId
+  original : @source_repository.DocumentId
+  recovery : @source_repository.Document
 } derive(Eq)
 
 ///|
@@ -66,6 +74,7 @@ priv enum EditState {
 priv struct Record {
   persistence : DocumentPersistence
   document : @source_repository.Document
+  version : Int
   edit : EditState
   save : DocumentsSaveStatus
   lead_source : LeadSource
@@ -82,6 +91,14 @@ pub struct DeleteOperation {
   key : Key
   document_id : @source_repository.DocumentId
   request_id : Int
+} derive(Eq)
+
+///|
+/// One Replica edit admitted by Documents. The durable base and optimistic
+/// working copy are consumed together by the parent in the same update.
+pub struct ReplicaEdit {
+  priv durable : @source_repository.DocumentReplica
+  priv document : @source_repository.Document
 } derive(Eq)
 
 ///|
@@ -123,11 +140,11 @@ pub(all) enum Msg {
 }
 
 ///|
-pub(all) enum Effect {
+pub(all) enum Action {
   ArmMaximum(Int)
   PersistSource(SaveOperation)
-  PersistReplica(@source_repository.ReplicaWrite)
-  ReplicaEligible(@source_repository.AccountId, @source_repository.Document)
+  StoreReplica(@source_repository.ReplicaWrite)
+  SaveReplica(ReplicaEdit)
   DeleteSource(DeleteOperation)
 }
 
@@ -161,6 +178,25 @@ pub struct StartSync {
 } derive(Eq)
 
 ///|
+pub struct AcceptRemote {
+  priv key : Key
+  priv version : Int
+  priv update : @source_repository.RemoteUpdate
+} derive(Eq)
+
+///|
+pub(all) enum RemoteChange {
+  UpdateAvailable(AcceptRemote)
+  DeletedRemotely(AcceptRemote)
+} derive(Eq)
+
+///|
+pub(all) enum RemoteAcceptance {
+  Opened(State, @source_repository.Document, @source_repository.ReplicaWrite)
+  Removed(State, @source_repository.ReplicaWrite)
+}
+
+///|
 pub(all) suberror ActionError {
   ExpiredAction
 } derive(Eq, Debug)
@@ -171,6 +207,6 @@ pub struct State {
   priv records : Array[Record]
   priv visible_account : @source_repository.AccountId?
   priv last_autosave_id : Int
-  priv last_pending_edit_revision : Int
+  priv last_working_copy_version : Int
   priv last_delete_request : Int
 } derive(Eq)

@@ -17,7 +17,7 @@ fn issue_delete_record(
   origin : LocalDocumentOrigin,
   operation : DeleteOperation,
   retained : DocumentsSaveStatus,
-) -> (Record, Effect) {
+) -> (Record, Action) {
   (
     {
       ..record,
@@ -32,7 +32,7 @@ fn issue_delete_record(
 fn confirm_or_retry_delete(
   documents : State,
   id : Key,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   guard find_record(documents.records, id) is Some(record) else {
     return (documents, [])
   }
@@ -92,7 +92,7 @@ fn finish_delete(
   documents : State,
   operation : DeleteOperation,
   result : @source_repository.DeleteResult,
-) -> (State, Array[Effect]) {
+) -> (State, Array[Action]) {
   let key = operation.key
   guard find_record(documents.records, key) is Some(record) else {
     return (documents, [])

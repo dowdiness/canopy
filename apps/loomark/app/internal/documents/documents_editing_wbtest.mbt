@@ -25,7 +25,7 @@ test "Import accepts empty text and persists it immediately as New" {
     Imported(document_id("imported"), ""),
   )
   assert_eq(documents.text(source_key("imported")), Some(""))
-  guard decisions is [Effect::PersistSource(operation)] &&
+  guard decisions is [Action::PersistSource(operation)] &&
     operation.key == source_key("imported") else {
     fail("expected one ImportedNew persistence decision")
   }

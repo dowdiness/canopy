@@ -18,8 +18,8 @@ priv enum DocumentSyncStatus {
   Synced
   RetryAvailable(SyncRetry)
   SyncBlocked
-  UpdateAvailable
-  Conflict
+  UpdateAvailable(@documents.AcceptRemote)
+  DeletedRemotely(@documents.AcceptRemote)
 } derive(Eq)
 
 ///|
@@ -36,6 +36,7 @@ fn account_status(sync : @sync.State) -> AccountStatus {
 fn replica_status(
   sync : @sync.State,
   replica : @source_repository.DocumentReplica,
+  remote_change : @documents.RemoteChange?,
 ) -> DocumentSyncStatus {
   match sync.progress(replica) {
     Working => WaitingToSync
@@ -45,8 +46,14 @@ fn replica_status(
       match replica.directive() {
         @source_repository.ReplicaDirective::Synchronized => Synced
         SaveRequired | Send(_) | RecoveryRequired => WaitingToSync
-        UpdateAvailable(_) => UpdateAvailable
-        Conflict(_, _) => DocumentSyncStatus::Conflict
+        UpdateAvailable(_) =>
+          match remote_change {
+            Some(@documents.RemoteChange::UpdateAvailable(action)) =>
+              DocumentSyncStatus::UpdateAvailable(action)
+            Some(DeletedRemotely(action)) =>
+              DocumentSyncStatus::DeletedRemotely(action)
+            None => WaitingToSync
+          }
       }
   }
 }
@@ -55,15 +62,15 @@ fn replica_status(
 fn document_sync_status(model : Model) -> DocumentSyncStatus? {
   guard model.page is Editing(editing) else { return None }
   let key = editing.activation.key
-  match key {
-    @documents.Key::Replica(account, document_id) =>
+  match editing.documents.replica_owner(key) {
+    Some((account, document_id)) =>
       match model.replication.status(account, document_id) {
         @replica_persistence.Status::Persisting => return Some(SavingOnDevice)
         Retryable(action, _) =>
           return Some(RetryAvailable(RetryPersistence(action)))
         Current => ()
       }
-    Source(_) => ()
+    None => ()
   }
   match editing.documents.save_status(key) {
     Some(@documents.SaveStatus::Unsaved) => return Some(SavingOnDevice)
@@ -90,7 +97,13 @@ fn document_sync_status(model : Model) -> DocumentSyncStatus? {
       }
       match model.sync().session() {
         @sync.Session::Current(current, _) if current == account =>
-          Some(replica_status(model.sync(), replica))
+          Some(
+            replica_status(
+              model.sync(),
+              replica,
+              editing.documents.remote_change(replica),
+            ),
+          )
         Resolving(_) | NoAccount | Current(_, _) | SessionUnavailable =>
           Some(SavedOnDevice)
       }
