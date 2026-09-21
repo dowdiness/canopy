@@ -58,6 +58,17 @@ priv struct OpenTarget {
 } derive(Eq, Debug)
 
 ///|
+/// One remote-open lifecycle. The selected target and its active request can
+/// never disagree because they are represented by the same value.
+priv enum Opening {
+  Idle
+  Selected(OpenTarget)
+  Fetching(OpenTarget, EffectId)
+  Persisting(OpenTarget)
+  Ready(OpenTarget)
+} derive(Eq, Debug)
+
+///|
 pub(all) enum RemoteRead {
   Conflict(@source_repository.OperationId)
   Revision(@source_repository.SavedRevision)
@@ -135,7 +146,7 @@ pub struct State {
   priv session : Session
   priv catalog_account : @source_repository.AccountId?
   priv catalog : Catalog
-  priv open_target : OpenTarget?
+  priv opening : Opening
   priv network : Array[Network]
   priv last_lookup_id : Int
   priv last_plan_id : Int
@@ -150,7 +161,7 @@ pub fn State::State() -> State {
     session: SessionUnavailable,
     catalog_account: None,
     catalog: Idle([]),
-    open_target: None,
+    opening: Opening::Idle,
     network: [],
     last_lookup_id: 0,
     last_plan_id: 0,
@@ -172,7 +183,7 @@ pub fn State::begin_lookup(self : Self) -> (Self, Int) {
     {
       ..self,
       session: Resolving(request_id),
-      open_target: None,
+      opening: Opening::Idle,
       last_lookup_id: request_id,
     },
     request_id,
@@ -223,15 +234,27 @@ pub fn State::catalog(self : Self) -> Array[@source_repository.RemoteEntry] {
 }
 
 ///|
+fn State::retained_remote_entry(
+  self : Self,
+  document_id : @source_repository.DocumentId,
+) -> @source_repository.RemoteEntry? {
+  let entries = self.catalog.entries()
+  entries
+  .view()
+  .search_by(entry => entry.document_id() == document_id)
+  .map(index => entries[index])
+}
+
+///|
 pub fn State::remote_entry(
   self : Self,
   document_id : @source_repository.DocumentId,
 ) -> @source_repository.RemoteEntry? {
-  self
-  .catalog()
-  .view()
-  .search_by(entry => entry.document_id() == document_id)
-  .map(index => self.catalog()[index])
+  guard self.session is Current(account, _) &&
+    self.catalog_account == Some(account) else {
+    return None
+  }
+  self.retained_remote_entry(document_id)
 }
 
 ///|
@@ -265,6 +288,10 @@ fn merge_catalog(
       .search_by(entry => entry.document_id() == candidate.document_id()) {
       Some(index) if candidate.revision().value() >
         merged[index].revision().value() => merged[index] = candidate
+      Some(index) if candidate.revision() == merged[index].revision() &&
+        candidate is @source_repository.RemoteEntry::Deleted(_, _) &&
+        merged[index] is @source_repository.RemoteEntry::Present(_, _, _) =>
+        merged[index] = candidate
       Some(_) => ()
       None => merged.push(candidate)
     }
@@ -273,6 +300,89 @@ fn merge_catalog(
     left.document_id().value().lexical_compare(right.document_id().value())
   })
   merged
+}
+
+///|
+fn Opening::observe(
+  self : Self,
+  account : @source_repository.AccountId,
+  entry : @source_repository.RemoteEntry,
+) -> Opening {
+  let target = match self {
+    Idle => return self
+    Selected(target)
+    | Fetching(target, _)
+    | Persisting(target)
+    | Ready(target) => target
+  }
+  guard target.account == account &&
+    target.document_id == entry.document_id() &&
+    entry is @source_repository.RemoteEntry::Deleted(_, revision) &&
+    revision.value() >= target.revision.value() else {
+    return self
+  }
+  Idle
+}
+
+///|
+fn opening_observe_catalog(
+  opening : Opening,
+  account : @source_repository.AccountId,
+  fresh : Array[@source_repository.RemoteEntry],
+  merged : Array[@source_repository.RemoteEntry],
+) -> Opening {
+  fresh.fold(init=opening, (opening, candidate) => {
+    match
+      merged
+      .view()
+      .search_by(entry => entry.document_id() == candidate.document_id()) {
+      Some(index) => opening.observe(account, merged[index])
+      None => opening
+    }
+  })
+}
+
+///|
+fn remote_advances(
+  current : @source_repository.RemoteEntry?,
+  remote : @source_repository.RemoteDocument,
+) -> Bool {
+  match (current, remote) {
+    (_, @source_repository.RemoteDocument::Missing) => false
+    (None, Present(_, _) | Deleted(_)) => true
+    (Some(entry), Present(revision, _)) =>
+      revision.value() > entry.revision().value()
+    (Some(entry), Deleted(revision)) =>
+      revision.value() > entry.revision().value() ||
+      (
+        revision == entry.revision() &&
+        entry is @source_repository.RemoteEntry::Present(_, _, _)
+      )
+  }
+}
+
+///|
+fn State::observe_remote(
+  self : Self,
+  account : @source_repository.AccountId,
+  document_id : @source_repository.DocumentId,
+  remote : @source_repository.RemoteDocument,
+) -> Self {
+  guard self.catalog_account == Some(account) &&
+    remote_advances(self.retained_remote_entry(document_id), remote) &&
+    remote.entry(document_id) is Some(entry) else {
+    return self
+  }
+  let entries = merge_catalog(self.catalog.entries(), [entry])
+  let catalog = match self.catalog {
+    Catalog::Idle(_) => Catalog::Idle(entries)
+    Loading(id, _) => Loading(id, entries)
+  }
+  {
+    ..self,
+    catalog,
+    opening: opening_observe_catalog(self.opening, account, [entry], entries),
+  }
 }
 
 ///|
@@ -289,11 +399,17 @@ pub fn State::discovered(
     active == id else {
     return (self, false)
   }
-  let catalog = match entries {
-    Some(fresh) => Idle(merge_catalog(old, fresh))
-    None => Idle(old)
+  let (catalog, opening) = match entries {
+    Some(fresh) => {
+      let merged = merge_catalog(old, fresh)
+      (
+        Catalog::Idle(merged),
+        opening_observe_catalog(self.opening, account, fresh, merged),
+      )
+    }
+    None => (Catalog::Idle(old), self.opening)
   }
-  ({ ..self, catalog, }, true)
+  ({ ..self, catalog, opening, }, true)
 }
 
 ///|
@@ -304,13 +420,7 @@ fn State::effect(self : Self) -> (Self, EffectId) {
 
 ///|
 pub fn State::cancel_open(self : Self) -> Self {
-  {
-    ..self,
-    open_target: None,
-    network: self.network.filter(task => {
-      !(task.state is FetchingRemote(_, RemoteRead::Open(_, _)))
-    }),
-  }
+  { ..self, opening: Opening::Idle, }
 }
 
 ///|
@@ -324,19 +434,18 @@ fn replica_covers(
 ///|
 pub fn State::select_open(
   self : Self,
-  entry : @source_repository.RemoteEntry,
+  document_id : @source_repository.DocumentId,
 ) -> Self {
-  guard entry
-    is @source_repository.RemoteEntry::Present(document_id, revision, _) &&
+  guard self.remote_entry(document_id)
+    is Some(@source_repository.RemoteEntry::Present(_, revision, _)) &&
     self.session is Current(account, _) else {
     return self
   }
   let intent_value = self.last_open_intent + 1
   let intent = OpenIntent(intent_value)
-  let self = self.cancel_open()
   {
     ..self,
-    open_target: Some({ intent, account, document_id, revision, }),
+    opening: Selected({ intent, account, document_id, revision, }),
     last_open_intent: intent_value,
   }
 }
@@ -348,9 +457,19 @@ pub fn State::advance_open(
   self : Self,
   replica : @source_repository.DocumentReplica?,
 ) -> (Self, Action?) {
-  guard self.open_target is Some(target) &&
-    self.session is Current(current, _) &&
-    current == target.account else {
+  let target = match self.opening {
+    Selected(target) => target
+    Persisting(target) => {
+      guard replica
+        .map(value => replica_covers(value, target.revision))
+        .unwrap_or(false) else {
+        return (self, None)
+      }
+      return ({ ..self, opening: Ready(target), }, None)
+    }
+    Idle | Fetching(_, _) | Ready(_) => return (self, None)
+  }
+  guard self.session is Current(current, _) && current == target.account else {
     return (self, None)
   }
   guard replica is None ||
@@ -361,21 +480,16 @@ pub fn State::advance_open(
     ) else {
     return (self, None)
   }
-  if replica
-    .map(value => replica_covers(value, target.revision))
-    .unwrap_or(false) ||
-    self.find_network(target.account, target.document_id) is Some(_) {
+  if replica.map(value => replica_covers(value, target.revision)).unwrap_or(false) {
+    return ({ ..self, opening: Ready(target), }, None)
+  }
+  if self.find_network(target.account, target.document_id) is Some(_) {
     return (self, None)
   }
   let (self, effect) = self.effect()
   let read = RemoteRead::Open(target.intent, target.revision)
-  let task : Network = {
-    account: target.account,
-    document_id: target.document_id,
-    state: FetchingRemote(effect, read),
-  }
   (
-    { ..self, network: self.network + [task], },
+    { ..self, opening: Fetching(target, effect), },
     Some(GetRemote(effect, target.account, target.document_id, read)),
   )
 }
@@ -390,39 +504,53 @@ pub fn State::opened(
   expected : @source_repository.SavedRevision,
   replica : @source_repository.DocumentReplica?,
   remote : @source_repository.RemoteDocument,
-) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
-  guard self.find_network(account, document_id) is Some(index) &&
-    self.network[index].state
-    is FetchingRemote(
-      active,
-      RemoteRead::Open(expected_intent, expected_revision)
-    ) &&
-    active == effect &&
-    expected_intent == intent &&
-    expected_revision == expected else {
+) -> (Self, @source_repository.OpenOutcome) raise WorkError {
+  let target = { intent, account, document_id, revision: expected, }
+  guard self.opening == Fetching(target, effect) else {
     raise StaleWork
   }
-  let self = self.remove_network(index)
-  guard self.open_target ==
-    Some({ intent, account, document_id, revision: expected, }) &&
-    self.session is Current(current, _) &&
-    current == account &&
-    remote is @source_repository.RemoteDocument::Present(actual, text) &&
-    actual.value() >= expected.value() else {
-    return (self, None)
+  guard self.session is Current(current, _) && current == account else {
+    raise StaleWork
   }
-  let document = @source_repository.Document::create(document_id, text)
+  let self = self.observe_remote(account, document_id, remote)
+  guard remote.revision() >= expected.value() else {
+    return (
+      { ..self, opening: Opening::Idle, },
+      @source_repository.OpenOutcome::Unavailable,
+    )
+  }
   match replica {
     Some(replica) if replica.account() == account &&
-      replica.document().id() == document_id => (self, replica.refresh(remote))
+      replica.document().id() == document_id => {
+      let outcome = replica.open(remote) catch {
+        _ => abort("Unmounted Replica must be openable")
+      }
+      let self = match outcome {
+        @source_repository.OpenOutcome::PersistOnly(_) | Unavailable =>
+          { ..self, opening: Opening::Idle, }
+        Ready => { ..self, opening: Opening::Ready(target), }
+        PersistAndOpen(_) => { ..self, opening: Persisting(target), }
+      }
+      (self, outcome)
+    }
     Some(_) => raise StaleWork
-    None =>
+    None => {
+      guard remote is @source_repository.RemoteDocument::Present(actual, text) else {
+        return (
+          { ..self, opening: Opening::Idle, },
+          @source_repository.OpenOutcome::Unavailable,
+        )
+      }
+      let document = @source_repository.Document::create(document_id, text)
       (
-        self,
-        Some(
-          @source_repository.DocumentReplica::receive(account, document, actual).store(),
+        { ..self, opening: Persisting(target), },
+        @source_repository.OpenOutcome::PersistAndOpen(
+          @source_repository.DocumentReplica::receive(
+            account, document, actual,
+          ).store(),
         ),
       )
+    }
   }
 }
 
@@ -435,21 +563,11 @@ pub fn State::open_failed(
   intent : OpenIntent,
   expected : @source_repository.SavedRevision,
 ) -> Self raise WorkError {
-  guard self.find_network(account, document_id) is Some(index) &&
-    self.network[index].state
-    is FetchingRemote(active, RemoteRead::Open(active_intent, active_revision)) &&
-    active == effect &&
-    active_intent == intent &&
-    active_revision == expected else {
+  let target = { intent, account, document_id, revision: expected, }
+  guard self.opening == Fetching(target, effect) else {
     raise StaleWork
   }
-  let self = self.remove_network(index)
-  if self.open_target ==
-    Some({ intent, account, document_id, revision: expected, }) {
-    { ..self, open_target: None, }
-  } else {
-    self
-  }
+  { ..self, opening: Opening::Idle, }
 }
 
 ///|
@@ -461,16 +579,35 @@ pub fn State::pending_open(
   @source_repository.DocumentId,
   @source_repository.SavedRevision,
 )? {
-  self.open_target.map(target => {
-    (target.intent, target.account, target.document_id, target.revision)
-  })
+  match self.opening {
+    Selected(target) | Fetching(target, _) | Persisting(target) | Ready(target) =>
+      Some((target.intent, target.account, target.document_id, target.revision))
+    Idle => None
+  }
 }
 
 ///|
-pub fn State::activated(self : Self, intent : OpenIntent) -> Self {
-  match self.open_target {
-    Some(target) if target.intent == intent => { ..self, open_target: None, }
-    Some(_) | None => self
+pub fn State::ready_open(
+  self : Self,
+) -> (
+  OpenIntent,
+  @source_repository.AccountId,
+  @source_repository.DocumentId,
+  @source_repository.SavedRevision,
+)? {
+  match self.opening {
+    Ready(target) =>
+      Some((target.intent, target.account, target.document_id, target.revision))
+    Idle | Selected(_) | Fetching(_, _) | Persisting(_) => None
+  }
+}
+
+///|
+pub fn State::complete_open(self : Self, intent : OpenIntent) -> Self {
+  match self.opening {
+    Ready(target) if target.intent == intent =>
+      { ..self, opening: Opening::Idle, }
+    Idle | Selected(_) | Fetching(_, _) | Persisting(_) | Ready(_) => self
   }
 }
 
@@ -870,6 +1007,9 @@ pub fn State::received(
   remote : @source_repository.RemoteDocument,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
   let index = self.remote_fetch(durable, effect, read)
+  let self = self.observe_remote(
+    durable.account(), durable.document().id(), remote,
+  )
   let plan = reconcile(durable, read, remote)
   match plan {
     @source_repository.ReconcilePlan::Unchanged =>

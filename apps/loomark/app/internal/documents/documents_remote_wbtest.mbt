@@ -81,7 +81,7 @@ test "remote update capability expires when a newer revision commits" {
   }
   let newer = write.replica()
   let (documents, _) = documents.reduce(
-    FeedbackReceived(ReplicaCommitted(write)),
+    FeedbackReceived(ReplicaSettled(write, None)),
   )
   let expired = try documents.accept_remote(newer, action) catch {
     ExpiredAction => true
@@ -133,4 +133,51 @@ test "accepting a remote deletion removes the working copy without inventing tex
   }
   let restarted = State::State(committed).project_account(replica.account())
   assert_eq(restarted.text(key), None)
+}
+
+///|
+fn accepted_remote_write(
+  replica : @source_repository.DocumentReplica,
+  remote : @source_repository.RemoteDocument,
+) -> @source_repository.ReplicaWrite {
+  guard replica.reconcile(remote)
+    is @source_repository.ReconcilePlan::Persist(observed) &&
+    observed.replica().remote_update() is Some(update) else {
+    abort("available remote update")
+  }
+  update.accept()
+}
+
+///|
+test "replica commit refreshes only an unmounted clean working copy" {
+  let account = account_id("account")
+  let document = documents_test_document("one", "base")
+  let first = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid revision")
+  }
+  let base = @source_repository.DocumentReplica::receive(
+    account, document, first,
+  )
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(base)
+  let key = Key::replica(account, document.id())
+  let write = accepted_remote_write(base, remote_revision(2.0, "remote"))
+
+  let clean = State::State(saved).project_account(account)
+  let (refreshed, _) = clean.reduce(
+    FeedbackReceived(ReplicaSettled(write, None)),
+  )
+  assert_eq(refreshed.text(key), Some("remote"))
+
+  let (mounted, _) = clean.reduce(
+    FeedbackReceived(ReplicaSettled(write, Some(key))),
+  )
+  assert_eq(mounted.text(key), Some("base"))
+
+  let (edited, _) = clean.reduce(TextChanged(key, "local"))
+  let (edited, _) = edited.reduce(
+    FeedbackReceived(ReplicaSettled(write, None)),
+  )
+  assert_eq(edited.text(key), Some("local"))
 }

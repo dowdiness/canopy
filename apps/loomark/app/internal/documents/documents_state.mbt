@@ -193,16 +193,34 @@ pub fn State::project_account(
 }
 
 ///|
-pub fn State::admit_replica(
+pub fn State::open_replica(
   self : Self,
   replica : @source_repository.DocumentReplica,
-) -> Self {
+) -> RemoteOpen {
   let key = Key::replica(replica.account(), replica.document().id())
-  guard !replica.is_deleted() else {
-    return { ..self, records: remove_record(self.records, key), }
+  guard !replica.is_deleted() &&
+    self.saved.replica(replica.account(), replica.document().id()) ==
+    Some(replica) else {
+    return Superseded
   }
-  guard find_record(self.records, key) is None else { return self }
-  { ..self, records: self.records + [replica_record(replica)], }
+  let documents = match find_record(self.records, key) {
+    Some(record) if record.persistence is Replica(account) &&
+      account == replica.account() &&
+      record.document == replica.document() &&
+      record.save is DocumentsSaveStatus::Saved &&
+      record.edit is EditState::Idle => self
+    Some(_) => return Superseded
+    None => {
+      let (documents, version) = allocate_working_copy_version(self)
+      {
+        ..documents,
+        records: documents.records + [
+          { ..replica_record(replica), version, },
+        ],
+      }
+    }
+  }
+  Opened({ documents, key, document: replica.document(), })
 }
 
 ///|

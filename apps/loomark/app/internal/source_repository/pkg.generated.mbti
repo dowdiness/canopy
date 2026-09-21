@@ -26,6 +26,8 @@ pub(all) suberror DocumentError {
 
 pub(all) suberror InvalidAccountId derive(Eq, @debug.Debug)
 
+pub(all) suberror InvalidOpen derive(Eq, @debug.Debug)
+
 pub(all) suberror InvalidOperationId derive(Eq, @debug.Debug)
 
 pub(all) suberror InvalidRecoveryId derive(Eq, @debug.Debug)
@@ -108,13 +110,13 @@ pub fn DocumentReplica::fork(Self, DocumentId) -> ReplicaWrite raise InvalidReco
 pub fn DocumentReplica::generation(Self) -> Double
 pub fn DocumentReplica::is_deleted(Self) -> Bool
 pub fn DocumentReplica::observed_revision(Self) -> Double
+pub fn DocumentReplica::open(Self, RemoteDocument) -> OpenOutcome raise InvalidOpen
 pub fn DocumentReplica::plan_delete(Self) -> OperationPlan
 pub fn DocumentReplica::plan_save(Self) -> OperationPlan
 pub fn DocumentReplica::promote_source(Self) -> ReplicaWrite
 pub fn DocumentReplica::receive(AccountId, Document, SavedRevision) -> Self
 pub fn DocumentReplica::reconcile(Self, RemoteDocument) -> ReconcilePlan
 pub fn DocumentReplica::recovery_document_id(Self) -> DocumentId?
-pub fn DocumentReplica::refresh(Self, RemoteDocument) -> ReplicaWrite?
 pub fn DocumentReplica::reject_conflict(Self, OperationId, RemoteDocument) -> ReconcilePlan raise ReceiptMismatch
 pub fn DocumentReplica::reject_operation(Self, OperationId) -> ReplicaWrite raise ReceiptMismatch
 pub fn DocumentReplica::remote_update(Self) -> RemoteUpdate?
@@ -131,6 +133,13 @@ pub fn EditingDocumentHint::remember(Self) -> @cmd.Cmd
 pub(all) enum OpenFailure {
   StorageUnavailable
   ReadFailed
+} derive(Eq, @debug.Debug)
+
+pub(all) enum OpenOutcome {
+  Ready
+  PersistAndOpen(ReplicaWrite)
+  PersistOnly(ReplicaWrite)
+  Unavailable
 } derive(Eq, @debug.Debug)
 
 pub(all) enum OpenResult {
@@ -179,6 +188,7 @@ pub(all) enum RemoteDocument {
   Present(SavedRevision, String)
   Deleted(SavedRevision)
 } derive(Eq, @debug.Debug)
+pub fn RemoteDocument::entry(Self, DocumentId) -> RemoteEntry?
 pub fn RemoteDocument::revision(Self) -> Double
 
 pub(all) enum RemoteEntry {

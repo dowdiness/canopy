@@ -42,7 +42,8 @@ pub(all) enum DeleteStatus {
 pub(all) enum Feedback {
   MaximumElapsed(Int)
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
-  ReplicaCommitted(@source_repository.ReplicaWrite)
+  ReplicaAdvanced(@source_repository.ReplicaWrite)
+  ReplicaSettled(@source_repository.ReplicaWrite, Key?)
   PromotionCompleted(@source_repository.ReplicaWrite, Result[Unit, @source_repository.ReplicaFailure])
   DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
 }
@@ -70,6 +71,13 @@ pub(all) enum Msg {
   DismissDeleteFailure(Key)
 }
 
+pub struct OpenedDocument {
+  // private fields
+}
+pub fn OpenedDocument::document(Self) -> @source_repository.Document
+pub fn OpenedDocument::documents(Self) -> State
+pub fn OpenedDocument::key(Self) -> Key
+
 pub(all) enum RemoteAcceptance {
   Opened(State, @source_repository.Document, @source_repository.ReplicaWrite)
   Removed(State, @source_repository.ReplicaWrite)
@@ -79,6 +87,11 @@ pub(all) enum RemoteChange {
   UpdateAvailable(AcceptRemote)
   DeletedRemotely(AcceptRemote)
 } derive(Eq)
+
+pub(all) enum RemoteOpen {
+  Opened(OpenedDocument)
+  Superseded
+}
 
 pub struct ReplicaEdit {
   // private fields
@@ -108,13 +121,13 @@ pub struct State {
 } derive(Eq)
 pub fn State::State(@source_repository.SavedDocuments) -> Self
 pub fn State::accept_remote(Self, @source_repository.DocumentReplica, AcceptRemote) -> RemoteAcceptance raise ActionError
-pub fn State::admit_replica(Self, @source_repository.DocumentReplica) -> Self
 pub fn State::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise ActionError
 pub fn State::delete_status(Self, Key) -> DeleteStatus?
 pub fn State::document(Self, Key) -> @source_repository.Document?
 pub fn State::fallback_document(Self, Key) -> Key?
 pub fn State::hide_accounts(Self) -> Self
 pub fn State::is_composing(Self, Key) -> Bool
+pub fn State::open_replica(Self, @source_repository.DocumentReplica) -> RemoteOpen
 pub fn State::pending_edits(Self) -> Array[(Key, Int)]
 pub fn State::project_account(Self, @source_repository.AccountId) -> Self
 pub fn State::recent(Self) -> Array[(Key, String, SaveStatus, DeleteStatus)]

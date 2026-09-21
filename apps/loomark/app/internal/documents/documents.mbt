@@ -65,7 +65,8 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Action]) {
       match feedback {
         MaximumElapsed(maximum) => eligible_maximum(self, maximum)
         SaveCompleted(operation, result) => complete(self, operation, result)
-        ReplicaCommitted(write) => complete_replica(self, write)
+        ReplicaAdvanced(write) => advance_replica(self, write)
+        ReplicaSettled(write, mounted) => settle_replica(self, write, mounted)
         PromotionCompleted(write, result) =>
           complete_sync_start(self, write.replica(), result)
         DeleteCompleted(operation, result) =>
@@ -139,6 +140,23 @@ pub fn State::document(
   document_id : Key,
 ) -> @source_repository.Document? {
   find_record(self.records, document_id).map(record => record.document)
+}
+
+///|
+pub fn OpenedDocument::documents(self : Self) -> State {
+  self.documents
+}
+
+///|
+pub fn OpenedDocument::key(self : Self) -> Key {
+  self.key
+}
+
+///|
+pub fn OpenedDocument::document(
+  self : Self,
+) -> @source_repository.Document {
+  self.document
 }
 
 ///|

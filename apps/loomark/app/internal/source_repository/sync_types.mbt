@@ -99,6 +99,25 @@ pub fn RemoteEntry::revision(self : Self) -> SavedRevision {
 }
 
 ///|
+/// Project a full remote response into the bounded metadata retained by the
+/// transient account catalog.
+pub fn RemoteDocument::entry(
+  self : Self,
+  document_id : DocumentId,
+) -> RemoteEntry? {
+  match self {
+    Missing => None
+    Present(revision, text) =>
+      Some(RemoteEntry::Present(
+        document_id,
+        revision,
+        @document_lead.extract(text).primary(),
+      ))
+    Deleted(revision) => Some(RemoteEntry::Deleted(document_id, revision))
+  }
+}
+
+///|
 fn RemoteDocument::same_content(self : Self, other : Self) -> Bool {
   match (self, other) {
     (Missing, Missing) | (Deleted(_), Deleted(_)) => true

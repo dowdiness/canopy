@@ -6,6 +6,17 @@ pub(all) enum Effect {
 } derive(Eq, Debug)
 
 ///|
+/// The canonical durable Replica selected by one consumed remote-open intent.
+pub struct OpenReplica {
+  priv replica : @source_repository.DocumentReplica
+} derive(Eq, Debug)
+
+///|
+pub fn OpenReplica::replica(self : Self) -> @source_repository.DocumentReplica {
+  self.replica
+}
+
+///|
 /// Owns the ordering between durable Replica writes and remote work.
 pub struct State {
   priv protocol : @sync.State
@@ -94,14 +105,15 @@ pub fn State::complete(
 /// Replica durability always precedes a per-document remote read.
 pub fn State::select(
   self : Self,
-  entry : @source_repository.RemoteEntry,
+  document_id : @source_repository.DocumentId,
   durable : @source_repository.DocumentReplica?,
 ) -> (Self, Effect?) {
-  guard entry is @source_repository.RemoteEntry::Present(document_id, _, _) &&
+  guard self.protocol.remote_entry(document_id)
+    is Some(@source_repository.RemoteEntry::Present(_, _, _)) &&
     self.protocol.session() is @sync.Session::Current(account, _) else {
     return (self, None)
   }
-  let protocol = self.protocol.select_open(entry)
+  let protocol = self.protocol.select_open(document_id)
   let self = { ..self, protocol, }
   let replica = match durable {
     Some(value) => Some(self.persistence.head(value))
@@ -120,6 +132,30 @@ pub fn State::select(
       (self, Some(effect))
     }
   }
+}
+
+///|
+/// Consume a selected remote open only when its canonical Replica is durable
+/// and covers the selected revision.
+pub fn State::take_open(
+  self : Self,
+  saved : @source_repository.SavedDocuments,
+) -> (Self, OpenReplica?) {
+  guard self.protocol.ready_open()
+    is Some((intent, account, document_id, revision)) &&
+    self.protocol.session() is @sync.Session::Current(current, _) &&
+    current == account &&
+    self.persistence.status(account, document_id)
+    is @replica_persistence.Status::Current &&
+    saved.replica(account, document_id) is Some(replica) &&
+    !replica.is_deleted() &&
+    replica.baseline_revision() >= revision.value() else {
+    return (self, None)
+  }
+  (
+    { ..self, protocol: self.protocol.complete_open(intent), },
+    Some({ replica, }),
+  )
 }
 
 ///|

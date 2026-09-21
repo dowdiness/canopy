@@ -115,7 +115,8 @@ priv enum DocumentsDeletePhase {
 pub(all) enum Feedback {
   MaximumElapsed(Int)
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
-  ReplicaCommitted(@source_repository.ReplicaWrite)
+  ReplicaAdvanced(@source_repository.ReplicaWrite)
+  ReplicaSettled(@source_repository.ReplicaWrite, Key?)
   PromotionCompleted(
     @source_repository.ReplicaWrite,
     Result[Unit, @source_repository.ReplicaFailure]
@@ -194,6 +195,20 @@ pub(all) enum RemoteChange {
 pub(all) enum RemoteAcceptance {
   Opened(State, @source_repository.Document, @source_repository.ReplicaWrite)
   Removed(State, @source_repository.ReplicaWrite)
+}
+
+///|
+/// A canonical durable Replica materialized as one exact working copy.
+pub struct OpenedDocument {
+  priv documents : State
+  priv key : Key
+  priv document : @source_repository.Document
+}
+
+///|
+pub(all) enum RemoteOpen {
+  Opened(OpenedDocument)
+  Superseded
 }
 
 ///|

@@ -188,32 +188,38 @@ fn EditingState::activate(
 }
 
 ///|
-fn activate_pending_open(
-  page : Page,
-  sync : @sync.State,
+fn activate_open(
+  model : Model,
+  command : @rabbita.Cmd,
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
-) -> (Page, @sync.State, @rabbita.Cmd) {
-  guard sync.pending_open() is Some((intent, account, document_id, revision)) &&
-    page is Editing(editing) &&
+) -> (Model, @rabbita.Cmd) {
+  guard model.page is Editing(editing) &&
     editing.can_activate() &&
-    editing.documents.snapshot().replica(account, document_id) is Some(replica) &&
-    replica.baseline_revision() >= revision.value() else {
-    return (page, sync, @cmd.none)
+    model.page.saved_documents() is Some(saved) else {
+    return (model, command)
   }
-  let documents = editing.documents.admit_replica(replica)
-  guard activation_target(
-      documents,
-      @documents.Key::replica(account, document_id),
-    )
-    is Some(target) else {
-    return (page, sync, @cmd.none)
+  let (replication, opened) = model.replication.take_open(saved)
+  guard opened is Some(opened) else { return (model, command) }
+  let replica = opened.replica()
+  let opened = match editing.documents.open_replica(replica) {
+    @documents.RemoteOpen::Opened(opened) => opened
+    Superseded => return ({ ..model, replication, }, command)
   }
-  let (editing, command) = editing.activate(
+  let documents = opened.documents()
+  let target : ActivationTarget = {
+    key: opened.key(),
+    document: opened.document(),
+    resume_hint: None,
+  }
+  let (editing, activation_command) = editing.activate(
     target, emit, text_area, preview_engine,
   )
-  (Editing({ ..editing, documents, }), sync.activated(intent), command)
+  (
+    { page: Editing({ ..editing, documents, }), replication, },
+    @cmd.batch([command, activation_command]),
+  )
 }
 
 ///|
@@ -992,21 +998,11 @@ fn update_documents(
     actions,
     emit,
   )
-  let (page, sync, activation_command) = activate_pending_open(
-    model.page,
-    model.sync(),
-    emit,
-    text_area,
-    preview_engine,
-  )
-  (
-    model.with_page(page).with_sync(sync),
-    @cmd.batch([page_command, action_command, activation_command]),
-  )
+  (model, @cmd.batch([page_command, action_command]))
 }
 
 ///|
-fn update(
+fn reduce(
   model : Model,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
@@ -1222,7 +1218,20 @@ fn update(
         )
       } else {
         match feedback_result {
-          Ok(_) => Some(@documents.Feedback::ReplicaCommitted(completed))
+          Ok(_) =>
+            Some(
+              if current {
+                @documents.Feedback::ReplicaSettled(
+                  completed,
+                  match model.page {
+                    Editing(editing) => Some(editing.activation.key)
+                    Loading(_) | PreparingNew(_) | Recovery(_, _) => None
+                  },
+                )
+              } else {
+                @documents.Feedback::ReplicaAdvanced(completed)
+              },
+            )
           Err(_) => None
         }
       }
@@ -1257,17 +1266,10 @@ fn update(
       } else {
         (model, @cmd.none)
       }
-      let (page, sync, activation_command) = activate_pending_open(
-        model.page,
-        model.sync(),
-        emit,
-        text_area,
-        preview_engine,
-      )
       (
-        model.with_sync(sync).with_page(page),
+        model,
         @cmd.batch([
-          page_command, page_actions_command, next_command, sync_command, activation_command,
+          page_command, page_actions_command, next_command, sync_command,
         ]),
       )
     }
@@ -1400,14 +1402,19 @@ fn update(
                 model
                 .sync()
                 .open_failed(effect, account, document_id, intent, expected),
-                None,
+                @source_repository.OpenOutcome::Unavailable,
               ),
             ) catch {
               _ => None
             }
         }
-        guard transition is Some((sync, write)) else {
+        guard transition is Some((sync, outcome)) else {
           return (model, @cmd.none)
+        }
+        let write = match outcome {
+          @source_repository.OpenOutcome::PersistAndOpen(write)
+          | PersistOnly(write) => Some(write)
+          Ready | Unavailable => None
         }
         let (model, store) = submit_sync_replica(model, sync, write, emit)
         if result is @document_http.RemoteResult::AccountChanged {
@@ -1418,21 +1425,7 @@ fn update(
           )
           return (model.with_sync(sync), @cmd.batch([store, lookup]))
         }
-        let (page, sync, activate) = if write is None {
-          activate_pending_open(
-            model.page,
-            model.sync(),
-            emit,
-            text_area,
-            preview_engine,
-          )
-        } else {
-          (model.page, model.sync(), @cmd.none)
-        }
-        return (
-          model.with_sync(sync).with_page(page),
-          @cmd.batch([store, activate]),
-        )
+        return (model, store)
       }
       guard model.page.saved_documents() is Some(saved) &&
         saved.replica(account, document_id) is Some(durable) else {
@@ -1511,27 +1504,11 @@ fn update(
         return (model, @cmd.none)
       }
       let durable = saved.replica(account, document_id)
-      let (replication, effect) = model.replication.select(entry, durable)
+      let (replication, effect) = model.replication.select(document_id, durable)
       let command = effect
         .map(value => run_replication_effect(saved, value, emit))
         .unwrap_or(@cmd.none)
-      let status = replication.status(account, document_id)
-      let (page, sync, activate) = if effect is None &&
-        status is @replica_persistence.Status::Current {
-        activate_pending_open(
-          model.page,
-          replication.protocol(),
-          emit,
-          text_area,
-          preview_engine,
-        )
-      } else {
-        (model.page, replication.protocol(), @cmd.none)
-      }
-      (
-        { page, replication: replication.with_protocol(sync), },
-        @cmd.batch([command, activate]),
-      )
+      ({ ..model, replication, }, command)
     }
     message => {
       let sync = match message {
@@ -1546,10 +1523,6 @@ fn update(
         text_area,
         preview_engine,
       )
-      let (page, sync, activation_command) = activate_pending_open(
-        page, sync, emit, text_area, preview_engine,
-      )
-      let command = @cmd.batch([command, activation_command])
       match message {
         Opened(_) => {
           let (sync, lookup_id) = sync.begin_lookup()
@@ -1575,6 +1548,18 @@ fn update(
       }
     }
   }
+}
+
+///|
+fn update(
+  model : Model,
+  msg : Msg,
+  emit : @rabbita.Emit[Msg],
+  text_area : @text_area.TextArea,
+  preview_engine : @preview.PreviewEngine,
+) -> (Model, @rabbita.Cmd) {
+  let (model, command) = reduce(model, msg, emit, text_area, preview_engine)
+  activate_open(model, command, emit, text_area, preview_engine)
 }
 
 ///|

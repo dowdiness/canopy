@@ -481,10 +481,57 @@ fn complete(
 }
 
 ///|
-fn complete_replica(
+fn refresh_replica_record(
+  documents : State,
+  previous : @source_repository.DocumentReplica?,
+  replica : @source_repository.DocumentReplica,
+  mounted : Key?,
+) -> State {
+  let key = Key::replica(replica.account(), replica.document().id())
+  guard mounted != Some(key) &&
+    previous is Some(previous) &&
+    find_record(documents.records, key) is Some(record) &&
+    record.persistence is Replica(account) &&
+    account == replica.account() &&
+    record.document == previous.document() &&
+    record.save is DocumentsSaveStatus::Saved &&
+    record.edit is EditState::Idle else {
+    return documents
+  }
+  if replica.is_deleted() {
+    { ..documents, records: remove_record(documents.records, key), }
+  } else {
+    let (documents, version) = allocate_working_copy_version(documents)
+    {
+      ..documents,
+      records: replace_record(documents.records, key, _ => {
+        { ..replica_record(replica), version, }
+      }),
+    }
+  }
+}
+
+///|
+fn advance_replica(
   documents : State,
   write : @source_repository.ReplicaWrite,
 ) -> (State, Array[Action]) {
+  let saved = documents.saved.apply_replica_write(write) catch {
+    _ => return (documents, [])
+  }
+  ({ ..documents, saved, }, [])
+}
+
+///|
+fn settle_replica(
+  documents : State,
+  write : @source_repository.ReplicaWrite,
+  mounted : Key?,
+) -> (State, Array[Action]) {
+  let replica = write.replica()
+  let previous = documents.saved.replica(
+    replica.account(), replica.document().id(),
+  )
   let saved = documents.saved.apply_replica_write(write) catch {
     _ => return (documents, [])
   }
@@ -492,7 +539,10 @@ fn complete_replica(
     // Replica persistence acknowledges repository state, not the working-copy
     // Autosave window. A newer edit may have returned to this exact text while
     // another Replica write is still queued.
-    return ({ ..documents, saved, }, [])
+    return (
+      refresh_replica_record({ ..documents, saved, }, previous, replica, mounted),
+      [],
+    )
   }
   let recovery_key = Key::source(recovery.id())
   guard find_record(documents.records, recovery_key) is Some(record) &&

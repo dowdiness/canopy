@@ -78,7 +78,7 @@ test "edit during fork remains local and resumes ordinary Source persistence" {
   assert_true(effects.is_empty())
 
   let (documents, effects) = documents.reduce(
-    FeedbackReceived(ReplicaCommitted(write)),
+    FeedbackReceived(ReplicaSettled(write, None)),
   )
   assert_eq(documents.text(original), Some("remote"))
   assert_eq(documents.text(recovery), Some("newer local"))
@@ -99,7 +99,36 @@ test "fork preserves composition state and working-copy identity" {
   }
   assert_true(documents.is_composing(recovery))
   let (documents, _) = documents.reduce(
-    FeedbackReceived(ReplicaCommitted(write)),
+    FeedbackReceived(ReplicaSettled(write, None)),
   )
   assert_true(documents.is_composing(recovery))
+}
+
+///|
+test "a newer committed Replica refreshes the unmounted branch created by a fork" {
+  let (documents, _, original, fork) = fork_fixture()
+  let recovery = Key::source(document_id("recovery"))
+  let documents = documents.begin_fork(fork) catch {
+    _ => abort("valid fork")
+  }
+  let (documents, _) = documents.reduce(
+    FeedbackReceived(ReplicaSettled(fork, Some(recovery))),
+  )
+  assert_eq(documents.text(original), Some("remote"))
+
+  let next = @source_repository.RemoteDocument::Present(
+    @source_repository.SavedRevision::parse(2.0) catch {
+      _ => abort("valid revision")
+    },
+    "newer remote",
+  )
+  guard fork.replica().open(next)
+    is @source_repository.OpenOutcome::PersistAndOpen(write) else {
+    fail("newer remote write")
+  }
+  let (documents, _) = documents.reduce(
+    FeedbackReceived(ReplicaSettled(write, Some(recovery))),
+  )
+  assert_eq(documents.text(original), Some("newer remote"))
+  assert_eq(documents.text(recovery), Some("local"))
 }

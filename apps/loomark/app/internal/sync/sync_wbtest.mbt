@@ -82,6 +82,34 @@ test "only the latest account lookup can select an account" {
 }
 
 ///|
+test "account lookup compares delayed responses with the retained catalog" {
+  let account = test_account("account")
+  let document_id = test_document_id()
+  let state = with_catalog(signed_in(account), account, [
+    @source_repository.RemoteEntry::Present(
+      document_id,
+      revision(2.0),
+      "Remote",
+    ),
+  ])
+  let (resolving, _) = state.begin_lookup()
+  assert_eq(resolving.remote_entry(document_id), None)
+  let retained = resolving.retained_remote_entry(document_id)
+  assert_true(
+    !remote_advances(
+      retained,
+      @source_repository.RemoteDocument::Present(revision(2.0), "same"),
+    ),
+  )
+  assert_true(
+    remote_advances(
+      retained,
+      @source_repository.RemoteDocument::Present(revision(3.0), "newer"),
+    ),
+  )
+}
+
+///|
 test "delivery capability prevents operation-id ABA" {
   let replica = sending_replica()
   let state = signed_in(replica.account())
@@ -129,11 +157,12 @@ test "opening a remote document returns one replica write" {
     revision(2.0),
     "Remote",
   )
-  guard signed_in(account).select_open(entry).advance_open(None)
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select_open(test_document_id()).advance_open(None)
     is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
     fail("open read")
   }
-  let (state, write) = state.opened(
+  let (state, outcome) = state.opened(
     effect,
     account,
     test_document_id(),
@@ -142,9 +171,15 @@ test "opening a remote document returns one replica write" {
     None,
     @source_repository.RemoteDocument::Present(revision(2.0), "remote text"),
   )
-  let replica = write.unwrap().replica()
+  guard outcome is @source_repository.OpenOutcome::PersistAndOpen(write) else {
+    fail("received Replica persistence")
+  }
+  let replica = write.replica()
   assert_eq(replica.document().text(), "remote text")
-  assert_eq(state.select_open(entry).advance_open(Some(replica)).1, None)
+  assert_eq(
+    state.select_open(test_document_id()).advance_open(Some(replica)).1,
+    None,
+  )
 }
 
 ///|
@@ -160,11 +195,12 @@ test "a newer remote open advances the supplied causal head" {
     revision(2.0),
     "Second",
   )
-  guard signed_in(account).select_open(entry).advance_open(Some(first))
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select_open(test_document_id()).advance_open(Some(first))
     is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
     fail("newer open")
   }
-  let (_, write) = state.opened(
+  let (_, outcome) = state.opened(
     effect,
     account,
     test_document_id(),
@@ -173,9 +209,184 @@ test "a newer remote open advances the supplied causal head" {
     Some(first),
     @source_repository.RemoteDocument::Present(revision(2.0), "second"),
   )
-  let second = write.unwrap().replica()
+  guard outcome is @source_repository.OpenOutcome::PersistAndOpen(write) else {
+    fail("newer Replica persistence")
+  }
+  let second = write.replica()
   assert_eq(second.generation(), first.generation() + 1.0)
   assert_eq(second.baseline_revision(), 2.0)
+}
+
+///|
+test "a tombstone ends a pending remote open" {
+  let account = test_account("account")
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(2.0),
+    "Remote",
+  )
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select_open(test_document_id()).advance_open(None)
+    is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+    fail("open read")
+  }
+  let (state, outcome) = state.opened(
+    effect,
+    account,
+    test_document_id(),
+    intent,
+    expected,
+    None,
+    @source_repository.RemoteDocument::Deleted(revision(2.0)),
+  )
+  assert_eq(outcome, @source_repository.OpenOutcome::Unavailable)
+  assert_eq(state.pending_open(), None)
+  assert_true(
+    state.remote_entry(test_document_id())
+    is Some(@source_repository.RemoteEntry::Deleted(_, _)),
+  )
+}
+
+///|
+test "catalog tombstone retires an older open fetch" {
+  let account = test_account("account")
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(1.0),
+    "Remote",
+  )
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select_open(test_document_id()).advance_open(None)
+    is (fetching, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+    fail("open read")
+  }
+  let retired = with_catalog(fetching, account, [
+    @source_repository.RemoteEntry::Deleted(
+      test_document_id(),
+      revision(2.0),
+    ),
+  ])
+  assert_eq(retired.pending_open(), None)
+  let stale : Result[(State, @source_repository.OpenOutcome), WorkError] = Ok(
+    retired.opened(
+      effect,
+      account,
+      test_document_id(),
+      intent,
+      expected,
+      None,
+      @source_repository.RemoteDocument::Present(revision(1.0), "remote"),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(stale, Err(WorkError::StaleWork))
+}
+
+///|
+test "catalog tombstone retires an open awaiting durability" {
+  let account = test_account("account")
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(1.0),
+    "Remote",
+  )
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select_open(test_document_id()).advance_open(None)
+    is (fetching, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+    fail("open read")
+  }
+  let (persisting, outcome) = fetching.opened(
+    effect,
+    account,
+    test_document_id(),
+    intent,
+    expected,
+    None,
+    @source_repository.RemoteDocument::Present(revision(1.0), "remote"),
+  )
+  assert_true(outcome is @source_repository.OpenOutcome::PersistAndOpen(_))
+  let retired = with_catalog(persisting, account, [
+    @source_repository.RemoteEntry::Deleted(
+      test_document_id(),
+      revision(2.0),
+    ),
+  ])
+  assert_eq(retired.pending_open(), None)
+}
+
+///|
+test "account lookup retires an active open request without retaining work" {
+  let account = test_account("account")
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(2.0),
+    "Remote",
+  )
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select_open(test_document_id()).advance_open(None)
+    is (fetching, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+    fail("first open")
+  }
+  let (resolving, lookup) = fetching.begin_lookup()
+  let stale : Result[(State, @source_repository.OpenOutcome), WorkError] = Ok(
+    resolving.opened(
+      effect,
+      account,
+      test_document_id(),
+      intent,
+      expected,
+      None,
+      @source_repository.RemoteDocument::Present(revision(2.0), "remote"),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(stale, Err(WorkError::StaleWork))
+  let current = resolving.resolved(lookup, Resolved(account, "Writer")).0
+  guard current.select_open(test_document_id()).advance_open(None)
+    is (_, Some(GetRemote(next, _, _, Open(_, _)))) else {
+    fail("next open")
+  }
+  assert_true(next != effect)
+}
+
+///|
+test "a tombstone for an existing Replica persists without remaining open" {
+  let account = test_account("account")
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("base"),
+    revision(1.0),
+  )
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(2.0),
+    "Remote",
+  )
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select_open(test_document_id()).advance_open(Some(replica))
+    is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+    fail("open read")
+  }
+  let tombstone = @source_repository.RemoteDocument::Deleted(revision(2.0))
+  let (state, outcome) = state.opened(
+    effect,
+    account,
+    test_document_id(),
+    intent,
+    expected,
+    Some(replica),
+    tombstone,
+  )
+  guard outcome is @source_repository.OpenOutcome::PersistOnly(write) else {
+    fail("tombstone persistence")
+  }
+  assert_eq(
+    write.replica().directive(),
+    @source_repository.ReplicaDirective::UpdateAvailable(tombstone),
+  )
+  assert_eq(state.pending_open(), None)
 }
 
 ///|

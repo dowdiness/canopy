@@ -275,6 +275,64 @@ test "a newer tombstone replaces an available update" {
 }
 
 ///|
+test "opening an available Replica accepts its retained remote revision" {
+  let saved = sending_replica("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  let retained = remote_present(2.0, "remote")
+  let available = reconcile_change(saved, retained).replica()
+  guard available.open(retained) is OpenOutcome::PersistAndOpen(write) else {
+    fail("available open")
+  }
+  assert_eq(write.replica().document().text(), "remote")
+  assert_eq(write.replica().baseline_revision(), 2.0)
+  assert_eq(write.replica().directive(), ReplicaDirective::Synchronized)
+}
+
+///|
+test "opening an available Replica never regresses a retained revision" {
+  let saved = sending_replica("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  let available = reconcile_change(
+    saved,
+    remote_present(3.0, "newest"),
+  ).replica()
+  guard available.open(remote_present(2.0, "delayed"))
+    is OpenOutcome::PersistAndOpen(write) else {
+    fail("newest retained open")
+  }
+  assert_eq(write.replica().document().text(), "newest")
+  assert_eq(write.replica().baseline_revision(), 3.0)
+}
+
+///|
+test "opening a tombstoned available Replica is unavailable" {
+  let saved = sending_replica("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  let tombstone = RemoteDocument::Deleted(test_revision(2.0))
+  let available = reconcile_change(saved, tombstone).replica()
+  assert_eq(available.open(tombstone), OpenOutcome::Unavailable)
+}
+
+///|
+test "opening a newer tombstone persists it without opening" {
+  let saved = sending_replica("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  let tombstone = RemoteDocument::Deleted(test_revision(2.0))
+  guard saved.open(tombstone) is OpenOutcome::PersistOnly(write) else {
+    fail("tombstone persistence")
+  }
+  assert_eq(
+    write.replica().directive(),
+    ReplicaDirective::UpdateAvailable(tombstone),
+  )
+  assert_eq(write.replica().document().text(), "base")
+}
+
+///|
 test "divergence produces one atomic conflict write" {
   let replica = sending_replica("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))

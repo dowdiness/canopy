@@ -247,20 +247,63 @@ pub fn DocumentReplica::reconcile(
 }
 
 ///|
-/// Advance an unopened remote document to the exact revision selected by the
-/// user. Unlike background reconciliation, this may replace text because the
-/// document has not yet been activated for editing.
-pub fn DocumentReplica::refresh(
+pub(all) enum OpenOutcome {
+  Ready
+  PersistAndOpen(ReplicaWrite)
+  PersistOnly(ReplicaWrite)
+  Unavailable
+} derive(Eq, Debug)
+
+///|
+pub(all) suberror InvalidOpen derive(Eq, Debug)
+
+///|
+/// Open the newest known present revision of an unmounted Replica. This is the
+/// only transition allowed to replace unmounted content with a remote value.
+pub fn DocumentReplica::open(
   self : Self,
-  remote : RemoteDocument,
-) -> ReplicaWrite? {
-  guard remote is RemoteDocument::Present(_, text) &&
-    remote.revision() > self.observed_revision() &&
-    self.phase is Ready &&
-    self.baseline.same_present_text(self.document.text()) else {
-    return None
+  received : RemoteDocument,
+) -> OpenOutcome raise InvalidOpen {
+  let remote = match self.phase {
+    Sending(_) | Diverged(_) => raise InvalidOpen
+    Ready => received
+    Available(observed) => {
+      if received.revision() < observed.revision() {
+        observed
+      } else if received.revision() == observed.revision() &&
+        received != observed {
+        raise InvalidOpen
+      } else {
+        received
+      }
+    }
   }
-  Some(
+  guard remote is RemoteDocument::Present(_, text) else {
+    return match self.reconcile(remote) {
+      ReconcilePlan::Persist(write) => PersistOnly(write)
+      Unchanged => Unavailable
+    }
+  }
+  if remote.revision() < self.baseline.revision() {
+    return if self.baseline is RemoteDocument::Deleted(_) {
+      Unavailable
+    } else {
+      Ready
+    }
+  }
+  if remote == self.baseline {
+    return Ready
+  }
+  guard remote.revision() > self.baseline.revision() &&
+    (
+      self.phase is Available(_) ||
+      self.baseline.same_present_text(self.document.text()) ||
+      self.baseline is RemoteDocument::Deleted(_) ||
+      remote.same_present_text(self.document.text())
+    ) else {
+    raise InvalidOpen
+  }
+  PersistAndOpen(
     Store(
       {
         ..self,

@@ -18,6 +18,11 @@ pub(all) enum Effect {
   Network(@sync.Action)
 } derive(Eq, @debug.Debug)
 
+pub struct OpenReplica {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn OpenReplica::replica(Self) -> @source_repository.DocumentReplica
+
 pub struct State {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -29,11 +34,12 @@ pub fn State::persistence(Self) -> @replica_persistence.State
 pub fn State::protocol(Self) -> @sync.State
 pub fn State::resume_account(Self, @source_repository.SavedDocuments, @source_repository.AccountId) -> (Self, Array[Effect])
 pub fn State::retry(Self, @replica_persistence.Retry) -> (Self, Effect) raise @replica_persistence.ExpiredRetry
-pub fn State::select(Self, @source_repository.RemoteEntry, @source_repository.DocumentReplica?) -> (Self, Effect?)
+pub fn State::select(Self, @source_repository.DocumentId, @source_repository.DocumentReplica?) -> (Self, Effect?)
 pub fn State::settle_account(Self, @source_repository.SavedDocuments, @source_repository.AccountId) -> (Self, Array[Effect])
 pub fn State::settle_replica(Self, @source_repository.DocumentReplica) -> (Self, Effect?)
 pub fn State::status(Self, @source_repository.AccountId, @source_repository.DocumentId) -> @replica_persistence.Status
 pub fn State::submit(Self, @source_repository.ReplicaWrite) -> (Self, Effect?)
+pub fn State::take_open(Self, @source_repository.SavedDocuments) -> (Self, OpenReplica?)
 pub fn State::with_protocol(Self, @sync.State) -> Self
 
 // Type aliases
