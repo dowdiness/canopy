@@ -15,8 +15,18 @@ priv enum LocalDocumentOrigin {
 priv enum DocumentPersistence {
   Source(LocalDocumentOrigin, SourceDeletePhase)
   StartingSync(@source_repository.AccountId, @source_repository.Document)
-  Replica(@source_repository.AccountId)
+  Replica(@source_repository.AccountId, ReplicaDeletePhase)
   Forking(ForkOwnership)
+} derive(Eq)
+
+///|
+/// Page-local projection of synchronized deletion. The durable Replica and its
+/// persistence lane remain authoritative; this state only controls visibility
+/// and failure feedback.
+priv enum ReplicaDeletePhase {
+  ReplicaAvailable
+  ReplicaPending
+  ReplicaFailed(@source_repository.ReplicaFailure)
 } derive(Eq)
 
 ///|
@@ -109,6 +119,8 @@ priv enum DocumentsDeletePhase {
   Waiting(DeleteOperation)
   Deleting(DeleteOperation)
   Failed(DeleteOperation, @source_repository.DeleteFailure)
+  ReplicaPending
+  ReplicaFailed(@source_repository.ReplicaFailure)
 } derive(Eq)
 
 ///|
@@ -117,6 +129,10 @@ pub(all) enum Feedback {
   SaveCompleted(SaveOperation, @source_repository.SaveResult)
   ReplicaAdvanced(@source_repository.ReplicaWrite)
   ReplicaSettled(@source_repository.ReplicaWrite, Key?)
+  ReplicaDeletionFailed(
+    @source_repository.ReplicaWrite,
+    @source_repository.ReplicaFailure
+  )
   PromotionCompleted(
     @source_repository.ReplicaWrite,
     Result[Unit, @source_repository.ReplicaFailure]
@@ -146,6 +162,8 @@ pub(all) enum Action {
   PersistSource(SaveOperation)
   StoreReplica(@source_repository.ReplicaWrite)
   SaveReplica(ReplicaEdit)
+  DeleteReplica(ReplicaEdit)
+  RetryReplica(@source_repository.AccountId, @source_repository.DocumentId)
   DeleteSource(DeleteOperation)
 }
 
@@ -162,6 +180,7 @@ pub(all) enum DeleteStatus {
   Deletable
   DeletePending
   DeleteFailed(@source_repository.DeleteFailure)
+  DeletePersistenceFailed(@source_repository.ReplicaFailure)
 } derive(Eq)
 
 ///|

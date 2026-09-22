@@ -7,14 +7,14 @@ test "rendered duplicate bounded labels match confirmation labels" {
       docid="one",
       source~,
       selection=Selection::Editing,
-      deletion=DeletionAvailability::Available,
+      deletion=DeletionAvailability::Available(ThisBrowser),
       status=RowStatus::Saved,
     ),
     Seed::Seed(
       docid="two",
       source~,
       selection=Selection::Selectable,
-      deletion=DeletionAvailability::Available,
+      deletion=DeletionAvailability::Available(ThisBrowser),
       status=RowStatus::Saved,
     ),
   ])
@@ -45,6 +45,10 @@ test "rendered duplicate bounded labels match confirmation labels" {
     delete_confirmation_label(presented[0]),
     "Delete \"" + row_label(presented[0]) + "\"?",
   )
+  assert_eq(
+    delete_confirmation_description(presented[0]),
+    "This removes the document from this browser.",
+  )
 }
 
 ///|
@@ -53,7 +57,7 @@ test "typed document ids pass through intents unchanged" {
     docid=42,
     source="# Typed",
     selection=Selection::Selectable,
-    deletion=DeletionAvailability::Available,
+    deletion=DeletionAvailability::Available(AllDevices),
     status=RowStatus::Saved,
   )
   assert_eq(seed.docid(), 42)
@@ -88,8 +92,8 @@ test "typed document ids pass through intents unchanged" {
 test "delete controls reflect availability in SSR" {
   let source = "# Document"
   let deletion_states = [
-    (DeletionAvailability::Available, true),
-    (DeletionAvailability::Failed, true),
+    (DeletionAvailability::Available(ThisBrowser), true),
+    (DeletionAvailability::Failed(ThisBrowser), true),
     (DeletionAvailability::Blocked, false),
     (DeletionAvailability::Pending, false),
   ]
@@ -123,7 +127,7 @@ test "bounded lead labels do not expose omitted source" {
     docid="one",
     source~,
     selection=Selection::Editing,
-    deletion=DeletionAvailability::Available,
+    deletion=DeletionAvailability::Available(ThisBrowser),
     status=RowStatus::Saved,
   )
   let lead = @document_lead.extract(seed.source)

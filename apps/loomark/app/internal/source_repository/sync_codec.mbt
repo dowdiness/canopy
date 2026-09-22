@@ -139,7 +139,7 @@ fn decode_operation(value : Json, texts : Array[String]) -> PendingOperation? {
 }
 
 ///|
-fn encode_phase(phase : ReplicaPhase, texts : Array[String]) -> Json {
+fn encode_live_phase(phase : LivePhase, texts : Array[String]) -> Json {
   match phase {
     Ready => Json::object({ "kind": "ready" })
     Sending(operation) =>
@@ -161,46 +161,89 @@ fn encode_phase(phase : ReplicaPhase, texts : Array[String]) -> Json {
 }
 
 ///|
-fn decode_phase(value : Json, texts : Array[String]) -> ReplicaPhase? {
+fn decode_live_phase(
+  value : Json,
+  texts : Array[String],
+  baseline : LiveBaseline,
+  document : Document,
+) -> LivePhase? {
   guard value is Json::Object(fields) else { return None }
   match fields.get("kind") {
     Some(Json::String("ready")) if fields.length() == 1 =>
-      Some(ReplicaPhase::Ready)
+      Some(LivePhase::Ready)
     Some(Json::String("sending")) if fields.length() == 2 =>
       match fields.get("operation") {
-        Some(value) =>
-          decode_operation(value, texts).map(operation => {
-            ReplicaPhase::Sending(operation)
-          })
+        Some(value) if decode_operation(value, texts) is Some(operation) &&
+          operation.base_revision == baseline.revision() &&
+          operation.content is PendingContent::Save(_) =>
+          Some(LivePhase::Sending(operation))
         None => None
+        _ => None
       }
     Some(Json::String("available")) if fields.length() == 2 =>
       match decode_remote_field(fields.get("remote"), texts) {
-        Some(remote) => Some(ReplicaPhase::Available(remote))
+        Some(remote) if remote.revision() > baseline.revision() &&
+          baseline.same_text(document.text()) =>
+          Some(LivePhase::Available(remote))
         None => None
+        _ => None
       }
     Some(Json::String("diverged")) if fields.length() == 2 =>
       match decode_remote_field(fields.get("remote"), texts) {
-        Some(remote) => Some(ReplicaPhase::Diverged(remote))
+        Some(remote) if remote.revision() > baseline.revision() &&
+          !baseline.same_text(document.text()) &&
+          !remote.same_present_text(document.text()) =>
+          Some(LivePhase::Diverged(remote))
         None => None
+        _ => None
       }
     _ => None
   }
 }
 
 ///|
+fn encode_state(state : ReplicaState, texts : Array[String]) -> Json {
+  match state {
+    Live(value) =>
+      Json::object({
+        "kind": "live",
+        "current": intern_text(texts, value.document.text()),
+        "baseline": encode_remote(value.baseline.remote(), texts),
+        "phase": encode_live_phase(value.phase, texts),
+      })
+    Deleting(value) =>
+      Json::object({
+        "kind": "deleting",
+        "current": intern_text(texts, value.document.text()),
+        "baseline": encode_remote(value.baseline.remote(), texts),
+        "phase": match value.phase {
+          DeletionPhase::Ready => Json::object({ "kind": "ready" })
+          ResolvingSave(operation) =>
+            Json::object({
+              "kind": "resolving_save",
+              "operation": encode_operation(operation, texts),
+            })
+          Sending(operation) =>
+            Json::object({
+              "kind": "sending",
+              "operation": encode_operation(operation, texts),
+            })
+        },
+      })
+    Tombstone(revision) =>
+      Json::object({ "kind": "tombstone", "revision": revision.value() })
+  }
+}
+
+///|
 fn encode_replica(replica : DocumentReplica) -> String {
   let texts : Array[String] = []
-  let current = intern_text(texts, replica.document.text())
-  let baseline = encode_remote(replica.baseline, texts)
-  let phase = encode_phase(replica.phase, texts)
+  let state = encode_state(replica.state, texts)
   let header = Json::object({
     "account_id": replica.account.value(),
-    "document_id": replica.document.id().value(),
+    "document_id": replica.document_id.value(),
     "generation": replica.generation,
-    "current": current,
-    "baseline": baseline,
-    "phase": phase,
+    "state": state,
     "recovery_document_id": match replica.recovery {
       Some(recovery) => recovery.id().value().to_json()
       None => Json::null()
@@ -243,9 +286,7 @@ fn decode_header_length(encoded : String) -> (Int, Int)? {
 
 ///|
 fn decode_texts(value : Json?, encoded : String, start : Int) -> Array[String]? {
-  guard value is Some(Json::Array(length_values)) &&
-    length_values.length() >= 1 &&
-    length_values.length() <= 4 else {
+  guard value is Some(Json::Array(length_values)) && length_values.length() <= 4 else {
     return None
   }
   let texts : Array[String] = []
@@ -271,6 +312,99 @@ fn decode_texts(value : Json?, encoded : String, start : Int) -> Array[String]? 
 }
 
 ///|
+fn decode_baseline(value : Json?, texts : Array[String]) -> LiveBaseline? {
+  match value {
+    Some(value) =>
+      match decode_remote(value, texts) {
+        Some(RemoteDocument::Missing) => Some(LiveBaseline::Unpublished)
+        Some(RemoteDocument::Present(revision, text)) =>
+          Some(LiveBaseline::Saved(revision, text))
+        Some(RemoteDocument::Deleted(_)) | None => None
+      }
+    None => None
+  }
+}
+
+///|
+fn decode_deletion_phase(
+  value : Json?,
+  texts : Array[String],
+  baseline : LiveBaseline,
+) -> DeletionPhase? {
+  guard value is Some(Json::Object(fields)) else { return None }
+  match fields.get("kind") {
+    Some(Json::String("ready")) if fields.length() == 1 &&
+      baseline is LiveBaseline::Saved(_, _) => Some(DeletionPhase::Ready)
+    Some(Json::String("resolving_save")) if fields.length() == 2 =>
+      match fields.get("operation") {
+        Some(value) if decode_operation(value, texts) is Some(operation) &&
+          operation.base_revision == baseline.revision() &&
+          operation.content is PendingContent::Save(_) =>
+          Some(DeletionPhase::ResolvingSave(operation))
+        _ => None
+      }
+    Some(Json::String("sending")) if fields.length() == 2 &&
+      baseline is LiveBaseline::Saved(_, _) =>
+      match fields.get("operation") {
+        Some(value) if decode_operation(value, texts) is Some(operation) &&
+          operation.base_revision == baseline.revision() &&
+          operation.content is PendingContent::Delete =>
+          Some(DeletionPhase::Sending(operation))
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn decode_state(
+  value : Json?,
+  texts : Array[String],
+  document_id : DocumentId,
+) -> ReplicaState? {
+  guard value is Some(Json::Object(fields)) else { return None }
+  match fields.get("kind") {
+    Some(Json::String("live")) if fields.length() == 4 => {
+      guard decode_text(fields.get("current"), texts) is Some(text) &&
+        decode_baseline(fields.get("baseline"), texts) is Some(baseline) else {
+        return None
+      }
+      let document = Document::create(document_id, text)
+      match fields.get("phase") {
+        Some(value) =>
+          decode_live_phase(value, texts, baseline, document).map(phase => {
+            ReplicaState::Live({ document, baseline, phase, })
+          })
+        None => None
+      }
+    }
+    Some(Json::String("deleting")) if fields.length() == 4 => {
+      guard decode_text(fields.get("current"), texts) is Some(text) &&
+        decode_baseline(fields.get("baseline"), texts) is Some(baseline) &&
+        decode_deletion_phase(fields.get("phase"), texts, baseline)
+        is Some(phase) else {
+        return None
+      }
+      Some(
+        ReplicaState::Deleting({
+          document: Document::create(document_id, text),
+          baseline,
+          phase,
+        }),
+      )
+    }
+    Some(Json::String("tombstone")) if fields.length() == 2 => {
+      guard fields.get("revision") is Some(Json::Number(value, ..)) else {
+        return None
+      }
+      let revision = SavedRevision::parse(value) catch { _ => return None }
+      Some(ReplicaState::Tombstone(revision))
+    }
+    _ => None
+  }
+}
+
+///|
 fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
   guard storage_key.strip_prefix(REPLICA_KEY_PREFIX) is Some(_) &&
     decode_header_length(encoded) is Some((header_length, header_start)) &&
@@ -282,20 +416,21 @@ fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
     _ => return None
   }
   guard header is Json::Object(fields) &&
-    fields.length() == 8 &&
+    fields.length() == 6 &&
     decode_texts(fields.get("text_lengths"), encoded, payload_start)
     is Some(texts) else {
     return None
   }
   guard fields.get("account_id") is Some(Json::String(account_id)) &&
     fields.get("document_id") is Some(Json::String(document_id_value)) &&
-    fields.get("generation") is Some(Json::Number(generation, ..)) &&
-    decode_text(fields.get("current"), texts) is Some(text) &&
-    decode_remote_field(fields.get("baseline"), texts) is Some(baseline) else {
+    fields.get("generation") is Some(Json::Number(generation, ..)) else {
     return None
   }
   let document_id = DocumentId::parse(document_id_value) catch {
     _ => return None
+  }
+  guard decode_state(fields.get("state"), texts, document_id) is Some(state) else {
+    return None
   }
   let recovery = match fields.get("recovery_document_id") {
     Some(Json::Null) => None
@@ -311,20 +446,10 @@ fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
     }
     _ => return None
   }
-  guard (match fields.get("phase") {
-      Some(value) => decode_phase(value, texts)
-      None => None
-    })
-    is Some(phase) else {
-    return None
-  }
   let account = AccountId::parse(account_id) catch { _ => return None }
   guard replica_key(account, document_id) == storage_key else { return None }
-  let document = Document::create(document_id, text)
   Some(
-    replica_from_storage(
-      account, document, generation, baseline, phase, recovery,
-    ) catch {
+    replica_from_storage(account, document_id, generation, state, recovery) catch {
       _ => return None
     },
   )

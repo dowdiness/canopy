@@ -27,6 +27,14 @@ fn test_document_id(value : String) -> DocumentId {
 }
 
 ///|
+fn replica_document(replica : DocumentReplica) -> Document {
+  match replica.document() {
+    Some(document) => document
+    None => abort("expected a live working document")
+  }
+}
+
+///|
 fn test_operation(value : String) -> OperationId {
   OperationId::parse(value) catch {
     _ => abort("invalid test operation")
@@ -57,7 +65,8 @@ fn initial_replica(text : String) -> DocumentReplica {
 
 ///|
 fn start_save(replica : DocumentReplica, operation_id : String) -> ReplicaWrite {
-  guard replica.plan_save() is OperationPlan::Start(draft) else {
+  guard replica.directive() is ReplicaDirective::CreateOperation(draft) &&
+    draft.content() is PendingContent::Save(_) else {
     abort("expected operation draft")
   }
   draft.start(test_operation(operation_id))
@@ -119,10 +128,17 @@ test "acknowledgment retains an edit made during sending" {
   let completed = edited
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
-  assert_eq(completed.directive(), ReplicaDirective::SaveRequired)
-  assert_eq(completed.document().text(), "newer")
-  assert_eq(completed.baseline, remote_present(1.0, "first"))
-  assert_eq(completed.phase, ReplicaPhase::Ready)
+  assert_true(
+    completed.directive() is ReplicaDirective::CreateOperation(draft) &&
+    draft.content() == PendingContent::Save("newer"),
+  )
+  assert_eq(replica_document(completed).text(), "newer")
+  assert_true(
+    completed.state
+    is ReplicaState::Live(
+      { baseline: LiveBaseline::Saved(_, "first"), phase: LivePhase::Ready, .. }
+    ),
+  )
 }
 
 ///|
@@ -142,7 +158,10 @@ test "definitive non-application retires only the matching operation" {
   let rejected = replica
     .reject_operation(test_operation(TEST_OPERATION_1))
     .replica()
-  assert_eq(rejected.directive(), ReplicaDirective::SaveRequired)
+  assert_true(
+    rejected.directive() is ReplicaDirective::CreateOperation(draft) &&
+    draft.content() == PendingContent::Save("first"),
+  )
   let mismatch : Result[ReplicaWrite, ReceiptMismatch] = Ok(
     replica.reject_operation(test_operation(TEST_OPERATION_2)),
   ) catch {
@@ -193,11 +212,12 @@ test "definitive save rejection retires pending operation into conflict" {
 }
 
 ///|
-test "definitive delete rejection requires a new informed decision" {
+test "a new delete decision after conflict uses the observed revision" {
   let saved = sending_replica("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
-  guard saved.plan_delete() is OperationPlan::Start(draft) else {
+  let deleting = saved.request_deletion().replica()
+  guard deleting.directive() is ReplicaDirective::CreateOperation(draft) else {
     fail("expected delete draft")
   }
   let pending = draft.start(test_operation(TEST_OPERATION_2)).replica()
@@ -213,7 +233,12 @@ test "definitive delete rejection requires a new informed decision" {
     rejected.directive(),
     ReplicaDirective::UpdateAvailable(remote_present(2.0, "remote")),
   )
-  assert_eq(rejected.plan_delete(), OperationPlan::Current)
+  let deleting = rejected.request_deletion().replica()
+  guard deleting.directive() is ReplicaDirective::CreateOperation(draft) else {
+    fail("new informed deletion")
+  }
+  assert_eq(draft.content(), PendingContent::Delete)
+  assert_eq(deleting.baseline_revision(), 2.0)
 }
 
 ///|
@@ -223,7 +248,7 @@ test "equal remote text advances baseline once" {
     remote_present(3.0, "same"),
   ).replica()
   assert_eq(replica.directive(), ReplicaDirective::Synchronized)
-  assert_eq(replica.baseline, remote_present(3.0, "same"))
+  assert_eq(replica.baseline_revision(), 3.0)
   assert_eq(
     replica.reconcile(remote_present(3.0, "same")),
     ReconcilePlan::Unchanged,
@@ -258,7 +283,7 @@ test "a newer remote revision can converge an available update to local text" {
   let converged = reconcile_change(available, remote_present(3.0, "base")).replica()
   assert_eq(converged.directive(), ReplicaDirective::Synchronized)
   assert_eq(converged.baseline_revision(), 3.0)
-  assert_eq(converged.document().text(), "base")
+  assert_eq(replica_document(converged).text(), "base")
 }
 
 ///|
@@ -271,7 +296,7 @@ test "a newer tombstone replaces an available update" {
   let deleted = reconcile_change(available, tombstone).replica()
   assert_eq(deleted.directive(), ReplicaDirective::UpdateAvailable(tombstone))
   assert_eq(deleted.observed_revision(), 3.0)
-  assert_eq(deleted.document().text(), "base")
+  assert_eq(replica_document(deleted).text(), "base")
 }
 
 ///|
@@ -284,7 +309,7 @@ test "opening an available Replica accepts its retained remote revision" {
   guard available.open(retained) is OpenOutcome::PersistAndOpen(write) else {
     fail("available open")
   }
-  assert_eq(write.replica().document().text(), "remote")
+  assert_eq(replica_document(write.replica()).text(), "remote")
   assert_eq(write.replica().baseline_revision(), 2.0)
   assert_eq(write.replica().directive(), ReplicaDirective::Synchronized)
 }
@@ -299,7 +324,7 @@ test "opening an available Replica never regresses a retained revision" {
     is OpenOutcome::PersistAndOpen(write) else {
     fail("newest retained open")
   }
-  assert_eq(write.replica().document().text(), "newest")
+  assert_eq(replica_document(write.replica()).text(), "newest")
   assert_eq(write.replica().baseline_revision(), 3.0)
 }
 
@@ -326,7 +351,7 @@ test "opening a newer tombstone persists it without opening" {
     write.replica().directive(),
     ReplicaDirective::UpdateAvailable(tombstone),
   )
-  assert_eq(write.replica().document().text(), "base")
+  assert_eq(replica_document(write.replica()).text(), "base")
 }
 
 ///|
@@ -373,7 +398,8 @@ test "acknowledged deletion remains a tombstone" {
   let saved = sending_replica("text", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
-  guard saved.plan_delete() is OperationPlan::Start(delete_draft) else {
+  let deleting = saved.request_deletion().replica()
+  guard deleting.directive() is ReplicaDirective::CreateOperation(delete_draft) else {
     fail("expected delete draft")
   }
   let deleted = delete_draft
@@ -382,7 +408,57 @@ test "acknowledged deletion remains a tombstone" {
     .acknowledge(test_operation(TEST_OPERATION_2), test_revision(2.0))
     .replica()
   assert_eq(deleted.directive(), ReplicaDirective::Synchronized)
-  assert_eq(deleted.plan_save(), OperationPlan::Current)
+  assert_true(deleted.is_deleted())
+}
+
+///|
+test "deletion resolves an uncertain save before creating delete operation" {
+  let sending = sending_replica("sent", TEST_OPERATION_1)
+  let edited = edit_write(sending, "newer").replica()
+  let deleting = edited.request_deletion().replica()
+  guard deleting.directive() is ReplicaDirective::Send(save) else {
+    fail("resolve save first")
+  }
+  assert_eq(save.operation_id(), test_operation(TEST_OPERATION_1))
+  assert_eq(save.content(), PendingContent::Save("sent"))
+  let resolved = deleting
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  guard resolved.directive() is ReplicaDirective::CreateOperation(delete) else {
+    fail("delete should become preparable")
+  }
+  assert_eq(delete.content(), PendingContent::Delete)
+  assert_eq(resolved.document(), None)
+}
+
+///|
+test "unpublished deletion removes the replica without creating a delete state" {
+  let replica = initial_replica("text")
+  assert_eq(replica.request_deletion(), ReplicaWrite::Remove(replica))
+}
+
+///|
+test "deletion rejects an observed tombstone instead of persisting a no-op" {
+  let synchronized = sending_replica("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  let observed = reconcile_change(
+    synchronized,
+    RemoteDocument::Deleted(test_revision(2.0)),
+  ).replica()
+  let deleted = observed.request_deletion().replica()
+  assert_true(deleted.is_deleted())
+  assert_eq(deleted.directive(), ReplicaDirective::Synchronized)
+  assert_eq(
+    try {
+      deleted.request_deletion() |> ignore
+      None
+    } catch {
+      error => Some(error)
+    },
+    Some(DeletionUnavailable::AlreadyDeleted),
+  )
+  assert_eq(deleted.edit("later"), EditPlan::Unavailable)
 }
 
 ///|

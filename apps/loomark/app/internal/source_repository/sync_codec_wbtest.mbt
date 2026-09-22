@@ -21,7 +21,7 @@ test "codec retains parsed pending operation and newer text" {
   }
   assert_eq(operation.operation_id(), test_operation(TEST_OPERATION_1))
   assert_eq(operation.content(), PendingContent::Save("sent"))
-  assert_eq(reopened.document().text(), "newer")
+  assert_eq(replica_document(reopened).text(), "newer")
 }
 
 ///|
@@ -29,7 +29,10 @@ test "codec retains pending deletion for restart" {
   let saved = sending_replica("text", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
-  guard saved.plan_delete() is OperationPlan::Start(draft) else {
+  let preparing = saved.request_deletion().replica()
+  let reopened = decode_replica(test_replica_key(), encode_replica(preparing)).unwrap()
+  assert_eq(reopened, preparing)
+  guard reopened.directive() is ReplicaDirective::CreateOperation(draft) else {
     fail("expected delete draft")
   }
   let replica = draft.start(test_operation(TEST_OPERATION_2)).replica()
@@ -40,6 +43,41 @@ test "codec retains pending deletion for restart" {
   }
   assert_eq(operation.operation_id(), test_operation(TEST_OPERATION_2))
   assert_eq(operation.content(), PendingContent::Delete)
+}
+
+///|
+test "tombstone frame retains only identity and revision" {
+  let saved = DocumentReplica::receive(
+    test_account(),
+    Document::create(test_document_id("document"), "text"),
+    test_revision(1.0),
+  )
+  guard saved.request_deletion().replica().directive()
+    is ReplicaDirective::CreateOperation(draft) else {
+    fail("delete draft")
+  }
+  let tombstone = draft
+    .start(test_operation(TEST_OPERATION_2))
+    .replica()
+    .acknowledge(test_operation(TEST_OPERATION_2), test_revision(2.0))
+    .replica()
+  let encoded = encode_replica(tombstone)
+  assert_false(encoded.has_suffix("text"))
+  assert_eq(decode_replica(test_replica_key(), encoded), Some(tombstone))
+}
+
+///|
+test "codec retains deletion while resolving a save" {
+  let deleting = sending_replica("sent", TEST_OPERATION_1).edit("newer")
+  guard deleting is EditPlan::Persist(edited) else { fail("edit") }
+  let deleting = edited.replica().request_deletion().replica()
+  let reopened = decode_replica(test_replica_key(), encode_replica(deleting)).unwrap()
+  assert_eq(reopened, deleting)
+  guard reopened.directive() is ReplicaDirective::Send(operation) else {
+    fail("saved operation")
+  }
+  assert_eq(operation.operation_id(), test_operation(TEST_OPERATION_1))
+  assert_eq(operation.content(), PendingContent::Save("sent"))
 }
 
 ///|
@@ -77,7 +115,9 @@ test "codec retains recovery relation independently of sync phase" {
     decode_replica(test_replica_key(), encode_replica(replica)),
     Some(replica),
   )
-  assert_true(replica.phase is ReplicaPhase::Ready)
+  assert_true(
+    replica.state is ReplicaState::Live({ phase: LivePhase::Ready, .. }),
+  )
   assert_eq(replica.recovery_document_id(), Some(test_document_id("recovery")))
 }
 
@@ -94,8 +134,13 @@ test "codec retains available and diverged observations" {
       Some(replica),
     )
   }
-  assert_true(available.phase is ReplicaPhase::Available(_))
-  assert_true(diverged.phase is ReplicaPhase::Diverged(_))
+  assert_true(
+    available.state
+    is ReplicaState::Live({ phase: LivePhase::Available(_), .. }),
+  )
+  assert_true(
+    diverged.state is ReplicaState::Live({ phase: LivePhase::Diverged(_), .. }),
+  )
 }
 
 ///|
@@ -117,11 +162,17 @@ test "codec parser rejects malformed fields, revisions, and impossible phases" {
     document_id +
     "\","
   let extra = prefix +
-    "\"generation\":0,\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"ready\"},\"text_lengths\":[1],\"extra\":true}"
+    "\"generation\":0,\"state\":{\"kind\":\"live\",\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"ready\"}},\"recovery_document_id\":null,\"text_lengths\":[1],\"extra\":true}"
   let invalid_revision = prefix +
-    "\"generation\":0,\"current\":0,\"baseline\":{\"kind\":\"present\",\"revision\":0,\"text\":0},\"phase\":{\"kind\":\"ready\"},\"text_lengths\":[1]}"
+    "\"generation\":0,\"state\":{\"kind\":\"tombstone\",\"revision\":0},\"recovery_document_id\":null,\"text_lengths\":[]}"
   let impossible_sending = prefix +
-    "\"generation\":1,\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"sending\",\"operation\":{\"kind\":\"save\",\"operation_id\":\"a0000000-0000-4000-8000-000000000001\",\"base_revision\":1,\"text\":0}},\"text_lengths\":[1]}"
+    "\"generation\":1,\"state\":{\"kind\":\"live\",\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"sending\",\"operation\":{\"kind\":\"save\",\"operation_id\":\"a0000000-0000-4000-8000-000000000001\",\"base_revision\":1,\"text\":0}}},\"recovery_document_id\":null,\"text_lengths\":[1]}"
+  let deletion_resolving_delete = prefix +
+    "\"generation\":1,\"state\":{\"kind\":\"deleting\",\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"resolving_save\",\"operation\":{\"kind\":\"delete\",\"operation_id\":\"a0000000-0000-4000-8000-000000000001\",\"base_revision\":0}}},\"recovery_document_id\":null,\"text_lengths\":[1]}"
+  let deletion_sending_save = prefix +
+    "\"generation\":1,\"state\":{\"kind\":\"deleting\",\"current\":0,\"baseline\":{\"kind\":\"present\",\"revision\":1,\"text\":0},\"phase\":{\"kind\":\"sending\",\"operation\":{\"kind\":\"save\",\"operation_id\":\"a0000000-0000-4000-8000-000000000001\",\"base_revision\":1,\"text\":0}}},\"recovery_document_id\":null,\"text_lengths\":[1]}"
+  let deleted_preparing = prefix +
+    "\"generation\":1,\"state\":{\"kind\":\"deleting\",\"current\":0,\"baseline\":{\"kind\":\"missing\"},\"phase\":{\"kind\":\"ready\"}},\"recovery_document_id\":null,\"text_lengths\":[1]}"
   let malformed = [
     "{}",
     "loomark-replica\n",
@@ -133,6 +184,9 @@ test "codec parser rejects malformed fields, revisions, and impossible phases" {
     replica_test_frame(extra, "x"),
     replica_test_frame(invalid_revision, "x"),
     replica_test_frame(impossible_sending, "x"),
+    replica_test_frame(deletion_resolving_delete, "x"),
+    replica_test_frame(deletion_sending_save, "x"),
+    replica_test_frame(deleted_preparing, "x"),
   ]
   for encoded in malformed {
     assert_eq(decode_replica(test_replica_key(), encoded), None)

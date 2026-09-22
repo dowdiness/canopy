@@ -1,8 +1,8 @@
 ///|
 fn delete_is_active(phase : DocumentsDeletePhase) -> Bool {
   match phase {
-    Unavailable | Available | Failed(_, _) => false
-    Waiting(_) | Deleting(_) => true
+    Unavailable | Available | Failed(_, _) | ReplicaFailed(_) => false
+    Waiting(_) | Deleting(_) | ReplicaPending => true
   }
 }
 
@@ -29,18 +29,15 @@ fn issue_delete_record(
 }
 
 ///|
-fn confirm_or_retry_delete(
+fn confirm_source_delete(
   documents : State,
   id : Key,
+  record : Record,
+  origin : LocalDocumentOrigin,
+  phase : SourceDeletePhase,
 ) -> (State, Array[Action]) {
-  guard find_record(documents.records, id) is Some(record) else {
-    return (documents, [])
-  }
-  guard record.persistence is Source(origin, phase) &&
-    (
-      phase is SourceDeletePhase::Available ||
-      phase is SourceDeletePhase::Failed(_, _)
-    ) else {
+  guard phase is SourceDeletePhase::Available ||
+    phase is SourceDeletePhase::Failed(_, _) else {
     return (documents, [])
   }
   let request_id = documents.last_delete_request + 1
@@ -84,6 +81,62 @@ fn confirm_or_retry_delete(
         [decision],
       )
     }
+  }
+}
+
+///|
+fn confirm_replica_delete(
+  documents : State,
+  id : Key,
+  record : Record,
+  account : @source_repository.AccountId,
+  phase : ReplicaDeletePhase,
+) -> (State, Array[Action]) {
+  match phase {
+    ReplicaAvailable =>
+      match documents.saved.replica(account, record.document.id()) {
+        Some(durable) =>
+          (
+            {
+              ..documents,
+              records: replace_record(documents.records, id, current => {
+                ..current,
+                persistence: Replica(account, ReplicaPending),
+              }),
+            },
+            [DeleteReplica({ durable, document: record.document, })],
+          )
+        None => (documents, [])
+      }
+    ReplicaFailed(_) =>
+      (
+        {
+          ..documents,
+          records: replace_record(documents.records, id, current => {
+            ..current,
+            persistence: Replica(account, ReplicaPending),
+          }),
+        },
+        [RetryReplica(account, record.document.id())],
+      )
+    ReplicaPending => (documents, [])
+  }
+}
+
+///|
+fn confirm_or_retry_delete(
+  documents : State,
+  id : Key,
+) -> (State, Array[Action]) {
+  guard find_record(documents.records, id) is Some(record) else {
+    return (documents, [])
+  }
+  match record.persistence {
+    Source(origin, phase) =>
+      confirm_source_delete(documents, id, record, origin, phase)
+    Replica(account, phase) =>
+      confirm_replica_delete(documents, id, record, account, phase)
+    StartingSync(_, _) | Forking(_) => (documents, [])
   }
 }
 

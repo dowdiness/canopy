@@ -83,12 +83,12 @@ priv enum Catalog {
 
 ///|
 priv enum NetworkState {
-  Planning(PlanId, Double)
+  Planning(PlanId, @source_repository.OperationDraft)
   Delivering(EffectId, @source_repository.OperationId)
   RetryRemote(RemoteRead)
   FetchingRemote(EffectId, RemoteRead)
   Recovering(EffectId)
-  Blocked
+  Blocked(@source_repository.OperationDraft)
 } derive(Eq, Debug)
 
 ///|
@@ -107,7 +107,7 @@ priv enum Next {
   Deliver(@source_repository.PendingOperation)
   Fetch(@source_repository.SavedRevision)
   Recover
-  Plan
+  Plan(@source_repository.OperationDraft)
 }
 
 ///|
@@ -476,7 +476,7 @@ pub fn State::advance_open(
     (
       replica is Some(candidate) &&
       candidate.account() == target.account &&
-      candidate.document().id() == target.document_id
+      candidate.document_id() == target.document_id
     ) else {
     return (self, None)
   }
@@ -521,7 +521,7 @@ pub fn State::opened(
   }
   match replica {
     Some(replica) if replica.account() == account &&
-      replica.document().id() == document_id => {
+      replica.document_id() == document_id => {
       let outcome = replica.open(remote) catch {
         _ => abort("Unmounted Replica must be openable")
       }
@@ -630,7 +630,7 @@ pub fn State::progress(
     NoWork => Inactive
     NetworkBlocked => Blocked
     NetworkRunning => Working
-    NetworkRetry(_, _) | Deliver(_) | Fetch(_) | Recover | Plan =>
+    NetworkRetry(_, _) | Deliver(_) | Fetch(_) | Recover | Plan(_) =>
       Retryable({ replica, })
   }
 }
@@ -640,7 +640,7 @@ fn State::newer_revision(
   self : Self,
   replica : @source_repository.DocumentReplica,
 ) -> @source_repository.SavedRevision? {
-  match self.remote_entry(replica.document().id()) {
+  match self.remote_entry(replica.document_id()) {
     Some(entry) if entry.revision().value() > replica.observed_revision() =>
       Some(entry.revision())
     Some(_) | None => None
@@ -653,7 +653,7 @@ fn State::next(
   replica : @source_repository.DocumentReplica,
 ) -> Next {
   let account = replica.account()
-  let document_id = replica.document().id()
+  let document_id = replica.document_id()
   guard self.session is Current(current, _) && current == account else {
     return NoWork
   }
@@ -661,7 +661,7 @@ fn State::next(
     Some(index) =>
       return match self.network[index].state {
         RetryRemote(read) => NetworkRetry(index, read)
-        Blocked => NetworkBlocked
+        Blocked(_) => NetworkBlocked
         Planning(_, _)
         | Delivering(_, _)
         | FetchingRemote(_, _)
@@ -676,10 +676,14 @@ fn State::next(
         Some(revision) => Fetch(revision)
         None => Recover
       }
-    SaveRequired =>
-      match self.newer_revision(replica) {
-        Some(revision) => Fetch(revision)
-        None => Plan
+    CreateOperation(draft) =>
+      match draft.content() {
+        @source_repository.PendingContent::Save(_) =>
+          match self.newer_revision(replica) {
+            Some(revision) => Fetch(revision)
+            None => Plan(draft)
+          }
+        Delete => Plan(draft)
       }
     Synchronized | UpdateAvailable(_) =>
       match self.newer_revision(replica) {
@@ -715,6 +719,48 @@ fn State::replace_network(
 }
 
 ///|
+fn NetworkState::accepts(
+  self : Self,
+  replica : @source_repository.DocumentReplica,
+) -> Bool {
+  match self {
+    Planning(_, draft) =>
+      replica.directive() ==
+      @source_repository.ReplicaDirective::CreateOperation(draft)
+    Delivering(_, operation_id) =>
+      replica.directive()
+      is @source_repository.ReplicaDirective::Send(operation) &&
+      operation.operation_id() == operation_id
+    RetryRemote(Conflict(operation_id))
+    | FetchingRemote(_, Conflict(operation_id)) =>
+      replica.directive()
+      is @source_repository.ReplicaDirective::Send(operation) &&
+      operation.operation_id() == operation_id
+    RetryRemote(Revision(_)) | FetchingRemote(_, Revision(_)) =>
+      replica.document() is Some(_)
+    RetryRemote(Open(_, _)) | FetchingRemote(_, Open(_, _)) => false
+    Recovering(_) =>
+      replica.directive()
+      is @source_repository.ReplicaDirective::RecoveryRequired
+    Blocked(blocked) =>
+      replica.directive() ==
+      @source_repository.ReplicaDirective::CreateOperation(blocked)
+  }
+}
+
+///|
+fn State::retain_compatible_network(
+  self : Self,
+  replica : @source_repository.DocumentReplica,
+) -> Self {
+  match self.find_network(replica.account(), replica.document_id()) {
+    Some(index) if !self.network[index].state.accepts(replica) =>
+      self.remove_network(index)
+    Some(_) | None => self
+  }
+}
+
+///|
 /// Apply eligible local text to the newest replica rather than branching
 /// from the last durable value.
 pub fn State::save(
@@ -724,20 +770,32 @@ pub fn State::save(
 ) -> (Self, @source_repository.ReplicaWrite?) {
   match replica.edit(text) {
     @source_repository.EditPlan::Persist(write) => {
-      let self = match
-        self.find_network(replica.account(), replica.document().id()) {
-        Some(index) if self.network[index].state is (Planning(_, _) | Blocked) =>
-          self.remove_network(index)
-        Some(index) if self.network[index].state is Recovering(_) &&
-          !(write.replica().directive()
-          is @source_repository.ReplicaDirective::RecoveryRequired) =>
-          self.remove_network(index)
-        _ => self
-      }
+      let self = self.retain_compatible_network(write.replica())
       (self, Some(write))
     }
-    @source_repository.EditPlan::Unchanged => (self, None)
+    @source_repository.EditPlan::Unchanged
+    | @source_repository.EditPlan::Unavailable => (self, None)
   }
+}
+
+///|
+/// Persist deletion intent from the newest Replica head. Any working-copy text
+/// not yet eligible for Autosave is included before deletion closes editing.
+pub fn State::delete(
+  self : Self,
+  replica : @source_repository.DocumentReplica,
+  text : String,
+) -> (Self, @source_repository.ReplicaWrite) {
+  let replica = match replica.edit(text) {
+    @source_repository.EditPlan::Persist(write) => write.replica()
+    Unchanged => replica
+    Unavailable => abort("deletion requested without a live replica")
+  }
+  let write = replica.request_deletion() catch {
+    _ => abort("live replica rejected deletion")
+  }
+  let self = self.retain_compatible_network(write.replica())
+  (self, write)
 }
 
 ///|
@@ -749,7 +807,7 @@ pub fn State::advance(
   let (self, open) = self.advance_open(Some(durable))
   guard open is None else { return (self, open) }
   let account = durable.account()
-  let document_id = durable.document().id()
+  let document_id = durable.document_id()
   match self.next(durable) {
     NetworkRetry(index, read) => {
       let (self, effect) = self.effect()
@@ -791,14 +849,10 @@ pub fn State::advance(
         Some(Action::CreateRecovery(effect, account, document_id)),
       )
     }
-    Plan => {
+    Plan(draft) => {
       let value = self.last_plan_id + 1
       let id = PlanId(value)
-      let task : Network = {
-        account,
-        document_id,
-        state: Planning(id, durable.generation()),
-      }
+      let task : Network = { account, document_id, state: Planning(id, draft), }
       (
         { ..self, network: self.network + [task], last_plan_id: value, },
         Some(Action::CreateOperation(id, account, document_id)),
@@ -815,17 +869,15 @@ pub fn State::prepared(
   durable : @source_repository.DocumentReplica,
   operation_id : @source_repository.OperationId,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
-  guard self.find_network(durable.account(), durable.document().id())
+  guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
-    self.network[index].state is Planning(active, generation) &&
+    self.network[index].state is Planning(active, draft) &&
     active == id &&
-    generation == durable.generation() else {
+    durable.directive() ==
+    @source_repository.ReplicaDirective::CreateOperation(draft) else {
     raise StaleWork
   }
   let self = self.remove_network(index)
-  guard durable.plan_save() is @source_repository.OperationPlan::Start(draft) else {
-    raise StaleWork
-  }
   (self, Some(draft.start(operation_id)))
 }
 
@@ -850,7 +902,7 @@ fn State::delivery(
   effect : EffectId,
   operation_id : @source_repository.OperationId,
 ) -> Int raise WorkError {
-  guard self.find_network(durable.account(), durable.document().id())
+  guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
     self.network[index].state is Delivering(active_effect, active_operation) &&
     active_effect == effect &&
@@ -904,8 +956,9 @@ fn State::remote_fetch(
   effect : EffectId,
   read : RemoteRead,
 ) -> Int raise WorkError {
-  guard self.find_network(durable.account(), durable.document().id())
+  guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
+    self.network[index].state.accepts(durable) &&
     self.network[index].state is FetchingRemote(active_effect, active_read) &&
     active_effect == effect &&
     active_read == read else {
@@ -941,7 +994,12 @@ fn State::reject_delivery(
     _ => raise StaleWork
   }
   let self = if block {
-    self.replace_network(index, Blocked)
+    guard write.replica().directive()
+      is @source_repository.ReplicaDirective::CreateOperation(draft) &&
+      draft.content() is @source_repository.PendingContent::Save(_) else {
+      raise StaleWork
+    }
+    self.replace_network(index, Blocked(draft))
   } else {
     self.remove_network(index)
   }
@@ -960,10 +1018,13 @@ pub fn State::delivery_too_large(
     operation.operation_id() == operation_id else {
     raise StaleWork
   }
-  let unchanged = match operation.content() {
-    @source_repository.PendingContent::Save(text) =>
-      durable.document().text() == text
-    Delete => true
+  let unchanged = match (durable.is_deleting(), operation.content()) {
+    (false, @source_repository.PendingContent::Save(text)) =>
+      durable
+      .document()
+      .map(document => document.text() == text)
+      .unwrap_or(false)
+    (true, Save(_)) | (_, Delete) => false
   }
   self.reject_delivery(durable, effect, operation_id, unchanged)
 }
@@ -1008,7 +1069,7 @@ pub fn State::received(
   let index = self.remote_fetch(durable, effect, read)
   let self = self.observe_remote(
     durable.account(),
-    durable.document().id(),
+    durable.document_id(),
     remote,
   )
   let plan = reconcile(durable, read, remote)
@@ -1026,8 +1087,9 @@ pub fn State::recover(
   effect : EffectId,
   recovery_id : @source_repository.DocumentId,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
-  guard self.find_network(durable.account(), durable.document().id())
+  guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
+    self.network[index].state.accepts(durable) &&
     self.network[index].state is Recovering(active) &&
     active == effect else {
     raise StaleWork

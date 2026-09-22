@@ -40,7 +40,7 @@ fn status_model(
     Editing({
       ..test_editing(),
       activation: {
-        key: @documents.Key::replica(replica.account(), replica.document().id()),
+        key: @documents.Key::replica(replica.account(), replica.document_id()),
         generation: 0,
       },
       documents,
@@ -105,7 +105,8 @@ test "replica status combines durable directive with transient progress" {
     document_sync_status(status_model(synchronized, idle)) == Some(Synced),
   )
 
-  guard synchronized.plan_save() is @source_repository.OperationPlan::Current else {
+  guard synchronized.directive()
+    is @source_repository.ReplicaDirective::Synchronized else {
     fail("synchronized replica")
   }
   let edited = synchronized.edit("edited")

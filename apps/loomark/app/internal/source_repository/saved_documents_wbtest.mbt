@@ -136,16 +136,19 @@ test "replica insertion and replacement retain lexical order" {
     .apply_replica(account_a_z)
     .apply_replica(account_a_a)
   assert_eq(
-    saved.replicas_for(test_account()).map(value => value.document().id()),
+    saved.replicas_for(test_account()).map(value => value.document_id()),
     [test_document_id("a"), test_document_id("z")],
   )
   let replacement = edit_write(account_a_a, "new").replica()
   let replaced = saved.apply_replica(replacement)
   assert_eq(
-    replaced.replicas_for(test_account()).map(value => value.document().id()),
+    replaced.replicas_for(test_account()).map(value => value.document_id()),
     [test_document_id("a"), test_document_id("z")],
   )
-  assert_eq(replaced.replicas_for(test_account())[0].document().text(), "new")
+  assert_eq(
+    replica_document(replaced.replicas_for(test_account())[0]).text(),
+    "new",
+  )
   let stale : Result[SavedDocuments, ReplicaApplyError] = Ok(
     replaced.apply_replica(account_a_a),
   ) catch {
@@ -162,6 +165,39 @@ test "replica lookup keeps account ownership explicit" {
   let saved = SavedDocuments::from_documents([]).unwrap().apply_replica(replica)
   assert_eq(saved.replica(account_a, test_document_id("one")), Some(replica))
   assert_eq(saved.replica(account_b, test_document_id("one")), None)
+}
+
+///|
+test "committed replica removal removes only its account membership" {
+  let account_a = test_account()
+  let account_b = test_account(value="account-b")
+  let replica_a = DocumentReplica(account_a, doc("shared", "A"))
+  let replica_b = DocumentReplica(account_b, doc("shared", "B"))
+  let saved = SavedDocuments::from_documents([doc("local", "local")])
+    .unwrap()
+    .apply_replica(replica_a)
+    .apply_replica(replica_b)
+  let removed = saved.apply_replica_write(ReplicaWrite::Remove(replica_a))
+  assert_eq(removed.replica(account_a, test_document_id("shared")), None)
+  assert_eq(
+    removed.replica(account_b, test_document_id("shared")),
+    Some(replica_b),
+  )
+  assert_eq(
+    removed.find(test_document_id("local")),
+    Some(doc("local", "local")),
+  )
+}
+
+///|
+test "replica removal commits identity despite unpersisted newer text" {
+  let durable = DocumentReplica(test_account(), doc("one", "durable"))
+  let saved = SavedDocuments::from_documents([]).unwrap().apply_replica(durable)
+  guard durable.edit("newer") is EditPlan::Persist(newer) else {
+    fail("newer candidate")
+  }
+  let removed = saved.apply_replica_write(ReplicaWrite::Remove(newer.replica()))
+  assert_eq(removed.replica(test_account(), test_document_id("one")), None)
 }
 
 ///|

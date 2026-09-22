@@ -13,12 +13,18 @@ pub(all) enum RowStatus {
 } derive(Eq)
 
 ///|
+pub(all) enum DeletionScope {
+  ThisBrowser
+  AllDevices
+} derive(Eq)
+
+///|
 /// Whether deletion is currently available for a document row.
 pub(all) enum DeletionAvailability {
-  Available
+  Available(DeletionScope)
   Blocked
   Pending
-  Failed
+  Failed(DeletionScope)
 } derive(Eq)
 
 ///|
@@ -132,6 +138,17 @@ fn[Id] delete_confirmation_label(row : PresentedRow[Id]) -> String {
 }
 
 ///|
+fn[Id] delete_confirmation_description(row : PresentedRow[Id]) -> String {
+  match row.row.seed.deletion {
+    Available(AllDevices) | Failed(AllDevices) =>
+      "This deletes the synchronized document on all your devices."
+    Available(ThisBrowser) | Failed(ThisBrowser) =>
+      "This removes the document from this browser."
+    Blocked | Pending => abort("delete dialog without an available deletion")
+  }
+}
+
+///|
 fn status_view(
   status : RowStatus,
   deletion : DeletionAvailability,
@@ -143,13 +160,13 @@ fn status_view(
         attrs=@html.Attrs::build().role("status"),
         "Deleting",
       )
-    Failed =>
+    Failed(_) =>
       @html.span(
         class="block text-xs text-lm-muted",
         attrs=@html.Attrs::build().role("status"),
         "Delete failed",
       )
-    Available | Blocked =>
+    Available(_) | Blocked =>
       match status {
         Saved => @html.nothing
         Unsaved =>
@@ -213,7 +230,7 @@ fn[Id] render_row(
     ),
     @sidebar.sidebar_menu_action(
       disabled=match seed.deletion {
-        Available | Failed => false
+        Available(_) | Failed(_) => false
         Blocked | Pending => true
       },
       aria_label="Delete \"\{label}\"",
@@ -329,6 +346,10 @@ fn[Id] available_delete_dialog(
         @rui.alert_dialog_content(scope, [
           @rui.alert_dialog_header([
             @rui.alert_dialog_title(scope, delete_confirmation_label(row)),
+            @rui.alert_dialog_description(
+              scope,
+              delete_confirmation_description(row),
+            ),
           ]),
           @rui.alert_dialog_footer([
             @rui.alert_dialog_cancel(scope, "Cancel"),

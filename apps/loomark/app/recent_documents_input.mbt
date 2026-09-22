@@ -15,7 +15,7 @@ fn document_membership(page : Page) -> DocumentMembership {
   match page {
     Editing(editing) =>
       {
-        keys: editing.documents.recent().map(item => item.0),
+        keys: editing.documents.known_keys(),
         can_activate: editing.can_activate(),
       }
     Loading(_) | PreparingNew(_) | Recovery(_, _) =>
@@ -73,8 +73,12 @@ fn recent_document_seeds(
 ) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
   let saved = editing.documents
     .recent()
-    .map(item => {
+    .filter_map(item => {
       let (id, source, save, deletion_status) = item
+      guard id == editing.activation.key ||
+        deletion_status != @documents.DeleteStatus::DeletePending else {
+        return None
+      }
       let selection = if id == editing.activation.key {
         @recent_documents.Selection::Editing
       } else if editing.can_select(id) {
@@ -85,11 +89,19 @@ fn recent_document_seeds(
       let deletion = if editing.creation is Creating(_) {
         @recent_documents.DeletionAvailability::Blocked
       } else {
+        let scope = match id {
+          @documents.Key::Source(_) =>
+            @recent_documents.DeletionScope::ThisBrowser
+          @documents.Key::Replica(_, _) =>
+            @recent_documents.DeletionScope::AllDevices
+        }
         match deletion_status {
           @documents.DeleteStatus::Deletable =>
-            @recent_documents.DeletionAvailability::Available
+            @recent_documents.DeletionAvailability::Available(scope)
           @documents.DeleteStatus::DeleteFailed(_) =>
-            @recent_documents.DeletionAvailability::Failed
+            @recent_documents.DeletionAvailability::Failed(scope)
+          @documents.DeleteStatus::DeletePersistenceFailed(_) =>
+            @recent_documents.DeletionAvailability::Failed(scope)
           @documents.DeleteStatus::NotDeletable =>
             @recent_documents.DeletionAvailability::Blocked
           @documents.DeleteStatus::DeletePending =>
@@ -100,12 +112,14 @@ fn recent_document_seeds(
         @documents.SaveStatus::Clean => @recent_documents.RowStatus::Saved
         _ => @recent_documents.RowStatus::Unsaved
       }
-      @recent_documents.Seed::Seed(
-        docid=id,
-        source~,
-        selection~,
-        deletion~,
-        status~,
+      Some(
+        @recent_documents.Seed::Seed(
+          docid=id,
+          source~,
+          selection~,
+          deletion~,
+          status~,
+        ),
       )
     })
   @vector.Vector((saved + remote)[:])

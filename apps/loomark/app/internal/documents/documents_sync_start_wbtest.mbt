@@ -13,7 +13,7 @@ fn begin_sync_start(
   guard effects is [StoreReplica(write)] &&
     write is @source_repository.ReplicaWrite::PromoteSource(replica) &&
     replica.account() == account &&
-    replica.document() == document else {
+    replica.document() == Some(document) else {
     abort("sync start did not begin")
   }
   (documents, @source_repository.DocumentReplica(account, document))

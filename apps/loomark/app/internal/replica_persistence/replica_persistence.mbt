@@ -109,11 +109,32 @@ fn State::remove(self : Self, index : Int) -> Self {
 }
 
 ///|
-pub fn State::head(
+/// Local edits branch from durable state after a failed write. The failed
+/// candidate remains available only through its Retry capability.
+pub fn State::editing_base(
   self : Self,
   durable : @source_repository.DocumentReplica,
 ) -> @source_repository.DocumentReplica {
-  match self.find(durable.account(), durable.document().id()) {
+  match self.find(durable.account(), durable.document_id()) {
+    None => durable
+    Some(index) =>
+      match self.lanes[index].state {
+        Persisting(_, Some(waiting)) => waiting.replica()
+        Persisting(active, None) => active.write.replica()
+        Failed(_, _) => durable
+      }
+  }
+}
+
+///|
+/// Protocol outcomes apply to the newest candidate carrying their operation,
+/// including a failed write. This preserves newer eligible text when an older
+/// remote acknowledgment arrives later.
+pub fn State::protocol_base(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+) -> @source_repository.DocumentReplica {
+  match self.find(durable.account(), durable.document_id()) {
     None => durable
     Some(index) =>
       match self.lanes[index].state {
@@ -166,7 +187,7 @@ pub fn State::submit(
 ) -> (Self, Attempt?) {
   let replica = write.replica()
   let account = replica.account()
-  let document_id = replica.document().id()
+  let document_id = replica.document_id()
   match self.find(account, document_id) {
     None => {
       let (self, attempt) = self.attempt(write)
@@ -200,7 +221,7 @@ pub fn State::retry(
   retry : Retry,
 ) -> (Self, Attempt) raise ExpiredRetry {
   let replica = retry.write.replica()
-  guard self.find(replica.account(), replica.document().id()) is Some(index) &&
+  guard self.find(replica.account(), replica.document_id()) is Some(index) &&
     self.lanes[index].state is Failed(retained, _) &&
     retained == retry.write else {
     raise ExpiredRetry
@@ -216,7 +237,7 @@ pub fn State::complete(
   result : Result[Unit, @source_repository.ReplicaFailure],
 ) -> (Self, Completion) raise StaleAttempt {
   let replica = attempt.write.replica()
-  guard self.find(replica.account(), replica.document().id()) is Some(index) &&
+  guard self.find(replica.account(), replica.document_id()) is Some(index) &&
     self.lanes[index].state is Persisting(active, waiting) &&
     active == attempt else {
     raise StaleAttempt

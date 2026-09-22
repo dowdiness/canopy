@@ -15,7 +15,7 @@ pub fn Key::replica(
 fn Record::key(self : Self) -> Key {
   match self.persistence {
     Source(_, _) | StartingSync(_, _) => Key::source(self.document.id())
-    Replica(account) => Key::replica(account, self.document.id())
+    Replica(account, _) => Key::replica(account, self.document.id())
     Forking(_) => Key::source(self.document.id())
   }
 }
@@ -28,7 +28,10 @@ fn Record::delete_phase(self : Self) -> DocumentsDeletePhase {
     Source(_, SourceDeletePhase::Deleting(operation)) => Deleting(operation)
     Source(_, SourceDeletePhase::Failed(operation, failure)) =>
       Failed(operation, failure)
-    StartingSync(_, _) | Replica(_) | Forking(_) => Unavailable
+    Replica(_, ReplicaAvailable) => DocumentsDeletePhase::Available
+    Replica(_, ReplicaPending) => ReplicaPending
+    Replica(_, ReplicaFailed(failure)) => ReplicaFailed(failure)
+    StartingSync(_, _) | Forking(_) => Unavailable
   }
 }
 
@@ -121,18 +124,23 @@ fn begin_save(
       )
     }
     StartingSync(_, _) | Forking(_) => (record, [])
-    Replica(account) =>
+    Replica(account, ReplicaAvailable | ReplicaFailed(_)) =>
       match saved.replica(account, record.document.id()) {
         Some(durable) =>
           (
             // The committed Replica can be older than an active persistence
             // lane. Submit every eligible value; Replication compares it with
             // the causal head and coalesces it when no write is needed.
-            { ..record, save: Saved, },
+            {
+              ..record,
+              persistence: Replica(account, ReplicaAvailable),
+              save: Saved,
+            },
             [Action::SaveReplica({ durable, document: record.document, })],
           )
         None => ({ ..record, save: Failed(InvalidSource), }, [])
       }
+    Replica(_, ReplicaPending) => (record, [])
   }
 }
 
@@ -152,11 +160,7 @@ pub fn State::State(saved : @source_repository.SavedDocuments) -> State {
   let replicas = saved
     .replicas()
     .filter_map(replica => {
-      if replica.is_deleted() {
-        None
-      } else {
-        Some(replica_record(replica))
-      }
+      replica.document().map(document => replica_record(replica, document))
     })
   {
     saved,
@@ -169,10 +173,12 @@ pub fn State::State(saved : @source_repository.SavedDocuments) -> State {
 }
 
 ///|
-fn replica_record(replica : @source_repository.DocumentReplica) -> Record {
-  let document = replica.document()
+fn replica_record(
+  replica : @source_repository.DocumentReplica,
+  document : @source_repository.Document,
+) -> Record {
   {
-    persistence: Replica(replica.account()),
+    persistence: Replica(replica.account(), ReplicaAvailable),
     document,
     version: 0,
     edit: Idle,
@@ -194,16 +200,16 @@ pub fn State::open_replica(
   self : Self,
   replica : @source_repository.DocumentReplica,
 ) -> RemoteOpen {
-  let key = Key::replica(replica.account(), replica.document().id())
-  guard !replica.is_deleted() &&
-    self.saved.replica(replica.account(), replica.document().id()) ==
+  let key = Key::replica(replica.account(), replica.document_id())
+  guard replica.document() is Some(document) &&
+    self.saved.replica(replica.account(), replica.document_id()) ==
     Some(replica) else {
     return Superseded
   }
   let documents = match find_record(self.records, key) {
-    Some(record) if record.persistence is Replica(account) &&
+    Some(record) if record.persistence is Replica(account, ReplicaAvailable) &&
       account == replica.account() &&
-      record.document == replica.document() &&
+      record.document == document &&
       record.save is DocumentsSaveStatus::Saved &&
       record.edit is EditState::Idle => self
     Some(_) => return Superseded
@@ -211,11 +217,12 @@ pub fn State::open_replica(
       let (documents, version) = allocate_working_copy_version(self)
       {
         ..documents,
-        records: documents.records + [{ ..replica_record(replica), version, }],
+        records: documents.records +
+        [{ ..replica_record(replica, document), version, }],
       }
     }
   }
-  Opened({ documents, key, document: replica.document(), })
+  Opened({ documents, key, document, })
 }
 
 ///|
@@ -237,7 +244,7 @@ pub fn State::hide_accounts(self : Self) -> Self {
 fn State::record_is_visible(self : Self, record : Record) -> Bool {
   match record.persistence {
     Source(_, _) | StartingSync(_, _) | Forking(_) => true
-    Replica(account) => self.visible_account == Some(account)
+    Replica(account, _) => self.visible_account == Some(account)
   }
 }
 

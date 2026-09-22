@@ -47,11 +47,19 @@ pub fn State::with_protocol(self : Self, protocol : @sync.State) -> Self {
 }
 
 ///|
-pub fn State::head(
+pub fn State::editing_base(
   self : Self,
   durable : @source_repository.DocumentReplica,
 ) -> @source_repository.DocumentReplica {
-  self.persistence.head(durable)
+  self.persistence.editing_base(durable)
+}
+
+///|
+pub fn State::protocol_base(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+) -> @source_repository.DocumentReplica {
+  self.persistence.protocol_base(durable)
 }
 
 ///|
@@ -91,6 +99,21 @@ pub fn State::retry(
 }
 
 ///|
+pub fn State::retry_document(
+  self : Self,
+  account : @source_repository.AccountId,
+  document_id : @source_repository.DocumentId,
+) -> (Self, Effect?) {
+  match self.persistence.status(account, document_id) {
+    @replica_persistence.Status::Retryable(retry, _) => {
+      let (self, effect) = self.retry(retry) catch { _ => return (self, None) }
+      (self, Some(effect))
+    }
+    Current | Persisting => (self, None)
+  }
+}
+
+///|
 pub fn State::complete(
   self : Self,
   attempt : @replica_persistence.Attempt,
@@ -116,7 +139,7 @@ pub fn State::select(
   let protocol = self.protocol.select_open(document_id)
   let self = { ..self, protocol, }
   let replica = match durable {
-    Some(value) => Some(self.persistence.head(value))
+    Some(value) => Some(self.persistence.editing_base(value))
     None => self.persistence.pending(account, document_id)
   }
   match self.persistence.status(account, document_id) {
@@ -168,7 +191,7 @@ pub fn State::settle_replica(
   let account = replica.account()
   guard self.protocol.session() is @sync.Session::Current(current, _) &&
     current == account &&
-    self.persistence.status(account, replica.document().id())
+    self.persistence.status(account, replica.document_id())
     is @replica_persistence.Status::Current else {
     return (self, None)
   }
@@ -189,7 +212,7 @@ pub fn State::resume_account(
   .fold(init=(self, []), (state, replica) => {
     let (replication, effects) = state
     let (replication, effects) = match
-      replication.status(account, replica.document().id()) {
+      replication.status(account, replica.document_id()) {
       @replica_persistence.Status::Retryable(retry, _) => {
         let (replication, effect) = replication.retry(retry) catch {
           _ => (replication, abort("projected retry must remain current"))

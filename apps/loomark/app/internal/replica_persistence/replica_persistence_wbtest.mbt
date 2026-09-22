@@ -21,6 +21,31 @@ fn replica(text : String) -> @source_repository.DocumentReplica {
 }
 
 ///|
+fn replica_text(replica : @source_repository.DocumentReplica) -> String {
+  replica.document().map(document => document.text()).unwrap()
+}
+
+///|
+fn synchronized_replica(text : String) -> @source_repository.DocumentReplica {
+  let initial = replica(text)
+  guard initial.directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
+    abort("initial save")
+  }
+  let operation = @source_repository.OperationId::parse(
+    "10000000-0000-4000-8000-000000000001",
+  ) catch {
+    _ => abort("operation id")
+  }
+  let revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("revision")
+  }
+  draft.start(operation).replica().acknowledge(operation, revision).replica() catch {
+    _ => abort("save acknowledgment")
+  }
+}
+
+///|
 test "a lane persists one write and retains only its newest successor" {
   let first = replica("first").store()
   let second = first.replica().edit("second")
@@ -41,8 +66,8 @@ test "a lane persists one write and retains only its newest successor" {
     _ => abort("current attempt")
   }
   guard completion is Superseded(stored, next) else { fail("successor") }
-  assert_eq(stored.replica().document().text(), "first")
-  assert_eq(next.write().replica().document().text(), "third")
+  assert_eq(replica_text(stored.replica()), "first")
+  assert_eq(replica_text(next.write().replica()), "third")
   assert_true(
     state.status(test_account(), test_document_id()) is Status::Persisting,
   )
@@ -67,7 +92,7 @@ test "failure retains the exact newest write for explicit retry" {
   guard completion is Retryable(retained, retry, WriteFailed) else {
     fail("retryable failure")
   }
-  assert_eq(retained.replica().document().text(), "second")
+  assert_eq(replica_text(retained.replica()), "second")
   let (state, retried) = state.retry(retry) catch {
     _ => abort("current retry")
   }
@@ -95,7 +120,7 @@ test "a newer eligible edit replaces a failed write and starts immediately" {
     fail("newer write")
   }
   let (state, replacement) = state.submit(smaller)
-  assert_eq(replacement.unwrap().write().replica().document().text(), "smaller")
+  assert_eq(replica_text(replacement.unwrap().write().replica()), "smaller")
   assert_true(
     state.status(test_account(), test_document_id()) is Status::Persisting,
   )
@@ -137,9 +162,93 @@ test "successful source ownership transfer releases its newest successor" {
     _ => abort("current attempt")
   }
   guard completion is Superseded(stored, next) else { fail("successor") }
-  assert_eq(stored.replica().document().text(), "text")
-  assert_eq(next.write().replica().document().text(), "newer")
+  assert_eq(replica_text(stored.replica()), "text")
+  assert_eq(replica_text(next.write().replica()), "newer")
   assert_true(next.write() is @source_repository.ReplicaWrite::Store(_))
+}
+
+///|
+test "queued deletion supersedes an active save without losing its intent" {
+  let current = synchronized_replica("first")
+  guard current.edit("newer") is @source_repository.EditPlan::Persist(save) else {
+    fail("save write")
+  }
+  let deletion = save.replica().request_deletion()
+  let (state, attempt) = State().submit(save)
+  let (state, queued) = state.submit(deletion)
+  assert_eq(queued, None)
+  let (_, completion) = state.complete(attempt.unwrap(), Ok(())) catch {
+    _ => abort("active save")
+  }
+  guard completion is Superseded(_, next) else { fail("queued deletion") }
+  assert_true(next.write().replica().is_deleting())
+  assert_eq(next.write(), deletion)
+}
+
+///|
+test "failed deletion branches new edits from the durable replica" {
+  let durable = synchronized_replica("durable")
+  let deletion = durable.request_deletion()
+  let (state, attempt) = State().submit(deletion)
+  let (state, completion) = state.complete(
+    attempt.unwrap(),
+    Err(@source_repository.ReplicaFailure::WriteFailed),
+  ) catch {
+    _ => abort("deletion attempt")
+  }
+  assert_true(completion is Retryable(_, _, WriteFailed))
+  assert_eq(state.editing_base(durable), durable)
+  guard state.editing_base(durable).edit("edited after failure")
+    is @source_repository.EditPlan::Persist(edit) else {
+    fail("durable replica remains editable")
+  }
+  let (_, replacement) = state.submit(edit)
+  assert_eq(
+    replacement.map(attempt => replica_text(attempt.write().replica())),
+    Some("edited after failure"),
+  )
+}
+
+///|
+test "a delayed acknowledgment rebases a failed newer edit" {
+  let base = synchronized_replica("base")
+  guard base.edit("sent") is @source_repository.EditPlan::Persist(ready) &&
+    ready.replica().directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
+    fail("save draft")
+  }
+  let operation = @source_repository.OperationId::parse(
+    "20000000-0000-4000-8000-000000000002",
+  ) catch {
+    _ => abort("operation id")
+  }
+  let durable = draft.start(operation).replica()
+  guard durable.edit("newer") is @source_repository.EditPlan::Persist(newer) else {
+    fail("newer edit")
+  }
+  let (state, attempt) = State().submit(newer)
+  let (state, _) = state.complete(
+    attempt.unwrap(),
+    Err(@source_repository.ReplicaFailure::WriteFailed),
+  ) catch {
+    _ => abort("newer write")
+  }
+  let revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("revision")
+  }
+  let acknowledged = state
+    .protocol_base(durable)
+    .acknowledge(operation, revision) catch {
+      _ => abort("delayed acknowledgment")
+    }
+  let (_, replacement) = state.submit(acknowledged)
+  let replacement = replacement.unwrap().write().replica()
+  assert_eq(replica_text(replacement), "newer")
+  guard replacement.directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
+    fail("newer edit remains pending")
+  }
+  assert_eq(draft.content(), @source_repository.PendingContent::Save("newer"))
 }
 
 ///|

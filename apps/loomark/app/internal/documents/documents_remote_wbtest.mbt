@@ -44,7 +44,7 @@ test "remote update capability expires after a local edit" {
     remote_revision(2.0, "remote"),
   )
   guard change is UpdateAvailable(action) else { fail("available update") }
-  let key = Key::replica(replica.account(), replica.document().id())
+  let key = Key::replica(replica.account(), replica.document_id())
   let (documents, _) = documents.reduce(TextChanged(key, "local"))
   let expired = try documents.accept_remote(replica, action) catch {
     ExpiredAction => true
@@ -102,10 +102,10 @@ test "accepting a remote update replaces only the parsed replica revision" {
     is RemoteAcceptance::Opened(documents, document, write) else {
     fail("accepted update")
   }
-  let key = Key::replica(replica.account(), replica.document().id())
+  let key = Key::replica(replica.account(), replica.document_id())
   assert_eq(document.text(), "remote")
   assert_eq(documents.text(key), Some("remote"))
-  assert_eq(write.replica().document(), document)
+  assert_eq(write.replica().document(), Some(document))
 }
 
 ///|
@@ -121,9 +121,9 @@ test "accepting a remote deletion removes the working copy without inventing tex
     is RemoteAcceptance::Removed(documents, write) else {
     fail("accepted deletion")
   }
-  let key = Key::replica(replica.account(), replica.document().id())
+  let key = Key::replica(replica.account(), replica.document_id())
   assert_eq(documents.text(key), None)
-  assert_eq(write.replica().document().text(), "base")
+  assert_eq(write.replica().document(), None)
   assert_true(write.replica().is_deleted())
   let switched = documents
     .project_account(account_id("other"))

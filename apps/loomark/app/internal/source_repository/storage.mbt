@@ -107,12 +107,11 @@ fn replica_result(
 ///|
 fn replica_mutations(write : ReplicaWrite) -> Array[@indexed_db.Mutation] {
   let replica = write.replica()
-  let replica_mutation = @indexed_db.Mutation::Set(
-    replica_key(replica.account, replica.document.id()),
-    encode_replica(replica),
-  )
+  let key = replica_key(replica.account(), replica.document_id())
+  let replica_mutation = @indexed_db.Mutation::Set(key, encode_replica(replica))
   match write {
     Store(_) => [replica_mutation]
+    Remove(_) => [@indexed_db.Mutation::Delete(key)]
     Fork(_, recovery) =>
       [
         replica_mutation,
@@ -124,7 +123,7 @@ fn replica_mutations(write : ReplicaWrite) -> Array[@indexed_db.Mutation] {
     PromoteSource(_) =>
       [
         replica_mutation,
-        @indexed_db.Mutation::Delete(source_key(replica.document.id())),
+        @indexed_db.Mutation::Delete(source_key(replica.document_id())),
       ]
   }
 }
@@ -137,15 +136,16 @@ pub fn persist_replica_write(
 ) -> @cmd.Cmd {
   let replica = write.replica()
   guard (match write {
-    Store(_) => true
+    Store(_) | Remove(_) => true
     Fork(_, recovery) =>
       saved.find(recovery.id()) is None &&
       !saved.observed(source_key(recovery.id()))
-    PromoteSource(_) =>
-      saved.find(replica.document().id()) == Some(replica.document()) &&
+    PromoteSource(_) if replica.document() is Some(document) =>
+      saved.find(replica.document_id()) == Some(document) &&
       !saved.observed_replicas(
-        replica_key(replica.account(), replica.document().id()),
+        replica_key(replica.account(), replica.document_id()),
       )
+    PromoteSource(_) => false
   }) else {
     return msg(Err(ReplicaFailure::InvalidReplica))
   }

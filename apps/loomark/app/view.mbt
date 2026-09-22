@@ -313,6 +313,25 @@ fn delete_failure_view(
 }
 
 ///|
+fn delete_persistence_failure_view(
+  document_id : @documents.Key,
+  failure : @source_repository.ReplicaFailure,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  let reason = match failure {
+    InvalidReplica => "The synchronized document state is invalid."
+    StorageUnavailable => "Browser storage is unavailable."
+    QuotaExceeded => "Browser storage is full."
+    WriteFailed => "Browser storage failed while saving the deletion."
+  }
+  failure_notice(
+    "The deletion was not saved. " + reason,
+    "Try again",
+    emit(RetryDelete(document_id)),
+  )
+}
+
+///|
 fn save_failure_view(
   failure : @source_repository.SaveFailure,
   emit : @rabbita.Emit[Msg],
@@ -426,6 +445,16 @@ fn view(
                         editing.documents.delete_status(editing.activation.key) {
                         Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
                           delete_failure_view(
+                            editing.activation.key,
+                            failure,
+                            emit,
+                          )
+                        Some(
+                          @documents.DeleteStatus::DeletePersistenceFailed(
+                            failure
+                          )
+                        ) =>
+                          delete_persistence_failure_view(
                             editing.activation.key,
                             failure,
                             emit,

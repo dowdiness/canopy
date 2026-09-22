@@ -67,6 +67,8 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Action]) {
         SaveCompleted(operation, result) => complete(self, operation, result)
         ReplicaAdvanced(write) => advance_replica(self, write)
         ReplicaSettled(write, mounted) => settle_replica(self, write, mounted)
+        ReplicaDeletionFailed(write, failure) =>
+          fail_replica_deletion(self, write, failure)
         PromotionCompleted(write, result) =>
           complete_sync_start(self, write.replica(), result)
         DeleteCompleted(operation, result) =>
@@ -92,7 +94,7 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Action]) {
                 | SourceDeletePhase::Deleting(_)
               )
               | StartingSync(_, _)
-              | Replica(_)
+              | Replica(_, _)
               | Forking(_) => r
             }
           }),
@@ -139,7 +141,10 @@ pub fn State::document(
   self : Self,
   document_id : Key,
 ) -> @source_repository.Document? {
-  find_record(self.records, document_id).map(record => record.document)
+  match find_record(self.records, document_id) {
+    Some(record) => Some(record.document)
+    None => None
+  }
 }
 
 ///|
@@ -167,7 +172,7 @@ pub fn State::resume_hint(
       match record.persistence {
         Source(_, _) | StartingSync(_, _) =>
           self.saved.editing_document_hint(record.document.id())
-        Replica(_) | Forking(_) => None
+        Replica(_, _) | Forking(_) => None
       }
     None => None
   }
@@ -205,15 +210,15 @@ pub fn State::remote_change(
   self : Self,
   replica : @source_repository.DocumentReplica,
 ) -> RemoteChange? {
-  let key = Key::replica(replica.account(), replica.document().id())
+  let key = Key::replica(replica.account(), replica.document_id())
   guard find_record(self.records, key) is Some(record) &&
-    record.persistence is Replica(account) &&
+    record.persistence is Replica(account, ReplicaAvailable) &&
     account == replica.account() &&
     self.visible_account == Some(account) &&
-    record.document == replica.document() &&
+    replica.document() == Some(record.document) &&
     record.save is DocumentsSaveStatus::Saved &&
     record.edit is EditState::Idle &&
-    self.saved.replica(account, replica.document().id()) == Some(replica) &&
+    self.saved.replica(account, replica.document_id()) == Some(replica) &&
     replica.remote_update() is Some(update) else {
     return None
   }
@@ -242,7 +247,7 @@ pub fn State::accept_remote(
   let (self, version) = allocate_working_copy_version(self)
   match action.update.remote() {
     @source_repository.RemoteDocument::Present(_, _) => {
-      let document = accepted.document()
+      guard accepted.document() is Some(document) else { raise ExpiredAction }
       let records = replace_record(self.records, action.key, record => {
         ..record,
         document,
@@ -292,21 +297,21 @@ pub fn State::snapshot(self : Self) -> @source_repository.SavedDocuments {
 
 ///|
 pub fn State::text(self : Self, id : Key) -> String? {
-  find_record(self.records, id).map(r => r.document.text())
+  self.document(id).map(document => document.text())
 }
 
 ///|
 pub fn State::save_status(self : Self, id : Key) -> SaveStatus? {
   find_record(self.records, id).map(r => {
     match r.persistence {
-      Replica(account) =>
+      Replica(account, _) =>
         match r.save {
           DocumentsSaveStatus::Waiting(_) | DocumentsSaveStatus::Saving(_, _) =>
             SaveStatus::Unsaved
           Failed(failure) => SaveStatus::SaveFailed(failure)
           Saved =>
             match self.saved.replica(account, r.document.id()) {
-              Some(replica) if replica.document() == r.document =>
+              Some(replica) if replica.document() == Some(r.document) =>
                 SaveStatus::Clean
               Some(_) | None => SaveStatus::Unsaved
             }
@@ -334,7 +339,7 @@ pub fn State::replica_owner(
   match find_record(self.records, key) {
     Some(record) =>
       match record.persistence {
-        Replica(account) => Some((account, record.document.id()))
+        Replica(account, _) => Some((account, record.document.id()))
         Forking(ownership) => Some((ownership.account, ownership.original))
         Source(_, _) | StartingSync(_, _) => None
       }
@@ -358,6 +363,9 @@ pub fn State::delete_status(self : Self, id : Key) -> DeleteStatus? {
         DeleteStatus::DeletePending
       DocumentsDeletePhase::Failed(_, failure) =>
         DeleteStatus::DeleteFailed(failure)
+      DocumentsDeletePhase::ReplicaPending => DeleteStatus::DeletePending
+      DocumentsDeletePhase::ReplicaFailed(failure) =>
+        DeleteStatus::DeletePersistenceFailed(failure)
     }
   })
 }
@@ -386,6 +394,16 @@ pub fn State::recent(
       ),
     )
   })
+}
+
+///|
+/// Identities owned locally, including durable deleting/tombstoned Replicas
+/// that intentionally have no Recent documents row.
+pub fn State::known_keys(self : Self) -> Array[Key] {
+  self.records.map(record => record.key()) +
+  self.saved
+  .replicas()
+  .map(replica => Key::replica(replica.account(), replica.document_id()))
 }
 
 ///|

@@ -27,7 +27,8 @@ fn pending_save() -> @source_repository.PendingOperation {
     },
     @source_repository.Document::create(document_id(), "exact text"),
   )
-  guard replica.plan_save() is @source_repository.OperationPlan::Start(draft) else {
+  guard replica.directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
     abort("save draft")
   }
   guard draft.start(operation_id()).replica().directive()
@@ -94,8 +95,8 @@ test "mutation JSON is derived from a typed pending operation" {
     },
     @source_repository.Document::create(document_id(), "exact text"),
   )
-  let acknowledged = replica.plan_save()
-  guard acknowledged is @source_repository.OperationPlan::Start(save_draft) else {
+  guard replica.directive()
+    is @source_repository.ReplicaDirective::CreateOperation(save_draft) else {
     abort("save draft")
   }
   let acknowledged = save_draft
@@ -108,8 +109,9 @@ test "mutation JSON is derived from a typed pending operation" {
       },
     )
     .replica()
-  guard acknowledged.plan_delete()
-    is @source_repository.OperationPlan::Start(delete_draft) else {
+  let deleting = acknowledged.request_deletion().replica()
+  guard deleting.directive()
+    is @source_repository.ReplicaDirective::CreateOperation(delete_draft) else {
     abort("delete draft")
   }
   guard delete_draft.start(second_operation_id()).replica().directive()

@@ -45,7 +45,7 @@ fn replica_status(
     Inactive =>
       match replica.directive() {
         @source_repository.ReplicaDirective::Synchronized => Synced
-        SaveRequired | Send(_) | RecoveryRequired => WaitingToSync
+        CreateOperation(_) | Send(_) | RecoveryRequired => WaitingToSync
         UpdateAvailable(_) =>
           match remote_change {
             Some(@documents.RemoteChange::UpdateAvailable(action)) =>

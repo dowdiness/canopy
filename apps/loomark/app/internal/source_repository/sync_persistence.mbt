@@ -11,6 +11,7 @@ fn preserve_recovery(
         Store(replica)
       }
     (PromoteSource(_), Store(replica)) => PromoteSource(replica)
+    (_, Remove(replica)) => Remove(replica)
     (_, newer) => newer
   }
 }

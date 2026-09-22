@@ -188,11 +188,45 @@ fn RecoveryIdentity::document(self : Self, text : String) -> Document {
 }
 
 ///|
-pub enum ReplicaPhase {
+pub enum LivePhase {
   Ready
   Sending(PendingOperation)
   Available(RemoteDocument)
   Diverged(RemoteDocument)
+} derive(Eq, Debug)
+
+///|
+pub enum LiveBaseline {
+  Unpublished
+  Saved(SavedRevision, String)
+} derive(Eq, Debug)
+
+///|
+pub enum DeletionPhase {
+  Ready
+  ResolvingSave(PendingOperation)
+  Sending(PendingOperation)
+} derive(Eq, Debug)
+
+///|
+pub struct LiveReplica {
+  document : Document
+  baseline : LiveBaseline
+  phase : LivePhase
+} derive(Eq, Debug)
+
+///|
+pub struct DeletingReplica {
+  document : Document
+  baseline : LiveBaseline
+  phase : DeletionPhase
+} derive(Eq, Debug)
+
+///|
+pub(all) enum ReplicaState {
+  Live(LiveReplica)
+  Deleting(DeletingReplica)
+  Tombstone(SavedRevision)
 } derive(Eq, Debug)
 
 ///|
@@ -213,9 +247,8 @@ priv enum RemoteUpdateContent {
 pub struct DocumentReplica {
   account : AccountId
   generation : Double
-  document : Document
-  baseline : RemoteDocument
-  phase : ReplicaPhase
+  document_id : DocumentId
+  state : ReplicaState
   recovery : RecoveryIdentity?
 } derive(Eq, Debug)
 
@@ -227,9 +260,12 @@ pub fn DocumentReplica::DocumentReplica(
   {
     account,
     generation: 0.0,
-    document,
-    baseline: RemoteDocument::Missing,
-    phase: ReplicaPhase::Ready,
+    document_id: document.id(),
+    state: ReplicaState::Live({
+      document,
+      baseline: LiveBaseline::Unpublished,
+      phase: LivePhase::Ready,
+    }),
     recovery: None,
   }
 }
@@ -243,9 +279,12 @@ pub fn DocumentReplica::receive(
   {
     account,
     generation: 0.0,
-    document,
-    baseline: RemoteDocument::Present(revision, document.text()),
-    phase: ReplicaPhase::Ready,
+    document_id: document.id(),
+    state: ReplicaState::Live({
+      document,
+      baseline: LiveBaseline::Saved(revision, document.text()),
+      phase: LivePhase::Ready,
+    }),
     recovery: None,
   }
 }
@@ -256,8 +295,16 @@ pub fn DocumentReplica::account(self : Self) -> AccountId {
 }
 
 ///|
-pub fn DocumentReplica::document(self : Self) -> Document {
-  self.document
+pub fn DocumentReplica::document_id(self : Self) -> DocumentId {
+  self.document_id
+}
+
+///|
+pub fn DocumentReplica::document(self : Self) -> Document? {
+  match self.state {
+    Live(value) => Some(value.document)
+    Deleting(_) | Tombstone(_) => None
+  }
 }
 
 ///|
@@ -267,26 +314,32 @@ pub fn DocumentReplica::generation(self : Self) -> Double {
 
 ///|
 pub fn DocumentReplica::baseline_revision(self : Self) -> Double {
-  self.baseline.revision()
+  match self.state {
+    Live(value) => value.baseline.revision()
+    Deleting(value) => value.baseline.revision()
+    Tombstone(revision) => revision.value()
+  }
 }
 
 ///|
 pub fn DocumentReplica::observed_revision(self : Self) -> Double {
-  match self.phase {
-    Available(remote) | Diverged(remote) => remote.revision()
-    Ready | Sending(_) => self.baseline.revision()
+  match self.state {
+    Live({ phase: Available(remote) | Diverged(remote), .. }) =>
+      remote.revision()
+    Live(value) => value.baseline.revision()
+    Deleting(value) => value.baseline.revision()
+    Tombstone(revision) => revision.value()
   }
 }
 
 ///|
 pub fn DocumentReplica::remote_update(self : Self) -> RemoteUpdate? {
-  match self.phase {
-    Available(RemoteDocument::Present(revision, text)) =>
+  match self.state {
+    Live({ phase: Available(RemoteDocument::Present(revision, text)), .. }) =>
       Some({ replica: self, content: PresentUpdate(revision, text), })
-    Available(Deleted(revision)) =>
+    Live({ phase: Available(Deleted(revision)), .. }) =>
       Some({ replica: self, content: DeletedUpdate(revision), })
-    Available(Missing) => None
-    Ready | Sending(_) | Diverged(_) => None
+    Live(_) | Deleting(_) | Tombstone(_) => None
   }
 }
 
@@ -304,12 +357,35 @@ fn DocumentReplica::advance(self : Self) -> DocumentReplica {
 }
 
 ///|
+fn LiveBaseline::revision(self : Self) -> Double {
+  match self {
+    Unpublished => 0.0
+    Saved(revision, _) => revision.value()
+  }
+}
+
+///|
+fn LiveBaseline::remote(self : Self) -> RemoteDocument {
+  match self {
+    Unpublished => RemoteDocument::Missing
+    Saved(revision, text) => RemoteDocument::Present(revision, text)
+  }
+}
+
+///|
+fn LiveBaseline::same_text(self : Self, text : String) -> Bool {
+  match self {
+    Saved(_, baseline) => baseline == text
+    Unpublished => false
+  }
+}
+
+///|
 fn replica_from_storage(
   account : AccountId,
-  document : Document,
+  document_id : DocumentId,
   generation : Double,
-  baseline : RemoteDocument,
-  phase : ReplicaPhase,
+  state : ReplicaState,
   recovery : RecoveryIdentity?,
 ) -> DocumentReplica raise InvalidReplica {
   guard generation >= 0.0 &&
@@ -317,28 +393,14 @@ fn replica_from_storage(
     @double.floor(generation) == generation else {
     raise InvalidReplica
   }
-  match phase {
-    Sending(operation) => {
-      guard operation.base_revision == baseline.revision() else {
-        raise InvalidReplica
-      }
-    }
-    Available(remote) => {
-      guard remote.revision() > baseline.revision() &&
-        baseline.same_present_text(document.text()) else {
-        raise InvalidReplica
-      }
-    }
-    Diverged(remote) => {
-      guard remote.revision() > baseline.revision() &&
-        !baseline.same_present_text(document.text()) &&
-        !remote.same_present_text(document.text()) else {
-        raise InvalidReplica
-      }
-    }
-    Ready => ()
+  guard (match state {
+    Live(value) => value.document.id() == document_id
+    Deleting(value) => value.document.id() == document_id
+    Tombstone(_) => recovery is None
+  }) else {
+    raise InvalidReplica
   }
-  { account, generation, document, baseline, phase, recovery, }
+  { account, generation, document_id, state, recovery, }
 }
 
 ///|
@@ -348,7 +410,12 @@ pub fn DocumentReplica::recovery_document_id(self : Self) -> DocumentId? {
 
 ///|
 pub fn DocumentReplica::is_deleted(self : Self) -> Bool {
-  self.baseline is RemoteDocument::Deleted(_)
+  self.state is ReplicaState::Tombstone(_)
+}
+
+///|
+pub fn DocumentReplica::is_deleting(self : Self) -> Bool {
+  self.state is ReplicaState::Deleting(_)
 }
 
 ///|
@@ -356,6 +423,9 @@ pub fn DocumentReplica::is_deleted(self : Self) -> Bool {
 /// detach conflict recovery from its replica.
 pub enum ReplicaWrite {
   Store(DocumentReplica)
+  // Removal commits identity, not the candidate's transient text. The Replica
+  // payload carries routing identity through the persistence lane.
+  Remove(DocumentReplica)
   Fork(DocumentReplica, Document)
   PromoteSource(DocumentReplica)
 } derive(Eq, Debug)
@@ -363,7 +433,10 @@ pub enum ReplicaWrite {
 ///|
 pub fn ReplicaWrite::replica(self : Self) -> DocumentReplica {
   match self {
-    Store(replica) | Fork(replica, _) | PromoteSource(replica) => replica
+    Store(replica)
+    | Remove(replica)
+    | Fork(replica, _)
+    | PromoteSource(replica) => replica
   }
 }
 
@@ -371,7 +444,7 @@ pub fn ReplicaWrite::replica(self : Self) -> DocumentReplica {
 pub fn ReplicaWrite::recovery(self : Self) -> Document? {
   match self {
     Fork(_, recovery) => Some(recovery)
-    Store(_) | PromoteSource(_) => None
+    Store(_) | Remove(_) | PromoteSource(_) => None
   }
 }
 

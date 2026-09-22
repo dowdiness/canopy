@@ -32,7 +32,10 @@ fn acknowledged_document(
   match key {
     Source(document_id) => saved.find(document_id)
     Replica(account, document_id) =>
-      saved.replica(account, document_id).map(value => value.document())
+      match saved.replica(account, document_id) {
+        Some(replica) => replica.document()
+        None => None
+      }
   }
 }
 
@@ -47,10 +50,10 @@ pub fn State::begin_fork(
   guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
     raise ExpiredAction
   }
-  let original = replica.document().id()
+  let original = replica.document_id()
   let key = Key::replica(replica.account(), original)
   guard find_record(self.records, key) is Some(record) &&
-    record.persistence is Replica(account) &&
+    record.persistence is Replica(account, ReplicaAvailable) &&
     account == replica.account() else {
     raise ExpiredAction
   }
@@ -345,7 +348,7 @@ fn complete_stored(
   let persistence = match record.persistence {
     Source(EphemeralNew | ImportedNew, deletion) =>
       DocumentPersistence::Source(Existing, deletion)
-    Source(Existing, _) | StartingSync(_, _) | Replica(_) | Forking(_) =>
+    Source(Existing, _) | StartingSync(_, _) | Replica(_, _) | Forking(_) =>
       record.persistence
   }
   let completed = { ..record, persistence, }
@@ -367,7 +370,7 @@ fn complete_stored(
       | SourceDeletePhase::Failed(_, _)
     )
     | StartingSync(_, _)
-    | Replica(_)
+    | Replica(_, _)
     | Forking(_) => {
       let (next, decisions) = match pending {
         Some(_) if acknowledged_document(saved, record.key()) ==
@@ -424,7 +427,7 @@ fn complete_failed(
       | SourceDeletePhase::Failed(_, _)
     )
     | StartingSync(_, _)
-    | Replica(_)
+    | Replica(_, _)
     | Forking(_) => {
       let (next, decisions) = if acknowledged_document(
           documents.saved,
@@ -487,29 +490,84 @@ fn refresh_replica_record(
   replica : @source_repository.DocumentReplica,
   mounted : Key?,
 ) -> State {
-  let key = Key::replica(replica.account(), replica.document().id())
-  guard mounted != Some(key) &&
-    previous is Some(previous) &&
-    find_record(documents.records, key) is Some(record) &&
-    record.persistence is Replica(account) &&
-    account == replica.account() &&
-    record.document == previous.document() &&
-    record.save is DocumentsSaveStatus::Saved &&
-    record.edit is EditState::Idle else {
+  let key = Key::replica(replica.account(), replica.document_id())
+  guard replica.document() is Some(document) else {
+    return { ..documents, records: remove_record(documents.records, key), }
+  }
+  guard previous is Some(previous) else { return documents }
+  match find_record(documents.records, key) {
+    None if previous.document() is None => {
+      let (documents, version) = allocate_working_copy_version(documents)
+      return {
+        ..documents,
+        records: prepend_record(documents.records, {
+          ..replica_record(replica, document),
+          version,
+        }),
+      }
+    }
+    None => return documents
+    Some(_) => ()
+  }
+  guard find_record(documents.records, key) is Some(record) &&
+    record.persistence is Replica(account, deletion) &&
+    account == replica.account() else {
     return documents
   }
-  if replica.is_deleted() {
-    { ..documents, records: remove_record(documents.records, key), }
-  } else {
+  if previous.document() is None || deletion is ReplicaFailed(_) {
     let (documents, version) = allocate_working_copy_version(documents)
-    {
+    return {
       ..documents,
       records: replace_record(documents.records, key, _ => {
-        ..replica_record(replica),
+        ..replica_record(replica, document),
         version,
       }),
     }
   }
+  guard mounted != Some(key) &&
+    previous.document() == Some(record.document) &&
+    record.save is DocumentsSaveStatus::Saved &&
+    record.edit is EditState::Idle else {
+    return documents
+  }
+  let (documents, version) = allocate_working_copy_version(documents)
+  {
+    ..documents,
+    records: replace_record(documents.records, key, _ => {
+      ..replica_record(replica, document),
+      version,
+    }),
+  }
+}
+
+///|
+fn fail_replica_deletion(
+  documents : State,
+  write : @source_repository.ReplicaWrite,
+  failure : @source_repository.ReplicaFailure,
+) -> (State, Array[Action]) {
+  let replica = write.replica()
+  guard write is @source_repository.ReplicaWrite::Remove(_) ||
+    replica.is_deleting() ||
+    replica.is_deleted() else {
+    return (documents, [])
+  }
+  let key = Key::replica(replica.account(), replica.document_id())
+  guard find_record(documents.records, key) is Some(record) &&
+    record.persistence is Replica(account, ReplicaPending) &&
+    account == replica.account() else {
+    return (documents, [])
+  }
+  (
+    {
+      ..documents,
+      records: replace_record(documents.records, key, current => {
+        ..current,
+        persistence: Replica(account, ReplicaFailed(failure)),
+      }),
+    },
+    [],
+  )
 }
 
 ///|
@@ -518,7 +576,7 @@ fn advance_replica(
   write : @source_repository.ReplicaWrite,
 ) -> (State, Array[Action]) {
   let saved = documents.saved.apply_replica_write(write) catch {
-    _ => return (documents, [])
+    _ => abort("committed replica write violated repository state")
   }
   ({ ..documents, saved, }, [])
 }
@@ -532,10 +590,17 @@ fn settle_replica(
   let replica = write.replica()
   let previous = documents.saved.replica(
     replica.account(),
-    replica.document().id(),
+    replica.document_id(),
   )
   let saved = documents.saved.apply_replica_write(write) catch {
-    _ => return (documents, [])
+    _ => abort("settled replica write violated repository state")
+  }
+  if write is @source_repository.ReplicaWrite::Remove(replica) {
+    let key = Key::replica(replica.account(), replica.document_id())
+    return (
+      { ..documents, saved, records: remove_record(documents.records, key), },
+      [],
+    )
   }
   guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
     // Replica persistence acknowledges repository state, not the working-copy
@@ -555,7 +620,7 @@ fn settle_replica(
   guard find_record(documents.records, recovery_key) is Some(record) &&
     record.persistence is Forking(ownership) &&
     ownership.account == replica.account() &&
-    ownership.original == replica.document().id() &&
+    ownership.original == replica.document_id() &&
     ownership.recovery == recovery else {
     return (documents, [])
   }
@@ -581,7 +646,10 @@ fn settle_replica(
       saved,
       records,
     })
-    let original = { ..replica_record(replica), version, }
+    guard replica.document() is Some(document) else {
+      return ({ ..documents, saved, records, }, effects)
+    }
+    let original = { ..replica_record(replica, document), version, }
     (
       { ..documents, records: prepend_record(documents.records, original), },
       effects,
@@ -632,11 +700,12 @@ fn complete_sync_start(
   replica : @source_repository.DocumentReplica,
   result : Result[Unit, @source_repository.ReplicaFailure],
 ) -> (State, Array[Action]) {
-  let source_key = Key::source(replica.document().id())
+  guard replica.document() is Some(document) else { return (documents, []) }
+  let source_key = Key::source(replica.document_id())
   guard find_record(documents.records, source_key) is Some(record) &&
     record.persistence is StartingSync(account, source) &&
     account == replica.account() &&
-    source == replica.document() else {
+    source == document else {
     return (documents, [])
   }
   match result {
@@ -646,8 +715,8 @@ fn complete_sync_start(
       }
       let transitioned = {
         ..record,
-        persistence: Replica(account),
-        save: if record.document == replica.document() {
+        persistence: Replica(account, ReplicaAvailable),
+        save: if record.document == document {
           Saved
         } else {
           record.save

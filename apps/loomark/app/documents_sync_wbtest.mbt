@@ -28,18 +28,23 @@ fn sync_test_saved() -> @source_repository.SavedDocuments {
   let saved = @source_repository.SavedDocuments::from_documents([
     sync_test_document("local", "local"),
   ]).unwrap()
+  let revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid synced revision")
+  }
   let saved = saved.apply_replica(
-    @source_repository.DocumentReplica(
+    @source_repository.DocumentReplica::receive(
       account_a,
       sync_test_document("shared", "A"),
+      revision,
     ),
   ) catch {
     _ => abort("valid account A replica")
   }
   saved.apply_replica(
-    @source_repository.DocumentReplica(
+    @source_repository.DocumentReplica::receive(
       account_b,
       sync_test_document("shared", "B"),
+      revision,
     ),
   ) catch {
     _ => abort("valid account B replica")
@@ -98,34 +103,146 @@ test "account switch retains optimistic text under its original owner" {
 }
 
 ///|
-test "synced deletion stays unavailable until its network path is connected" {
+test "synced deletion hides a non-active row while its intent is persisted" {
   let account = sync_test_account("account-a")
   let documents = @documents.State::State(sync_test_saved()).project_account(
     account,
   )
   let token = sync_test_key(account, "shared")
-  let (unchanged, decisions) = documents.reduce(
+  let (pending, actions) = documents.reduce(
     @documents.Msg::DeleteConfirmed(token),
   )
-  assert_true(unchanged == documents)
-  assert_true(decisions.is_empty())
-  assert_true(documents.delete_status(token) is Some(NotDeletable))
+  guard actions is [@documents.Action::DeleteReplica(edit)] else {
+    fail("durable deletion intent")
+  }
+  assert_eq(pending.text(token), Some("A"))
+  assert_true(pending.delete_status(token) is Some(DeletePending))
+  let visible = recent_document_seeds(
+    { ..test_editing(), documents: pending, },
+    [],
+  ).to_array()
+  assert_false(visible.exists(seed => seed.docid() == token))
+
+  let write = edit.durable().request_deletion()
+  let (hidden, _) = pending.reduce(
+    @documents.Msg::FeedbackReceived(ReplicaSettled(write, Some(token))),
+  )
+  assert_eq(hidden.text(token), None)
+  assert_true(
+    hidden
+    .snapshot()
+    .replica(account, document_id("shared"))
+    .unwrap()
+    .is_deleting(),
+  )
 }
 
 ///|
-test "synced document remains selectable while deletion is unavailable" {
+test "failed deletion persistence restores the document and exact retry" {
   let account = sync_test_account("account-a")
   let documents = @documents.State::State(sync_test_saved()).project_account(
     account,
   )
-  let editing = { ..test_editing(), documents, }
   let token = sync_test_key(account, "shared")
-  let shared = recent_document_seeds(editing, [])
-    .iter()
-    .find_first(seed => seed.docid() == token)
-    .unwrap()
-  assert_true(shared.selection() is @recent_documents.Selection::Selectable)
-  assert_true(
-    shared.deletion() is @recent_documents.DeletionAvailability::Blocked,
+  let (pending, actions) = documents.reduce(
+    @documents.Msg::DeleteConfirmed(token),
   )
+  guard actions is [@documents.Action::DeleteReplica(edit)] else {
+    fail("durable deletion intent")
+  }
+  let write = edit.durable().request_deletion()
+  let (failed, _) = pending.reduce(
+    @documents.Msg::FeedbackReceived(
+      ReplicaDeletionFailed(
+        write,
+        @source_repository.ReplicaFailure::WriteFailed,
+      ),
+    ),
+  )
+  assert_eq(failed.text(token), Some("A"))
+  assert_true(
+    failed.delete_status(token)
+    is Some(
+      DeletePersistenceFailed(@source_repository.ReplicaFailure::WriteFailed)
+    ),
+  )
+  let (_, retry) = failed.reduce(@documents.Msg::RetryDelete(token))
+  guard retry is [@documents.Action::RetryReplica(owner, document)] &&
+    owner == account &&
+    document == document_id("shared") else {
+    fail("retry is owned by the persistence lane")
+  }
+}
+
+///|
+test "deletion intent remains isolated to its owning account" {
+  let account_a = sync_test_account("account-a")
+  let account_b = sync_test_account("account-b")
+  let token_a = sync_test_key(account_a, "shared")
+  let token_b = sync_test_key(account_b, "shared")
+  let documents = @documents.State::State(sync_test_saved()).project_account(
+    account_a,
+  )
+  let (pending, actions) = documents.reduce(
+    @documents.Msg::DeleteConfirmed(token_a),
+  )
+  guard actions is [@documents.Action::DeleteReplica(edit)] else {
+    fail("account A deletion")
+  }
+  let write = edit.durable().request_deletion()
+  let (hidden, _) = pending.reduce(
+    @documents.Msg::FeedbackReceived(ReplicaSettled(write, Some(token_a))),
+  )
+  let account_b_documents = hidden.project_account(account_b)
+  assert_eq(account_b_documents.text(token_a), None)
+  assert_eq(account_b_documents.text(token_b), Some("B"))
+}
+
+///|
+test "delete conflict restores the working copy for a new decision" {
+  let account = sync_test_account("account-a")
+  let documents = @documents.State::State(sync_test_saved()).project_account(
+    account,
+  )
+  let token = sync_test_key(account, "shared")
+  let (pending, actions) = documents.reduce(
+    @documents.Msg::DeleteConfirmed(token),
+  )
+  guard actions is [@documents.Action::DeleteReplica(edit)] else {
+    fail("durable deletion intent")
+  }
+  let preparing = edit.durable().request_deletion()
+  let (hidden, _) = pending.reduce(
+    @documents.Msg::FeedbackReceived(ReplicaSettled(preparing, Some(token))),
+  )
+  guard preparing.replica().directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
+    fail("delete draft")
+  }
+  let operation_id = @source_repository.OperationId::parse(
+    "10000000-0000-4000-8000-000000000001",
+  ) catch {
+    _ => abort("operation id")
+  }
+  let sending = draft.start(operation_id)
+  let (hidden, _) = hidden.reduce(
+    @documents.Msg::FeedbackReceived(ReplicaAdvanced(sending)),
+  )
+  let revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("revision")
+  }
+  guard sending
+    .replica()
+    .reject_conflict(
+      operation_id,
+      @source_repository.RemoteDocument::Present(revision, "remote"),
+    )
+    is @source_repository.ReconcilePlan::Persist(conflict) else {
+    fail("delete conflict")
+  }
+  let (restored, _) = hidden.reduce(
+    @documents.Msg::FeedbackReceived(ReplicaSettled(conflict, None)),
+  )
+  assert_eq(restored.text(token), Some("A"))
+  assert_true(restored.delete_status(token) is Some(Deletable))
 }

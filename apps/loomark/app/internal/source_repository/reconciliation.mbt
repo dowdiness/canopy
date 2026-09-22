@@ -29,7 +29,7 @@ fn reconcile_scan(
               .iter()
               .all(existing => {
                 existing.account() != replica.account() ||
-                existing.document().id() != replica.document().id()
+                existing.document_id() != replica.document_id()
               }) => replicas.push(replica)
             _ => issues.push(InvalidDocumentReplica(key))
           }

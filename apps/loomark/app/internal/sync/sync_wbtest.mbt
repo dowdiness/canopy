@@ -46,7 +46,8 @@ fn sending_replica() -> @source_repository.DocumentReplica {
     test_account("account"),
     test_document("sent"),
   )
-  guard replica.plan_save() is @source_repository.OperationPlan::Start(draft) else {
+  guard replica.directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
     abort("save draft")
   }
   draft.start(test_operation_id()).replica()
@@ -130,6 +131,107 @@ test "delivery capability prevents operation-id ABA" {
 }
 
 ///|
+test "editing a blocked payload admits a new save" {
+  let replica = sending_replica()
+  let state = signed_in(replica.account())
+  guard state.advance(replica) is (state, Some(Deliver(effect, _, _, _))) else {
+    fail("delivery")
+  }
+  let (state, rejected) = state.delivery_too_large(
+    replica,
+    effect,
+    test_operation_id(),
+  ) catch {
+    _ => abort("current delivery")
+  }
+  let blocked = rejected.unwrap().replica()
+  assert_eq(state.progress(blocked), Progress::Blocked)
+  let (state, changed) = state.save(blocked, "small")
+  let changed = changed.unwrap().replica()
+  assert_true(state.progress(changed) is Progress::Retryable(_))
+  assert_true(
+    state.advance(changed).1 is Some(Action::CreateOperation(_, _, _)),
+  )
+}
+
+///|
+test "durable deletion plans and delivers one delete operation" {
+  let account = test_account("account")
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("base"),
+    revision(1.0),
+  )
+  let state = signed_in(account)
+  let (state, deletion) = state.delete(replica, "latest local text")
+  let deleting = deletion.replica()
+  guard state.advance(deleting)
+    is (state, Some(CreateOperation(plan, owner, document_id))) else {
+    fail("delete operation draft")
+  }
+  assert_eq(owner, account)
+  assert_eq(document_id, test_document_id())
+  let (state, prepared) = state.prepared(plan, deleting, test_operation_id()) catch {
+    _ => abort("current delete draft")
+  }
+  let pending = prepared.unwrap().replica()
+  guard state.advance(pending)
+    is (state, Some(Deliver(effect, owner, document_id, operation))) else {
+    fail("delete delivery")
+  }
+  assert_eq(owner, account)
+  assert_eq(document_id, test_document_id())
+  assert_eq(operation.content(), @source_repository.PendingContent::Delete)
+  let (_, acknowledged) = state.acknowledged(
+    pending,
+    effect,
+    test_operation_id(),
+    revision(2.0),
+  ) catch {
+    _ => abort("delete acknowledgment")
+  }
+  assert_true(acknowledged.unwrap().replica().is_deleted())
+}
+
+///|
+test "deletion invalidates an in-flight conflict recovery" {
+  let account = test_account("account")
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("base"),
+    revision(1.0),
+  )
+  guard replica.edit("local") is @source_repository.EditPlan::Persist(edited) else {
+    fail("local edit")
+  }
+  guard edited
+    .replica()
+    .reconcile(
+      @source_repository.RemoteDocument::Present(revision(2.0), "remote"),
+    )
+    is @source_repository.ReconcilePlan::Persist(diverged) else {
+    fail("conflict")
+  }
+  let replica = diverged.replica()
+  let state = signed_in(account)
+  guard state.advance(replica)
+    is (recovering, Some(CreateRecovery(effect, _, _))) else {
+    fail("recovery")
+  }
+  let (state, deletion) = recovering.delete(replica, "local")
+  let deleting = deletion.replica()
+  assert_true(state.advance(deleting).1 is Some(CreateOperation(_, _, _)))
+  let delayed = try
+    state.recover(deleting, effect, test_document_id(value="recovery"))
+  catch {
+    StaleWork => true
+  } noraise {
+    _ => false
+  }
+  assert_true(delayed)
+}
+
+///|
 test "progress exposes only network work for one replica" {
   let replica = sending_replica()
   let idle = signed_in(replica.account())
@@ -175,7 +277,10 @@ test "opening a remote document returns one replica write" {
     fail("received Replica persistence")
   }
   let replica = write.replica()
-  assert_eq(replica.document().text(), "remote text")
+  assert_eq(
+    replica.document().map(document => document.text()),
+    Some("remote text"),
+  )
   assert_eq(
     state.select_open(test_document_id()).advance_open(Some(replica)).1,
     None,

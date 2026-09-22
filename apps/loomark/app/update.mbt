@@ -40,7 +40,11 @@ fn export_payload(editing : EditingState) -> (String, String) {
 fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
   let key = self.activation.key
   let persistence_blocks = match self.documents.delete_status(key) {
-    Some(NotDeletable) | Some(Deletable) | Some(DeleteFailed(_)) | None => false
+    Some(NotDeletable)
+    | Some(Deletable)
+    | Some(DeleteFailed(_))
+    | Some(DeletePersistenceFailed(_))
+    | None => false
     Some(DeletePending) => true
   }
   let confirmation_blocks = match self.deletion {
@@ -64,7 +68,10 @@ fn EditingState::selectable_activation(
 ) -> ActivationTarget? {
   guard self.can_activate() && key != self.activation.key else { return None }
   guard (match self.documents.delete_status(key) {
-    Some(NotDeletable) | Some(Deletable) | Some(DeleteFailed(_)) => true
+    Some(NotDeletable)
+    | Some(Deletable)
+    | Some(DeleteFailed(_))
+    | Some(DeletePersistenceFailed(_)) => true
     _ => false
   }) else {
     return None
@@ -109,7 +116,10 @@ fn run_action(
           )
         }),
       )
-    @documents.Action::StoreReplica(_) | @documents.Action::SaveReplica(_) =>
+    @documents.Action::StoreReplica(_)
+    | @documents.Action::SaveReplica(_)
+    | @documents.Action::DeleteReplica(_)
+    | @documents.Action::RetryReplica(_, _) =>
       abort("Replica actions must be consumed synchronously by the root")
     @documents.Action::DeleteSource(operation) =>
       @source_repository.delete(
@@ -591,7 +601,9 @@ fn update_page(
         (Editing(editing), @cmd.none)
       } else {
         match editing.documents.delete_status(document_id) {
-          Some(Deletable) | Some(DeleteFailed(_)) =>
+          Some(Deletable)
+          | Some(DeleteFailed(_))
+          | Some(DeletePersistenceFailed(_)) =>
             (
               Editing({ ..editing, deletion: DeleteConfirmation(document_id), }),
               @cmd.none,
@@ -605,31 +617,6 @@ fn update_page(
           (Editing({ ..editing, deletion: NoDeletion, }), @cmd.none)
         NoDeletion => (Editing(editing), @cmd.none)
       }
-    (Editing(editing), DeleteConfirmed(document_id)) =>
-      if editing.deletion != DeleteConfirmation(document_id) {
-        (Editing(editing), @cmd.none)
-      } else {
-        let (next, command) = reduce_documents(
-          editing,
-          DeleteConfirmed(document_id),
-          emit,
-        )
-        reconcile_active(
-          { ..next, deletion: NoDeletion, },
-          emit,
-          text_area,
-          preview_engine,
-          command,
-        )
-      }
-    (Editing(editing), RetryDelete(document_id)) => {
-      let (next, command) = reduce_documents(
-        editing,
-        RetryDelete(document_id),
-        emit,
-      )
-      (Editing(next), command)
-    }
     (Editing(editing), DismissDeleteFailure(document_id)) => {
       let (editing, command) = reduce_documents(
         editing,
@@ -675,7 +662,7 @@ fn Page::begin_fork(
       }
       let original = @documents.Key::replica(
         replica.account(),
-        replica.document().id(),
+        replica.document_id(),
       )
       let activation = if editing.activation.key == original {
         { ..editing.activation, key: @documents.Key::source(recovery.id()), }
@@ -773,8 +760,8 @@ fn apply_document_actions(
     match action {
       @documents.Action::SaveReplica(edit) => {
         let durable = edit.durable()
-        let head = model.replication.head(durable)
-        let (sync, write) = model.sync().save(head, edit.document().text())
+        let base = model.replication.editing_base(durable)
+        let (sync, write) = model.sync().save(base, edit.document().text())
         let model = model.with_sync(sync)
         match write {
           Some(write) => {
@@ -784,9 +771,33 @@ fn apply_document_actions(
           None => (model, commands)
         }
       }
+      @documents.Action::DeleteReplica(edit) => {
+        let durable = edit.durable()
+        let base = model.replication.editing_base(durable)
+        let (sync, write) = model.sync().delete(base, edit.document().text())
+        let (model, command) = submit_replica(
+          model.with_sync(sync),
+          write,
+          emit,
+        )
+        (model, commands + [command])
+      }
       @documents.Action::StoreReplica(write) => {
         let (model, command) = submit_replica(model, write, emit)
         (model, commands + [command])
+      }
+      @documents.Action::RetryReplica(account, document_id) => {
+        let saved = match model.page.saved_documents() {
+          Some(saved) => saved
+          None => return (model, commands)
+        }
+        let (replication, effect) = model.replication.retry_document(
+          account, document_id,
+        )
+        let command = effect
+          .map(value => run_replication_effect(saved, value, emit))
+          .unwrap_or(@cmd.none)
+        ({ ..model, replication, }, commands + [command])
       }
       ArmMaximum(_) | PersistSource(_) | DeleteSource(_) => {
         let documents = match model.page.documents_state() {
@@ -1038,6 +1049,26 @@ fn reduce(
           )
         _ => (model, @cmd.none)
       }
+    DeleteConfirmed(document_id) =>
+      match model.page {
+        Editing(editing) if editing.deletion == DeleteConfirmation(document_id) =>
+          update_documents(
+            { ..model, page: Editing({ ..editing, deletion: NoDeletion, }), },
+            @documents.Msg::DeleteConfirmed(document_id),
+            emit,
+            text_area,
+            preview_engine,
+          )
+        _ => (model, @cmd.none)
+      }
+    RetryDelete(document_id) =>
+      update_documents(
+        model,
+        @documents.Msg::RetryDelete(document_id),
+        emit,
+        text_area,
+        preview_engine,
+      )
     VisibilityChanged(true) =>
       match model.page {
         Editing(editing) =>
@@ -1148,7 +1179,7 @@ fn reduce(
         RetryNetwork(action) => {
           let replica = action.replica()
           let account = replica.account()
-          let document_id = replica.document().id()
+          let document_id = replica.document_id()
           guard model.page.saved_documents() is Some(saved) &&
             saved.replica(account, document_id) == Some(replica) &&
             model.sync().progress(replica) is @sync.Progress::Retryable(current) &&
@@ -1232,7 +1263,16 @@ fn reduce(
                 @documents.Feedback::ReplicaAdvanced(completed)
               },
             )
-          Err(_) => None
+          Err(failure) =>
+            if completed is @source_repository.ReplicaWrite::Remove(_) ||
+              completed.replica().is_deleting() ||
+              completed.replica().is_deleted() {
+              Some(
+                @documents.Feedback::ReplicaDeletionFailed(completed, failure),
+              )
+            } else {
+              None
+            }
         }
       }
       let (page, page_actions, page_command) = match feedback {
@@ -1257,7 +1297,7 @@ fn reduce(
       let (model, sync_command) = if current {
         match model.page.saved_documents() {
           Some(saved) =>
-            match saved.replica(replica.account(), replica.document().id()) {
+            match saved.replica(replica.account(), replica.document_id()) {
               Some(durable) => settle_replica(model, durable, emit)
               None => (model, @cmd.none)
             }
@@ -1318,9 +1358,9 @@ fn reduce(
       }
       match result {
         @document_http.DeliveryResult::Acknowledged(revision) => {
-          let head = model.replication.head(durable)
+          let base = model.replication.protocol_base(durable)
           let transition = Some(
-            model.sync().acknowledged(head, effect, operation_id, revision),
+            model.sync().acknowledged(base, effect, operation_id, revision),
           ) catch {
             // A delayed response cannot complete a different durable operation.
             _ => None
@@ -1331,17 +1371,16 @@ fn reduce(
           submit_sync_replica(model, sync, attempt, emit)
         }
         RevisionConflict => {
-          let sync = model
-            .sync()
-            .revision_conflict(durable, effect, operation_id) catch {
+          let base = model.replication.protocol_base(durable)
+          let sync = model.sync().revision_conflict(base, effect, operation_id) catch {
               _ => return (model, @cmd.none)
             }
           settle_replica(model.with_sync(sync), durable, emit)
         }
         DocumentTooLarge => {
-          let head = model.replication.head(durable)
+          let base = model.replication.protocol_base(durable)
           let transition = Some(
-            model.sync().delivery_too_large(head, effect, operation_id),
+            model.sync().delivery_too_large(base, effect, operation_id),
           ) catch {
             _ => None
           }
@@ -1351,9 +1390,9 @@ fn reduce(
           submit_sync_replica(model, sync, attempt, emit)
         }
         OperationRejected => {
-          let head = model.replication.head(durable)
+          let base = model.replication.protocol_base(durable)
           let transition = Some(
-            model.sync().operation_rejected(head, effect, operation_id),
+            model.sync().operation_rejected(base, effect, operation_id),
           ) catch {
             _ => None
           }
@@ -1363,7 +1402,8 @@ fn reduce(
           submit_sync_replica(model, sync, attempt, emit)
         }
         AccountChanged | Unavailable => {
-          let sync = model.sync().delivery_failed(durable, effect, operation_id) catch {
+          let base = model.replication.protocol_base(durable)
+          let sync = model.sync().delivery_failed(base, effect, operation_id) catch {
               _ => return (model, @cmd.none)
             }
           if result is AccountChanged {
@@ -1382,7 +1422,7 @@ fn reduce(
           None => None
         }
         let replica = match durable {
-          Some(value) => Some(model.replication.head(value))
+          Some(value) => Some(model.replication.protocol_base(value))
           None => model.replication.pending(account, document_id)
         }
         let transition = match result {
@@ -1433,9 +1473,9 @@ fn reduce(
       }
       match result {
         @document_http.RemoteResult::Found(remote) => {
-          let head = model.replication.head(durable)
+          let base = model.replication.protocol_base(durable)
           let transition = Some(
-            model.sync().received(head, effect, read, remote),
+            model.sync().received(base, effect, read, remote),
           ) catch {
             _ => None
           }
@@ -1451,7 +1491,8 @@ fn reduce(
           (model, @cmd.batch([store, advance]))
         }
         AccountChanged | Unavailable => {
-          let sync = model.sync().remote_failed(durable, effect, read) catch {
+          let base = model.replication.protocol_base(durable)
+          let sync = model.sync().remote_failed(base, effect, read) catch {
               _ => return (model, @cmd.none)
             }
           if result is AccountChanged {
@@ -1476,8 +1517,8 @@ fn reduce(
           @cmd.none,
         )
       }
-      let head = model.replication.head(durable)
-      let transition = Some(model.sync().recover(head, effect, recovery_id)) catch {
+      let base = model.replication.protocol_base(durable)
+      let transition = Some(model.sync().recover(base, effect, recovery_id)) catch {
         _ => None
       }
       guard transition is Some((sync, write)) else { return (model, @cmd.none) }
@@ -1578,12 +1619,11 @@ fn reduce_page_documents(
       let editing = match event {
         @documents.Msg::FeedbackReceived(
           @documents.Feedback::PromotionCompleted(write, Ok(_))
-        ) if active.key ==
-          @documents.Key::source(write.replica().document().id()) => {
+        ) if active.key == @documents.Key::source(write.replica().document_id()) => {
           let replica = write.replica()
           let key = @documents.Key::replica(
             replica.account(),
-            replica.document().id(),
+            replica.document_id(),
           )
           if editing.documents.text(active.key) is None &&
             editing.documents.text(key) is Some(_) {

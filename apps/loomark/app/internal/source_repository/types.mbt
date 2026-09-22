@@ -152,7 +152,7 @@ fn compare_replicas(left : DocumentReplica, right : DocumentReplica) -> Int {
   if account_order != 0 {
     account_order
   } else {
-    left.document().id().value().lexical_compare(right.document().id().value())
+    left.document_id().value().lexical_compare(right.document_id().value())
   }
 }
 
@@ -248,7 +248,7 @@ fn SavedDocuments::find_replica_index(
   self.replicas
   .view()
   .search_by(replica => {
-    replica.account == account && replica.document.id() == document_id
+    replica.account == account && replica.document_id == document_id
   })
 }
 
@@ -268,10 +268,10 @@ pub fn SavedDocuments::apply_replica(
   self : Self,
   replica : DocumentReplica,
 ) -> SavedDocuments raise ReplicaApplyError {
-  let key = replica_key(replica.account, replica.document.id())
+  let key = replica_key(replica.account, replica.document_id)
   let replicas = self.replicas.copy()
   let observed_replicas = match
-    self.find_replica_index(replica.account, replica.document.id()) {
+    self.find_replica_index(replica.account, replica.document_id) {
     Some(index) => {
       let previous = replicas[index]
       guard replica.generation > previous.generation else { raise StaleReplica }
@@ -302,8 +302,9 @@ pub fn SavedDocuments::apply_sync_start(
   self : Self,
   replica : DocumentReplica,
 ) -> SavedDocuments? {
-  guard self.find(replica.document().id()) == Some(replica.document()) &&
-    self.apply(Deleted(replica.document().id())) is Some(without_source) else {
+  guard replica.document() is Some(document) &&
+    self.find(replica.document_id()) == Some(document) &&
+    self.apply(Deleted(replica.document_id())) is Some(without_source) else {
     return None
   }
   Some(without_source.apply_replica(replica)) catch {
@@ -320,6 +321,15 @@ pub fn SavedDocuments::apply_replica_write(
 ) -> SavedDocuments raise ReplicaApplyError {
   match write {
     Store(replica) => self.apply_replica(replica)
+    Remove(replica) => {
+      guard self.find_replica_index(replica.account(), replica.document_id())
+        is Some(index) else {
+        raise InvalidReplicaWrite
+      }
+      let replicas = self.replicas.copy()
+      ignore(replicas.remove(index))
+      { ..self, replicas, }
+    }
     Fork(replica, recovery) => {
       guard self.find(recovery.id()) is None &&
         !self.observed(source_key(recovery.id())) &&

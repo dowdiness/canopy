@@ -99,8 +99,8 @@ fn begin_replica(
 ) -> (Model, @replica_persistence.Attempt) {
   let saved = model.page.saved_documents().unwrap()
   let durable = saved.replica(account, document.id()).unwrap()
-  let head = model.replication.head(durable)
-  let (sync, write) = model.sync().save(head, document.text())
+  let base = model.replication.editing_base(durable)
+  let (sync, write) = model.sync().save(base, document.text())
   let (persistence, attempt) = model.replication
     .persistence()
     .submit(write.unwrap())
@@ -142,6 +142,24 @@ fn test_sync_snapshot(
 }
 
 ///|
+fn test_synced_snapshot(
+  account : @source_repository.AccountId,
+) -> @source_repository.SavedDocuments {
+  let document = @source_repository.Document::create(document_id("one"), "one")
+  let revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid synced revision")
+  }
+  let saved = @source_repository.SavedDocuments::from_documents([
+    @source_repository.Document::create(document_id("two"), "two"),
+  ]).unwrap()
+  saved.apply_replica(
+    @source_repository.DocumentReplica::receive(account, document, revision),
+  ) catch {
+    _ => abort("valid synced replica")
+  }
+}
+
+///|
 fn sync_operation_id() -> @source_repository.OperationId {
   @source_repository.OperationId::parse("10000000-0000-4000-8000-000000000001") catch {
     _ => abort("valid operation id")
@@ -154,7 +172,8 @@ fn pending_sync_snapshot(
 ) -> (@source_repository.SavedDocuments, @source_repository.DocumentReplica) {
   let document = documents_test_document("one", "local")
   let replica = @source_repository.DocumentReplica(account, document)
-  guard replica.plan_save() is @source_repository.OperationPlan::Start(draft) else {
+  guard replica.directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
     abort("save draft")
   }
   let replica = draft.start(sync_operation_id()).replica()
@@ -473,7 +492,10 @@ test "account retry keeps an Undo made while replica storage is in flight" {
     .snapshot()
     .replica(account, document_id("one"))
     .unwrap()
-  assert_eq(stored_replica.document().text(), "newer")
+  assert_eq(
+    stored_replica.document().map(document => document.text()),
+    Some("newer"),
+  )
   let (stored, _) = test_root_update(
     stored_newer,
     Sync(ReplicaWriteCompleted(reverting_attempt, Ok(()))),
@@ -485,8 +507,8 @@ test "account retry keeps an Undo made while replica storage is in flight" {
     .replica(account, document_id("one"))
     .unwrap()
     .document()
-    .text(),
-    "one",
+    .map(document => document.text()),
+    Some("one"),
   )
   guard stored.page is Editing(stored_editor) else { fail("editing") }
   assert_true(
@@ -504,9 +526,11 @@ test "intermediate Replica commit cannot discard a pending Undo" {
   let id = document_id("one")
   let key = @documents.Key::replica(account, id)
   let durable = saved.replica(account, id).unwrap()
-  let (persistence, active) = @replica_persistence.State().submit(
-    durable.store(),
-  )
+  guard durable.edit("intermediate")
+    is @source_repository.EditPlan::Persist(intermediate) else {
+    fail("intermediate write")
+  }
+  let (persistence, active) = @replica_persistence.State().submit(intermediate)
   let active = active.unwrap()
   let page = Editing({
     ..test_editing(),
@@ -586,8 +610,8 @@ test "intermediate Replica commit cannot discard a pending Undo" {
     .replica(account, id)
     .unwrap()
     .document()
-    .text(),
-    "one",
+    .map(document => document.text()),
+    Some("one"),
   )
   guard stored_revert.page is Editing(editor) else { fail("editing") }
   assert_eq(editor.documents.text(key), Some("one"))
@@ -1200,8 +1224,8 @@ test "synced Autosave updates only its canonical replica" {
     .replica(account, document_id("one"))
     .unwrap()
     .document()
-    .text(),
-    "changed",
+    .map(document => document.text()),
+    Some("changed"),
   )
   assert_eq(editing.documents.snapshot().find(document_id("one")), None)
   assert_eq(
@@ -2077,10 +2101,154 @@ test "an edit after replica failure immediately replaces the failed write" {
   )
   let document = submission.document()
   let durable = saved.replica(account, document.id()).unwrap()
-  assert_eq(replacing.replication.head(durable).document().text(), "small")
+  assert_eq(
+    replacing.replication
+    .editing_base(durable)
+    .document()
+    .map(document => document.text()),
+    Some("small"),
+  )
   assert_true(
     replacing.replication.status(account, document.id())
     is @replica_persistence.Status::Persisting,
+  )
+}
+
+///|
+fn begin_active_replica_deletion() -> (
+  Model,
+  @replica_persistence.Attempt,
+  @documents.Key,
+) {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid test account")
+  }
+  let saved = test_synced_snapshot(account)
+  let key = @documents.Key::replica(account, document_id("one"))
+  let editing = {
+    ..test_editing(),
+    activation: { key, generation: 0, },
+    documents: @documents.State::State(saved).project_account(account),
+  }
+  let sync = current_sync(account)
+  let model = test_model(Editing(editing), sync)
+  let (confirming, _) = test_root_update(model, DeleteRequested(key))
+  let (deleting, _) = test_root_update(confirming, DeleteConfirmed(key))
+  guard deleting.page is Editing(pending) else { abort("editing") }
+  guard pending.documents.text(key) == Some("one") &&
+    pending.documents.delete_status(key) is Some(DeletePending) else {
+    abort("pending deletion keeps active text")
+  }
+
+  let durable = saved.replica(account, document_id("one")).unwrap()
+  let (_, write) = sync.delete(durable, "one")
+  let (_, attempt) = @replica_persistence.State().submit(write)
+  (deleting, attempt.unwrap(), key)
+}
+
+///|
+test "active replica remains mounted until deletion intent is durable" {
+  let (deleting, attempt, key) = begin_active_replica_deletion()
+  let (stored, _) = test_root_update(
+    deleting,
+    Sync(ReplicaWriteCompleted(attempt, Ok(()))),
+  )
+  guard stored.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == source_key("two"))
+  assert_eq(editing.documents.text(key), None)
+  assert_true(
+    editing.documents
+    .snapshot()
+    .replica(
+      attempt.write().replica().account(),
+      attempt.write().replica().document_id(),
+    )
+    .unwrap()
+    .is_deleting(),
+  )
+}
+
+///|
+test "failed active deletion remains visible and retryable" {
+  let (deleting, attempt, key) = begin_active_replica_deletion()
+  let (failed, _) = test_root_update(
+    deleting,
+    Sync(
+      ReplicaWriteCompleted(
+        attempt,
+        Err(@source_repository.ReplicaFailure::StorageUnavailable),
+      ),
+    ),
+  )
+  guard failed.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == key)
+  assert_eq(editing.documents.text(key), Some("one"))
+  assert_true(
+    editing.documents.delete_status(key)
+    is Some(
+      @documents.DeleteStatus::DeletePersistenceFailed(
+        @source_repository.ReplicaFailure::StorageUnavailable
+      )
+    ),
+  )
+  let account = attempt.write().replica().account()
+  let document_id = attempt.write().replica().document_id()
+  let (retrying, _) = test_root_update(failed, RetryDelete(key))
+  assert_true(
+    retrying.replication.status(account, document_id)
+    is @replica_persistence.Status::Persisting,
+  )
+}
+
+///|
+test "editing after failed deletion supersedes it and becomes durable" {
+  let (deleting, attempt, key) = begin_active_replica_deletion()
+  let (failed, _) = test_root_update(
+    deleting,
+    Sync(
+      ReplicaWriteCompleted(
+        attempt,
+        Err(@source_repository.ReplicaFailure::StorageUnavailable),
+      ),
+    ),
+  )
+  let (edited, _) = test_root_update(
+    failed,
+    TextChanged(0, @text_change.TextChange::ReplaceAll("after failure")),
+  )
+  guard edited.page is Editing(editing) else { fail("editing") }
+  let revision = pending_revision(editing.documents, key)
+  let saved = editing.documents.snapshot()
+  let account = attempt.write().replica().account()
+  let document_id = attempt.write().replica().document_id()
+  let durable = saved.replica(account, document_id).unwrap()
+  let base = edited.replication.editing_base(durable)
+  let (protocol, replacement) = edited.sync().save(base, "after failure")
+  let replacement = replacement.unwrap()
+  let (persistence, expected_attempt) = edited.replication
+    .persistence()
+    .submit(replacement)
+  let (storing, _) = test_root_update(edited, ApplyPendingEdit(key, revision))
+  assert_eq(storing.replication.persistence(), persistence)
+  assert_eq(storing.sync(), protocol)
+  assert_true(
+    storing.replication.status(account, document_id)
+    is @replica_persistence.Status::Persisting,
+  )
+  let (stored, _) = test_root_update(
+    storing,
+    Sync(ReplicaWriteCompleted(expected_attempt.unwrap(), Ok(()))),
+  )
+  guard stored.page is Editing(editing) else { fail("editing") }
+  assert_eq(editing.documents.text(key), Some("after failure"))
+  assert_eq(
+    editing.documents
+    .snapshot()
+    .replica(account, document_id)
+    .unwrap()
+    .document()
+    .map(document => document.text()),
+    Some("after failure"),
   )
 }
 
