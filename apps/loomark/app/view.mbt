@@ -19,10 +19,11 @@ fn mode_tab(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   let name = mode_name(mode)
-  let icon_class = match mode {
-    Text => "i-lucide-align-left"
-    Preview => "i-lucide-eye"
-    Split => "i-lucide-columns-2"
+  let icon_class = "pointer-events-none block size-4.5 transition-colors duration-150 group-hover:text-[oklch(0.145_0_0)]"
+  let icon = match mode {
+    Text => @view.text_mode_icon(icon_class)
+    Preview => @view.preview_mode_icon(icon_class)
+    Split => @view.split_mode_icon(icon_class)
   }
   @rui.tabs_trigger(
     value=name.to_lower(),
@@ -34,11 +35,7 @@ fn mode_tab(
     class="group",
     attrs=@html.Attrs::build().aria_label(name),
     style=["width:2rem;height:2rem;min-height:2rem;flex:none;padding:0"],
-    @html.span(
-      class="pointer-events-none block size-4.5 \{icon_class} transition-colors duration-150 group-hover:text-[oklch(0.145_0_0)]",
-      attrs=@html.Attrs::build().aria_hidden("true"),
-      @html.nothing,
-    ),
+    icon,
   )
 }
 
@@ -155,33 +152,41 @@ fn mode_bar(
   sync_status : @rabbita.Html,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
+  let toolbar_control_spacing = if @sidebar.sidebar_is_collapsed(scope) {
+    "pl-9"
+  } else {
+    ""
+  }
   @html.header(
-    class="relative z-2 flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1 max-[641px]:px-2 max-[641px]:py-0",
+    class="relative flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1 max-[641px]:px-2 max-[641px]:py-0",
     [
-      @html.div(class="flex min-w-0 items-center gap-2", [
-        @sidebar.sidebar_trigger(
-          scope,
-          mobile=false,
-          controls="loomark-document-sidebar",
-          aria_label="Toggle documents",
-          class="active:opacity-50",
-          panel_icon(),
-        ),
-        @rui.tabs_root(
-          value=mode_name(editing.mode).to_lower(),
-          style=["width:auto"],
-          @rui.tabs_list(
-            orientation=@rui.TabsHorizontal,
-            variant=@rui.TabsDefault,
-            aria_label="Editor mode",
-            [
-              mode_tab(Text, editing.mode, emit),
-              mode_tab(Preview, editing.mode, emit),
-              mode_tab(Split, editing.mode, emit),
-            ],
+      @html.div(
+        class="flex min-w-0 items-center gap-2 \{toolbar_control_spacing}",
+        [
+          @sidebar.sidebar_trigger(
+            scope,
+            mobile=false,
+            controls="loomark-document-sidebar",
+            aria_label="Toggle documents",
+            class="fixed top-[0.5625rem] left-3 z-20 active:opacity-50 max-[641px]:left-2",
+            @view.panel_icon("block size-4 shrink-0"),
           ),
-        ),
-      ]),
+          @rui.tabs_root(
+            value=mode_name(editing.mode).to_lower(),
+            style=["width:auto"],
+            @rui.tabs_list(
+              orientation=@rui.TabsHorizontal,
+              variant=@rui.TabsDefault,
+              aria_label="Editor mode",
+              [
+                mode_tab(Text, editing.mode, emit),
+                mode_tab(Preview, editing.mode, emit),
+                mode_tab(Split, editing.mode, emit),
+              ],
+            ),
+          ),
+        ],
+      ),
       sync_status,
       @html.div(class="flex min-w-0 items-center gap-1", [
         examples_bar(
@@ -190,15 +195,15 @@ fn mode_bar(
           disabled=editing.creation is Creating(_),
         ),
         @html.label(
-          class="relative flex min-h-8 shrink-0 cursor-pointer items-center rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent max-[641px]:min-h-11",
+          class="relative flex min-h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-lm-rule bg-transparent p-0 text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent max-[641px]:min-h-11",
           title="Import Markdown",
           for_="loomark-import",
           [
-            @html.text("Import"),
+            @view.upload_icon("pointer-events-none block size-4"),
             @html.input(
               input_type=File,
               id="loomark-import",
-              class="absolute inset-0 cursor-pointer opacity-0",
+              class="sr-only",
               on_files=emit.map(files => ImportFilesSelected(files)),
               attrs=@html.Attrs::build().aria_label("Import Markdown"),
             ),
@@ -206,11 +211,11 @@ fn mode_bar(
         ),
         @html.button(
           type_="button",
-          class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
+          class="flex min-h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-lm-rule bg-transparent p-0 text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
           title="Export Markdown",
           attrs=@html.Attrs::build().aria_label("Export Markdown"),
           on_click=emit(ExportRequested),
-          "Export",
+          @view.download_icon("pointer-events-none block size-4"),
         ),
       ]),
     ],
@@ -353,30 +358,6 @@ fn save_failure_view(
 }
 
 ///|
-fn feature_sidebar(
-  scope : @sidebar.SidebarScope,
-  content : @rabbita.Html,
-) -> @rabbita.Html {
-  @html.div(class="contents", [
-    @sidebar.sidebar_menu([
-      @sidebar.sidebar_menu_item([
-        @sidebar.sidebar_menu_button(
-          aria_label="Documents",
-          title="Documents",
-          on_click=if @sidebar.sidebar_is_collapsed(scope) {
-            @sidebar.sidebar_expand(scope)
-          } else {
-            @sidebar.sidebar_collapse(scope)
-          },
-          [@view.folder_icon(), @html.span("Documents")],
-        ),
-      ]),
-    ]),
-    content,
-  ])
-}
-
-///|
 fn view(
   sidebar : @sidebar.SidebarScope,
   model : Page,
@@ -421,10 +402,10 @@ fn view(
                 mobile=false,
                 side=@sidebar.SidebarLeft,
                 variant=@sidebar.SidebarDefault,
-                collapsible=@sidebar.SidebarIcon,
+                collapsible=@sidebar.SidebarOffcanvas,
                 aria_label="Documents",
                 class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-                feature_sidebar(sidebar, recent_navigation),
+                recent_navigation,
               ),
               @html.div(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",

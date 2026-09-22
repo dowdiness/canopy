@@ -121,6 +121,19 @@
   --rui-sidebar-action-press-offset: 1px;
 }
 
+.loomark-new-document {
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 150ms ease, color 150ms ease;
+}
+
+.loomark-new-document .i-lucide-square-pen {
+  transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.loomark-new-document:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 @media (hover: hover) and (pointer: fine) {
   [data-slot="sidebar-trigger"]:hover {
     --rui-button-bg: var(--color-lm-accent-soft);
@@ -135,5 +148,35 @@
   .loomark-delete-action:hover:not([aria-disabled="true"]) {
     --rui-sidebar-action-bg: var(--color-lm-danger-soft);
     --rui-sidebar-action-fg: var(--color-lm-danger);
+  }
+
+  .loomark-new-document:hover:not(:disabled) {
+    --rui-sidebar-item-bg: var(--color-lm-accent-soft);
+    --rui-sidebar-item-fg: var(--color-lm-accent);
+  }
+
+  .loomark-new-document:hover:not(:disabled) .i-lucide-square-pen {
+    transform: scale(1.08);
+  }
+}
+
+.loomark-new-document:active:not(:disabled) .i-lucide-square-pen {
+  transform: scale(0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sidebar"][data-collapsible="offcanvas"],
+  [data-slot="sidebar-shell"][data-collapsible="offcanvas"] {
+    transition: none !important;
+  }
+
+  .loomark-new-document,
+  .loomark-new-document .i-lucide-square-pen {
+    transition-duration: 0ms;
+  }
+
+  .loomark-new-document:active:not(:disabled),
+  .loomark-new-document:active:not(:disabled) .i-lucide-square-pen {
+    transform: none;
   }
 }

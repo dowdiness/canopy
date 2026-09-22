@@ -238,7 +238,7 @@ fn[Id] render_row(
       class="loomark-sidebar-action loomark-delete-action",
       style=["width:2rem;height:2rem"],
       on_click=emit(Intent::RequestDelete(key)),
-      @view.trash_icon(),
+      @view.trash_icon("block size-4 shrink-0"),
     ),
   ])
 }
@@ -427,9 +427,7 @@ pub fn[Id : Eq + Hash] build(
           aria_label="New document",
           title="New document",
           class="loomark-new-document",
-          style=[
-            "width:auto;height:2rem;justify-content:center;padding:0 .5rem",
-          ],
+          style=["width:2rem;height:2rem;justify-content:center;padding:0"],
           on_click=@cmd.batch([
             on_intent(Intent::Create),
             if compact {
@@ -438,7 +436,7 @@ pub fn[Id : Eq + Hash] build(
               @cmd.none
             },
           ]),
-          "New",
+          @view.square_pen_icon("pointer-events-none block size-4 shrink-0"),
         ),
       ),
       @sidebar.sidebar_content(

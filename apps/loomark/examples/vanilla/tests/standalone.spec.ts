@@ -1258,10 +1258,27 @@ test("Document delete icon is directly accessible and keyboard operable", async 
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
-  await expect(page.getByRole("button", { name: "Toggle documents" }))
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await expect(toggle)
     .toHaveAttribute("aria-expanded", "false")
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
-  await expect(page.getByRole("button", { name: "New document" })).toBeVisible()
+  const sidebar = page.locator("#loomark-document-sidebar")
+  await expect(sidebar)
+    .toHaveAttribute("aria-hidden", "true")
+  await toggle.click()
+  await expect(sidebar).toBeVisible()
+  const newDocument = page.getByRole("button", { name: "New document" })
+  await expect(newDocument).toBeVisible()
+  await expect(newDocument.locator(".i-lucide-square-pen")).toBeVisible()
+  await expect(page.locator("label[title=\"Import Markdown\"] .i-lucide-upload"))
+    .toBeVisible()
+  await expect(page.getByLabel("Import Markdown")).toHaveCSS("cursor", "pointer")
+  expect(await page.locator("label[title=\"Import Markdown\"]").evaluate(label => {
+    const bounds = label.getBoundingClientRect()
+    return document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+      ?.tagName
+  })).toBe("LABEL")
+  await expect(page.getByRole("button", { name: "Export Markdown" })
+    .locator(".i-lucide-download")).toBeVisible()
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
@@ -1269,6 +1286,66 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
     viewport: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
   }))).toEqual({ viewport: 390, scrollWidth: 390 })
+})
+
+test("Square-pen New control creates a document", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const text = page.getByRole("textbox", { name: "Text" })
+  const newDocument = page.getByRole("button", { name: "New document" })
+  await text.fill("# Existing\n")
+  await expect(newDocument).toBeEnabled()
+
+  await newDocument.click()
+  await expect(text).toHaveValue("")
+})
+
+test("Document sidebar slides content while its toggle stays fixed", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  const sidebar = page.locator("#loomark-document-sidebar")
+  const textTab = page.getByRole("tab", { name: "Text" })
+  const openX = await toggle.evaluate(element => element.getBoundingClientRect().x)
+  const openHeaderX = await page.locator("header").evaluate(element => element.getBoundingClientRect().x)
+  const openTextTabX = await textTab.evaluate(element => element.getBoundingClientRect().x)
+  expect(openTextTabX).toBeLessThan(openHeaderX + 32)
+  expect(await sidebar.evaluate(element => getComputedStyle(element).transition))
+    .toContain("cubic-bezier(0.77, 0, 0.175, 1)")
+  expect(await sidebar.evaluate(element => getComputedStyle(element).transition))
+    .toContain("opacity 0.19s")
+
+  await toggle.click()
+  await expect(sidebar).toHaveAttribute("aria-hidden", "true")
+  expect(await sidebar.evaluate(element => getComputedStyle(element).transition))
+    .toContain("opacity 0.1s")
+  const closedX = await toggle.evaluate(element => element.getBoundingClientRect().x)
+  const closedHeaderX = await page.locator("header").evaluate(element => element.getBoundingClientRect().x)
+  expect(closedX).toBe(openX)
+  expect(closedHeaderX).toBeLessThan(openHeaderX)
+  expect(await textTab.evaluate(element => element.getBoundingClientRect().x))
+    .toBeGreaterThan(await toggle.evaluate(element => element.getBoundingClientRect().right))
+
+  await toggle.click()
+  await expect(sidebar).toBeVisible()
+  expect(await sidebar.evaluate(element => (element as HTMLElement).inert)).toBe(false)
+  expect(await toggle.evaluate(element => element.getBoundingClientRect().x)).toBe(openX)
+})
+
+test("Document sidebar respects reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const sidebar = page.locator("#loomark-document-sidebar")
+  const shell = page.locator('[data-slot="sidebar-shell"][data-collapsible="offcanvas"]')
+
+  await expect(sidebar).toHaveCSS("transition-duration", "0s")
+  await expect(shell).toHaveCSS("transition-duration", "0s")
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(sidebar).toHaveAttribute("aria-hidden", "true")
 })
 
 test("Sidebar visibility survives breakpoints but resets on reload", async ({ page }) => {
