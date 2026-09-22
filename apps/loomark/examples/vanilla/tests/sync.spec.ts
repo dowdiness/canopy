@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url"
 const ORIGIN = "http://127.0.0.1:4327"
 const ACCOUNT = "11111111-1111-4111-8111-111111111111"
 const CONFLICT_ACCOUNT = "33333333-3333-4333-8333-333333333333"
+const DELETION_ACCOUNT = "55555555-5555-4555-8555-555555555555"
 const ACCOUNT_A = "44444444-4444-4444-8444-444444444444"
 const OTHER_ACCOUNT = "22222222-2222-4222-8222-222222222222"
 const here = dirname(fileURLToPath(import.meta.url))
@@ -75,7 +76,7 @@ async function openProfile(name: string, mobile = false): Promise<BrowserContext
 
 async function signIn(
   context: BrowserContext,
-  account: "phone" | "conflict" | "accountA" | "other",
+  account: "phone" | "conflict" | "deletion" | "accountA" | "other",
 ) {
   const response = await context.request.post(`${ORIGIN}/__e2e__/session`, {
     data: { account },
@@ -196,6 +197,60 @@ test("durable operation survives a lost response, browser close, and Worker rest
   expect(operationIds).toHaveLength(2)
   expect(operationIds[1]).toBe(operationIds[0])
   await phone.close()
+})
+
+test("synchronized deletion survives a lost response and restart", async () => {
+  const operationIds: string[] = []
+  let context = await openProfile("deletion")
+  await signIn(context, "deletion")
+  let page = context.pages()[0] ?? await context.newPage()
+  const id = await createSynced(page, DELETION_ACCOUNT, "# Delete proof\n")
+  page.on("request", request => {
+    if (request.method() !== "DELETE") return
+    const body = JSON.parse(request.postData() ?? "{}") as { operationId?: string }
+    if (body.operationId) operationIds.push(body.operationId)
+  })
+
+  expect((await page.request.post(`${ORIGIN}/__e2e__/lose-next-mutation-response`)).status())
+    .toBe(204)
+  const row = page.getByRole("button", { name: "Delete proof", exact: true }).locator("..")
+  await row.getByRole("button", { name: 'Delete "Delete proof"', exact: true }).click()
+  await expect(page.getByRole("alertdialog")).toContainText(
+    "This deletes the synchronized document on all your devices.",
+  )
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
+  await expect(page.getByRole("button", { name: "Delete proof", exact: true })).toHaveCount(0)
+  await expect.poll(async () => {
+    const response = await page.request.get(`${ORIGIN}/api/documents`, {
+      headers: { "X-Loomark-Account": DELETION_ACCOUNT },
+    })
+    return response.json()
+  }).toMatchObject({ documents: [{ id, revision: 2, deleted: true }] })
+  await context.close()
+
+  await restartWorker()
+
+  context = await openProfile("deletion")
+  await signIn(context, "deletion")
+  page = context.pages()[0] ?? await context.newPage()
+  page.on("request", request => {
+    if (request.method() !== "DELETE") return
+    const body = JSON.parse(request.postData() ?? "{}") as { operationId?: string }
+    if (body.operationId) operationIds.push(body.operationId)
+  })
+  await page.goto("/")
+  await expect(page.getByRole("button", { name: "Delete proof", exact: true })).toHaveCount(0)
+  await expect.poll(() => operationIds.length).toBe(2)
+  expect(operationIds[1]).toBe(operationIds[0])
+  await context.close()
+
+  const fresh = await openProfile("deletion-fresh")
+  await signIn(fresh, "deletion")
+  const freshPage = fresh.pages()[0] ?? await fresh.newPage()
+  await freshPage.goto("/")
+  await expect(freshPage.getByRole("button", { name: "Delete proof", exact: true }))
+    .toHaveCount(0)
+  await fresh.close()
 })
 
 test("divergent browser edits preserve the local branch and expose the remote branch", async () => {
