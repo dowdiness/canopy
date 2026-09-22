@@ -73,16 +73,15 @@ require separate permission. Local-only operation remains supported.
   fallback; disposable development records may be discarded.
 - A pure per-document causal lane accepts text only after Autosave eligibility,
   permits one IndexedDB write in flight, and retains only the newest follow-up.
-  Every transition starts from the newest waiting write, active write, or
-  durable Replica, in that order. Local edits and future acknowledgments
-  therefore cannot branch independently from one stored generation and then
-  overwrite each other. Successful and failed storage completions both carry
-  the Replica identity they belong to. Failures retain the newest write for
-  explicit retry, non-active completions return explicit stale-event errors,
-  and conflict recovery transforms the newest causal head before atomically
-  storing its Replica and recovery document. This adds no input callback or
-  second timer. `SavedDocuments` remains the sole durable Replica owner,
-  while sync state retains only storing or retry-pending writers.
+  Active persistence advances from the newest waiting or active write. After a
+  failure, later edits deliberately branch from the durable Replica and replace
+  the failed candidate; only an explicit retry reuses that exact failed write.
+  Successful and failed storage completions both carry the Replica identity they
+  belong to. The persistence lane alone owns retry capability, non-active
+  completions return explicit stale-event errors, and conflict recovery
+  transforms the newest causal head before atomically storing its Replica and
+  recovery document. This adds no input callback or second timer.
+  `SavedDocuments` remains the sole durable Replica owner.
 - Sync ingress parses raw account IDs, UUID document and operation IDs, server
   revisions, and Replica frames into opaque domain values once. Local and
   remote documents use the same UUID-shaped identity space; there is no legacy
@@ -91,10 +90,11 @@ require separate permission. Local-only operation remains supported.
   use typed `raise`; `Result` values remain at tests or asynchronous boundaries
   that need errors as data. Reconciliation returns only a Replica write or
   `Unchanged`. Operation and recovery identities are requested only when their
-  effects can start. Replica state has one exclusive `Ready | Sending |
-  Available | Diverged` phase rather than independent pending/block fields,
-  eliminating invalid combinations. Recovery identity is an orthogonal relation
-  rather than a `Conflict` phase. `Diverged` is persisted before recovery
+  effects can start. Replica state is an exclusive `Live | Deleting |
+  Tombstone` sum. Only `Live` owns `Ready | Sending | Available | Diverged`,
+  only `Deleting` owns save-resolution and delete-delivery phases, and a
+  `Tombstone` contains no text. Recovery identity is an orthogonal relation on
+  a live Replica rather than a `Conflict` phase. `Diverged` is persisted before recovery
   identity creation, and recovery completion applies to the lane's newest head,
   preserving intervening edits. A change returns its Replica write directly;
   an unchanged edit or reconciliation is represented only by
@@ -172,9 +172,13 @@ require separate permission. Local-only operation remains supported.
   atomic `Fork`: the original UUID follows the server branch and the current
   local text moves to a recovery UUID. A temporary `Forking` document owner
   preserves edits, IME, selection, and native Undo until persistence completes,
-  then resumes ordinary Source saving. Synchronized deletion initiated from
-  this device is not connected yet. The recovery relation is durable but is not
-  yet presented in Recent documents.
+  then resumes ordinary Source saving. Synchronized deletion keeps the mounted
+  editor alive until intent is durable, then removes the row and continues
+  revision-checked delivery in the background. An unpublished Replica is
+  removed locally without a remote DELETE; acknowledgment stores a text-free
+  tombstone. Persistence failure leaves the durable live document editable and
+  retry capability remains solely in its persistence lane. The recovery
+  relation is durable but is not yet presented in Recent documents.
 - Pure MoonBit sync transitions resend the exact persisted operation after
   restart, retain edits made during an in-flight operation, reject non-matching
   writer completions, reconcile equal text without false conflict, and fork
@@ -575,10 +579,10 @@ release checks that a fixture cannot prove.
 
 ## Implementation order
 
-Steps 2–5 and the remote-update/conflict portion of step 6 are implemented for
-the initial single-tab integration. Step 1 still requires permission to publish
-the owning issue. Synchronized deletion and recovery-relation presentation
-remain in step 6; steps 7–8 remain acceptance work.
+Steps 2–5 and the remote-update, conflict, and synchronized-deletion portions
+of step 6 are implemented for the initial single-tab integration. Step 1 still
+requires permission to publish the owning issue. Recovery-relation presentation
+remains in step 6; steps 7–8 remain acceptance work.
 
 1. After design review and permission, publish the owning issue and add the
    reciprocal link. Record the accepted sync additions in Loomark's contract.

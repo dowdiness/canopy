@@ -139,20 +139,21 @@ Autosave ownership.
 Replica persistence is a separate pure per-document causal state machine. It
 never encodes on text input: the document reducer submits text only after the
 existing Autosave quiet/maximum/composition lifecycle makes it eligible. Every transition starts
-from the lane's newest waiting write, active write, or durable replica, in
-that order; local text and future remote acknowledgments therefore cannot branch
-independently from the same stored generation. At most one IndexedDB replica
-write is in flight and one newest replica waits behind it, so intermediate
-edits collapse without losing durable retry state. Storage failure retains the
-newest write and an opaque retry capability; completions are accepted only
-through their opaque attempt capability. A completion that does not match the
-active write is an explicit stale-event error and cannot advance the lane.
+from the lane's causal head. While persistence is active that is the newest
+waiting or active write; after failure it is deliberately the durable Replica,
+so a later edit supersedes the failed candidate instead of branching from data
+that never reached IndexedDB. At most one IndexedDB replica write is in flight
+and one newest replica waits behind it, so intermediate edits collapse. The lane
+alone retains an exact failed write and exposes an opaque retry capability;
+Documents stores only failure feedback. Completions are accepted only through
+their opaque attempt capability. A completion that does not match the active
+write is an explicit stale-event error and cannot advance the lane.
 Conflict recovery
 first persists divergence, then applies its generated identity to the lane's
 newest causal head and stores the replica and recovery document atomically.
 Editing remains immediate while storage is pending; success updates the
-canonical replica, while failure keeps the optimistic text and newest
-retryable write without creating a second Documents failure lifecycle. A
+canonical replica, while failure leaves the durable Replica editable and keeps
+the failed write retryable only in the persistence lane. A
 Replica completion updates repository truth but never acknowledges or clears a
 newer working-copy Autosave window, even when both contain equal text. Once a
 replica is eligible, the Documents reducer returns a synchronous action carrying
@@ -192,7 +193,15 @@ moves to a local-only recovery document. While that transaction is pending, a
 private `Forking` document state owns further edits and retains the textarea's
 activation generation, composition, selection, and native Undo. Completion
 resumes ordinary Source persistence for edits newer than the recovery snapshot.
-Synchronized deletion initiated from this device remains unconnected.
+Confirmed synchronized deletion enters one durable `Deleting` phase. The
+active textarea remains mounted until that intent reaches IndexedDB; other rows
+disappear optimistically. A failed local write leaves the durable `Live` Replica
+editable and the lane retains the exact retry; the page holds only failure
+feedback. A successful write removes the row and lets the existing scheduler
+create and deliver the DELETE. Deletion of an unpublished Replica physically
+removes its IndexedDB record and creates no revision-zero remote request. A
+remote acknowledgment persists a text-free `Tombstone`, which remains inactive
+while preventing stale devices from resurrecting the identity.
 
 The sync model parses account IDs, UUID document and operation IDs, server
 revisions, and replica frames once at their ingress. Document IDs use one
@@ -202,16 +211,19 @@ writer, and replica rejections use typed `raise`, while IndexedDB callbacks
 keep failures as message data. Reconciliation returns either a replica write
 or `Unchanged`. Operation and recovery identities are requested only when their
 effects can start. Transitions receive those domain types rather than
-revalidating strings and numbers. A replica has exactly one phase—`Ready`,
-`Sending`, `Available`, or `Diverged`—so invalid combinations cannot be
-represented. Recovery identity is an orthogonal relation on a Replica rather
-than another blocking phase. `Diverged` is durable before recovery identity
-creation; recovery completion transforms the newest lane head, preserving edits
-made while that effect was running. The next directive is derived from the
-phase instead of being copied into every transition result. A persistence lane
-is present only while `Persisting` or `Failed`; its absence means the durable
-replica is current. A delayed completion that does not carry the lane's active
-attempt returns an explicit error without comparing full text.
+revalidating strings and numbers. A replica is exactly one outer `Live |
+Deleting | Tombstone` state. `Live` alone owns its `Ready | Sending | Available
+| Diverged` phase, while `Deleting` owns only the save-resolution and
+delete-delivery phases that can occur after deletion intent. Tombstones carry
+identity and revision but no document text. Recovery identity is an orthogonal
+relation on a live Replica rather than another blocking phase. `Diverged` is
+durable before recovery identity creation; recovery completion transforms the
+newest lane head, preserving edits made while that effect was running. The next
+directive is derived from state instead of being copied into every transition
+result. A persistence lane is present only while `Persisting` or `Failed`; its
+absence means the durable replica is current. A delayed completion that does
+not carry the lane's active attempt returns an explicit error without comparing
+full text.
 
 The account-sync state owns session lookup, the transient remote catalog, and
 network work keyed by account and document. It does not copy durable replicas.
@@ -316,9 +328,11 @@ conflicts, discovers remote metadata, opens remote-only documents, displays
 account/document sync status, and explicitly starts sync for local documents.
 It also exposes current-state capabilities for remote updates and tombstones,
 and preserves divergent local text through an atomic recovery fork without
-replacing a mounted editor. Periodic list polling, synchronized deletion
-initiated from this device, and recovery-relation presentation in Recent
-documents remain unfinished. A separate local browser suite now runs the
+replacing a mounted editor. Synchronized deletion is persisted before the
+active editor is replaced, retries exact uncertain operations after restart,
+and converges through revision-checked tombstones. Periodic list polling and
+recovery-relation presentation in Recent documents remain unfinished. A
+separate local browser suite now runs the
 production UI and HTTP/document handlers against Better Auth test sessions and
 persistent local D1. It covers Worker restart, response-loss replay, independent
 browser conflict recovery, and account switching/isolation without adding a
