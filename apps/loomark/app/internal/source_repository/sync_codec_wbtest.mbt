@@ -3,6 +3,7 @@ fn replica_test_frame(header : String, payload : String) -> String {
   "loomark-replica\n" + header.length().to_string() + "\n" + header + payload
 }
 
+///|
 fn test_replica_key(
   account? : String = "account-a",
   document? : String = "document",
@@ -77,10 +78,7 @@ test "codec retains recovery relation independently of sync phase" {
     Some(replica),
   )
   assert_true(replica.phase is ReplicaPhase::Ready)
-  assert_eq(
-    replica.recovery_document_id(),
-    Some(test_document_id("recovery")),
-  )
+  assert_eq(replica.recovery_document_id(), Some(test_document_id("recovery")))
 }
 
 ///|

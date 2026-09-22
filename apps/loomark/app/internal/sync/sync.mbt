@@ -480,7 +480,9 @@ pub fn State::advance_open(
     ) else {
     return (self, None)
   }
-  if replica.map(value => replica_covers(value, target.revision)).unwrap_or(false) {
+  if replica
+    .map(value => replica_covers(value, target.revision))
+    .unwrap_or(false) {
     return ({ ..self, opening: Ready(target), }, None)
   }
   if self.find_network(target.account, target.document_id) is Some(_) {
@@ -506,9 +508,7 @@ pub fn State::opened(
   remote : @source_repository.RemoteDocument,
 ) -> (Self, @source_repository.OpenOutcome) raise WorkError {
   let target = { intent, account, document_id, revision: expected, }
-  guard self.opening == Fetching(target, effect) else {
-    raise StaleWork
-  }
+  guard self.opening == Fetching(target, effect) else { raise StaleWork }
   guard self.session is Current(current, _) && current == account else {
     raise StaleWork
   }
@@ -545,9 +545,7 @@ pub fn State::opened(
       (
         { ..self, opening: Persisting(target), },
         @source_repository.OpenOutcome::PersistAndOpen(
-          @source_repository.DocumentReplica::receive(
-            account, document, actual,
-          ).store(),
+          @source_repository.DocumentReplica::receive(account, document, actual).store(),
         ),
       )
     }
@@ -564,9 +562,7 @@ pub fn State::open_failed(
   expected : @source_repository.SavedRevision,
 ) -> Self raise WorkError {
   let target = { intent, account, document_id, revision: expected, }
-  guard self.opening == Fetching(target, effect) else {
-    raise StaleWork
-  }
+  guard self.opening == Fetching(target, effect) else { raise StaleWork }
   { ..self, opening: Opening::Idle, }
 }
 
@@ -580,7 +576,10 @@ pub fn State::pending_open(
   @source_repository.SavedRevision,
 )? {
   match self.opening {
-    Selected(target) | Fetching(target, _) | Persisting(target) | Ready(target) =>
+    Selected(target)
+    | Fetching(target, _)
+    | Persisting(target)
+    | Ready(target) =>
       Some((target.intent, target.account, target.document_id, target.revision))
     Idle => None
   }
@@ -1008,7 +1007,9 @@ pub fn State::received(
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
   let index = self.remote_fetch(durable, effect, read)
   let self = self.observe_remote(
-    durable.account(), durable.document().id(), remote,
+    durable.account(),
+    durable.document().id(),
+    remote,
   )
   let plan = reconcile(durable, read, remote)
   match plan {

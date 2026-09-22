@@ -60,7 +60,9 @@ fn received_replica() -> @source_repository.DocumentReplica {
     _ => abort("valid revision")
   }
   @source_repository.DocumentReplica::receive(
-    test_account(), test_document(), revision,
+    test_account(),
+    test_document(),
+    revision,
   )
 }
 

@@ -294,10 +294,7 @@ test "opening an available Replica never regresses a retained revision" {
   let saved = sending_replica("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
-  let available = reconcile_change(
-    saved,
-    remote_present(3.0, "newest"),
-  ).replica()
+  let available = reconcile_change(saved, remote_present(3.0, "newest")).replica()
   guard available.open(remote_present(2.0, "delayed"))
     is OpenOutcome::PersistAndOpen(write) else {
     fail("newest retained open")
@@ -348,10 +345,7 @@ test "divergence produces one atomic conflict write" {
   }
   assert_eq(recovery.text(), "local")
   assert_eq(replica.directive(), ReplicaDirective::Synchronized)
-  assert_eq(
-    replica.recovery_document_id(),
-    Some(test_document_id("recovery")),
-  )
+  assert_eq(replica.recovery_document_id(), Some(test_document_id("recovery")))
 }
 
 ///|

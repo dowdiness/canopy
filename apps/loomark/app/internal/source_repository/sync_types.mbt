@@ -108,11 +108,13 @@ pub fn RemoteDocument::entry(
   match self {
     Missing => None
     Present(revision, text) =>
-      Some(RemoteEntry::Present(
-        document_id,
-        revision,
-        @document_lead.extract(text).primary(),
-      ))
+      Some(
+        RemoteEntry::Present(
+          document_id,
+          revision,
+          @document_lead.extract(text).primary(),
+        ),
+      )
     Deleted(revision) => Some(RemoteEntry::Deleted(document_id, revision))
   }
 }
@@ -361,8 +363,7 @@ pub enum ReplicaWrite {
 ///|
 pub fn ReplicaWrite::replica(self : Self) -> DocumentReplica {
   match self {
-    Store(replica) | Fork(replica, _) | PromoteSource(replica) =>
-      replica
+    Store(replica) | Fork(replica, _) | PromoteSource(replica) => replica
   }
 }
 

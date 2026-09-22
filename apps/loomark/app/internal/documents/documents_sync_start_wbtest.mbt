@@ -157,9 +157,7 @@ test "maximum timer follows a document across sync-start rekeying" {
     FeedbackReceived(PromotionCompleted(replica.promote_source(), Ok(()))),
   )
   let (_, effects) = documents.reduce(FeedbackReceived(MaximumElapsed(maximum)))
-  guard effects is [SaveReplica(submission)] else {
-    fail("replica save")
-  }
+  guard effects is [SaveReplica(submission)] else { fail("replica save") }
   assert_eq(submission.durable().account(), account)
   assert_eq(submission.document().text(), "latest")
 }

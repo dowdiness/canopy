@@ -161,10 +161,7 @@ fn encode_phase(phase : ReplicaPhase, texts : Array[String]) -> Json {
 }
 
 ///|
-fn decode_phase(
-  value : Json,
-  texts : Array[String],
-) -> ReplicaPhase? {
+fn decode_phase(value : Json, texts : Array[String]) -> ReplicaPhase? {
   guard value is Json::Object(fields) else { return None }
   match fields.get("kind") {
     Some(Json::String("ready")) if fields.length() == 1 =>
@@ -306,9 +303,11 @@ fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
       let recovery_document_id = DocumentId::parse(value) catch {
         _ => return None
       }
-      Some(recovery_identity(document_id, recovery_document_id) catch {
-        _ => return None
-      })
+      Some(
+        recovery_identity(document_id, recovery_document_id) catch {
+          _ => return None
+        },
+      )
     }
     _ => return None
   }
@@ -324,12 +323,9 @@ fn decode_replica(storage_key : String, encoded : String) -> DocumentReplica? {
   let document = Document::create(document_id, text)
   Some(
     replica_from_storage(
-      account,
-      document,
-      generation,
-      baseline,
-      phase,
-      recovery,
-    ) catch { _ => return None },
+      account, document, generation, baseline, phase, recovery,
+    ) catch {
+      _ => return None
+    },
   )
 }

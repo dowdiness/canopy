@@ -129,12 +129,7 @@ fn begin_save(
             // lane. Submit every eligible value; Replication compares it with
             // the causal head and coalesces it when no write is needed.
             { ..record, save: Saved, },
-            [
-              Action::SaveReplica({
-                durable,
-                document: record.document,
-              }),
-            ],
+            [Action::SaveReplica({ durable, document: record.document, })],
           )
         None => ({ ..record, save: Failed(InvalidSource), }, [])
       }
@@ -154,13 +149,15 @@ pub fn State::State(saved : @source_repository.SavedDocuments) -> State {
       save: Saved,
       lead_source: Available(document.text()),
     })
-  let replicas = saved.replicas().filter_map(replica => {
-    if replica.is_deleted() {
-      None
-    } else {
-      Some(replica_record(replica))
-    }
-  })
+  let replicas = saved
+    .replicas()
+    .filter_map(replica => {
+      if replica.is_deleted() {
+        None
+      } else {
+        Some(replica_record(replica))
+      }
+    })
   {
     saved,
     records: sources + replicas,
@@ -214,9 +211,7 @@ pub fn State::open_replica(
       let (documents, version) = allocate_working_copy_version(self)
       {
         ..documents,
-        records: documents.records + [
-          { ..replica_record(replica), version, },
-        ],
+        records: documents.records + [{ ..replica_record(replica), version, }],
       }
     }
   }
@@ -224,16 +219,12 @@ pub fn State::open_replica(
 }
 
 ///|
-pub fn ReplicaEdit::durable(
-  self : Self,
-) -> @source_repository.DocumentReplica {
+pub fn ReplicaEdit::durable(self : Self) -> @source_repository.DocumentReplica {
   self.durable
 }
 
 ///|
-pub fn ReplicaEdit::document(
-  self : Self,
-) -> @source_repository.Document {
+pub fn ReplicaEdit::document(self : Self) -> @source_repository.Document {
   self.document
 }
 

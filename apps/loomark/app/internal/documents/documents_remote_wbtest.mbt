@@ -8,9 +8,7 @@ fn remote_fixture(
     _ => abort("valid revision")
   }
   let replica = @source_repository.DocumentReplica::receive(
-    account,
-    document,
-    revision,
+    account, document, revision,
   )
   guard replica.reconcile(remote)
     is @source_repository.ReconcilePlan::Persist(write) else {
@@ -28,7 +26,10 @@ fn remote_fixture(
 }
 
 ///|
-fn remote_revision(value : Double, text : String) -> @source_repository.RemoteDocument {
+fn remote_revision(
+  value : Double,
+  text : String,
+) -> @source_repository.RemoteDocument {
   @source_repository.RemoteDocument::Present(
     @source_repository.SavedRevision::parse(value) catch {
       _ => abort("valid revision")
@@ -129,8 +130,8 @@ test "accepting a remote deletion removes the working copy without inventing tex
     .project_account(replica.account())
   assert_eq(switched.text(key), None)
   let committed = documents.snapshot().apply_replica_write(write) catch {
-    _ => abort("valid deletion")
-  }
+      _ => abort("valid deletion")
+    }
   let restarted = State::State(committed).project_account(replica.account())
   assert_eq(restarted.text(key), None)
 }
@@ -176,8 +177,6 @@ test "replica commit refreshes only an unmounted clean working copy" {
   assert_eq(mounted.text(key), Some("base"))
 
   let (edited, _) = clean.reduce(TextChanged(key, "local"))
-  let (edited, _) = edited.reduce(
-    FeedbackReceived(ReplicaSettled(write, None)),
-  )
+  let (edited, _) = edited.reduce(FeedbackReceived(ReplicaSettled(write, None)))
   assert_eq(edited.text(key), Some("local"))
 }

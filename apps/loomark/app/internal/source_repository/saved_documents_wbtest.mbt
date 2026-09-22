@@ -178,9 +178,7 @@ test "committed conflict applies replica and recovery source atomically" {
     remote_present(2.0, "remote"),
     "recovery",
   )
-  guard write is Fork(replica, recovery) else {
-    fail("conflict write")
-  }
+  guard write is Fork(replica, recovery) else { fail("conflict write") }
   let committed = saved.apply_replica_write(write)
   assert_eq(
     committed.replica(test_account(), test_document_id("one")),

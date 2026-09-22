@@ -42,14 +42,10 @@ test "fork transfers the working copy after an eligible Replica edit" {
   let (documents, effects) = documents.reduce(
     ApplyPendingEdit(original, pending_revision(documents, original)),
   )
-  guard effects is [SaveReplica(edit)] else {
-    fail("eligible edit")
-  }
+  guard effects is [SaveReplica(edit)] else { fail("eligible edit") }
   assert_eq(edit.document().text(), "latest")
 
-  let documents = documents.begin_fork(write) catch {
-    _ => abort("valid fork")
-  }
+  let documents = documents.begin_fork(write) catch { _ => abort("valid fork") }
   let recovery = Key::source(document_id("recovery"))
   assert_eq(documents.text(original), None)
   assert_eq(documents.text(recovery), Some("latest"))
@@ -68,9 +64,7 @@ test "fork transfers the working copy after an eligible Replica edit" {
 test "edit during fork remains local and resumes ordinary Source persistence" {
   let (documents, _, original, write) = fork_fixture()
   let recovery = Key::source(document_id("recovery"))
-  let documents = documents.begin_fork(write) catch {
-    _ => abort("valid fork")
-  }
+  let documents = documents.begin_fork(write) catch { _ => abort("valid fork") }
   let (documents, _) = documents.reduce(TextChanged(recovery, "newer local"))
   let (documents, effects) = documents.reduce(
     ApplyPendingEdit(recovery, pending_revision(documents, recovery)),
@@ -94,9 +88,7 @@ test "fork preserves composition state and working-copy identity" {
   let (documents, _, original, write) = fork_fixture()
   let recovery = Key::source(document_id("recovery"))
   let (documents, _) = documents.reduce(CompositionStarted(original))
-  let documents = documents.begin_fork(write) catch {
-    _ => abort("valid fork")
-  }
+  let documents = documents.begin_fork(write) catch { _ => abort("valid fork") }
   assert_true(documents.is_composing(recovery))
   let (documents, _) = documents.reduce(
     FeedbackReceived(ReplicaSettled(write, None)),
@@ -108,9 +100,7 @@ test "fork preserves composition state and working-copy identity" {
 test "a newer committed Replica refreshes the unmounted branch created by a fork" {
   let (documents, _, original, fork) = fork_fixture()
   let recovery = Key::source(document_id("recovery"))
-  let documents = documents.begin_fork(fork) catch {
-    _ => abort("valid fork")
-  }
+  let documents = documents.begin_fork(fork) catch { _ => abort("valid fork") }
   let (documents, _) = documents.reduce(
     FeedbackReceived(ReplicaSettled(fork, Some(recovery))),
   )

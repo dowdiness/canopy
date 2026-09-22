@@ -505,7 +505,8 @@ fn refresh_replica_record(
     {
       ..documents,
       records: replace_record(documents.records, key, _ => {
-        { ..replica_record(replica), version, }
+        ..replica_record(replica),
+        version,
       }),
     }
   }
@@ -530,7 +531,8 @@ fn settle_replica(
 ) -> (State, Array[Action]) {
   let replica = write.replica()
   let previous = documents.saved.replica(
-    replica.account(), replica.document().id(),
+    replica.account(),
+    replica.document().id(),
   )
   let saved = documents.saved.apply_replica_write(write) catch {
     _ => return (documents, [])
@@ -540,7 +542,12 @@ fn settle_replica(
     // Autosave window. A newer edit may have returned to this exact text while
     // another Replica write is still queued.
     return (
-      refresh_replica_record({ ..documents, saved, }, previous, replica, mounted),
+      refresh_replica_record(
+        { ..documents, saved, },
+        previous,
+        replica,
+        mounted,
+      ),
       [],
     )
   }
@@ -555,7 +562,11 @@ fn settle_replica(
   let recovered = {
     ..record,
     persistence: Source(Existing, SourceDeletePhase::Available),
-    save: if record.document == recovery { Saved } else { record.save },
+    save: if record.document == recovery {
+      Saved
+    } else {
+      record.save
+    },
   }
   let (recovered, effects) = finish_sync_start_record(saved, recovered)
   let records = prepend_record(

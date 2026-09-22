@@ -153,9 +153,7 @@ pub fn OpenedDocument::key(self : Self) -> Key {
 }
 
 ///|
-pub fn OpenedDocument::document(
-  self : Self,
-) -> @source_repository.Document {
+pub fn OpenedDocument::document(self : Self) -> @source_repository.Document {
   self.document
 }
 
@@ -234,9 +232,7 @@ pub fn State::accept_remote(
   replica : @source_repository.DocumentReplica,
   action : AcceptRemote,
 ) -> RemoteAcceptance raise ActionError {
-  guard self.remote_change(replica) is Some(change) else {
-    raise ExpiredAction
-  }
+  guard self.remote_change(replica) is Some(change) else { raise ExpiredAction }
   let current = match change {
     RemoteChange::UpdateAvailable(current) | DeletedRemotely(current) => current
   }

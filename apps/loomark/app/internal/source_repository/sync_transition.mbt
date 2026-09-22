@@ -63,12 +63,7 @@ pub fn RemoteUpdate::accept(self : Self) -> ReplicaWrite {
       (self.replica.document, RemoteDocument::Deleted(revision))
   }
   Store(
-    {
-      ..self.replica,
-      document,
-      baseline,
-      phase: ReplicaPhase::Ready,
-    }
+    { ..self.replica, document, baseline, phase: ReplicaPhase::Ready, }
     |> DocumentReplica::advance,
   )
 }
@@ -204,12 +199,12 @@ pub fn DocumentReplica::fork(
     Missing => raise InvalidRecoveryId
   }
   let next = {
-    ..self,
-    document,
-    baseline: remote,
-    phase: Ready,
-    recovery: Some(recovery),
-  }
+      ..self,
+      document,
+      baseline: remote,
+      phase: Ready,
+      recovery: Some(recovery),
+    }
     |> DocumentReplica::advance
   Fork(next, recovery_document)
 }
@@ -267,7 +262,7 @@ pub fn DocumentReplica::open(
   let remote = match self.phase {
     Sending(_) | Diverged(_) => raise InvalidOpen
     Ready => received
-    Available(observed) => {
+    Available(observed) =>
       if received.revision() < observed.revision() {
         observed
       } else if received.revision() == observed.revision() &&
@@ -276,7 +271,6 @@ pub fn DocumentReplica::open(
       } else {
         received
       }
-    }
   }
   guard remote is RemoteDocument::Present(_, text) else {
     return match self.reconcile(remote) {

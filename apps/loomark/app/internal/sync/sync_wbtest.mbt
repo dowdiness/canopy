@@ -261,10 +261,7 @@ test "catalog tombstone retires an older open fetch" {
     fail("open read")
   }
   let retired = with_catalog(fetching, account, [
-    @source_repository.RemoteEntry::Deleted(
-      test_document_id(),
-      revision(2.0),
-    ),
+    @source_repository.RemoteEntry::Deleted(test_document_id(), revision(2.0)),
   ])
   assert_eq(retired.pending_open(), None)
   let stale : Result[(State, @source_repository.OpenOutcome), WorkError] = Ok(
@@ -307,10 +304,7 @@ test "catalog tombstone retires an open awaiting durability" {
   )
   assert_true(outcome is @source_repository.OpenOutcome::PersistAndOpen(_))
   let retired = with_catalog(persisting, account, [
-    @source_repository.RemoteEntry::Deleted(
-      test_document_id(),
-      revision(2.0),
-    ),
+    @source_repository.RemoteEntry::Deleted(test_document_id(), revision(2.0)),
   ])
   assert_eq(retired.pending_open(), None)
 }
