@@ -72,10 +72,10 @@ pub struct SidebarScope {
 const SidebarProviderStyle : String = "position:relative;display:flex;width:100%;min-height:100svh;align-items:stretch;background:var(--rui-sidebar-wrapper-background,var(--rui-background,oklch(1 0 0)));color:var(--rui-foreground,oklch(0.145 0 0))"
 
 ///|
-const SidebarShellStyle : String = "position:relative;min-width:0;align-self:stretch;flex:none;transition:width 200ms linear"
+const SidebarShellStyle : String = "position:relative;min-width:0;align-self:stretch;flex:none;transition:width 190ms cubic-bezier(0.77,0,0.175,1)"
 
 ///|
-const SidebarBaseStyle : String = "position:relative;display:flex;min-width:0;flex-direction:column;flex-shrink:0;overflow:visible;background:var(--rui-sidebar,oklch(0.985 0 0));color:var(--rui-sidebar-foreground,var(--rui-foreground,oklch(0.145 0 0)));transition:width 200ms linear,transform 200ms linear"
+const SidebarBaseStyle : String = "position:relative;display:flex;min-width:0;flex-direction:column;flex-shrink:0;overflow:visible;background:var(--rui-sidebar,oklch(0.985 0 0));color:var(--rui-sidebar-foreground,var(--rui-foreground,oklch(0.145 0 0)));will-change:transform,opacity;transition:width 190ms cubic-bezier(0.77,0,0.175,1),transform 190ms cubic-bezier(0.77,0,0.175,1),opacity 190ms cubic-bezier(0.23,1,0.32,1)"
 
 ///|
 const SidebarDesktopStyle : String = "position:absolute;top:0;bottom:0;z-index:10"
@@ -662,15 +662,18 @@ fn sidebar_desktop_state_style(
   variant : SidebarVariant,
 ) -> String {
   if collapsed && collapsible is SidebarOffcanvas {
+    let dismiss_motion = "opacity:0;transition:width 140ms cubic-bezier(0.77,0,0.175,1),transform 140ms cubic-bezier(0.77,0,0.175,1),opacity 100ms cubic-bezier(0.23,1,0.32,1);"
     if variant is SidebarDefault {
       match side {
-        SidebarLeft => "transform:translateX(-100%)"
-        SidebarRight => "transform:translateX(100%)"
+        SidebarLeft => dismiss_motion + "transform:translateX(-100%)"
+        SidebarRight => dismiss_motion + "transform:translateX(100%)"
       }
     } else {
       match side {
-        SidebarLeft => "transform:translateX(calc(-100% - 0.5rem))"
-        SidebarRight => "transform:translateX(calc(100% + 0.5rem))"
+        SidebarLeft =>
+          dismiss_motion + "transform:translateX(calc(-100% - 0.5rem))"
+        SidebarRight =>
+          dismiss_motion + "transform:translateX(calc(100% + 0.5rem))"
       }
     }
   } else {
@@ -685,7 +688,7 @@ fn sidebar_shell_width_style(
   variant : SidebarVariant,
 ) -> String {
   if collapsed && collapsible is SidebarOffcanvas {
-    "width:0px"
+    "width:0px;transition:width 140ms cubic-bezier(0.77,0,0.175,1)"
   } else if collapsed && collapsible is SidebarIcon {
     if variant is SidebarDefault {
       "width:var(--rui-sidebar-width-icon,3rem)"
@@ -1957,6 +1960,9 @@ pub fn[C : @html.IsChildren] sidebar(
     scope.collapsed
   }
   let is_hidden = hidden
+  let desktop_offcanvas_closed = !mobile &&
+    collapsed &&
+    collapsible is SidebarOffcanvas
   let mobile_open = scope.mobile_open && !is_hidden
   let element_attrs = ui_attrs(attrs)
     .data_set("slot", "sidebar")
@@ -1979,6 +1985,12 @@ pub fn[C : @html.IsChildren] sidebar(
     )
     sidebar_bind_mobile_dismiss(element_attrs, scope.close_mobile)
     sidebar_bind_mobile_focus(element_attrs, mobile_open)
+  } else if collapsible is SidebarOffcanvas {
+    ignore(
+      element_attrs
+      .aria_hidden(ui_bool(desktop_offcanvas_closed))
+      .inert(desktop_offcanvas_closed),
+    )
   }
   let surface = @html.aside(
     style=ui_styles(
