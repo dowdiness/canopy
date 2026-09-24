@@ -19,6 +19,8 @@ pub fn[C : @html.IsChildren] sidebar_content(id? : String, class? : String, titl
 
 pub fn sidebar_expand(SidebarScope) -> @cmd.Cmd
 
+pub fn sidebar_focus(String) -> @cmd.Cmd
+
 pub fn[C : @html.IsChildren] sidebar_footer(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
 
 pub fn[C : @html.IsChildren] sidebar_group(id? : String, class? : String, title? : String, aria_label? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
