@@ -39,8 +39,9 @@ pub struct State {
 } derive(Eq, @debug.Debug)
 pub fn State::State() -> Self
 pub fn State::complete(Self, Attempt, Result[Unit, @source_repository.ReplicaFailure]) -> (Self, Completion) raise StaleAttempt
-pub fn State::head(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
+pub fn State::editing_base(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
 pub fn State::pending(Self, @source_repository.AccountId, @source_repository.DocumentId) -> @source_repository.DocumentReplica?
+pub fn State::protocol_base(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
 pub fn State::retry(Self, Retry) -> (Self, Attempt) raise ExpiredRetry
 pub fn State::status(Self, @source_repository.AccountId, @source_repository.DocumentId) -> Status
 pub fn State::submit(Self, @source_repository.ReplicaWrite) -> (Self, Attempt?)

@@ -103,6 +103,38 @@ test "failure retains the exact newest write for explicit retry" {
 }
 
 ///|
+test "a retry capability expires when its retried attempt fails" {
+  let (state, attempt) = State().submit(replica("text").store())
+  let (state, completion) = state.complete(
+    attempt.unwrap(),
+    Err(@source_repository.ReplicaFailure::WriteFailed),
+  ) catch {
+    _ => abort("first attempt")
+  }
+  guard completion is Retryable(_, first_retry, _) else { fail("first retry") }
+  let (state, second_attempt) = state.retry(first_retry) catch {
+    _ => abort("current retry")
+  }
+  let (state, completion) = state.complete(
+    second_attempt,
+    Err(@source_repository.ReplicaFailure::WriteFailed),
+  ) catch {
+    _ => abort("second attempt")
+  }
+  guard completion is Retryable(_, second_retry, _) else {
+    fail("second retry")
+  }
+  let expired = try state.retry(first_retry) catch {
+    ExpiredRetry => true
+  } noraise {
+    _ => false
+  }
+  assert_true(expired)
+  let (_, next) = state.retry(second_retry) catch { _ => abort("latest retry") }
+  assert_true(next != second_attempt)
+}
+
+///|
 test "a newer eligible edit replaces a failed write and starts immediately" {
   let first = replica("first").store()
   let (state, attempt) = State().submit(first)

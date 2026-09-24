@@ -11,7 +11,9 @@ pub fn Attempt::write(self : Self) -> @source_repository.ReplicaWrite {
 
 ///|
 pub struct Retry {
-  priv write : @source_repository.ReplicaWrite
+  priv account : @source_repository.AccountId
+  priv document_id : @source_repository.DocumentId
+  priv failed_attempt : Int
 } derive(Eq, Debug)
 
 ///|
@@ -46,7 +48,11 @@ pub(all) suberror ExpiredRetry {
 ///|
 priv enum LaneState {
   Persisting(Attempt, @source_repository.ReplicaWrite?)
-  Failed(@source_repository.ReplicaWrite, @source_repository.ReplicaFailure)
+  Failed(
+    Int,
+    @source_repository.ReplicaWrite,
+    @source_repository.ReplicaFailure
+  )
 } derive(Eq, Debug)
 
 ///|
@@ -121,7 +127,7 @@ pub fn State::editing_base(
       match self.lanes[index].state {
         Persisting(_, Some(waiting)) => waiting.replica()
         Persisting(active, None) => active.write.replica()
-        Failed(_, _) => durable
+        Failed(_, _, _) => durable
       }
   }
 }
@@ -140,7 +146,7 @@ pub fn State::protocol_base(
       match self.lanes[index].state {
         Persisting(_, Some(waiting)) => waiting.replica()
         Persisting(active, None) => active.write.replica()
-        Failed(write, _) => write.replica()
+        Failed(_, write, _) => write.replica()
       }
   }
 }
@@ -158,7 +164,7 @@ pub fn State::pending(
         match self.lanes[index].state {
           Persisting(_, Some(waiting)) => waiting.replica()
           Persisting(active, None) => active.write.replica()
-          Failed(write, _) => write.replica()
+          Failed(_, write, _) => write.replica()
         },
       )
   }
@@ -175,7 +181,8 @@ pub fn State::status(
     Some(index) =>
       match self.lanes[index].state {
         Persisting(_, _) => Status::Persisting
-        Failed(write, failure) => Retryable({ write, }, failure)
+        Failed(failed_attempt, _, failure) =>
+          Retryable({ account, document_id, failed_attempt, }, failure)
       }
   }
 }
@@ -207,7 +214,7 @@ pub fn State::submit(
           }
           (self.replace(index, Persisting(active, Some(waiting))), None)
         }
-        Failed(retained, _) => {
+        Failed(_, retained, _) => {
           let (self, attempt) = self.attempt(retained.coalesce(write))
           (self.replace(index, Persisting(attempt, None)), Some(attempt))
         }
@@ -220,10 +227,9 @@ pub fn State::retry(
   self : Self,
   retry : Retry,
 ) -> (Self, Attempt) raise ExpiredRetry {
-  let replica = retry.write.replica()
-  guard self.find(replica.account(), replica.document_id()) is Some(index) &&
-    self.lanes[index].state is Failed(retained, _) &&
-    retained == retry.write else {
+  guard self.find(retry.account, retry.document_id) is Some(index) &&
+    self.lanes[index].state is Failed(failed_attempt, retained, _) &&
+    failed_attempt == retry.failed_attempt else {
     raise ExpiredRetry
   }
   let (self, attempt) = self.attempt(retained)
@@ -262,10 +268,17 @@ pub fn State::complete(
         Some(write) => active.write.coalesce(write)
         None => active.write
       }
-      let retry = { write: retained, }
       (
-        self.replace(index, Failed(retained, failure)),
-        Retryable(retained, retry, failure),
+        self.replace(index, Failed(active.id, retained, failure)),
+        Retryable(
+          retained,
+          {
+            account: replica.account(),
+            document_id: replica.document_id(),
+            failed_attempt: active.id,
+          },
+          failure,
+        ),
       )
     }
   }
