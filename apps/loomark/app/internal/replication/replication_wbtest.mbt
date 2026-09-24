@@ -300,14 +300,52 @@ test "selection rejects a refresh response older than the current catalog" {
     },
     "durable",
   )
-  let rejected = try
-    opening.protocol().received(durable, attempt, stale)
-  catch {
+  let rejected = try opening.receive_remote(durable, attempt, stale) catch {
     @sync.WorkError::StaleWork => true
   } noraise {
     _ => false
   }
   assert_true(rejected)
+}
+
+///|
+test "remote refresh response from an old account persists without new network work" {
+  let durable = received_replica()
+  let revision = @source_repository.SavedRevision::parse(2.0)
+  let (protocol, discovery) = test_protocol(durable.account()).begin_discovery()
+  let protocol = protocol.discovered(
+      durable.account(),
+      discovery.unwrap(),
+      Some([
+        @source_repository.RemoteEntry::Present(
+          durable.document_id(),
+          revision,
+          "Remote",
+        ),
+      ]),
+    ).0
+  guard protocol.advance(durable)
+    is (protocol, Some(@sync.Action::GetRemote(read))) else {
+    fail("refresh read")
+  }
+  let (protocol, lookup) = protocol.begin_lookup() catch {
+    _ => abort("lookup available")
+  }
+  let other = @source_repository.AccountId::parse("other") catch {
+    _ => abort("valid account")
+  }
+  let protocol = protocol.resolved(lookup, @sync.Resolved(other, "Other")).0
+  let state = State(protocol~)
+  let remote = @source_repository.RemoteDocument::Present(revision, "remote")
+  let (state, effect) = state.receive_remote(durable, read, remote)
+  guard effect is Some(Persist(attempt)) else { fail("old account write") }
+  let (state, completion) = state.complete(attempt, Ok(()))
+  guard completion is @replica_persistence.Completion::Current(write) else {
+    fail("old account write committed")
+  }
+  assert_eq(write.replica().account(), durable.account())
+  assert_eq(write.replica().remote_update().unwrap().remote(), remote)
+  assert_eq(state.settle_replica(write.replica()).1, None)
 }
 
 ///|
@@ -616,5 +654,132 @@ test "save_local unchanged text does not replace a failed atomic recovery" {
     .unwrap()
     .text(),
     "remote",
+  )
+}
+
+///|
+test "delivery receipt follows the newest queued edit without early network work" {
+  let durable = sending_replica()
+  guard test_protocol(durable.account()).advance(durable)
+    is (protocol, Some(@sync.Action::Deliver(delivery, _))) else {
+    fail("delivery")
+  }
+  guard durable.edit("latest") is @source_repository.EditPlan::Persist(newer) else {
+    fail("newer edit")
+  }
+  let (state, effect) = State(protocol~).submit(newer)
+  guard effect is Some(Persist(first)) else { fail("first write") }
+  let revision = @source_repository.SavedRevision::parse(2.0)
+  let (state, effect) = state.acknowledge_delivery(durable, delivery, revision)
+  assert_eq(effect, None)
+  guard state.complete(first, Ok(()))
+    is (state, @replica_persistence.Superseded(_, next)) else {
+    fail("receipt waits behind newer edit")
+  }
+  let (state, completion) = state.complete(next, Ok(()))
+  guard completion is @replica_persistence.Completion::Current(write) else {
+    fail("receipt committed")
+  }
+  assert_eq(write.replica().baseline_revision(), 2.0)
+  assert_eq(write.replica().document().unwrap().text(), "latest")
+  assert_true(
+    state.status(durable.account(), durable.document_id())
+    is @replica_persistence.Status::Current,
+  )
+}
+
+///|
+test "remote refresh remains pending until its replica write commits" {
+  let durable = received_replica()
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+  let revision = @source_repository.SavedRevision::parse(2.0)
+  let (protocol, discovery) = test_protocol(durable.account()).begin_discovery()
+  let protocol = protocol.discovered(
+      durable.account(),
+      discovery.unwrap(),
+      Some([
+        @source_repository.RemoteEntry::Present(
+          durable.document_id(),
+          revision,
+          "Remote",
+        ),
+      ]),
+    ).0
+  guard protocol.advance(durable)
+    is (protocol, Some(@sync.Action::GetRemote(read))) else {
+    fail("refresh read")
+  }
+  let state = State(protocol~)
+  let remote = @source_repository.RemoteDocument::Present(revision, "remote")
+  let (state, effect) = state.receive_remote(durable, read, remote)
+  guard effect is Some(Persist(attempt)) else { fail("reconciled write") }
+  assert_eq(attempt.write().replica().document().unwrap().text(), "durable")
+  assert_eq(attempt.write().replica().remote_update().unwrap().remote(), remote)
+  assert_eq(
+    saved
+    .replica(durable.account(), durable.document_id())
+    .unwrap()
+    .remote_update(),
+    None,
+  )
+  assert_eq(state.settle_replica(durable).1, None)
+  let (state, completion) = state.complete(attempt, Ok(()))
+  guard completion is @replica_persistence.Completion::Current(write) else {
+    fail("remote observation committed")
+  }
+  let committed = saved
+    .apply_replica_write(write)
+    .replica(durable.account(), durable.document_id())
+    .unwrap()
+  assert_eq(committed.document().unwrap().text(), "durable")
+  assert_eq(committed.remote_update().unwrap().remote(), remote)
+  assert_true(
+    state.status(durable.account(), durable.document_id())
+    is @replica_persistence.Status::Current,
+  )
+}
+
+///|
+test "remote refresh queues behind an in-flight edit without losing local text" {
+  let durable = received_replica()
+  let revision = @source_repository.SavedRevision::parse(2.0)
+  let (protocol, discovery) = test_protocol(durable.account()).begin_discovery()
+  let protocol = protocol.discovered(
+      durable.account(),
+      discovery.unwrap(),
+      Some([
+        @source_repository.RemoteEntry::Present(
+          durable.document_id(),
+          revision,
+          "Remote",
+        ),
+      ]),
+    ).0
+  guard protocol.advance(durable)
+    is (protocol, Some(@sync.Action::GetRemote(read))) else {
+    fail("refresh read")
+  }
+  let (state, effect) = State(protocol~).save_local(durable, "latest")
+  guard effect is Some(Persist(first)) else { fail("local edit write") }
+  let remote = @source_repository.RemoteDocument::Present(revision, "remote")
+  let (state, effect) = state.receive_remote(durable, read, remote)
+  assert_eq(effect, None)
+  assert_eq(state.settle_replica(durable).1, None)
+  guard state.complete(first, Ok(()))
+    is (state, @replica_persistence.Superseded(_, next)) else {
+    fail("remote observation waits behind local edit")
+  }
+  assert_eq(next.write().replica().document().unwrap().text(), "latest")
+  let (state, completion) = state.complete(next, Ok(()))
+  guard completion is @replica_persistence.Completion::Current(write) else {
+    fail("remote observation committed")
+  }
+  assert_eq(write.replica().document().unwrap().text(), "latest")
+  assert_eq(write.replica().observed_revision(), 2.0)
+  assert_true(
+    state.status(durable.account(), durable.document_id())
+    is @replica_persistence.Status::Current,
   )
 }

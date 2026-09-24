@@ -218,6 +218,43 @@ pub fn State::complete(
 }
 
 ///|
+/// Admit an accepted delivery receipt against the newest causal Replica head.
+/// A resulting write enters its persistence lane; work errors stay with the caller.
+pub fn State::acknowledge_delivery(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+  attempt : @sync.DeliveryAttempt,
+  revision : @source_repository.SavedRevision,
+) -> (Self, Effect?) raise @sync.WorkError {
+  let base = self.persistence.protocol_base(durable)
+  let (protocol, write) = self.protocol.acknowledged(base, attempt, revision)
+  let self = { ..self, protocol, }
+  match write {
+    Some(write) => self.submit(write)
+    None => (self, None)
+  }
+}
+
+///|
+/// Reconcile an accepted remote read against the newest causal Replica head.
+/// A resulting write must commit before advancement; without a write, only the
+/// current account and persistence lane may advance. Work errors stay with the caller.
+pub fn State::receive_remote(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+  attempt : @sync.ReadAttempt,
+  remote : @source_repository.RemoteDocument,
+) -> (Self, Effect?) raise @sync.WorkError {
+  let base = self.persistence.protocol_base(durable)
+  let (protocol, write) = self.protocol.received(base, attempt, remote)
+  let self = { ..self, protocol, }
+  match write {
+    Some(write) => self.submit(write)
+    None => self.settle_replica(durable)
+  }
+}
+
+///|
 fn State::advance_selection(
   self : Self,
   replica : @source_repository.DocumentReplica?,
