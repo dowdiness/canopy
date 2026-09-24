@@ -1287,6 +1287,56 @@ fn receive_open(
 }
 
 ///|
+test "Example selection supersedes a pending remote open" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let id = document_id("remote-before-example")
+  let revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid revision")
+  }
+  let entry = @source_repository.RemoteEntry::Present(id, revision, "Remote")
+  let initial = test_model(
+    Editing(test_editing()),
+    discovered_sync(account, entry),
+  )
+  let (fetching, attempt) = select_remote(
+    initial,
+    @documents.Key::replica(account, id),
+    entry,
+  )
+  guard fetching.page is Editing(editing) else { fail("editing") }
+  let example_text = "# Example\n"
+  let (creating, _) = test_root_update(
+    fetching,
+    ExampleSelected(editing.activation, example_text),
+  )
+  assert_eq(creating.sync().selection(), None)
+  let (example, _) = test_root_update(
+    creating,
+    ExampleCreateCompleted(
+      editing.activation.generation,
+      example_text,
+      Created(document_id("example")),
+    ),
+  )
+  let (completed, _) = test_root_update(
+    example,
+    Sync(
+      OpenCompleted(
+        attempt,
+        @document_http.RemoteResult::Found(
+          @source_repository.RemoteDocument::Present(revision, "remote text"),
+        ),
+      ),
+    ),
+  )
+  guard completed.page is Editing(editing) else { fail("editing") }
+  assert_true(editing.activation.key == source_key("example"))
+  assert_eq(editing.documents.text(source_key("example")), Some(example_text))
+}
+
+///|
 fn store_sync_attempt(
   model : Model,
   attempt : @replica_persistence.Attempt,
@@ -2202,6 +2252,22 @@ test "accepted Import immediately becomes the Editing Document" {
   guard model is Editing(editing) else { fail("editing") }
   assert_true(editing.activation.key == source_key("imported"))
   assert_eq(editing.documents.text(source_key("imported")), Some(text))
+}
+
+///|
+test "completed Example creates and activates a new Document without changing the existing Document" {
+  let initial = test_editing()
+  let creating = { ..initial, creation: Creating(0), }
+  let text = "# Example\n"
+  let (model, _) = test_update(
+    Editing(creating),
+    ExampleCreateCompleted(0, text, Created(document_id("example"))),
+  )
+  guard model is Editing(editing) else { fail("editing") }
+  assert_eq(editing.documents.text(source_key("one")), Some("one"))
+  assert_eq(editing.documents.text(source_key("example")), Some(text))
+  assert_true(editing.activation.key == source_key("example"))
+  assert_true(editing.creation == Idle)
 }
 
 ///|

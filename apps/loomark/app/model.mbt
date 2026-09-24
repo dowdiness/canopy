@@ -88,6 +88,7 @@ priv enum DocumentCreation {
   Idle
   Creating(Int)
   CreationFailed(@source_repository.CreateFailure)
+  ExampleCreationFailed(String, @source_repository.CreateFailure)
 } derive(Eq)
 
 ///|
@@ -154,6 +155,7 @@ priv enum Msg {
   Opened(@source_repository.OpenResult)
   EmptyCreateCompleted(Int, @source_repository.CreateResult)
   ExampleSelected(Activation, String)
+  ExampleCreateCompleted(Int, String, @source_repository.CreateResult)
   TextChanged(Int, @text_change.TextChange)
   CompositionStarted(Int)
   CompositionEnded(Int)

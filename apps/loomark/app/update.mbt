@@ -325,25 +325,59 @@ fn update_page(
     (Editing(editing), ExampleSelected(owner, text)) =>
       if owner != editing.activation {
         (Editing(editing), @cmd.none)
-      } else if editing.creation is Creating(_) ||
-        editing.deletion_blocks_document_changes() {
-        (
-          Editing(editing),
-          text_area.initialize(editing.documents.text(owner.key).unwrap_or("")),
-        )
+      } else if !editing.can_activate() {
+        (Editing(editing), @cmd.none)
       } else {
         (
-          Editing(editing),
-          @cmd.batch([
-            text_area.initialize(text),
-            emit(
-              TextChanged(
-                owner.generation,
-                @text_change.TextChange::ReplaceAll(text),
-              ),
-            ),
-          ]),
+          Editing({ ..editing, creation: Creating(owner.generation), }),
+          @source_repository.create(
+            editing.documents.snapshot(),
+            emit.map(result => {
+              ExampleCreateCompleted(owner.generation, text, result)
+            }),
+          ),
         )
+      }
+    (
+      Editing(editing),
+      ExampleCreateCompleted(generation, text, Created(document_id)),
+    ) =>
+      if !(editing.creation is Creating(current) && current == generation) {
+        (Editing(editing), @cmd.none)
+      } else {
+        let key = @documents.Key::source(document_id)
+        let editing = reduce_documents(
+          editing,
+          @documents.Msg::New(document_id),
+          actions,
+        )
+        let editing = reduce_documents(
+          editing,
+          @documents.Msg::TextChanged(key, text),
+          actions,
+        )
+        match activation_target(editing.documents, key) {
+          None => (Editing({ ..editing, creation: Idle, }), @cmd.none)
+          Some(target) => {
+            let ready = { ..editing, creation: Idle, }
+            let (next, surface) = ready.activate(
+              target, emit, text_area, preview_engine,
+            )
+            (Editing(next), surface)
+          }
+        }
+      }
+    (
+      Editing(editing),
+      ExampleCreateCompleted(generation, text, CreateFailed(failure)),
+    ) =>
+      if editing.creation is Creating(current) && current == generation {
+        (
+          Editing({ ..editing, creation: ExampleCreationFailed(text, failure), }),
+          @cmd.none,
+        )
+      } else {
+        (Editing(editing), @cmd.none)
       }
     (Editing(editing), TextChanged(generation, change)) =>
       if generation != editing.activation.generation {
@@ -1242,6 +1276,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | RetrySync(_)
     | RetrySelection(_)
     | CreateCompleted(_, _)
+    | ExampleCreateCompleted(_, _, _)
     | RetryDelete(_)
     | DismissDeleteFailure(_)
     | LoginRequested
@@ -1250,6 +1285,17 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | LogoutCompleted(_, _)
     | AuthenticationReturned(_)
     | Sync(_) => false
+  }
+}
+
+///|
+fn Msg::supersedes_remote_selection(self : Self) -> Bool {
+  match self {
+    DocumentSelected(_)
+    | CreateRequested
+    | ImportFilesSelected(_)
+    | ExampleSelected(_, _) => true
+    _ => false
   }
 }
 
@@ -1819,10 +1865,10 @@ fn reduce(
       ({ ..model, replication, }, command)
     }
     message => {
-      let model = match message {
-        DocumentSelected(_) | CreateRequested | ImportFilesSelected(_) =>
-          { ..model, replication: model.replication.cancel_selection(), }
-        _ => model
+      let model = if message.supersedes_remote_selection() {
+        { ..model, replication: model.replication.cancel_selection(), }
+      } else {
+        model
       }
       let actions : Array[@documents.Action] = []
       let (page, page_command) = update_page(
