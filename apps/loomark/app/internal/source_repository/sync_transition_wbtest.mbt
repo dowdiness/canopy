@@ -111,6 +111,77 @@ fn preserve_conflict(
 }
 
 ///|
+test "relation includes visible text that has not entered a Replica write" {
+  let replica = DocumentReplica::receive(
+    test_account(),
+    sync_doc("base"),
+    test_revision(1.0),
+  )
+  let live = replica.live().unwrap()
+  assert_eq(
+    live.relation("base", replica.remote_knowledge(None)),
+    Relation::Current,
+  )
+  assert_eq(
+    live.relation("typing", replica.remote_knowledge(None)),
+    Relation::LocalAhead,
+  )
+  assert_eq(
+    live.relation(
+      "typing",
+      replica.remote_knowledge(Some(RemoteHead::Present(test_revision(2.0)))),
+    ),
+    Relation::Concurrent,
+  )
+}
+
+///|
+test "relation distinguishes a known remote update from local durability" {
+  let replica = DocumentReplica::receive(
+    test_account(),
+    sync_doc("base"),
+    test_revision(1.0),
+  )
+  let live = replica.live().unwrap()
+  assert_eq(
+    live.relation(
+      "base",
+      replica.remote_knowledge(Some(RemoteHead::Present(test_revision(2.0)))),
+    ),
+    Relation::RemoteAhead,
+  )
+  assert_eq(
+    live.relation(
+      "base",
+      replica.remote_knowledge(Some(RemoteHead::Deleted(test_revision(2.0)))),
+    ),
+    Relation::DeletedRemotely,
+  )
+}
+
+///|
+test "newer catalog deletion supersedes an available stored update" {
+  let replica = DocumentReplica::receive(
+    test_account(),
+    sync_doc("base"),
+    test_revision(1.0),
+  )
+  guard replica.reconcile(remote_present(2.0, "remote"))
+    is ReconcilePlan::Persist(write) else {
+    fail("remote update")
+  }
+  let available = write.replica()
+  let live = available.live().unwrap()
+  assert_eq(
+    live.relation(
+      "base",
+      available.remote_knowledge(Some(RemoteHead::Deleted(test_revision(3.0)))),
+    ),
+    Relation::DeletedRemotely,
+  )
+}
+
+///|
 test "restart resends the exact parsed durable pending operation" {
   let replica = sending_replica("first", TEST_OPERATION_1)
   guard replica.directive() is ReplicaDirective::Send(operation) else {
@@ -306,7 +377,7 @@ test "opening an available Replica accepts its retained remote revision" {
     .replica()
   let retained = remote_present(2.0, "remote")
   let available = reconcile_change(saved, retained).replica()
-  guard available.open(retained) is OpenOutcome::PersistAndOpen(write) else {
+  guard available.open(test_revision(2.0)) is OpenStep::Persist(write) else {
     fail("available open")
   }
   assert_eq(replica_document(write.replica()).text(), "remote")
@@ -315,13 +386,12 @@ test "opening an available Replica accepts its retained remote revision" {
 }
 
 ///|
-test "opening an available Replica never regresses a retained revision" {
+test "opening an available Replica uses its newest retained revision" {
   let saved = sending_replica("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
   let available = reconcile_change(saved, remote_present(3.0, "newest")).replica()
-  guard available.open(remote_present(2.0, "delayed"))
-    is OpenOutcome::PersistAndOpen(write) else {
+  guard available.open(test_revision(2.0)) is OpenStep::Persist(write) else {
     fail("newest retained open")
   }
   assert_eq(replica_document(write.replica()).text(), "newest")
@@ -335,23 +405,24 @@ test "opening a tombstoned available Replica is unavailable" {
     .replica()
   let tombstone = RemoteDocument::Deleted(test_revision(2.0))
   let available = reconcile_change(saved, tombstone).replica()
-  assert_eq(available.open(tombstone), OpenOutcome::Unavailable)
+  assert_eq(available.open(test_revision(2.0)), OpenStep::Unavailable)
 }
 
 ///|
-test "opening a newer tombstone persists it without opening" {
+test "opening waits until a newer remote revision has been reconciled" {
   let saved = sending_replica("base", TEST_OPERATION_1)
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
-  let tombstone = RemoteDocument::Deleted(test_revision(2.0))
-  guard saved.open(tombstone) is OpenOutcome::PersistOnly(write) else {
-    fail("tombstone persistence")
-  }
-  assert_eq(
-    write.replica().directive(),
-    ReplicaDirective::UpdateAvailable(tombstone),
-  )
-  assert_eq(replica_document(write.replica()).text(), "base")
+  assert_eq(saved.open(test_revision(2.0)), OpenStep::AwaitSync)
+}
+
+///|
+test "opening a covered Replica is ready even with a pending local operation" {
+  let saved = sending_replica("base", TEST_OPERATION_1)
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  let sending = edit_write(saved, "local").replica()
+  assert_eq(sending.open(test_revision(1.0)), OpenStep::Ready)
 }
 
 ///|

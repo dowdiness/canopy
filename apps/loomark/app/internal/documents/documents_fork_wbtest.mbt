@@ -112,8 +112,16 @@ test "a newer committed Replica refreshes the unmounted branch created by a fork
     },
     "newer remote",
   )
-  guard fork.replica().open(next)
-    is @source_repository.OpenOutcome::PersistAndOpen(write) else {
+  guard fork.replica().reconcile(next)
+    is @source_repository.ReconcilePlan::Persist(available) &&
+    available
+    .replica()
+    .open(
+      @source_repository.SavedRevision::parse(2.0) catch {
+        _ => abort("valid revision")
+      },
+    )
+    is @source_repository.OpenStep::Persist(write) else {
     fail("newer remote write")
   }
   let (documents, _) = documents.reduce(

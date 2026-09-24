@@ -33,18 +33,10 @@ pub fn DocumentReplica::directive(self : Self) -> ReplicaDirective {
 }
 
 ///|
-pub enum EditPlan {
-  Unchanged
-  Unavailable
-  Persist(ReplicaWrite)
-} derive(Eq, Debug)
-
-///|
-pub fn DocumentReplica::edit(self : Self, text : String) -> EditPlan {
-  guard self.state is ReplicaState::Live(live) else { return Unavailable }
-  guard text != live.document.text() else { return Unchanged }
-  let edited = { ..live, document: live.document.update(text), }
-  let live = match live.phase {
+fn LiveReplica::with_text(self : Self, text : String) -> LiveReplica {
+  guard text != self.document.text() else { return self }
+  let edited = { ..self, document: self.document.update(text), }
+  match self.phase {
     Available(remote) | Diverged(remote) if remote.same_present_text(text) =>
       match remote {
         RemoteDocument::Present(revision, remote_text) =>
@@ -55,13 +47,86 @@ pub fn DocumentReplica::edit(self : Self, text : String) -> EditPlan {
           }
         Missing | Deleted(_) => abort("present text without a present remote")
       }
-    Available(remote) | Diverged(remote) if live.baseline.same_text(text) =>
+    Available(remote) | Diverged(remote) if self.baseline.same_text(text) =>
       { ..edited, phase: LivePhase::Available(remote), }
     Available(remote) | Diverged(remote) =>
       { ..edited, phase: LivePhase::Diverged(remote), }
     Ready | Sending(_) => edited
   }
-  Persist(Store({ ..self, state: ReplicaState::Live(live), }.advance()))
+}
+
+///|
+fn LiveReplica::observed_revision(self : Self) -> Double {
+  match self.phase {
+    Available(remote) | Diverged(remote) => remote.revision()
+    Ready | Sending(_) => self.baseline.revision()
+  }
+}
+
+///|
+fn LiveReplica::remote_head_advances(self : Self, head : RemoteHead) -> Bool {
+  let revision = head.revision().value()
+  revision > self.observed_revision() ||
+  (revision == self.observed_revision() && head is RemoteHead::Deleted(_))
+}
+
+///|
+/// Compare the visible text, rather than only the latest Replica candidate, so
+/// IME and autosave-delay edits are represented without consulting durability.
+/// This method exists only on a parsed live Replica; deletion states therefore
+/// cannot be mistaken for synchronized visible text.
+pub fn LiveReplica::relation(
+  self : Self,
+  working_text : String,
+  knowledge : RemoteKnowledge,
+) -> Relation {
+  let live = self.with_text(working_text)
+  let known_remote = knowledge.head()
+  let remote_ahead = known_remote
+    .map(head => live.remote_head_advances(head))
+    .unwrap_or(false)
+  match live.phase {
+    LivePhase::Ready if live.baseline.same_text(live.document.text()) =>
+      match known_remote {
+        Some(RemoteHead::Deleted(_)) if remote_ahead =>
+          Relation::DeletedRemotely
+        Some(Present(_)) if remote_ahead => Relation::RemoteAhead
+        Some(_) | None => Relation::Current
+      }
+    Ready | Sending(_) =>
+      if remote_ahead {
+        Relation::Concurrent
+      } else {
+        Relation::LocalAhead
+      }
+    Diverged(_) => Relation::Diverged
+    Available(remote) =>
+      match (known_remote, remote_ahead) {
+        (Some(RemoteHead::Deleted(_)), true) => Relation::DeletedRemotely
+        (Some(Present(_)), true) => Relation::RemoteAhead
+        _ =>
+          match remote {
+            RemoteDocument::Present(_, _) => Relation::RemoteAhead
+            Deleted(_) => Relation::DeletedRemotely
+            Missing => Relation::Unavailable
+          }
+      }
+  }
+}
+
+///|
+pub enum EditPlan {
+  Unchanged
+  Unavailable
+  Persist(ReplicaWrite)
+} derive(Eq, Debug)
+
+///|
+pub fn DocumentReplica::edit(self : Self, text : String) -> EditPlan {
+  guard self.state is ReplicaState::Live(live) else { return Unavailable }
+  guard text != live.document.text() else { return Unchanged }
+  let replica = { ..self, state: ReplicaState::Live(live.with_text(text)), }
+  Persist(Store(replica.advance()))
 }
 
 ///|
@@ -374,70 +439,42 @@ pub fn DocumentReplica::reconcile(
 }
 
 ///|
-pub(all) enum OpenOutcome {
+/// The next domain step for opening an unmounted Replica at a required remote
+/// revision. Network activity and persistence remain outside this transition.
+pub(all) enum OpenStep {
   Ready
-  PersistAndOpen(ReplicaWrite)
-  PersistOnly(ReplicaWrite)
+  Persist(ReplicaWrite)
+  AwaitSync
   Unavailable
 } derive(Eq, Debug)
 
 ///|
-pub(all) suberror InvalidOpen derive(Eq, Debug)
-
-///|
-/// Open the newest known present revision of an unmounted Replica. This is the
-/// only transition allowed to replace unmounted content with a remote value.
-pub fn DocumentReplica::open(
-  self : Self,
-  received : RemoteDocument,
-) -> OpenOutcome raise InvalidOpen {
-  guard self.state is ReplicaState::Live(live) else { raise InvalidOpen }
-  let remote = match live.phase {
-    Sending(_) | Diverged(_) => raise InvalidOpen
-    Ready => received
-    Available(observed) =>
-      if received.revision() < observed.revision() {
-        observed
-      } else if received.revision() == observed.revision() &&
-        received != observed {
-        raise InvalidOpen
-      } else {
-        received
-      }
+/// Open an unmounted Replica only from remote content already retained by the
+/// Replica. The required revision comes from the current remote catalog.
+pub fn DocumentReplica::open(self : Self, required : SavedRevision) -> OpenStep {
+  let live = match self.state {
+    ReplicaState::Live(value) => value
+    Deleting(_) | Tombstone(_) => return Unavailable
   }
-  guard remote is RemoteDocument::Present(_, text) else {
-    return match self.reconcile(remote) {
-      ReconcilePlan::Persist(write) => PersistOnly(write)
-      Unchanged => Unavailable
-    }
-  }
-  if remote.revision() < live.baseline.revision() {
+  if live.baseline.revision() >= required.value() {
     return Ready
   }
-  if remote == live.baseline.remote() {
-    return Ready
+  match live.phase {
+    Ready | Sending(_) | Diverged(_) => AwaitSync
+    Available(remote) if remote.revision() < required.value() => AwaitSync
+    Available(RemoteDocument::Missing | Deleted(_)) => Unavailable
+    Available(Present(revision, text)) =>
+      Persist(
+        Store(
+          {
+            ..self,
+            state: ReplicaState::Live({
+              document: live.document.update(text),
+              baseline: LiveBaseline::Saved(revision, text),
+              phase: LivePhase::Ready,
+            }),
+          }.advance(),
+        ),
+      )
   }
-  guard remote.revision() > live.baseline.revision() &&
-    (
-      live.phase is Available(_) ||
-      live.baseline.same_text(live.document.text()) ||
-      remote.same_present_text(live.document.text())
-    ) else {
-    raise InvalidOpen
-  }
-  PersistAndOpen(
-    Store(
-      {
-        ..self,
-        state: ReplicaState::Live({
-          document: live.document.update(text),
-          baseline: match remote {
-            Present(revision, remote_text) => Saved(revision, remote_text)
-            Missing | Deleted(_) => abort("present remote changed shape")
-          },
-          phase: LivePhase::Ready,
-        }),
-      }.advance(),
-    ),
-  )
 }

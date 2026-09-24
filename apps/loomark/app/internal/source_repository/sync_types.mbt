@@ -99,6 +99,51 @@ pub fn RemoteEntry::revision(self : Self) -> SavedRevision {
 }
 
 ///|
+/// The bounded remote fact relevant to one already-identified document.
+pub(all) enum RemoteHead {
+  Present(SavedRevision)
+  Deleted(SavedRevision)
+} derive(Eq, Debug)
+
+///|
+/// The newest remote fact known from both durable Replica state and transient
+/// discovery. Construction remains in this package so callers cannot forget
+/// either source of knowledge.
+pub struct RemoteKnowledge(RemoteHead?) derive(Eq, Debug)
+
+///|
+pub fn RemoteEntry::head(self : Self) -> RemoteHead {
+  match self {
+    Present(_, revision, _) => RemoteHead::Present(revision)
+    Deleted(_, revision) => RemoteHead::Deleted(revision)
+  }
+}
+
+///|
+fn RemoteHead::revision(self : Self) -> SavedRevision {
+  match self {
+    Present(revision) | Deleted(revision) => revision
+  }
+}
+
+///|
+fn RemoteHead::newest(self : Self, other : Self) -> Self {
+  let left = self.revision().value()
+  let right = other.revision().value()
+  if right > left ||
+    (right == left && other is RemoteHead::Deleted(_) && self is Present(_)) {
+    other
+  } else {
+    self
+  }
+}
+
+///|
+pub fn RemoteKnowledge::head(self : Self) -> RemoteHead? {
+  self.0
+}
+
+///|
 /// Project a full remote response into the bounded metadata retained by the
 /// transient account catalog.
 pub fn RemoteDocument::entry(
@@ -133,6 +178,15 @@ fn RemoteDocument::same_present_text(self : Self, text : String) -> Bool {
   match self {
     Present(_, remote_text) => remote_text == text
     Missing | Deleted(_) => false
+  }
+}
+
+///|
+fn RemoteDocument::head(self : Self) -> RemoteHead? {
+  match self {
+    Missing => None
+    Present(revision, _) => Some(RemoteHead::Present(revision))
+    Deleted(revision) => Some(RemoteHead::Deleted(revision))
   }
 }
 
@@ -230,6 +284,19 @@ pub(all) enum ReplicaState {
 } derive(Eq, Debug)
 
 ///|
+/// The visible working copy's relation to the newest remote head observed by
+/// this client. Persistence and effect activity are deliberately absent.
+pub(all) enum Relation {
+  Current
+  LocalAhead
+  RemoteAhead
+  Concurrent
+  Diverged
+  DeletedRemotely
+  Unavailable
+} derive(Eq, Debug)
+
+///|
 /// A remote revision parsed from the only Replica phase in which it may be
 /// explicitly opened. Callers cannot manufacture one from another phase.
 pub struct RemoteUpdate {
@@ -308,6 +375,16 @@ pub fn DocumentReplica::document(self : Self) -> Document? {
 }
 
 ///|
+/// Parse the only Replica state that may be compared with a visible working
+/// copy. Deleting replicas and tombstones cannot manufacture a text relation.
+pub fn DocumentReplica::live(self : Self) -> LiveReplica? {
+  match self.state {
+    Live(value) => Some(value)
+    Deleting(_) | Tombstone(_) => None
+  }
+}
+
+///|
 pub fn DocumentReplica::generation(self : Self) -> Double {
   self.generation
 }
@@ -333,6 +410,43 @@ pub fn DocumentReplica::observed_revision(self : Self) -> Double {
 }
 
 ///|
+fn LiveBaseline::head(self : Self) -> RemoteHead? {
+  match self {
+    Unpublished => None
+    Saved(revision, _) => Some(RemoteHead::Present(revision))
+  }
+}
+
+///|
+fn DocumentReplica::observed_head(self : Self) -> RemoteHead? {
+  match self.state {
+    Live({ baseline, phase: Available(remote) | Diverged(remote), .. }) =>
+      match remote.head() {
+        Some(head) => Some(head)
+        None => baseline.head()
+      }
+    Live({ baseline, .. }) | Deleting({ baseline, .. }) => baseline.head()
+    Tombstone(revision) => Some(RemoteHead::Deleted(revision))
+  }
+}
+
+///|
+/// Join durable remote knowledge with the latest transient catalog head. A
+/// missing or older catalog cannot erase a fact already stored in the Replica.
+pub fn DocumentReplica::remote_knowledge(
+  self : Self,
+  catalog : RemoteHead?,
+) -> RemoteKnowledge {
+  let head = match (self.observed_head(), catalog) {
+    (Some(durable), Some(discovered)) => Some(durable.newest(discovered))
+    (Some(durable), None) => Some(durable)
+    (None, Some(discovered)) => Some(discovered)
+    (None, None) => None
+  }
+  RemoteKnowledge(head)
+}
+
+///|
 pub fn DocumentReplica::remote_update(self : Self) -> RemoteUpdate? {
   match self.state {
     Live({ phase: Available(RemoteDocument::Present(revision, text)), .. }) =>
@@ -348,6 +462,14 @@ pub fn RemoteUpdate::remote(self : Self) -> RemoteDocument {
   match self.content {
     PresentUpdate(revision, text) => RemoteDocument::Present(revision, text)
     DeletedUpdate(revision) => RemoteDocument::Deleted(revision)
+  }
+}
+
+///|
+pub fn RemoteUpdate::head(self : Self) -> RemoteHead {
+  match self.content {
+    PresentUpdate(revision, _) => RemoteHead::Present(revision)
+    DeletedUpdate(revision) => RemoteHead::Deleted(revision)
   }
 }
 
