@@ -576,6 +576,13 @@ pub fn DocumentReplica::store(self : Self) -> ReplicaWrite {
 }
 
 ///|
+/// Reassert committed contents after superseding a failed candidate. The new
+/// generation lets the write acknowledgment advance the canonical repository.
+pub fn DocumentReplica::rewrite(self : Self) -> ReplicaWrite {
+  Store(self.advance())
+}
+
+///|
 pub fn DocumentReplica::promote_source(self : Self) -> ReplicaWrite {
   PromoteSource(self)
 }

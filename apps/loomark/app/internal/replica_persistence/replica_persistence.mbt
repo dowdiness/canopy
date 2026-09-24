@@ -171,6 +171,40 @@ pub fn State::pending(
 }
 
 ///|
+/// Every write that may still commit, including an older in-flight write
+/// before its queued replacement. Neither candidate is durable yet.
+pub fn State::pending_writes(
+  self : Self,
+) -> Iter[@source_repository.ReplicaWrite] {
+  self.lanes
+  .iter()
+  .flat_map(lane => {
+    match lane.state {
+      Persisting(active, waiting) =>
+        Some(active.write).iter().concat(waiting.iter())
+      Failed(_, write, _) => Some(write).iter()
+    }
+  })
+}
+
+///|
+/// The exact failed write, including atomic ownership and recovery operations.
+pub fn State::failed_write(
+  self : Self,
+  account : @source_repository.AccountId,
+  document_id : @source_repository.DocumentId,
+) -> @source_repository.ReplicaWrite? {
+  match self.find(account, document_id) {
+    None => None
+    Some(index) =>
+      match self.lanes[index].state {
+        Failed(_, write, _) => Some(write)
+        Persisting(_, _) => None
+      }
+  }
+}
+
+///|
 pub fn State::status(
   self : Self,
   account : @source_repository.AccountId,

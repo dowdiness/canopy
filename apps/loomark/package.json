@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev:worker": "LOOMARK_LOCAL_BUILD=1 wrangler dev --local --port 8787",
     "build:styles": "tailwindcss -i ./styles/tailwind.css -o ./public/styles.css --minify",
     "dev:styles": "tailwindcss -i ./styles/tailwind.css -o ./public/styles.css --watch",
     "build:server": "NEW_MOON_MOD=0 moon build server/documents --target js --release",

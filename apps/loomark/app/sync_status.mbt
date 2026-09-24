@@ -3,6 +3,8 @@ priv enum AccountStatus {
   Checking
   SignedOut
   SignedIn(String)
+  SigningOut(String)
+  SignOutUnconfirmed(String)
   Unavailable
   SyncUnavailable
 } derive(Eq)
@@ -32,6 +34,8 @@ fn account_status(sync : @sync.State) -> AccountStatus {
     Current(_, _) if sync.observation() is @sync.Observation::Unavailable =>
       SyncUnavailable
     Current(_, name) => SignedIn(name)
+    Revoking(attempt) => SigningOut(attempt.name())
+    LogoutUnconfirmed(attempt) => SignOutUnconfirmed(attempt.name())
     SessionUnavailable => Unavailable
   }
 }
@@ -83,8 +87,11 @@ fn document_sync(model : Model) -> DocumentSync? {
             Starting => DocumentSync::Linking
             Unavailable => DocumentSync::DeviceOnly
           }
-        NoAccount | Resolving(_) | SessionUnavailable =>
-          DocumentSync::DeviceOnly
+        NoAccount
+        | Resolving(_)
+        | Revoking(_)
+        | LogoutUnconfirmed(_)
+        | SessionUnavailable => DocumentSync::DeviceOnly
       }
       Some(sync)
     }

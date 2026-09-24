@@ -6,6 +6,7 @@ import {
   "moonbitlang/async/io",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
+  "moonbit-community/rabbita/url",
 }
 
 supported_targets = "js"

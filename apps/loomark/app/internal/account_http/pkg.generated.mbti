@@ -4,14 +4,33 @@ package "dowdiness/loomark/app/internal/account_http"
 import {
   "dowdiness/loomark/app/internal/sync",
   "moonbit-community/rabbita/cmd",
+  "moonbitlang/core/debug",
 }
 
 // Values
+pub fn prepare_login(@cmd.Emit[LoginResult]) -> @cmd.Cmd
+
 pub fn resolve(@cmd.Emit[@sync.AccountResult]) -> @cmd.Cmd
+
+pub fn sign_out(@cmd.Emit[LogoutResult]) -> @cmd.Cmd
 
 // Errors
 
 // Types and methods
+pub struct GoogleAuthorizationUrl {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn GoogleAuthorizationUrl::value(Self) -> String
+
+pub(all) enum LoginResult {
+  Prepared(GoogleAuthorizationUrl)
+  Unavailable
+} derive(Eq, @debug.Debug)
+
+pub(all) enum LogoutResult {
+  SignedOut
+  Unconfirmed
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

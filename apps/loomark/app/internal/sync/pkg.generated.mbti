@@ -9,6 +9,14 @@ import {
 // Values
 
 // Errors
+pub(all) suberror InvalidSession {
+  InvalidSession
+} derive(Eq, @debug.Debug)
+
+pub(all) suberror LookupBlocked {
+  LookupBlocked
+} derive(Eq, @debug.Debug)
+
 pub(all) suberror WorkError {
   StaleWork
 } derive(Eq, @debug.Debug)
@@ -47,6 +55,11 @@ pub fn DeliveryAttempt::account(Self) -> @source_repository.AccountId
 pub fn DeliveryAttempt::document_id(Self) -> @source_repository.DocumentId
 
 pub struct DiscoveryId(Int) derive(Eq, @debug.Debug)
+
+pub struct LogoutAttempt {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn LogoutAttempt::name(Self) -> String
 
 pub(all) enum Observation {
   Unknown
@@ -106,8 +119,10 @@ pub(all) enum SelectionStep {
 
 pub enum Session {
   Resolving(Int)
+  Revoking(LogoutAttempt)
   NoAccount
   Current(@source_repository.AccountId, String)
+  LogoutUnconfirmed(LogoutAttempt)
   SessionUnavailable
 } derive(Eq, @debug.Debug)
 
@@ -120,7 +135,8 @@ pub fn State::activity(Self, @source_repository.DocumentReplica) -> Activity
 pub fn State::advance(Self, @source_repository.DocumentReplica) -> (Self, Action?)
 pub fn State::advance_selection(Self, @source_repository.DocumentReplica?) -> (Self, SelectionStep)
 pub fn State::begin_discovery(Self) -> (Self, DiscoveryId?)
-pub fn State::begin_lookup(Self) -> (Self, Int)
+pub fn State::begin_logout(Self) -> (Self, LogoutAttempt) raise InvalidSession
+pub fn State::begin_lookup(Self) -> (Self, Int) raise LookupBlocked
 pub fn State::cancel_selection(Self) -> Self
 pub fn State::catalog(Self) -> Array[@source_repository.RemoteEntry]
 pub fn State::complete_selection(Self, SelectionIntent) -> Self raise WorkError
@@ -129,6 +145,7 @@ pub fn State::delivery_failed(Self, @source_repository.DocumentReplica, Delivery
 pub fn State::delivery_too_large(Self, @source_repository.DocumentReplica, DeliveryAttempt) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
 pub fn State::discovered(Self, @source_repository.AccountId, DiscoveryId, Array[@source_repository.RemoteEntry]?) -> (Self, Bool)
 pub fn State::discovering(Self) -> Bool
+pub fn State::logged_out(Self, LogoutAttempt, Bool) -> (Self, AccountSelection?) raise WorkError
 pub fn State::observation(Self) -> Observation
 pub fn State::open_failed(Self, OpenAttempt) -> Self raise WorkError
 pub fn State::opened(Self, OpenAttempt, @source_repository.RemoteDocument) -> (Self, @source_repository.ReplicaWrite?) raise WorkError

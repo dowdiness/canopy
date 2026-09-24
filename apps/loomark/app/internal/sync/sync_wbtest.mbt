@@ -6,6 +6,13 @@ fn test_account(value : String) -> @source_repository.AccountId {
 }
 
 ///|
+fn test_begin_lookup(state : State) -> (State, Int) {
+  state.begin_lookup() catch {
+    _ => abort("lookup should be allowed")
+  }
+}
+
+///|
 fn test_document_id(
   value? : String = "document",
 ) -> @source_repository.DocumentId {
@@ -55,7 +62,7 @@ fn sending_replica() -> @source_repository.DocumentReplica {
 
 ///|
 fn signed_in(account : @source_repository.AccountId) -> State {
-  let (state, lookup) = State().begin_lookup()
+  let (state, lookup) = test_begin_lookup(State())
   state.resolved(lookup, Resolved(account, "Writer")).0
 }
 
@@ -71,8 +78,8 @@ fn with_catalog(
 
 ///|
 test "only the latest account lookup can select an account" {
-  let (state, first) = State().begin_lookup()
-  let (state, second) = state.begin_lookup()
+  let (state, first) = test_begin_lookup(State())
+  let (state, second) = test_begin_lookup(state)
   let account = test_account("account-a")
   let (state, selected) = state.resolved(first, Resolved(account, "A"))
   assert_eq(selected, None)
@@ -93,7 +100,7 @@ test "account lookup compares delayed responses with the retained catalog" {
       "Remote",
     ),
   ])
-  let (resolving, _) = state.begin_lookup()
+  let (resolving, _) = test_begin_lookup(state)
   assert_eq(resolving.remote_entry(document_id), None)
   let retained = resolving.retained_remote_entry(document_id)
   assert_true(
@@ -115,7 +122,7 @@ test "discovery completion survives lookup of the same account" {
   let account = test_account("account")
   let current = signed_in(account)
   let (discovering, discovery) = current.begin_discovery()
-  let (resolving, lookup) = discovering.begin_lookup()
+  let (resolving, lookup) = test_begin_lookup(discovering)
   let entry = @source_repository.RemoteEntry::Present(
     test_document_id(),
     revision(2.0),
@@ -572,7 +579,7 @@ test "account lookup retires an active open request without retaining work" {
     is (fetching, SelectionStep::Fetch(attempt)) else {
     fail("first open")
   }
-  let (resolving, lookup) = fetching.begin_lookup()
+  let (resolving, lookup) = test_begin_lookup(fetching)
   let stale : Result[(State, @source_repository.ReplicaWrite?), WorkError] = Ok(
     resolving.opened(
       attempt,
@@ -719,7 +726,7 @@ test "new intent and account lookup invalidate a failed open retry" {
     error => Err(error)
   }
   assert_eq(expired, Err(WorkError::StaleWork))
-  let resolving = failed.begin_lookup().0
+  let resolving = test_begin_lookup(failed).0
   let expired : Result[(State, Action), WorkError] = Ok(
     resolving.retry_selection(retry),
   ) catch {
@@ -931,4 +938,71 @@ test "remote response is retained independently of catalog freshness" {
   }
   assert_eq(received.observation(), Observation::Unknown)
   assert_true(received.remote_entry(test_document_id()) is Some(_))
+}
+
+///|
+test "logout fences lookup and distinguishes unconfirmed completion" {
+  let account = test_account("account")
+  let current = signed_in(account)
+  let (revoking, logout) = current.begin_logout() catch {
+    _ => abort("current session should revoke")
+  }
+  let blocked = try revoking.begin_lookup() catch {
+    LookupBlocked => true
+  } noraise {
+    _ => false
+  }
+  assert_true(blocked)
+  let (uncertain, selected) = revoking.logged_out(logout, false) catch {
+    _ => abort("logout completion")
+  }
+  assert_eq(selected, None)
+  assert_true(uncertain.session() is LogoutUnconfirmed(_))
+  let (resolving, lookup) = test_begin_lookup(uncertain)
+  let (resolved, selected) = resolving.resolved(
+    lookup,
+    Resolved(account, "Writer"),
+  )
+  assert_eq(selected, Some(AccountSelection::AccountSelected(account)))
+  assert_true(resolved.session() is Current(_, _))
+  let (retrying, retry) = uncertain.begin_logout() catch {
+    _ => abort("uncertain logout should retry")
+  }
+  assert_true(retry != logout)
+  assert_true(retrying.session() is Revoking(_))
+  let stale = try retrying.logged_out(logout, true) catch {
+    StaleWork => true
+  } noraise {
+    _ => false
+  }
+  assert_true(stale)
+}
+
+///|
+test "duplicate logout completion is stale while old delivery remains valid" {
+  let replica = sending_replica()
+  let current = signed_in(replica.account())
+  guard current.advance(replica) is (current, Some(Deliver(delivery, _))) else {
+    fail("delivery started before logout")
+  }
+  let (revoking, logout) = current.begin_logout() catch {
+    _ => abort("current session should revoke")
+  }
+  let (logged_out, _) = revoking.logged_out(logout, true) catch {
+    _ => abort("logout completion")
+  }
+  let duplicate : Result[(State, AccountSelection?), WorkError] = Ok(
+    logged_out.logged_out(logout, true),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(duplicate, Err(WorkError::StaleWork))
+  let (acknowledged, write) = logged_out.acknowledged(
+    replica,
+    delivery,
+    revision(1.0),
+  )
+  assert_true(acknowledged.session() is NoAccount)
+  guard write is Some(write) else { fail("old-account receipt remains valid") }
+  assert_eq(write.replica().baseline_revision(), 1.0)
 }

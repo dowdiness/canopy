@@ -36,17 +36,19 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       @sub.batch([
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
+        page_restore_subscription(emit(PageRestored)),
         lead_subscriptions(current.page, emit),
       ])
     },
   )
   let page = model.map(model => model.page)
-  let editor_input = page.map(page => {
-    match page {
+  let editor_input = model.map(model => {
+    match model.page {
       Editing(editing) =>
         Some({
           activation: editing.activation,
-          disabled: editing.creation is Creating(_),
+          disabled: editing.creation is Creating(_) ||
+          model.departure.editor_disabled(),
           read_only: editing.deletion_blocks_document_changes(),
           mode: editing.mode,
           preview: editing.preview,
@@ -210,9 +212,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     input=feature_input,
     lifecycle_key=key => key.lifecycle_key(),
     visible=sidebar_state.visible(),
-    can_create=page.map(page => {
-      match page {
-        Editing(editing) => editing.can_activate()
+    can_create=model.map(model => {
+      match model.page {
+        Editing(editing) =>
+          editing.can_activate() && !model.departure.editor_disabled()
         _ => false
       }
     }),
@@ -229,23 +232,29 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     }),
     close_after_action=sidebar_state.collapse(),
   )
-  let layout_input = page.map5(
-    selected_panels,
-    sync_status,
-    recent_feature.dialog(),
-    recent_feature.navigation(),
-    (page, editor_panels, sync_status, dialog, recent_navigation) => {
-      (page, editor_panels, sync_status, dialog, recent_navigation)
-    },
-  )
+  let account_input = model.map(account_controls_input)
+  let layout_input = page
+    .map5(
+      selected_panels,
+      sync_status,
+      recent_feature.dialog(),
+      recent_feature.navigation(),
+      (page, editor_panels, sync_status, dialog, recent_navigation) => {
+        (page, editor_panels, sync_status, dialog, recent_navigation)
+      },
+    )
+    .map2(account_input, (layout, account) => (layout, account))
   @sidebar.sidebar_provider_with_state(
     state=sidebar_state,
     input=layout_input,
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
     (sidebar, layout) => {
-      let (page, editor_panels, sync_status, dialog, recent_navigation) = layout
+      let (
+        (page, editor_panels, sync_status, dialog, recent_navigation),
+        account,
+      ) = layout
       view(
-        sidebar, page, emit, editor_panels, sync_status, dialog, recent_navigation,
+        sidebar, page, account, emit, editor_panels, sync_status, dialog, recent_navigation,
       )
     },
   )

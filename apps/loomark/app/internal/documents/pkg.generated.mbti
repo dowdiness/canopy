@@ -2,6 +2,7 @@
 package "dowdiness/loomark/app/internal/documents"
 
 import {
+  "dowdiness/loomark/app/internal/replica_persistence",
   "dowdiness/loomark/app/internal/source_repository",
   "moonbitlang/core/debug",
 }
@@ -40,6 +41,19 @@ pub(all) enum DeleteStatus {
   DeletePending
   DeleteFailed(@source_repository.DeleteFailure)
   DeletePersistenceFailed(@source_repository.ReplicaFailure)
+} derive(Eq)
+
+pub enum DepartureFailure {
+  Save(Key, @source_repository.SaveFailure)
+  Delete(Key, @source_repository.DeleteFailure)
+  Replica(Key, @source_repository.ReplicaFailure)
+} derive(Eq)
+
+pub enum DepartureStatus {
+  AwaitingInput
+  Saving
+  Failed(DepartureFailure)
+  Ready
 } derive(Eq)
 
 pub(all) enum Feedback {
@@ -134,6 +148,7 @@ pub fn State::State(@source_repository.SavedDocuments) -> Self
 pub fn State::accept_remote(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?, AcceptRemote) -> RemoteAcceptance raise ActionError
 pub fn State::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise ActionError
 pub fn State::delete_status(Self, Key) -> DeleteStatus?
+pub fn State::departure_status(Self, @replica_persistence.State) -> DepartureStatus
 pub fn State::document(Self, Key) -> @source_repository.Document?
 pub fn State::fallback_document(Self, Key) -> Key?
 pub fn State::hide_accounts(Self) -> Self
@@ -141,6 +156,7 @@ pub fn State::is_composing(Self, Key) -> Bool
 pub fn State::known_keys(Self) -> Array[Key]
 pub fn State::open_replica(Self, @source_repository.DocumentReplica) -> RemoteOpen
 pub fn State::pending_edits(Self) -> Array[(Key, Int)]
+pub fn State::prepare_departure(Self) -> (Self, Array[Action])
 pub fn State::project_account(Self, @source_repository.AccountId) -> Self
 pub fn State::recent(Self) -> Array[(Key, String, SaveStatus, DeleteStatus)]
 pub fn State::reduce(Self, Msg) -> (Self, Array[Action])
