@@ -566,8 +566,17 @@ fn update_page(
       )
     (Recovery(failure, _), ViewportChanged(width)) =>
       (Recovery(failure, compact_viewport(width)), @cmd.none)
-    (Editing(editing), ViewportChanged(width)) =>
-      (Editing({ ..editing, compact: compact_viewport(width), }), @cmd.none)
+    (Editing(editing), ViewportChanged(width)) => {
+      let compact = compact_viewport(width)
+      (
+        Editing({ ..editing, compact, }),
+        if compact {
+          @sidebar.sidebar_focus("loomark-document-sidebar")
+        } else {
+          @cmd.none
+        },
+      )
+    }
     (Editing(editing), CreateRequested) =>
       if !editing.can_activate() {
         (Editing(editing), @cmd.none)

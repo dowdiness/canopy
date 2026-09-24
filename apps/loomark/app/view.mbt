@@ -334,34 +334,45 @@ fn mode_bar(
     [
       @html.div(
         class="flex min-w-0 items-center gap-2 \{toolbar_control_spacing}",
-        [
-          @sidebar.sidebar_trigger(
-            scope,
-            mobile=false,
-            controls="loomark-document-sidebar",
-            aria_label="Toggle documents",
-            class="fixed top-[0.5625rem] left-3 z-20 active:opacity-50 max-[641px]:left-2",
-            @view.panel_icon("block size-4 shrink-0"),
+        @rui.tabs_root(
+          value=mode_name(editing.mode).to_lower(),
+          style=["width:auto"],
+          @rui.tabs_list(
+            orientation=@rui.TabsHorizontal,
+            variant=@rui.TabsDefault,
+            aria_label="Editor mode",
+            [
+              mode_tab(Text, editing.mode, emit),
+              mode_tab(Preview, editing.mode, emit),
+              mode_tab(Split, editing.mode, emit),
+            ],
           ),
-          @rui.tabs_root(
-            value=mode_name(editing.mode).to_lower(),
-            style=["width:auto"],
-            @rui.tabs_list(
-              orientation=@rui.TabsHorizontal,
-              variant=@rui.TabsDefault,
-              aria_label="Editor mode",
-              [
-                mode_tab(Text, editing.mode, emit),
-                mode_tab(Preview, editing.mode, emit),
-                mode_tab(Split, editing.mode, emit),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
       sync_status,
       account_controls(account, emit),
     ],
+  )
+}
+
+///|
+fn document_sidebar_trigger(
+  scope : @sidebar.SidebarScope,
+  compact : Bool,
+) -> @rabbita.Html {
+  let focus = compact && @sidebar.sidebar_is_collapsed(scope)
+  @sidebar.sidebar_trigger(
+    scope,
+    mobile=false,
+    controls="loomark-document-sidebar",
+    aria_label="Toggle documents",
+    class="fixed top-[0.5625rem] left-3 z-20 active:opacity-50 max-[641px]:left-2",
+    on_click=if focus {
+      @sidebar.sidebar_focus("loomark-document-sidebar")
+    } else {
+      @cmd.none
+    },
+    @view.panel_icon("block size-4 shrink-0"),
   )
 }
 
@@ -554,7 +565,9 @@ fn view(
             [@html.h1("Document recovery"), @html.p(message)],
           )
         }
-        Editing(editing) =>
+        Editing(editing) => {
+          let editor_inert = editing.compact &&
+            !@sidebar.sidebar_is_collapsed(sidebar)
           @html.div(
             class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
             [
@@ -572,8 +585,11 @@ fn view(
                   sidebar_tools(sidebar, editing, account, emit),
                 ],
               ),
+              document_sidebar_trigger(sidebar, editing.compact),
               @html.div(
+                id="loomark-editor",
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
+                attrs=@html.Attrs::build().inert(editor_inert),
                 [
                   mode_bar(sidebar, editing, account, sync_status, emit),
                   account_notice(account),
@@ -626,6 +642,7 @@ fn view(
               ),
             ],
           )
+        }
       },
       delete_dialog,
     ],

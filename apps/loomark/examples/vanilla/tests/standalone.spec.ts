@@ -1389,11 +1389,13 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
   ])
   await page.reload()
   const documents = page.getByRole("complementary", { name: "Documents" })
-  const order = async () => documents.locator("button[aria-label]").evaluateAll(buttons => (
-    buttons.map(button => button.getAttribute("aria-label"))
-      .filter((label): label is string => label !== null && !label.startsWith("Delete ")
-        && label !== "Documents" && label !== "New document"
-  )))
+  const order = async () => documents
+    .locator('[data-slot="sidebar-menu-button"][aria-label]')
+    .evaluateAll(buttons => (
+      buttons.map(button => button.getAttribute("aria-label"))
+        .filter((label): label is string => label !== null && !label.startsWith("Delete ")
+          && label !== "Documents" && label !== "New document"
+    )))
   await expect.poll(order).toEqual(["A", "B", "C"])
 
   const text = page.getByRole("textbox", { name: "Text" })
@@ -1762,6 +1764,7 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   await expect(toggle)
     .toHaveAttribute("aria-expanded", "false")
   const sidebar = page.locator("#loomark-document-sidebar")
+  const editor = page.locator("#loomark-editor")
   await expect(sidebar)
     .toHaveAttribute("aria-hidden", "true")
   const topBar = page.locator("header")
@@ -1772,9 +1775,14 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
-  await toggle.click()
+  await toggle.focus()
+  await page.keyboard.press("Enter")
   await expect(sidebar).toBeVisible()
   await expect(sidebar).toHaveCSS("opacity", "1")
+  expect(await editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
+  await expect.poll(() => sidebar.evaluate(element => (
+    element.contains(document.activeElement)
+  ))).toBe(true)
   expect(await sidebar.evaluate(element => element.getBoundingClientRect().width))
     .toBe(390)
   const newDocument = page.getByRole("button", { name: "New document" })
@@ -1869,12 +1877,23 @@ test("Document sidebar respects reduced motion", async ({ page }) => {
 test("Sidebar visibility survives breakpoints but resets on reload", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   const toggle = page.getByRole("button", { name: "Toggle documents" })
+  const sidebar = page.locator("#loomark-document-sidebar")
+  const editor = page.locator("#loomark-editor")
+  const text = page.getByRole("textbox", { name: "Text" })
   await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await text.focus()
+  await expect(text).toBeFocused()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  expect(await editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
+  await expect.poll(() => sidebar.evaluate(element => (
+    element.contains(document.activeElement)
+  ))).toBe(true)
   await toggle.click()
   await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  expect(await editor.evaluate(element => (element as HTMLElement).inert)).toBe(false)
   await page.setViewportSize({ width: 1280, height: 900 })
   await expect(toggle).toHaveAttribute("aria-expanded", "false")
   await page.reload()
@@ -2104,7 +2123,7 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
       bodyMargin: getComputedStyle(document.body).margin,
       boxSizing: getComputedStyle(document.documentElement).boxSizing,
       modeBarDisplay: getComputedStyle(modeBar).display,
-      modeBarMinHeight: getComputedStyle(modeBar).minHeight,
+      modeBarHeight: getComputedStyle(modeBar).height,
       selectedBackground: getComputedStyle(selectedTab).backgroundColor,
       textFont: getComputedStyle(text).fontFamily,
       textPaddingLeft: Number.parseFloat(getComputedStyle(text).paddingLeft),
@@ -2113,7 +2132,7 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   expect(styles.bodyMargin).toBe("0px")
   expect(styles.boxSizing).toBe("border-box")
   expect(styles.modeBarDisplay).toBe("flex")
-  expect(styles.modeBarMinHeight).toBe("44px")
+  expect(styles.modeBarHeight).toBe("44px")
   expect(styles.selectedBackground).not.toBe("rgba(0, 0, 0, 0)")
   expect(styles.textFont).toContain("ui-monospace")
   expect(styles.textPaddingLeft).toBeGreaterThanOrEqual(48)
@@ -2124,7 +2143,7 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   ))).toBe("12px")
 
   await page.getByRole("button", {
-    name: "Apply Markdown feature tour example",
+    name: "Create Markdown feature tour example document",
   }).click()
   await page.getByRole("tab", { name: "Preview" }).click()
   const preview = page.getByRole("region", { name: "Markdown preview" })
@@ -2232,6 +2251,7 @@ test("Split uses RUI keyboard resizing and preserves textarea across orientation
   await expect(resize).toHaveValue("75")
 
   await page.setViewportSize({ width: 640, height: 700 })
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect(separator).toHaveAttribute("aria-orientation", "horizontal")
   await expect(resize).toHaveValue("50")
   const compactGroupBox = await page.locator("#loomark-editor-panels").boundingBox()

@@ -1934,6 +1934,32 @@ pub fn sidebar_close_mobile(scope : SidebarScope) -> @cmd.Cmd {
 }
 
 ///|
+/// Move focus into an open sidebar after its current render completes.
+#cfg(target="js")
+pub fn sidebar_focus(id : String) -> @cmd.Cmd {
+  @cmd.custom_cmd(kind=AfterRender, _ => {
+    guard ui_has_document() &&
+      @dom.document().get_element_by_id(id).to_option() is Some(root) &&
+      root.get_attribute("aria-hidden").unwrap_or("") != "true" else {
+      return
+    }
+    let document = @dom.document()
+    if document.get_active_element() is Some(active) &&
+      root.contains(active.as_node()) {
+      return
+    }
+    sidebar_focus_edge(root, false)
+  })
+}
+
+///|
+#cfg(not(target="js"))
+pub fn sidebar_focus(id : String) -> @cmd.Cmd {
+  ignore(id)
+  @cmd.none
+}
+
+///|
 /// Render either the desktop sidebar or its explicit mobile sheet form.
 /// `mobile=true` is intentional: inline styles have no hidden stylesheet or
 /// breakpoint registration, so applications choose when to switch forms.
