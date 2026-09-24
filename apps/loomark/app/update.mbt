@@ -57,7 +57,6 @@ fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
 ///|
 fn EditingState::can_activate(self : Self) -> Bool {
   !(self.creation is Creating(_)) &&
-  !self.account.leaving() &&
   !self.documents.is_composing(self.activation.key) &&
   !self.deletion_blocks_document_changes()
 }
@@ -93,55 +92,6 @@ fn activation_target(
 ///|
 fn EditingState::can_select(self : Self, key : @documents.Key) -> Bool {
   self.selectable_activation(key) is Some(_)
-}
-
-///|
-fn run_action(
-  documents : @documents.State,
-  action : @documents.Action,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Cmd {
-  match action {
-    @documents.Action::ArmMaximum(id) =>
-      @cmd.delay(
-        emit(DocumentsLifecycle(@documents.Feedback::MaximumElapsed(id))),
-        AUTOSAVE_MAXIMUM_MS,
-      )
-    @documents.Action::PersistSource(operation) =>
-      @source_repository.save(
-        documents.snapshot(),
-        operation.document,
-        emit.map(result => {
-          DocumentsLifecycle(
-            @documents.Feedback::SaveCompleted(operation, result),
-          )
-        }),
-      )
-    @documents.Action::StoreReplica(_)
-    | @documents.Action::SaveReplica(_)
-    | @documents.Action::DeleteReplica(_)
-    | @documents.Action::RetryReplica(_, _) =>
-      abort("Replica actions must be consumed synchronously by the root")
-    @documents.Action::DeleteSource(operation) =>
-      @source_repository.delete(
-        documents.snapshot(),
-        operation.document_id,
-        emit.map(result => {
-          DocumentsLifecycle(
-            @documents.Feedback::DeleteCompleted(operation, result),
-          )
-        }),
-      )
-  }
-}
-
-///|
-fn run_actions(
-  documents : @documents.State,
-  actions : Array[@documents.Action],
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Cmd {
-  @cmd.batch(actions.map(action => run_action(documents, action, emit)))
 }
 
 ///|
@@ -207,6 +157,7 @@ fn activate_open(
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   guard model.page is Editing(editing) &&
+    !model.departure.editor_disabled() &&
     editing.can_activate() &&
     model.page.saved_documents() is Some(saved) else {
     return (model, command)
@@ -236,7 +187,7 @@ fn activate_open(
     target, emit, text_area, preview_engine,
   )
   (
-    { page: Editing({ ..editing, documents, }), replication, },
+    { ..model, page: Editing({ ..editing, documents, }), replication, },
     @cmd.batch([command, activation_command]),
   )
 }
@@ -245,10 +196,13 @@ fn activate_open(
 fn reduce_documents(
   editing : EditingState,
   event : @documents.Msg,
-  emit : @rabbita.Emit[Msg],
-) -> (EditingState, @rabbita.Cmd) {
-  let (documents, actions) = editing.documents.reduce(event)
-  ({ ..editing, documents, }, run_actions(documents, actions, emit))
+  actions : Array[@documents.Action],
+) -> EditingState {
+  let (documents, next_actions) = editing.documents.reduce(event)
+  for action in next_actions {
+    actions.push(action)
+  }
+  { ..editing, documents, }
 }
 
 ///|
@@ -269,63 +223,9 @@ fn update_page(
   emit : @rabbita.Emit[Msg],
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
+  actions : Array[@documents.Action],
 ) -> (Page, @rabbita.Cmd) {
-  if model is Editing(editing) &&
-    editing.account.leaving() &&
-    login_blocks_message(msg) {
-    return (model, @cmd.none)
-  }
   let (next, command) = match (model, msg) {
-    (Editing(editing), AccountLoaded(result, failed)) if editing.account ==
-      CheckingAccount =>
-      (
-        Editing({ ..editing, account: account_result(result, failed), }),
-        @cmd.none,
-      )
-    (Editing(editing), CheckAccount) if editing.account == AccountUnavailable =>
-      (Editing({ ..editing, account: CheckingAccount, }), check_account(emit))
-    (Editing(editing), LoginRequested) if editing.account
-      is (SignedOut | LoginFailed(_)) => begin_login(editing, emit)
-    (Editing(editing), LoginPrepared(result)) if editing.account ==
-      StartingLogin =>
-      match google_authorization_url(result) {
-        Some(url) =>
-          (
-            Editing({ ..editing, account: RedirectingToGoogle, }),
-            @cmd.custom_cmd(_ => load_url(url)),
-          )
-        None =>
-          (
-            Editing({ ..editing, account: LoginFailed(AuthenticationFailed), }),
-            @cmd.none,
-          )
-      }
-    (Editing(editing), LogoutRequested) =>
-      match editing.account {
-        SignedIn(name) | LogoutFailed(name) =>
-          (
-            Editing({ ..editing, account: SigningOut(name), }),
-            @http.post("/api/auth/sign-out")
-            .with_json(({} : Json))
-            .expect_empty(emit.map(error => LogoutCompleted(error))),
-          )
-        _ => (model, @cmd.none)
-      }
-    (Editing(editing), LogoutCompleted(error)) =>
-      match editing.account {
-        SigningOut(name) =>
-          (
-            Editing({
-              ..editing,
-              account: match error {
-                None => SignedOut
-                Some(_) => LogoutFailed(name)
-              },
-            }),
-            @cmd.none,
-          )
-        _ => (model, @cmd.none)
-      }
     (Loading(compact), Opened(Ready(saved, initial))) =>
       match initial {
         Some(document) => {
@@ -353,10 +253,9 @@ fn update_page(
               preview,
               import_failed: false,
               imports_pending: 0,
-              account: CheckingAccount,
               new_preparation_request_id: 0,
             }),
-            @cmd.batch([command, check_account(emit)]),
+            command,
           )
         }
         None => {
@@ -416,10 +315,9 @@ fn update_page(
                 preview,
                 import_failed: false,
                 imports_pending: 0,
-                account: CheckingAccount,
                 new_preparation_request_id: preparing.request_id,
               }),
-              @cmd.batch([command, check_account(emit)]),
+              command,
             )
           }
         }
@@ -476,10 +374,10 @@ fn update_page(
           Some(text) if editing.documents.text(key) == Some(text) =>
             (Editing(editing), @cmd.none)
           Some(text) => {
-            let (editing, command) = reduce_documents(
+            let editing = reduce_documents(
               editing,
               @documents.Msg::TextChanged(key, text),
-              emit,
+              actions,
             )
             if editing.documents.text(key) != Some(text) {
               (
@@ -493,10 +391,7 @@ fn update_page(
                 change,
                 emit.map(event => PreviewEvent(event)),
               )
-              (
-                Editing({ ..editing, preview, }),
-                @cmd.batch([command, preview_command]),
-              )
+              (Editing({ ..editing, preview, }), preview_command)
             }
           }
         }
@@ -507,12 +402,12 @@ fn update_page(
         editing.deletion_blocks_document_changes() {
         (Editing(editing), @cmd.none)
       } else {
-        let (editing, command) = reduce_documents(
+        let editing = reduce_documents(
           editing,
           @documents.Msg::CompositionStarted(editing.activation.key),
-          emit,
+          actions,
         )
-        (Editing(editing), command)
+        (Editing(editing), @cmd.none)
       }
     (Editing(editing), ModeSelected(mode)) => {
       let entering_preview = editing.mode == Text && mode != Text
@@ -591,10 +486,10 @@ fn update_page(
         ..editing,
         imports_pending: (editing.imports_pending - 1).max(0),
       }
-      let (next, persist) = reduce_documents(
+      let next = reduce_documents(
         editing,
         @documents.Msg::Imported(document_id, text),
-        emit,
+        actions,
       )
       match
         activation_target(next.documents, @documents.Key::source(document_id)) {
@@ -609,7 +504,7 @@ fn update_page(
           let (next, surface) = ready.activate(
             target, emit, text_area, preview_engine,
           )
-          (Editing(next), @cmd.batch([persist, surface]))
+          (Editing(next), surface)
         }
       }
     }
@@ -656,10 +551,10 @@ fn update_page(
       if !(editing.creation is Creating(current) && current == generation) {
         (Editing(editing), @cmd.none)
       } else {
-        let (editing, _) = reduce_documents(
+        let editing = reduce_documents(
           editing,
           @documents.Msg::New(document_id),
-          emit,
+          actions,
         )
         match
           activation_target(
@@ -716,16 +611,16 @@ fn update_page(
         NoDeletion => (Editing(editing), @cmd.none)
       }
     (Editing(editing), DismissDeleteFailure(document_id)) => {
-      let (editing, command) = reduce_documents(
+      let editing = reduce_documents(
         editing,
         DismissDeleteFailure(document_id),
-        emit,
+        actions,
       )
-      (Editing(editing), command)
+      (Editing(editing), @cmd.none)
     }
     _ => (model, @cmd.none)
   }
-  advance_login(next, emit, command)
+  (next, command)
 }
 
 ///|
@@ -858,15 +753,17 @@ fn apply_document_actions(
     let (model, commands) = state
     match action {
       @documents.Action::SaveReplica(edit) => {
-        let durable = edit.durable()
-        let base = model.replication.editing_base(durable)
-        let (sync, write) = model.sync().save(base, edit.document().text())
-        let model = model.with_sync(sync)
-        match write {
-          Some(write) => {
-            let (model, command) = submit_replica(model, write, emit)
-            (model, commands + [command])
-          }
+        guard model.page.saved_documents() is Some(saved) else {
+          return (model, commands)
+        }
+        let (replication, effect) = model.replication.save_local(
+          edit.durable(),
+          edit.document().text(),
+        )
+        let model = { ..model, replication, }
+        match effect {
+          Some(effect) =>
+            (model, commands + [run_replication_effect(saved, effect, emit)])
           None => (model, commands)
         }
       }
@@ -898,12 +795,52 @@ fn apply_document_actions(
           .unwrap_or(@cmd.none)
         ({ ..model, replication, }, commands + [command])
       }
-      ArmMaximum(_) | PersistSource(_) | DeleteSource(_) => {
-        let documents = match model.page.documents_state() {
-          Some(documents) => documents
-          None => abort("Document actions require an open repository")
-        }
-        (model, commands + [run_action(documents, action, emit)])
+      ArmMaximum(id) =>
+        (
+          model,
+          commands +
+          [
+            @cmd.delay(
+              emit(DocumentsLifecycle(@documents.Feedback::MaximumElapsed(id))),
+              AUTOSAVE_MAXIMUM_MS,
+            ),
+          ],
+        )
+      PersistSource(operation) => {
+        let saved = model.page.saved_documents().unwrap()
+        (
+          model,
+          commands +
+          [
+            @source_repository.save(
+              saved,
+              operation.document,
+              emit.map(result => {
+                DocumentsLifecycle(
+                  @documents.Feedback::SaveCompleted(operation, result),
+                )
+              }),
+            ),
+          ],
+        )
+      }
+      DeleteSource(operation) => {
+        let saved = model.page.saved_documents().unwrap()
+        (
+          model,
+          commands +
+          [
+            @source_repository.delete(
+              saved,
+              operation.document_id,
+              emit.map(result => {
+                DocumentsLifecycle(
+                  @documents.Feedback::DeleteCompleted(operation, result),
+                )
+              }),
+            ),
+          ],
+        )
       }
     }
   })
@@ -1060,13 +997,17 @@ fn resolve_changed_account(
     current == account else {
     return (sync, @cmd.none)
   }
-  let (sync, lookup_id) = sync.begin_lookup()
-  (
-    sync,
-    @account_http.resolve(
-      emit.map(value => Sync(AccountResolved(lookup_id, value))),
-    ),
-  )
+  let result = Some(sync.begin_lookup()) catch { _ => None }
+  match result {
+    None => (sync, @cmd.none)
+    Some((sync, lookup_id)) =>
+      (
+        sync,
+        @account_http.resolve(
+          emit.map(value => Sync(AccountResolved(lookup_id, value))),
+        ),
+      )
+  }
 }
 
 ///|
@@ -1075,7 +1016,21 @@ fn initial_state(
   compact : Bool,
 ) -> (Model, @rabbita.Cmd) {
   let (page, page_command) = initial_page(emit, compact)
-  ({ page, replication: @replication.State(), }, page_command)
+  (
+    {
+      page,
+      replication: @replication.State(),
+      departure: Stable,
+      login_prepare: None,
+      next_login_id: 0,
+    },
+    @cmd.batch([
+      page_command,
+      @cmd.perform(failed => emit(AuthenticationReturned(failed)), () => {
+        consume_authentication_error()
+      }),
+    ]),
+  )
 }
 
 ///|
@@ -1102,6 +1057,202 @@ fn update_documents(
 }
 
 ///|
+fn begin_login(
+  model : Model,
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @rabbita.Cmd) {
+  guard model.page is Editing(editing) &&
+    model.sync().session() is @sync.Session::NoAccount &&
+    !model.departure.editor_disabled() else {
+    return (model, @cmd.none)
+  }
+  let (documents, actions) = editing.documents.prepare_departure()
+  for write in model.replication.persistence().pending_writes() {
+    let replica = write.replica()
+    if model.replication
+      .persistence()
+      .status(replica.account(), replica.document_id())
+      is @replica_persistence.Status::Retryable(_, _) {
+      actions.push(
+        @documents.Action::RetryReplica(
+          replica.account(),
+          replica.document_id(),
+        ),
+      )
+    }
+  }
+  let id = model.next_login_id + 1
+  apply_document_actions(
+    {
+      ..model,
+      page: Editing({ ..editing, documents, }),
+      departure: SavingBeforeLogin(LoginAttempt(id)),
+      next_login_id: id,
+    },
+    actions,
+    emit,
+  )
+}
+
+///|
+fn settle_departure(
+  model : Model,
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @rabbita.Cmd) {
+  match model.sync().session() {
+    @sync.Session::NoAccount => ()
+    Resolving(_) => return (model, @cmd.none)
+    _ =>
+      if model.departure
+        is (SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _)) {
+        return ({ ..model, departure: Stable, }, @cmd.none)
+      } else {
+        return (model, @cmd.none)
+      }
+  }
+  guard model.departure is (SavingBeforeLogin(_) | PreparedLogin(_, _)) else {
+    return (model, @cmd.none)
+  }
+  guard model.page.documents_state() is Some(documents) else {
+    return (model, @cmd.none)
+  }
+  if model.page is Editing(editing) &&
+    (editing.creation is Creating(_) || editing.imports_pending > 0) {
+    return (model, @cmd.none)
+  }
+  match documents.departure_status(model.replication.persistence()) {
+    @documents.DepartureStatus::Ready =>
+      match model.departure {
+        SavingBeforeLogin(attempt) =>
+          match model.login_prepare {
+            Some(_) =>
+              ({ ..model, departure: PreparingLogin(attempt), }, @cmd.none)
+            None =>
+              (
+                {
+                  ..model,
+                  departure: PreparingLogin(attempt),
+                  login_prepare: Some(attempt),
+                },
+                @account_http.prepare_login(
+                  emit.map(result => LoginPrepared(attempt, result)),
+                ),
+              )
+          }
+        PreparedLogin(attempt, url) =>
+          (
+            { ..model, departure: Redirecting(attempt), },
+            @cmd.custom_cmd(_ => load_url(url.value())),
+          )
+        _ => (model, @cmd.none)
+      }
+    Failed(failure) =>
+      ({ ..model, departure: LoginFailed(SaveFailed(failure)), }, @cmd.none)
+    AwaitingInput | Saving => (model, @cmd.none)
+  }
+}
+
+///|
+fn handle_login_prepared(
+  model : Model,
+  attempt : LoginAttempt,
+  result : @account_http.LoginResult,
+) -> (Model, @rabbita.Cmd) {
+  // Clearing the physical slot is independent of whether departure survived.
+  guard model.login_prepare == Some(attempt) else { return (model, @cmd.none) }
+  let model = { ..model, login_prepare: None, }
+  let departure = match (model.departure, model.sync().session(), result) {
+    (
+      PreparingLogin(current),
+      @sync.Session::NoAccount
+      | Resolving(_),
+      Prepared(url),
+    ) => PreparedLogin(current, url)
+    (PreparingLogin(_), @sync.Session::NoAccount | Resolving(_), Unavailable) =>
+      LoginFailed(AuthenticationFailed)
+    (PreparingLogin(_), _, _) => Stable
+    // A canceled intent does not cache the URL. A still-saving intent may
+    // prepare again only after this physical request has completed.
+    _ => model.departure
+  }
+  ({ ..model, departure, }, @cmd.none)
+}
+
+///|
+fn begin_logout(
+  model : Model,
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @rabbita.Cmd) {
+  let result = Some(model.sync().begin_logout()) catch { _ => None }
+  guard result is Some((sync, attempt)) else { return (model, @cmd.none) }
+  let model = model.with_sync(sync)
+  (
+    model,
+    @account_http.sign_out(emit.map(result => LogoutCompleted(attempt, result))),
+  )
+}
+
+///|
+fn begin_account_lookup(
+  model : Model,
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @rabbita.Cmd) {
+  let result = Some(model.sync().begin_lookup()) catch { _ => None }
+  guard result is Some((sync, lookup_id)) else { return (model, @cmd.none) }
+  (
+    model.with_sync(sync),
+    @account_http.resolve(
+      emit.map(result => Sync(AccountResolved(lookup_id, result))),
+    ),
+  )
+}
+
+///|
+fn is_user_mutating(msg : Msg) -> Bool {
+  match msg {
+    TextChanged(_, _)
+    | CompositionStarted(_)
+    | ExampleSelected(_, _)
+    | ImportFilesSelected(_)
+    | CreateRequested
+    | DeleteRequested(_)
+    | DeleteConfirmed(_)
+    | DeleteCancelled
+    | DocumentSelected(_)
+    | StartSync(_)
+    | AcceptRemote(_)
+    | LogoutRequested => true
+    Opened(_)
+    | EmptyCreateCompleted(_, _)
+    | CompositionEnded(_)
+    | ModeSelected(_)
+    | ImportReadCompleted(_)
+    | ImportCreateCompleted(_, _)
+    | DismissImportFailure
+    | ExportRequested
+    | PreviewEvent(_)
+    | ViewportChanged(_)
+    | DocumentsLifecycle(_)
+    | ApplyPendingEdit(_, _)
+    | VisibilityChanged(_)
+    | RetrySave
+    | RetryAccount
+    | RetrySaving(_)
+    | RetrySync(_)
+    | RetrySelection(_)
+    | CreateCompleted(_, _)
+    | RetryDelete(_)
+    | DismissDeleteFailure(_)
+    | LoginRequested
+    | LoginCancelled(_)
+    | LoginPrepared(_, _)
+    | LogoutCompleted(_, _)
+    | AuthenticationReturned(_)
+    | Sync(_) => false
+  }
+}
+
+///|
 fn reduce(
   model : Model,
   msg : Msg,
@@ -1109,7 +1260,50 @@ fn reduce(
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
+  let model = if model.departure
+    is (SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _)) &&
+    is_user_mutating(msg) {
+    { ..model, departure: Stable, }
+  } else {
+    model
+  }
   match msg {
+    AuthenticationReturned(true) =>
+      ({ ..model, departure: LoginFailed(AuthenticationFailed), }, @cmd.none)
+    AuthenticationReturned(false) => (model, @cmd.none)
+    LoginRequested => begin_login(model, emit)
+    LoginCancelled(attempt) => {
+      let departure = model.departure.cancel(attempt)
+      guard departure != model.departure else { return (model, @cmd.none) }
+      (
+        // Cancel only this intent; pending storage and HTTP keep their owners.
+        { ..model, departure, },
+        @cmd.custom_cmd(kind=AfterRender, _ => {
+          restore_focus_after_login_cancel()
+        }),
+      )
+    }
+    LoginPrepared(attempt, result) =>
+      handle_login_prepared(model, attempt, result)
+    LogoutRequested => begin_logout(model, emit)
+    LogoutCompleted(attempt, result) => {
+      let confirmed = match result {
+        @account_http.LogoutResult::SignedOut => true
+        Unconfirmed => false
+      }
+      let transition = Some(model.sync().logged_out(attempt, confirmed)) catch {
+        _ => None
+      }
+      guard transition is Some((sync, selection)) else {
+        return (model, @cmd.none)
+      }
+      let page = match selection {
+        Some(@sync.AccountSelection::NoAccountSelected) =>
+          model.page.hide_accounts()
+        _ => model.page
+      }
+      (model.with_sync(sync).with_page(page), @cmd.none)
+    }
     ApplyPendingEdit(document_id, revision) =>
       update_documents(
         model,
@@ -1182,15 +1376,7 @@ fn reduce(
           )
         _ => (model, @cmd.none)
       }
-    RetryAccount => {
-      let (sync, lookup_id) = model.sync().begin_lookup()
-      (
-        model.with_sync(sync),
-        @account_http.resolve(
-          emit.map(result => Sync(AccountResolved(lookup_id, result))),
-        ),
-      )
-    }
+    RetryAccount => begin_account_lookup(model, emit)
     StartSync(action) => {
       guard model.sync().session() is @sync.Session::Current(current, _) &&
         current == action.account() &&
@@ -1394,7 +1580,7 @@ fn reduce(
         .map(attempt => persist_replica(saved, attempt, emit))
         .unwrap_or(@cmd.none)
       let (model, page_actions_command) = apply_document_actions(
-        { page, replication, },
+        { ..model, page, replication, },
         page_actions,
         emit,
       )
@@ -1633,37 +1819,27 @@ fn reduce(
           { ..model, replication: model.replication.cancel_selection(), }
         _ => model
       }
-      let sync = model.sync()
+      let actions : Array[@documents.Action] = []
       let (page, page_command) = update_page(
         model.page,
         message,
         emit,
         text_area,
         preview_engine,
+        actions,
       )
-      let command = page_command
+      let (model, action_command) = apply_document_actions(
+        model.with_page(page),
+        actions,
+        emit,
+      )
+      let command = @cmd.batch([page_command, action_command])
       match message {
-        Opened(_) => {
-          let (sync, lookup_id) = sync.begin_lookup()
-          let account_command = @account_http.resolve(
-            emit.map(result => Sync(AccountResolved(lookup_id, result))),
-          )
-          (
-            model.with_sync(sync).with_page(page),
-            @cmd.batch([command, account_command]),
-          )
+        Opened(_) | VisibilityChanged(false) => {
+          let (model, account_command) = begin_account_lookup(model, emit)
+          (model, @cmd.batch([command, account_command]))
         }
-        VisibilityChanged(false) => {
-          let (sync, lookup_id) = sync.begin_lookup()
-          let account_command = @account_http.resolve(
-            emit.map(result => Sync(AccountResolved(lookup_id, result))),
-          )
-          (
-            model.with_sync(sync).with_page(page),
-            @cmd.batch([command, account_command]),
-          )
-        }
-        _ => (model.with_sync(sync).with_page(page), command)
+        _ => (model, command)
       }
     }
   }
@@ -1678,7 +1854,11 @@ fn update(
   preview_engine : @preview.PreviewEngine,
 ) -> (Model, @rabbita.Cmd) {
   let (model, command) = reduce(model, msg, emit, text_area, preview_engine)
-  activate_open(model, command, emit, text_area, preview_engine)
+  let (model, command) = activate_open(
+    model, command, emit, text_area, preview_engine,
+  )
+  let (model, departure_command) = settle_departure(model, emit)
+  (model, @cmd.batch([command, departure_command]))
 }
 
 ///|

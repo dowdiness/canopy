@@ -83,6 +83,7 @@ fn account_status_view(
     Checking => sync_status_label("Checking account", compact="Checking")
     SignedOut => sync_status_label("Signed out")
     SignedIn(name) => sync_status_label(name)
+    SigningOut(name) | SignOutUnconfirmed(name) => sync_status_label(name)
     Unavailable => sync_status_button("Retry account", RetryAccount, emit)
     SyncUnavailable => sync_status_button("Retry sync", RetryAccount, emit)
   }
@@ -230,7 +231,12 @@ fn account_status_section(
   @html.div(
     class=match account {
       SignedIn(_) => "contents max-[820px]:hidden"
-      Checking | SignedOut | Unavailable | SyncUnavailable => "contents"
+      Checking
+      | SignedOut
+      | SigningOut(_)
+      | SignOutUnconfirmed(_)
+      | Unavailable
+      | SyncUnavailable => "contents"
     },
     [
       account_status_view(account, emit),
@@ -264,6 +270,7 @@ fn sync_status_view(
 fn mode_bar(
   scope : @sidebar.SidebarScope,
   editing : EditingState,
+  account : AccountControlsInput,
   sync_status : @rabbita.Html,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
@@ -307,7 +314,8 @@ fn mode_bar(
         examples_bar(
           emit,
           editing.activation,
-          disabled=editing.creation is Creating(_) || editing.account.leaving(),
+          disabled=editing.creation is Creating(_) ||
+            account.departure.editor_disabled(),
         ),
         @html.label(
           class="relative flex min-h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-lm-rule bg-transparent p-0 text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent max-[641px]:min-h-11",
@@ -322,7 +330,7 @@ fn mode_bar(
               on_files=emit.map(files => ImportFilesSelected(files)),
               attrs=@html.Attrs::build()
                 .aria_label("Import Markdown")
-                .disabled(editing.account.leaving()),
+                .disabled(account.departure.editor_disabled()),
             ),
           ],
         ),
@@ -334,7 +342,7 @@ fn mode_bar(
           on_click=emit(ExportRequested),
           @view.download_icon("pointer-events-none block size-4"),
         ),
-        account_controls(editing, emit),
+        account_controls(account, emit),
       ]),
     ],
   )
@@ -479,6 +487,7 @@ fn save_failure_view(
 fn view(
   sidebar : @sidebar.SidebarScope,
   model : Page,
+  account : AccountControlsInput,
   emit : @rabbita.Emit[Msg],
   editor_panels : @rabbita.Html,
   sync_status : @rabbita.Html,
@@ -528,15 +537,16 @@ fn view(
               @html.div(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
                 [
-                  mode_bar(sidebar, editing, sync_status, emit),
-                  account_notice(editing.account),
+                  mode_bar(sidebar, editing, account, sync_status, emit),
+                  account_notice(account),
                   mode_content(editing.mode, editor_panels),
                   match
                     (
                       editing.documents.save_status(editing.activation.key),
                       editing.creation,
                     ) {
-                    (Some(@documents.SaveStatus::SaveFailed(failure)), _) =>
+                    (Some(@documents.SaveStatus::SaveFailed(failure)), _) if !(account.departure
+                      is LoginFailed(SaveFailed(_))) =>
                       save_failure_view(failure, emit)
                     (_, CreationFailed(failure)) =>
                       creation_failure_view(failure, emit)

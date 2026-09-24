@@ -62,6 +62,35 @@ pub fn State::editing_base(
 }
 
 ///|
+/// Admit eligible local text before any retry can replay an obsolete candidate.
+/// Matching failed live Stores retain their protocol facts; returning to durable
+/// text replaces an obsolete Store through the ordinary persistence lane.
+pub fn State::save_local(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+  text : String,
+) -> (Self, Effect?) {
+  if self.persistence.failed_write(durable.account(), durable.document_id())
+    is Some(@source_repository.ReplicaWrite::Store(retained)) &&
+    retained.document() is Some(current) &&
+    durable.document() is Some(committed) {
+    if current.text() == text {
+      return self.retry_document(durable.account(), durable.document_id())
+    }
+    if committed.text() == text {
+      return self.submit(durable.rewrite())
+    }
+  }
+  let base = self.persistence.editing_base(durable)
+  let (protocol, write) = self.protocol.save(base, text)
+  let self = { ..self, protocol, }
+  match write {
+    Some(write) => self.submit(write)
+    None => (self, None)
+  }
+}
+
+///|
 /// The newest Replica fact available to pure projections. Failed writes remain
 /// visible here even though new edits correctly branch from durable state.
 pub fn State::head(

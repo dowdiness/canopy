@@ -17,7 +17,9 @@ fn test_document() -> @source_repository.Document {
 
 ///|
 fn test_protocol(account : @source_repository.AccountId) -> @sync.State {
-  let (protocol, lookup) = @sync.State().begin_lookup()
+  let (protocol, lookup) = @sync.State().begin_lookup() catch {
+    _ => abort("initial lookup is available")
+  }
   protocol.resolved(lookup, @sync.Resolved(account, "Writer")).0
 }
 
@@ -467,4 +469,152 @@ test "selection does not block a network retry" {
     _ => false
   }
   assert_true(expired)
+}
+
+///|
+test "save_local replaces obsolete failed text even when replacement also fails" {
+  let durable = test_replica()
+  let (state, effect) = State().submit(edited_write())
+  guard effect is Some(Persist(old)) else { fail("first write") }
+  let (state, _) = state.complete(old, Err(@source_repository.WriteFailed))
+  guard state.status(durable.account(), durable.document_id())
+    is @replica_persistence.Retryable(old_retry, _) else {
+    fail("failed write")
+  }
+  let (state, effect) = state.save_local(durable, "durable")
+  guard effect is Some(Persist(replacement)) else { fail("replacement write") }
+  let expired = try state.retry_save(old_retry) catch {
+    ExpiredRetry => true
+  } noraise {
+    _ => false
+  }
+  assert_true(expired)
+  let (state, completion) = state.complete(
+    replacement,
+    Err(@source_repository.WriteFailed),
+  )
+  guard completion is @replica_persistence.Retryable(_, retry, _) else {
+    fail("replacement can retry")
+  }
+  let (state, effect) = state.retry_save(retry)
+  guard effect is Persist(attempt) else { fail("local retry") }
+  let (state, completion) = state.complete(attempt, Ok(()))
+  guard completion is @replica_persistence.Current(write) else {
+    fail("latest text committed")
+  }
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+    .apply_replica_write(write)
+  assert_eq(
+    saved
+    .replica(durable.account(), durable.document_id())
+    .unwrap()
+    .document()
+    .unwrap()
+    .text(),
+    "durable",
+  )
+  assert_true(
+    state.status(durable.account(), durable.document_id())
+    is @replica_persistence.Current,
+  )
+}
+
+///|
+test "save_local retries matching failed acknowledgment without losing its baseline" {
+  let durable = sending_replica()
+  guard durable.directive() is @source_repository.Send(operation) else {
+    fail("pending delivery")
+  }
+  let revision = @source_repository.SavedRevision::parse(2.0)
+  let acknowledged = durable.acknowledge(operation.operation_id(), revision)
+  let (state, effect) = State().submit(acknowledged)
+  guard effect is Some(Persist(attempt)) else { fail("receipt write") }
+  let (state, _) = state.complete(attempt, Err(@source_repository.WriteFailed))
+  let (state, effect) = state.save_local(durable, "edited")
+  guard effect is Some(Persist(retry)) else { fail("receipt retry") }
+  let (_, completion) = state.complete(retry, Ok(()))
+  guard completion is @replica_persistence.Current(write) else {
+    fail("receipt committed")
+  }
+  assert_eq(write.replica().baseline_revision(), 2.0)
+  assert_eq(write.replica().directive(), @source_repository.Synchronized)
+  assert_eq(write.replica().document().unwrap().text(), "edited")
+}
+
+///|
+test "save_local returning to durable text queues behind an in-flight edit" {
+  let durable = test_replica()
+  let (state, effect) = State().submit(edited_write())
+  guard effect is Some(Persist(first)) else { fail("first write") }
+  let (state, effect) = state.save_local(durable, "durable")
+  assert_eq(effect, None)
+  let (state, completion) = state.complete(first, Ok(()))
+  guard completion is @replica_persistence.Superseded(older, next) else {
+    fail("return to durable text remains queued")
+  }
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+    .apply_replica_write(older)
+  let (_, completion) = state.complete(next, Ok(()))
+  guard completion is @replica_persistence.Current(write) else {
+    fail("latest text committed after older write")
+  }
+  assert_eq(
+    saved
+    .apply_replica_write(write)
+    .replica(durable.account(), durable.document_id())
+    .unwrap()
+    .document()
+    .unwrap()
+    .text(),
+    "durable",
+  )
+}
+
+///|
+test "save_local unchanged text does not replace a failed atomic recovery" {
+  let replica = edited_received_write().replica()
+  let revision = @source_repository.SavedRevision::parse(2.0)
+  guard replica.reconcile(
+      @source_repository.RemoteDocument::Present(revision, "remote"),
+    )
+    is @source_repository.ReconcilePlan::Persist(diverged) else {
+    fail("divergence")
+  }
+  let durable = diverged.replica()
+  let recovery_id = @source_repository.DocumentId::parse(
+    "30000000-0000-4000-8000-000000000001",
+  )
+  let fork = durable.fork(recovery_id)
+  let (state, effect) = State().submit(fork)
+  guard effect is Some(Persist(attempt)) else { fail("atomic fork") }
+  let (state, _) = state.complete(attempt, Err(@source_repository.WriteFailed))
+  let (state, effect) = state.save_local(durable, "edited")
+  assert_eq(effect, None)
+  let (state, effect) = state.retry_document(
+    durable.account(),
+    durable.document_id(),
+  )
+  guard effect is Some(Persist(retry)) else { fail("fork retry") }
+  let (_, completion) = state.complete(retry, Ok(()))
+  guard completion is @replica_persistence.Current(write) else {
+    fail("atomic recovery committed")
+  }
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+    .apply_replica_write(write)
+  assert_eq(saved.find(recovery_id).unwrap().text(), "edited")
+  assert_eq(
+    saved
+    .replica(durable.account(), durable.document_id())
+    .unwrap()
+    .document()
+    .unwrap()
+    .text(),
+    "remote",
+  )
 }

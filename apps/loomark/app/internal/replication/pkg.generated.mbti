@@ -45,6 +45,7 @@ pub fn State::retry_document(Self, @source_repository.AccountId, @source_reposit
 pub fn State::retry_save(Self, @replica_persistence.Retry) -> (Self, Effect) raise ExpiredRetry
 pub fn State::retry_selection(Self, @source_repository.SavedDocuments, @sync.SelectionRetry) -> (Self, Effect) raise ExpiredRetry
 pub fn State::retry_sync(Self, @source_repository.SavedDocuments, @sync.Retry) -> (Self, Effect) raise ExpiredRetry
+pub fn State::save_local(Self, @source_repository.DocumentReplica, String) -> (Self, Effect?)
 pub fn State::select(Self, @source_repository.SavedDocuments, @source_repository.DocumentId) -> (Self, Array[Effect])
 pub fn State::settle_account(Self, @source_repository.SavedDocuments, @source_repository.AccountId) -> (Self, Array[Effect])
 pub fn State::settle_replica(Self, @source_repository.DocumentReplica) -> (Self, Effect?)

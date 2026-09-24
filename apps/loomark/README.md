@@ -111,9 +111,37 @@ The server builds separately from the browser bundle.
 Authentication and documents share one D1 database, with document access scoped
 to the authenticated user.
 
-The header's **Sign in with Google** button saves pending local edits before
-leaving the editor. Failed saves keep the document open; failed authentication
-offers a retry. Signed-in users can sign out without removing local documents.
+The header's **Sign in with Google** button prepares local documents before
+requesting the OAuth URL. The root owns this page-departure state; Documents
+derives readiness from committed storage and existing Source and Replica lanes,
+including account-hidden edits, queued writes, deletions, and ownership changes.
+An optimistic candidate is not a storage acknowledgment. Durable remote work
+does not delay departure. Failed local persistence releases the editor and
+offers a retry; a racing user edit cancels departure rather than dropping text.
+Until navigation begins, **Cancel sign-in** abandons only that sign-in intent
+and restores focus to the visible textarea, or the selected Editor-mode tab in
+Preview. Saving already in progress continues; the editor keeps its text and
+selection. A delayed cancel action from an older intent cannot cancel a newer
+one. Once navigation has been dispatched, queued edits and account lookup
+completions cannot reopen the editor by canceling that departure.
+
+The physical OAuth preparation request has separate ownership: canceling departure
+does not release it, and a new explicit sign-in joins that request rather than
+starting another one in the same app instance. Its matching completion alone
+releases the request slot. Results received after cancellation or while a new
+intent is still saving are discarded, not cached for a later click. Account lookup
+suspends an active intent; a prepared URL can wait for that lookup, but navigation
+still requires confirmed signed-out status and committed local text. This does
+not add HTTP cancellation, a timeout, or cross-tab coordination.
+
+`internal/sync.Session` is the only account-session authority, resolved through
+`/api/account`. Logout moves it through `Revoking` and, on an uncertain response,
+`LogoutUnconfirmed`. Lookup cannot replace an active logout, and opaque attempt
+identities reject stale completions. Confirmed logout hides account documents
+without deleting local data or discarding the open editor. Old-account storage
+completions and valid remote receipts retain their own per-operation authority.
+The account HTTP adapter alone decodes authentication responses and validates
+the Google authorization URL.
 
 For local authentication, copy `.env.example` to `.env`, set
 `BETTER_AUTH_URL=http://localhost:8787`, and register
@@ -154,11 +182,15 @@ Autosave ownership.
 
 Replica persistence is a separate pure per-document causal state machine. It
 never encodes on text input: the document reducer submits text only after the
-existing Autosave quiet/maximum/composition lifecycle makes it eligible. Every transition starts
-from the lane's causal head. While persistence is active that is the newest
-waiting or active write; after failure it is deliberately the durable Replica,
-so a later edit supersedes the failed candidate instead of branching from data
-that never reached IndexedDB. At most one IndexedDB replica write is in flight
+existing Autosave quiet/maximum/composition lifecycle makes it eligible.
+Replication owns local-save admission: active lanes use their newest waiting or
+active write; new text after failure starts from the durable Replica rather than
+data that never reached IndexedDB. For an ordinary failed live Store, eligible
+text matching the retained write retries that exact write, including its protocol
+metadata. Returning instead to durable text replaces an obsolete failed edit with
+a fresh-generation write, so storage acknowledgment can update the canonical
+Replica without replaying the obsolete text. Atomic conflict recovery and
+deletion still follow their existing rules. At most one IndexedDB replica write is in flight
 and one newest replica waits behind it, so intermediate edits collapse. The lane
 alone retains an exact failed write and exposes an opaque retry capability;
 Documents stores only failure feedback. Completions are accepted only through
@@ -409,13 +441,16 @@ No shared database or deployment is provisioned by these test commands.
 
 ```bash
 ./scripts/test-loomark-standalone-e2e.sh
-./scripts/test-loomark-sync-e2e.sh
+CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false ./scripts/test-loomark-sync-e2e.sh
 ```
 
 This performs a clean Warren production build, rejects removed Worker and
 private-control artifacts, and runs Playwright against the release output. The
 sync suite uses a separate test-only Worker configuration and disposable local
-D1; production authentication configuration is unchanged.
+D1; production authentication configuration is unchanged. Disable `.env`
+loading so local Google OAuth settings cannot override the test Worker's origin.
+Keep the development Worker stopped while testing: its custom rebuild replaces
+the same `dist` directory served by the standalone suite.
 
 Demand tests use `npm run test:demand` from `examples/vanilla`. Its
 [artifact builder](../../scripts/build-loomark-demand-artifact.sh) copies the

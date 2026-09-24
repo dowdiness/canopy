@@ -14,10 +14,24 @@ pub enum AccountSelection {
 ///|
 pub enum Session {
   Resolving(Int)
+  Revoking(LogoutAttempt)
   NoAccount
   Current(@source_repository.AccountId, String)
+  LogoutUnconfirmed(LogoutAttempt)
   SessionUnavailable
 } derive(Eq, Debug)
+
+///|
+pub struct LogoutAttempt {
+  priv id : Int
+  priv account : @source_repository.AccountId
+  priv name : String
+} derive(Eq, Debug)
+
+///|
+pub fn LogoutAttempt::name(self : Self) -> String {
+  self.name
+}
 
 ///|
 pub struct DiscoveryId(Int) derive(Eq, Debug)
@@ -284,12 +298,23 @@ pub(all) suberror WorkError {
 } derive(Eq, Debug)
 
 ///|
+pub(all) suberror LookupBlocked {
+  LookupBlocked
+} derive(Eq, Debug)
+
+///|
+pub(all) suberror InvalidSession {
+  InvalidSession
+} derive(Eq, Debug)
+
+///|
 pub struct State {
   priv session : Session
   priv catalog : Catalog
   priv opening : Opening
   priv network : Array[Network]
   priv last_lookup_id : Int
+  priv last_logout_id : Int
   priv last_discovery_id : Int
   priv last_attempt_id : Int
   priv last_selection_intent : Int
@@ -303,6 +328,7 @@ pub fn State::State() -> State {
     opening: Opening::Idle,
     network: [],
     last_lookup_id: 0,
+    last_logout_id: 0,
     last_discovery_id: 0,
     last_attempt_id: 0,
     last_selection_intent: 0,
@@ -315,7 +341,11 @@ pub fn State::session(self : Self) -> Session {
 }
 
 ///|
-pub fn State::begin_lookup(self : Self) -> (Self, Int) {
+pub fn State::begin_lookup(self : Self) -> (Self, Int) raise LookupBlocked {
+  match self.session {
+    Revoking(_) => raise LookupBlocked
+    _ => ()
+  }
   let request_id = self.last_lookup_id + 1
   (
     {
@@ -326,6 +356,37 @@ pub fn State::begin_lookup(self : Self) -> (Self, Int) {
     },
     request_id,
   )
+}
+
+///|
+pub fn State::begin_logout(
+  self : Self,
+) -> (Self, LogoutAttempt) raise InvalidSession {
+  let (account, name) = match self.session {
+    Current(account, name) => (account, name)
+    LogoutUnconfirmed(attempt) => (attempt.account, attempt.name)
+    _ => raise InvalidSession
+  }
+  let id = self.last_logout_id + 1
+  let attempt : LogoutAttempt = { id, account, name, }
+  ({ ..self, session: Revoking(attempt), last_logout_id: id, }, attempt)
+}
+
+///|
+pub fn State::logged_out(
+  self : Self,
+  attempt : LogoutAttempt,
+  confirmed : Bool,
+) -> (Self, AccountSelection?) raise WorkError {
+  guard self.session == Revoking(attempt) else { raise StaleWork }
+  if confirmed {
+    (
+      { ..self, session: NoAccount, catalog: Catalog::Unbound, },
+      Some(AccountSelection::NoAccountSelected),
+    )
+  } else {
+    ({ ..self, session: LogoutUnconfirmed(attempt), }, None)
+  }
 }
 
 ///|

@@ -137,6 +137,7 @@ pub fn DocumentReplica::reject_operation(Self, OperationId) -> ReplicaWrite rais
 pub fn DocumentReplica::remote_knowledge(Self, RemoteHead?) -> RemoteKnowledge
 pub fn DocumentReplica::remote_update(Self) -> RemoteUpdate?
 pub fn DocumentReplica::request_deletion(Self) -> ReplicaWrite raise DeletionUnavailable
+pub fn DocumentReplica::rewrite(Self) -> ReplicaWrite
 pub fn DocumentReplica::store(Self) -> ReplicaWrite
 
 pub enum EditPlan {

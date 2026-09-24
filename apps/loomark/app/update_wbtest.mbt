@@ -60,7 +60,6 @@ fn test_editing() -> EditingState {
     preview,
     import_failed: false,
     imports_pending: 0,
-    account: SignedOut,
     new_preparation_request_id: 0,
   }
 }
@@ -90,7 +89,13 @@ fn test_root_update(model : Model, msg : Msg) -> (Model, @cmd.Cmd) {
 
 ///|
 fn test_model(page : Page, sync : @sync.State) -> Model {
-  { page, replication: @replication.State(protocol=sync), }
+  {
+    page,
+    replication: @replication.State(protocol=sync),
+    departure: Stable,
+    login_prepare: None,
+    next_login_id: 0,
+  }
 }
 
 ///|
@@ -190,7 +195,9 @@ fn pending_sync_snapshot(
 
 ///|
 fn current_sync(account : @source_repository.AccountId) -> @sync.State {
-  let (state, lookup_id) = @sync.State().begin_lookup()
+  let (state, lookup_id) = @sync.State().begin_lookup() catch {
+    _ => abort("lookup should be available")
+  }
   state.resolved(lookup_id, @sync.Resolved(account, "Writer")).0
 }
 
@@ -524,6 +531,9 @@ test "intermediate Replica commit cannot discard a pending Undo" {
       protocol=current_sync(account),
       persistence~,
     ),
+    departure: Stable,
+    login_prepare: None,
+    next_login_id: 0,
   }
 
   let (edited, _) = test_root_update(
@@ -630,6 +640,9 @@ test "network retry waits while a newer replica write is in flight" {
   let model = {
     page,
     replication: @replication.State(protocol=retryable, persistence~),
+    departure: Stable,
+    login_prepare: None,
+    next_login_id: 0,
   }
   let (unchanged, _) = test_root_update(model, RetrySync(retry))
   assert_true(unchanged == model)
@@ -660,6 +673,9 @@ test "operation identity failure stays retryable while replica storage is busy" 
   let model = {
     page,
     replication: @replication.State(protocol=planning, persistence~),
+    departure: Stable,
+    login_prepare: None,
+    next_login_id: 0,
   }
   let (retired, _) = test_root_update(
     model,
@@ -2543,7 +2559,6 @@ test "final active delete falls back to a new document" {
     preview,
     import_failed: false,
     imports_pending: 0,
-    account: SignedOut,
     new_preparation_request_id: 0,
   }
   let (documents, decisions) = initial.documents.reduce(

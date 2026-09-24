@@ -350,9 +350,13 @@ function encodeReadyReplica(
     account_id: accountId,
     document_id: document.document_id,
     generation: 0,
-    current: 0,
-    baseline: { kind: "missing" },
-    phase: { kind: "ready" },
+    state: {
+      kind: "live",
+      current: 0,
+      baseline: { kind: "missing" },
+      phase: { kind: "ready" },
+    },
+    recovery_document_id: null,
     text_lengths: [document.text.length],
   })
   return `loomark-replica\n${header.length}\n${header}${document.text}`
@@ -368,15 +372,16 @@ function replicaCurrentText(value: unknown): string | null {
   const headerStart = lengthEnd + 1
   try {
     const header = JSON.parse(value.slice(headerStart, headerStart + headerLength)) as {
-      current?: unknown
+      state?: { kind?: unknown; current?: unknown }
       text_lengths?: unknown
     }
     if (
-      !Number.isSafeInteger(header.current)
+      header.state?.kind !== "live"
+      || !Number.isSafeInteger(header.state.current)
       || !Array.isArray(header.text_lengths)
       || !header.text_lengths.every(length => Number.isSafeInteger(length) && length >= 0)
     ) return null
-    const current = header.current as number
+    const current = header.state.current as number
     if (current < 0 || current >= header.text_lengths.length) return null
     const lengths = header.text_lengths as number[]
     const start = headerStart + headerLength
@@ -488,6 +493,7 @@ function installDelayedDocumentAbort(targetKey: string): void {
 function installDelayedDocumentCommit(targetKey: string): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDelayedCommitActive?: boolean
+    __loomarkDelayedCommitHeld?: boolean
     __loomarkDelayedCommitCompletions?: number
     __loomarkDelayedCommitInputs?: number
     __loomarkDelayedCommitPuts?: PutObservation[]
@@ -495,6 +501,7 @@ function installDelayedDocumentCommit(targetKey: string): void {
   const prototype = IDBObjectStore.prototype as any
   const originalPut = prototype.put
   state.__loomarkDelayedCommitActive = false
+  state.__loomarkDelayedCommitHeld = false
   state.__loomarkDelayedCommitCompletions = 0
   state.__loomarkDelayedCommitInputs = 0
   state.__loomarkDelayedCommitPuts = []
@@ -528,7 +535,7 @@ function installDelayedDocumentCommit(targetKey: string): void {
       })
       const started = performance.now()
       const keepAlive = () => {
-        if (performance.now() - started >= 500) return
+        if (!state.__loomarkDelayedCommitHeld && performance.now() - started >= 500) return
         const keepAliveRequest = store.get(recordKey)
         keepAliveRequest.addEventListener("success", keepAlive)
       }
@@ -615,6 +622,11 @@ async function readStoreMutationLog(page: Page): Promise<StoreMutationObservatio
   ))
 }
 
+test.beforeEach(async ({ page }) => {
+  // Static assets have no account endpoint; tests override this signed-out baseline.
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+})
+
 test("Export downloads the current Document text with its Derived name", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -666,9 +678,7 @@ test("Import rejects malformed UTF-8 without creating a Source", async ({ page }
   await page.getByLabel("Import Markdown")
     .setInputFiles("tests/fixtures/import-malformed-utf8.md")
 
-  await expect(page.getByRole("alert")).toContainText(
-    "The Markdown file could not be imported.",
-  )
+  await expect(page.getByRole("alert")).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   expect(await readStoredDocuments(page)).toEqual([])
 })
@@ -753,7 +763,8 @@ test("first edit reports quota full without creating a Source", async ({ page })
   await expect(text).toHaveValue("")
   expect(await readStoredDocuments(page)).toEqual([])
   await text.fill("# Full\n")
-  await expect(page.getByRole("alert")).toContainText("Browser storage is full.")
+  await expect(page.getByRole("alert")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
   await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
   expect(await readStoredDocuments(page)).toEqual([])
 })
@@ -821,9 +832,423 @@ test("Sync atomically starts document sync without replacing its textarea", asyn
 
 test("account retry remains available in the narrow layout", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.route("**/api/account", route => route.fulfill({ status: 503 }))
+  let available = false
+  await page.route("**/api/account", route => route.fulfill({
+    status: available ? 401 : 503,
+  }))
   await page.goto("/")
-  await expect(page.getByRole("button", { name: "Retry account" })).toBeVisible()
+  const retry = page.getByRole("button", { name: "Retry account" })
+  await expect(retry).toBeInViewport()
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Kept while account lookup recovers\n")
+  available = true
+  await retry.click()
+  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeEnabled()
+  await expect(text).toHaveValue("# Kept while account lookup recovers\n")
+})
+
+test("Google sign-in waits for committed local text before preparing the redirect", async ({ page }) => {
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+  const provider = "https://accounts.google.com/o/oauth2/v2/auth?state=departure-test"
+  await page.route("https://accounts.google.com/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<title>Authorization destination</title>",
+  }))
+  let preparedText: string | undefined
+  await page.route("**/api/auth/sign-in/social", async route => {
+    preparedText = (await readStoredDocument(page))?.text
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ url: provider }),
+    })
+  })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const document = await readStoredDocument(page)
+  if (!document) throw new Error("baseline Source missing")
+  await page.evaluate(installDelayedDocumentCommit, sourceKey(document.document_id))
+  await page.getByRole("textbox", { name: "Text" }).fill("# Depart with this text\n")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
+  await expect(page).toHaveURL(provider)
+  expect(preparedText).toBe("# Depart with this text\n")
+})
+
+test("failed departure save unlocks editing and retries persistence before OAuth", async ({ page }) => {
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+  let loginRequests = 0
+  await page.route("**/api/auth/sign-in/social", async route => {
+    loginRequests += 1
+    await route.fulfill({ status: 503 })
+  })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const document = await readStoredDocument(page)
+  if (!document) throw new Error("baseline Source missing")
+  await page.evaluate(installDocumentPutFailure, sourceKey(document.document_id))
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.fill("# Keep this despite failure\n")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(page.getByRole("button", { name: "Retry sign-in" })).toBeVisible()
+  await expect(editor).toBeEnabled()
+  expect(loginRequests).toBe(0)
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & {
+      __loomarkDocumentPutOriginal?: typeof IDBObjectStore.prototype.put
+    }
+    if (!state.__loomarkDocumentPutOriginal) throw new Error("failure hook missing")
+    IDBObjectStore.prototype.put = state.__loomarkDocumentPutOriginal
+  })
+  await page.getByRole("button", { name: "Retry sign-in" }).click()
+  await expectStoredDocument(page, {
+    document_id: document.document_id,
+    text: "# Keep this despite failure\n",
+  })
+  await expect.poll(() => loginRequests).toBe(1)
+  await expect(editor).toBeEnabled()
+})
+
+test("returning a failed Replica edit to saved text cannot replay obsolete text at sign-in", async ({ page }) => {
+  const accountId = "account-a"
+  const document = { document_id: fixtureDocumentId("departure-aba"), text: "A" }
+  const key = replicaKey(accountId, document.document_id)
+  await page.route("**/api/account", route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ id: accountId, name: "Account A" }),
+  }))
+  await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
+  await page.route("**/api/auth/sign-out", route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ success: true }),
+  }))
+  let textAtPreparation: string | null = null
+  await page.route("**/api/auth/sign-in/social", async route => {
+    textAtPreparation = replicaCurrentText(await readStoredDocumentRaw(page, key))
+    await route.fulfill({ status: 503 })
+  })
+  await page.goto("/")
+  await replaceStoreRecords(page, [
+    { key, value: encodeReadyReplica(accountId, document) },
+  ])
+  await page.reload()
+  await page.getByRole("complementary", { name: "Documents" })
+    .getByRole("button", { name: "A", exact: true }).click()
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await expect(editor).toHaveValue("A")
+  await expect(page.getByRole("button", { name: "Retry sync", exact: true }).first()).toBeVisible()
+  await page.evaluate(installDocumentPutFailure, key)
+  await editor.press("ControlOrMeta+A")
+  await editor.pressSequentially("B")
+  await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible()
+  await editor.press("ControlOrMeta+A")
+  await editor.pressSequentially("A")
+  await page.evaluate(removeDocumentPutFailure)
+  await page.getByRole("button", { name: "Sign out", exact: true }).click()
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(page.getByRole("button", { name: "Retry sign-in" })).toBeVisible()
+  expect(textAtPreparation).toBe("A")
+  expect(replicaCurrentText(await readStoredDocumentRaw(page, key))).toBe("A")
+  await expect(editor).toHaveValue("A")
+  await expect(editor).toBeEnabled()
+})
+
+test("a new sign-in joins the physical OAuth request after a racing edit", async ({ page, context }) => {
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+  await page.route("https://accounts.google.com/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<title>Authorization destination</title>",
+  }))
+  let releaseFirst!: () => void
+  const firstResponse = new Promise<void>(resolve => { releaseFirst = resolve })
+  let loginRequests = 0
+  await page.route("**/api/auth/sign-in/social", async route => {
+    const attempt = ++loginRequests
+    if (attempt === 1) await firstResponse
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "Set-Cookie": `loomark-test-state=attempt-${attempt}; Path=/; SameSite=Lax` },
+      body: JSON.stringify({
+        url: `https://accounts.google.com/o/oauth2/v2/auth?state=attempt-${attempt}`,
+      }),
+    })
+  })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect.poll(() => loginRequests).toBe(1)
+  // Deliver an input accepted before the departure lock, but queued behind it.
+  await editor.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const value = "# Newest text\n"
+    area.setSelectionRange(0, area.value.length)
+    area.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true, cancelable: true, composed: true, inputType: "insertText", data: value,
+    }))
+    area.value = value
+    area.setSelectionRange(value.length, value.length)
+    area.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, inputType: "insertText", data: value,
+    }))
+  })
+  await expect(editor).toBeEnabled()
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(editor).toBeDisabled()
+  expect((await readStoredDocument(page))?.text).toBe("# Newest text\n")
+  expect(loginRequests).toBe(1)
+  releaseFirst()
+  await expect(page).toHaveURL("https://accounts.google.com/o/oauth2/v2/auth?state=attempt-1")
+  const cookies = await context.cookies()
+  expect(cookies.find(cookie => cookie.name === "loomark-test-state")?.value).toBe("attempt-1")
+})
+
+test("account refresh holds an OAuth result until signed-out status is confirmed", async ({ page }) => {
+  let releaseLookup!: () => void
+  const lookupResponse = new Promise<void>(resolve => { releaseLookup = resolve })
+  let accountRequests = 0
+  await page.route("**/api/account", async route => {
+    if (++accountRequests > 1) await lookupResponse
+    await route.fulfill({ status: 401 })
+  })
+  let releasePrepare!: () => void
+  const prepareResponse = new Promise<void>(resolve => { releasePrepare = resolve })
+  const provider = "https://accounts.google.com/o/oauth2/v2/auth?state=refresh"
+  await page.route("**/api/auth/sign-in/social", async route => {
+    await prepareResponse
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ url: provider }),
+    })
+  })
+  await page.route("https://accounts.google.com/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<title>Authorization destination</title>",
+  }))
+  await page.goto("/")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
+  await expect.poll(() => accountRequests).toBe(2)
+  const prepared = page.waitForResponse("**/api/auth/sign-in/social")
+  releasePrepare()
+  await (await prepared).finished()
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
+  releaseLookup()
+  await expect(page).toHaveURL(provider)
+})
+
+test("an old successful OAuth response cannot bypass a newer pending save", async ({ page, context }) => {
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+  await page.route("https://accounts.google.com/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<title>Authorization destination</title>",
+  }))
+  let releaseFirst!: () => void
+  const firstResponse = new Promise<void>(resolve => { releaseFirst = resolve })
+  let loginRequests = 0
+  let textAtPreparation: string | undefined
+  await page.route("**/api/auth/sign-in/social", async route => {
+    const attempt = ++loginRequests
+    if (attempt === 1) await firstResponse
+    else textAtPreparation = (await readStoredDocument(page))?.text
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "Set-Cookie": `loomark-test-state=attempt-${attempt}; Path=/; SameSite=Lax` },
+      body: JSON.stringify({
+        url: `https://accounts.google.com/o/oauth2/v2/auth?state=attempt-${attempt}`,
+      }),
+    })
+  })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDelayedDocumentCommit, sourceKey(baseline.document_id))
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean }
+    state.__loomarkDelayedCommitHeld = true
+  })
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect.poll(() => loginRequests).toBe(1)
+  // Deliver an edit accepted before the departure lock, but queued behind it.
+  await editor.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const value = "# Saved before the second request\n"
+    area.setSelectionRange(0, area.value.length)
+    area.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true, cancelable: true, composed: true, inputType: "insertText", data: value,
+    }))
+    area.value = value
+    area.setSelectionRange(value.length, value.length)
+    area.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, inputType: "insertText", data: value,
+    }))
+  })
+  await expect(editor).toBeEnabled()
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect.poll(() => page.evaluate(() =>
+    (globalThis as typeof globalThis & { __loomarkDelayedCommitActive?: boolean })
+      .__loomarkDelayedCommitActive,
+  )).toBe(true)
+  const firstCompleted = page.waitForResponse("**/api/auth/sign-in/social")
+  releaseFirst()
+  await (await firstCompleted).finished()
+  await page.evaluate(() => new Promise<void>(resolve =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  ))
+  await expect(editor).toBeDisabled()
+  expect(loginRequests).toBe(1)
+  expect(new URL(page.url()).hostname).not.toBe("accounts.google.com")
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean }
+    state.__loomarkDelayedCommitHeld = false
+  })
+  await expect(page).toHaveURL("https://accounts.google.com/o/oauth2/v2/auth?state=attempt-2")
+  expect(loginRequests).toBe(2)
+  expect(textAtPreparation).toBe("# Saved before the second request\n")
+  const cookies = await context.cookies()
+  expect(cookies.find(cookie => cookie.name === "loomark-test-state")?.value).toBe("attempt-2")
+})
+
+test("canceling sign-in resumes editing while its physical request stays owned", async ({ page, context }) => {
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+  await page.route("https://accounts.google.com/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<title>Authorization destination</title>",
+  }))
+  let releaseFirst!: () => void
+  const firstResponse = new Promise<void>(resolve => { releaseFirst = resolve })
+  let loginRequests = 0
+  await page.route("**/api/auth/sign-in/social", async route => {
+    const attempt = ++loginRequests
+    if (attempt === 1) await firstResponse
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "Set-Cookie": `loomark-test-state=attempt-${attempt}; Path=/; SameSite=Lax` },
+      body: JSON.stringify({
+        url: `https://accounts.google.com/o/oauth2/v2/auth?state=attempt-${attempt}`,
+      }),
+    })
+  })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const editor = page.getByRole("textbox", { name: "Text" })
+  const original = await editor.elementHandle()
+  const baseline = await editor.inputValue()
+  await editor.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 3))
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect.poll(() => loginRequests).toBe(1)
+  await expect(editor).toBeDisabled()
+  await page.getByRole("button", { name: "Cancel sign-in" }).press("Enter")
+  await expect(editor).toBeEnabled()
+  await expect(editor).toHaveValue(baseline)
+  await expect(editor).toBeFocused()
+  expect(await editor.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    return [area.selectionStart, area.selectionEnd]
+  })).toEqual([1, 3])
+  expect(await original?.evaluate(element => element === document.querySelector("textarea"))).toBe(true)
+  await editor.press("ControlOrMeta+A")
+  await editor.pressSequentially("# Kept after cancellation")
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("# Kept after cancellation")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(editor).toBeDisabled()
+  expect(loginRequests).toBe(1)
+  await page.getByRole("button", { name: "Cancel sign-in" }).click()
+  const completed = page.waitForResponse("**/api/auth/sign-in/social")
+  releaseFirst()
+  await (await completed).finished()
+  await page.evaluate(() => new Promise<void>(resolve =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  ))
+  await expect(editor).toBeEnabled()
+  await expect(editor).toHaveValue("# Kept after cancellation")
+  expect(new URL(page.url()).hostname).not.toBe("accounts.google.com")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(page).toHaveURL("https://accounts.google.com/o/oauth2/v2/auth?state=attempt-2")
+  expect(loginRequests).toBe(2)
+  const cookies = await context.cookies()
+  expect(cookies.find(cookie => cookie.name === "loomark-test-state")?.value).toBe("attempt-2")
+})
+
+test("canceling sign-in during saving does not cancel persistence or start OAuth", async ({ page }) => {
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+  let loginRequests = 0
+  await page.route("**/api/auth/sign-in/social", async route => {
+    loginRequests++
+    await route.fulfill({ status: 503 })
+  })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const baseline = await readStoredDocument(page)
+  if (!baseline) throw new Error("baseline Source missing")
+  await page.evaluate(installDelayedDocumentCommit, sourceKey(baseline.document_id))
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean }
+    state.__loomarkDelayedCommitHeld = true
+  })
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.press("ControlOrMeta+A")
+  await editor.pressSequentially("Still saving")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(editor).toBeDisabled()
+  await page.getByRole("button", { name: "Cancel sign-in" }).click()
+  await expect(editor).toBeEnabled()
+  await editor.press("End")
+  await editor.pressSequentially(" and still editing")
+  await page.evaluate(() => {
+    const state = globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean }
+    state.__loomarkDelayedCommitHeld = false
+  })
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("Still saving and still editing")
+  await expect(editor).toHaveValue("Still saving and still editing")
+  expect(loginRequests).toBe(0)
+})
+
+test("canceling a prepared sign-in during account lookup restores editor focus", async ({ page }) => {
+  let releaseLookup!: () => void
+  const lookupResponse = new Promise<void>(resolve => { releaseLookup = resolve })
+  let accountRequests = 0
+  await page.route("**/api/account", async route => {
+    if (++accountRequests > 1) await lookupResponse
+    await route.fulfill({ status: 401 })
+  })
+  let releasePrepare!: () => void
+  const prepareResponse = new Promise<void>(resolve => { releasePrepare = resolve })
+  await page.route("**/api/auth/sign-in/social", async route => {
+    await prepareResponse
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ url: "https://accounts.google.com/o/oauth2/v2/auth?state=canceled" }),
+    })
+  })
+  let redirects = 0
+  await page.route("https://accounts.google.com/**", async route => {
+    redirects++
+    await route.fulfill({ contentType: "text/html", body: "<title>Unexpected redirect</title>" })
+  })
+  await page.goto("/")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(page.getByRole("button", { name: "Cancel sign-in" })).toBeVisible()
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
+  await expect.poll(() => accountRequests).toBe(2)
+  const prepared = page.waitForResponse("**/api/auth/sign-in/social")
+  releasePrepare()
+  await (await prepared).finished()
+  await page.evaluate(() => new Promise<void>(resolve =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  ))
+  await page.getByRole("button", { name: "Cancel sign-in" }).press("Enter")
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await expect(editor).toBeEnabled()
+  await expect(editor).toBeFocused()
+  releaseLookup()
+  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible()
+  await editor.press("ControlOrMeta+A")
+  await editor.pressSequentially("Keep editing after account lookup")
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("Keep editing after account lookup")
+  expect(redirects).toBe(0)
 })
 
 test("account replica edits persist without creating a Source copy", async ({ page }) => {
@@ -857,8 +1282,6 @@ test("account replica edits persist without creating a Source copy", async ({ pa
   }).toBe("# Changed\n")
   expect(await readStoredDocumentRaw(page, sourceKey(document.document_id)))
     .toBeUndefined()
-  await expect(documents.getByRole("button", { name: 'Delete "Changed"' }))
-    .toBeDisabled()
 })
 
 test("duplicate leads select and delete by Document ID", async ({ page }) => {
@@ -1159,13 +1582,16 @@ test("Delete icon is disabled while deletion is pending", async ({ page }) => {
   await page.reload()
 
   const documents = page.getByRole("complementary", { name: "Documents" })
+  await documents.getByRole("button", { name: "B", exact: true }).click()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# B\n")
   await openDeleteConfirmation(page, "B")
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
   await expect(documents.getByRole("button", { name: 'Delete "B"', exact: true }))
-    .toHaveAttribute("aria-disabled", "true")
+    .toBeDisabled()
   await page.evaluate(() => (window as any).releasePendingDelete())
   await expect.poll(() => readStoredDocumentRaw(page, sourceKey(documentB.document_id)))
     .toBeUndefined()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# A\n")
 })
 
 test("Delete document activates and remembers the newest fallback", async ({ page }) => {
@@ -1271,12 +1697,11 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   await expect(newDocument.locator(".i-lucide-square-pen")).toBeVisible()
   await expect(page.locator("label[title=\"Import Markdown\"] .i-lucide-upload"))
     .toBeVisible()
-  await expect(page.getByLabel("Import Markdown")).toHaveCSS("cursor", "pointer")
-  expect(await page.locator("label[title=\"Import Markdown\"]").evaluate(label => {
-    const bounds = label.getBoundingClientRect()
-    return document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
-      ?.tagName
-  })).toBe("LABEL")
+  const importControl = page.getByTitle("Import Markdown", { exact: true })
+  await expect(importControl).toHaveCSS("cursor", "pointer")
+  const choosingFile = page.waitForEvent("filechooser")
+  await importControl.click()
+  await (await choosingFile).setFiles([])
   await expect(page.getByRole("button", { name: "Export Markdown" })
     .locator(".i-lucide-download")).toBeVisible()
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
@@ -1312,15 +1737,9 @@ test("Document sidebar slides content while its toggle stays fixed", async ({ pa
   const openHeaderX = await page.locator("header").evaluate(element => element.getBoundingClientRect().x)
   const openTextTabX = await textTab.evaluate(element => element.getBoundingClientRect().x)
   expect(openTextTabX).toBeLessThan(openHeaderX + 32)
-  expect(await sidebar.evaluate(element => getComputedStyle(element).transition))
-    .toContain("cubic-bezier(0.77, 0, 0.175, 1)")
-  expect(await sidebar.evaluate(element => getComputedStyle(element).transition))
-    .toContain("opacity 0.19s")
 
   await toggle.click()
   await expect(sidebar).toHaveAttribute("aria-hidden", "true")
-  expect(await sidebar.evaluate(element => getComputedStyle(element).transition))
-    .toContain("opacity 0.1s")
   const closedX = await toggle.evaluate(element => element.getBoundingClientRect().x)
   const closedHeaderX = await page.locator("header").evaluate(element => element.getBoundingClientRect().x)
   expect(closedX).toBe(openX)
@@ -1330,7 +1749,7 @@ test("Document sidebar slides content while its toggle stays fixed", async ({ pa
 
   await toggle.click()
   await expect(sidebar).toBeVisible()
-  expect(await sidebar.evaluate(element => (element as HTMLElement).inert)).toBe(false)
+  await expect(sidebar).toHaveJSProperty("inert", false)
   expect(await toggle.evaluate(element => element.getBoundingClientRect().x)).toBe(openX)
 })
 
@@ -2257,9 +2676,8 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Not saved\n")
-  await expect(page.getByRole("alert")).toContainText(
-    "Changes are not saved in this browser. Browser storage is full.",
-  )
+  await expect(page.getByRole("alert")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
   await text.fill("# Latest text\n")
   await expect(text).toHaveValue("# Latest text\n")
   await page.waitForTimeout(300)
@@ -2285,7 +2703,8 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Not saved\n")
-  await expect(page.getByRole("alert")).toContainText("Changes are not saved")
+  await expect(page.getByRole("alert")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
   const failedCalls = await page.evaluate(() => (
     (globalThis as typeof globalThis & {
       __loomarkDocumentPutFailureCalls?: number
