@@ -874,6 +874,74 @@ test("Google sign-in waits for committed local text before preparing the redirec
   expect(preparedText).toBe("# Depart with this text\n")
 })
 
+// Exercise Chromium's real BFCache rather than a reload or synthetic pageshow.
+const historyTest = test.extend({
+  channel: "chromium",
+  launchOptions: { ignoreDefaultArgs: ["--disable-back-forward-cache"] },
+})
+
+historyTest("Back from Google restores editing and refreshes the account from BFCache", async ({ page }) => {
+  // The test server uses no-store; make this document eligible for BFCache.
+  await page.route("/", async route => {
+    const response = await route.fetch()
+    await route.fulfill({
+      response,
+      headers: { ...response.headers(), "cache-control": "no-cache" },
+    })
+  })
+  await page.addInitScript(() => {
+    window.addEventListener("pageshow", event => {
+      ;(globalThis as typeof globalThis & { __restoredFromBFCache?: boolean })
+        .__restoredFromBFCache = event.persisted
+    })
+  })
+  let signedIn = false
+  await page.route("**/api/account", route => route.fulfill({
+    status: signedIn ? 200 : 401,
+    contentType: "application/json",
+    body: signedIn ? JSON.stringify({ id: "account-a", name: "Account A" }) : "",
+  }))
+  const provider = "https://accounts.google.com/o/oauth2/v2/auth?state=history-test"
+  await page.route("https://accounts.google.com/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<title>Authorization destination</title>",
+  }))
+  await page.route("**/api/auth/sign-in/social", route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ url: provider }),
+  }))
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const document = await readStoredDocument(page)
+  if (!document) throw new Error("baseline Source missing")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const source = "# Keep this when returning from Google\n"
+  await text.fill(source)
+  await text.evaluate(element => {
+    ;(globalThis as typeof globalThis & { __historyTextArea?: Element })
+      .__historyTextArea = element
+  })
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(page).toHaveURL(provider)
+  signedIn = true
+  await page.goBack({ waitUntil: "commit" })
+
+  await expect.poll(() => page.evaluate(() => (
+    globalThis as typeof globalThis & { __restoredFromBFCache?: boolean }
+  ).__restoredFromBFCache)).toBe(true)
+  await expect(text).toBeEnabled()
+  await expect(text).toHaveValue(source)
+  expect(await text.evaluate(element => element === (
+    globalThis as typeof globalThis & { __historyTextArea?: Element }
+  ).__historyTextArea)).toBe(true)
+  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeEnabled()
+  await expectStoredDocument(page, { document_id: document.document_id, text: source })
+
+  const edited = `${source}Edited after Back\n`
+  await text.fill(edited)
+  await expectStoredDocument(page, { document_id: document.document_id, text: edited })
+})
+
 test("failed departure save unlocks editing and retries persistence before OAuth", async ({ page }) => {
   await page.route("**/api/account", route => route.fulfill({ status: 401 }))
   let loginRequests = 0

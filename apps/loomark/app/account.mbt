@@ -14,6 +14,42 @@ extern "js" fn load_url(url : String) =
   #| url => window.location.assign(url)
 
 ///|
+extern "js" fn listen_for_page_restore(callback : () -> Unit) -> () -> Unit =
+  #| callback => {
+  #|   const listener = event => { if (event.persisted) callback(); };
+  #|   window.addEventListener("pageshow", listener);
+  #|   return () => window.removeEventListener("pageshow", listener);
+  #| }
+
+///|
+priv suberror PageRestoreSubscription {
+  OnRestore(@cmd.Cmd)
+}
+
+///|
+fn page_restore_subscription(command : @cmd.Cmd) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark.page-restored",
+    @sub.Scope::Local,
+    PageRestoreSubscription::OnRestore(command),
+    (payload, scheduler) => {
+      guard payload is PageRestoreSubscription::OnRestore(command) else {
+        return None
+      }
+      let mut command = command
+      let stop = listen_for_page_restore(() => scheduler.queue_command(command))
+      Some({
+        unload: _ => stop(),
+        update_tagger: next => {
+          guard next is PageRestoreSubscription::OnRestore(next) else { return }
+          command = next
+        },
+      })
+    },
+  )
+}
+
+///|
 extern "js" fn restore_focus_after_login_cancel() =
   #| () => {
   #|   const root = document.querySelector('[aria-label="Loomark Markdown Editor"]');

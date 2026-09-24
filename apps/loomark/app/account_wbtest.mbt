@@ -422,3 +422,45 @@ test "queued input cannot cancel an already dispatched redirect" {
   )
   assert_true(after_lookup.departure is Redirecting(_))
 }
+
+///|
+test "BFCache restoration releases redirecting and fences the old account lookup" {
+  let initial = signed_out_model(test_editing())
+  let (sync, old_lookup) = initial.sync().begin_lookup()
+  let redirecting = {
+    ..initial.with_sync(sync),
+    departure: Redirecting(LoginAttempt(1)),
+  }
+  let (restored, _) = test_root_update(redirecting, PageRestored)
+  assert_false(restored.departure.editor_disabled())
+  guard restored.sync().session() is Resolving(lookup) else {
+    fail("restoration checks the current account")
+  }
+  let (stale, _) = test_root_update(
+    restored,
+    Sync(AccountResolved(old_lookup, @sync.AccountUnavailable)),
+  )
+  assert_true(stale.sync().session() is Resolving(_))
+  let (confirmed, _) = test_root_update(
+    stale,
+    Sync(AccountResolved(lookup, @sync.SignedOut)),
+  )
+  assert_true(confirmed.sync().session() is NoAccount)
+  let (edited, _) = test_root_update(
+    confirmed,
+    TextChanged(0, @text_change.TextChange::ReplaceAll("after Back")),
+  )
+  assert_eq(
+    edited.page.documents_state().unwrap().text(test_editing().activation.key),
+    Some("after Back"),
+  )
+}
+
+///|
+test "page restoration does not cancel sign-in before navigation" {
+  let initial = signed_out_model(test_editing())
+  let (preparing, _) = test_root_update(initial, LoginRequested)
+  assert_true(preparing.departure is PreparingLogin(_))
+  let (restored, _) = test_root_update(preparing, PageRestored)
+  assert_true(restored == preparing)
+}

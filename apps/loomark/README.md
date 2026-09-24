@@ -124,6 +124,8 @@ Preview. Saving already in progress continues; the editor keeps its text and
 selection. A delayed cancel action from an older intent cannot cancel a newer
 one. Once navigation has been dispatched, queued edits and account lookup
 completions cannot reopen the editor by canceling that departure.
+Returning from Google through BFCache explicitly releases that departure on
+`pageshow.persisted` and refreshes the account without replacing the open editor.
 
 The physical OAuth preparation request has separate ownership: canceling departure
 does not release it, and a new explicit sign-in joins that request rather than

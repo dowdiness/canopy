@@ -36,6 +36,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       @sub.batch([
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
+        page_restore_subscription(emit(PageRestored)),
         lead_subscriptions(current.page, emit),
       ])
     },

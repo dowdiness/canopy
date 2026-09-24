@@ -1235,6 +1235,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | DocumentsLifecycle(_)
     | ApplyPendingEdit(_, _)
     | VisibilityChanged(_)
+    | PageRestored
     | RetrySave
     | RetryAccount
     | RetrySaving(_)
@@ -1271,6 +1272,10 @@ fn reduce(
     AuthenticationReturned(true) =>
       ({ ..model, departure: LoginFailed(AuthenticationFailed), }, @cmd.none)
     AuthenticationReturned(false) => (model, @cmd.none)
+    PageRestored => {
+      guard model.departure is Redirecting(_) else { return (model, @cmd.none) }
+      begin_account_lookup({ ..model, departure: Stable, }, emit)
+    }
     LoginRequested => begin_login(model, emit)
     LoginCancelled(attempt) => {
       let departure = model.departure.cancel(attempt)

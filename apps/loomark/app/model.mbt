@@ -168,6 +168,7 @@ priv enum Msg {
   DocumentsLifecycle(@documents.Feedback)
   ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
+  PageRestored
   RetrySave
   RetryAccount
   StartSync(@documents.StartSync)
