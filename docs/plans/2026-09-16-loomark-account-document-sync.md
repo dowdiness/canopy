@@ -159,8 +159,10 @@ require separate permission. Local-only operation remains supported.
   account retry, and Replica retry now use ordinary root messages. Sync start
   and Replica retry carry opaque capabilities projected from current state
   instead of arbitrary account/document pairs. Display and retry execution
-  share one pure next-work decision, including the exact remote read retained
-  after failure. Account resolution restarts failed local persistence through
+  share one pure next-work decision. Mutation and conflict retries preserve
+  causal identity, while freshness retries coalesce to the newest catalog
+  revision rather than retaining a stale read snapshot. Account resolution
+  restarts failed local persistence through
   the Documents lifecycle, preserving an Undo made while that write is in
   flight. Sync start keeps the textarea mounted while its durable owner changes
   and routes edits made during the atomic mutation to the resulting Replica.
@@ -193,7 +195,9 @@ require separate permission. Local-only operation remains supported.
 - Better Auth and D1 integration tests exercise authentication, revision checks,
   duplicate receipts, tombstones, and account isolation. The MoonBit document
   API is connected for outbound durable operations, remote discovery, and
-  remote-only document opening.
+  remote-only document opening. Selection is modeled as demand for an openable
+  durable Replica: existing Replicas use their ordinary synchronization lane,
+  and only documents absent from IndexedDB use a selection-specific GET.
 - No auth configuration appeared in the inspected Loomark/relay configuration,
   relevant environment-variable names, or their local `.dev.vars` locations.
   This does not establish what is configured in the Cloudflare dashboard.

@@ -147,7 +147,9 @@ and one newest replica waits behind it, so intermediate edits collapse. The lane
 alone retains an exact failed write and exposes an opaque retry capability;
 Documents stores only failure feedback. Completions are accepted only through
 their opaque attempt capability. A completion that does not match the active
-write is an explicit stale-event error and cannot advance the lane.
+write is an explicit stale-event error and cannot advance the lane. Retrying
+creates a new attempt, so failure of that attempt cannot make an older retry
+capability valid again.
 Conflict recovery
 first persists divergence, then applies its generated identity to the lane's
 newest causal head and stores the replica and recovery document atomically.
@@ -170,11 +172,14 @@ The header derives narrow account and active-document status values from the
 root model. It exposes ordinary messages for account retry, replica retry,
 and explicit local-document sync start. Sync start and retry messages carry
 opaque capabilities projected from the current state instead of arbitrary
-account/document pairs. One pure next-work decision supplies both displayed
-progress and executable retry, and retains the exact failed remote read for a
-later attempt. Account resolution restarts failed local persistence through the
-Documents lifecycle before network work; an Undo made during that write stays
-queued behind it. Sync start is a documents-owned lifecycle: only an
+account/document pairs. Persistence retries and network retries remain distinct
+capabilities. Mutation and conflict retries retain their causal operation
+identity; failed freshness reads retain retryability but coalesce their minimum
+revision to the newest catalog fact. Replica persistence status is projected from the
+document's persistence owner independently of the account session, including
+the original Replica owner retained by a recovery Source. Account resolution
+restarts failed local persistence before network work; an Undo made during that
+write stays queued behind it. Sync start is a documents-owned lifecycle: only an
 acknowledged Source may enter it, edits remain optimistic while its atomic
 IndexedDB mutation is pending, success transfers pending text to replica
 persistence, and failure resumes Source persistence. The active textarea keeps
@@ -225,15 +230,38 @@ absence means the durable replica is current. A delayed completion that does
 not carry the lane's active attempt returns an explicit error without comparing
 full text.
 
-The account-sync state owns session lookup, the transient remote catalog, and
-network work keyed by account and document. It does not copy durable replicas.
+The account-sync state owns session lookup, an account-bound transient remote
+catalog, and network work keyed by account and document. Catalog entries and
+their last observation outcome remain independent from an active discovery ID.
+A matching discovery may therefore complete while session lookup is unresolved;
+a later lookup of the same account exposes that result, while another account
+replaces the entire catalog. New discovery IDs supersede delayed completions.
+The sync state does not copy durable replicas.
+Every admitted operation preparation, delivery, remote read, recovery, and
+remote open is represented by its own opaque typed attempt. Rabbita commands
+round-trip that attempt unchanged, so callbacks cannot reconstruct or mix
+account, document, operation, read-purpose, or selected-open identity. A failed
+attempt remains in the protocol until an explicit retry creates a fresh attempt;
+UUID-generation failure therefore remains actionable instead of deleting work.
+Remote-open failure retains only its page-local selection intent and exposes a
+separate opaque retry capability; it is not durable mutation work and is not
+stored in IndexedDB. Another selection, cancellation, or account lookup expires
+that capability structurally. Selection is a demand for an openable durable
+Replica, not a competing synchronization lane. An existing Replica therefore
+continues through its ordinary operation, conflict, recovery, or freshness work;
+only a remote-only document uses a selection-specific GET. Failed ordinary work
+remains retryable while selected, and a newer catalog revision updates the
+freshness requirement instead of preserving a stale read snapshot. After each
+durable write, the replication aggregate first reevaluates the selection from
+the canonical Replica and current catalog, then derives ordinary network work.
 The root model owns its editor `Page` and one replication aggregate. That
 aggregate coordinates the account-sync protocol with per-document Replica
 persistence: a remote effect can be exposed only after its Replica lane is
 current, and account recovery retries local durability before considering
-network work. Remote selection records its open intent in that aggregate;
-`Persisting` waits, `Failed` retries durability, and only a current lane admits
-the per-document GET. IndexedDB and HTTP remain command effects interpreted by
+network work. Remote selection records only account, document, and intent in
+that aggregate; the current catalog supplies the required revision. `Persisting`
+waits, failed durability retries, and only a current lane can advance the
+selection or ordinary sync. IndexedDB and HTTP remain command effects interpreted by
 the root, rather than dependencies of the pure aggregate. Existing
 editor messages remain ordinary `Msg` constructors; `Sync(SyncMsg)` carries
 account and replica results without a second page-message wrapper. A → B → A
@@ -257,6 +285,23 @@ it parses receipts and conflict documents at ingress. Requests use Rabbita's
 managed `Cmd` lifecycle rather than a detached async task. An expected-account
 rejection triggers a fresh account lookup only when that account is still
 selected.
+
+The mode bar derives independent Rabbita values for account state, local
+durability, Replica persistence, sync control, remote relation, per-document
+network activity, and selection activity. Equality stops changes in one value
+before rebuilding the others. These remain separate facts. A
+clean working copy can therefore still expose a failed Replica metadata write,
+without misreporting it as a network failure. Remote relation is defined only
+for a parsed live Replica; deleting candidates and tombstones cannot report
+visible text as synchronized. The newest remote knowledge is the monotonic join
+of the durable Replica observation and the transient catalog head. A missing or
+older catalog entry cannot erase an update already stored on the device, while
+a newer catalog observation—including a tombstone newer than a stored update
+body—determines the relation and expires the old capability before it can be
+consumed. Persistence retry, document-network retry, and selection-fetch retry use
+different message and opaque capability types. A network retry identifies the
+protocol's failed task and is consumed only after the aggregate resolves its
+authoritative durable Replica.
 
 A save first persists its immutable operation ID and payload, then sends it.
 Successful receipts enter the same causal writer before becoming canonical.
@@ -282,18 +327,20 @@ replica is fetched and reconciled through the same causal writer. It becomes
 `Available`, or persists `Diverged` before recovery, without assigning text to
 the mounted textarea. `observed_revision` includes both phases, so an available
 update continues observing newer catalog revisions rather than freezing at the
-first notice. Reopening a newer remote revision advances the existing writer
-head—including a replica that became durable while GET was in flight—instead
-of creating another generation-zero replica. A remote-only record is
-admitted from that exact durable replica only when its selected revision can
-activate; revision and textarea text therefore cannot come from different
+first notice. Opening an existing Replica advances that ordinary freshness lane
+rather than creating another GET lifecycle. A remote-only response can create a
+Replica only while the document remains absent locally; if a Replica becomes
+durable while that GET is in flight, the response expires and the canonical
+Replica continues through ordinary synchronization. A remote-only record is
+admitted from that exact durable Replica only when the current catalog revision
+can activate; revision and textarea text therefore cannot come from different
 snapshots. If IME composition starts while a remote row is loading, admission
 and activation remain pending until composition ends. A canceled selection
 still allows its already-started replica write to finish without activating
 it. If that row becomes a tombstone before its body arrives, the tombstone
-enters the same causal writer but ends the open intent, so persistence cannot
-activate a deleted document. Account, discovery, effect, revision, and replica
-identities fence delayed results. The expensive remote/local join depends only
+enters the same causal writer but ends the selection, so persistence cannot
+activate a deleted document. Account, discovery, typed attempt, revision, and
+replica identities fence delayed results. The expensive remote/local join depends only
 on a narrow document-membership projection and the remote catalog, and replica
 success does not rescan and reproject the account, so ordinary edits do not
 rebuild either graph.
