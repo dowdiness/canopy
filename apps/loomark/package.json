@@ -10,7 +10,10 @@
     "test:server": "npm run build:server && vitest run --config vitest.server.config.ts",
     "typecheck:server": "npm run build:server && tsc --noEmit -p server/tsconfig.json",
     "auth:schema": "node server/generate-auth-schema.mts",
-    "db:migrate:local": "wrangler d1 migrations apply AUTH_DB --local"
+    "db:migrate:local": "wrangler d1 migrations apply AUTH_DB --local",
+    "release:production": "node ../../scripts/release-loomark.mjs",
+    "check:production": "node ../../scripts/check-loomark-production.mjs",
+    "test:release": "node --test ../../scripts/test-loomark-release.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.1.10",

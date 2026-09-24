@@ -92,6 +92,9 @@ jobs:
               - '.gitmodules'
               - 'scripts/install-local-warren.sh'
               - 'scripts/build-loomark-worker.sh'
+              - 'scripts/release-loomark.mjs'
+              - 'scripts/check-loomark-production.mjs'
+              - 'scripts/test-loomark-release.mjs'
               - 'scripts/test-loomark-standalone-e2e.sh'
               - 'scripts/test-loomark-sync-e2e.sh'
               - 'scripts/moon-update.sh'
@@ -937,6 +940,9 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+
+      - name: Verify Loomark release failure boundaries
+        run: npm run test:release --prefix apps/loomark
 
       - name: Install native build toolchain
         run: |
