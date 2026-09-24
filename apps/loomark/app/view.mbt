@@ -260,10 +260,60 @@ fn sync_status_view(
   opening : @rabbita.Html,
 ) -> @rabbita.Html {
   @html.div(
-    class="flex min-w-0 flex-wrap items-center justify-center gap-1 text-xs text-lm-muted max-[641px]:order-3 max-[641px]:w-full",
+    class="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1 overflow-x-auto text-xs text-lm-muted [scrollbar-width:none]",
     attrs=@html.Attrs::build().role("status").aria_live("polite"),
     [account, durability, persistence, sync, remote, activity, opening],
   )
+}
+
+///|
+fn sidebar_tools(
+  scope : @sidebar.SidebarScope,
+  editing : EditingState,
+  account : AccountControlsInput,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  let action_class = "flex min-h-9 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-lm-rule bg-lm-surface px-2 py-1.5 text-xs text-lm-muted transition-colors duration-150 hover:bg-lm-accent-soft hover:text-lm-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11"
+  @sidebar.sidebar_footer(class="border-t border-lm-rule", [
+    examples_bar(
+      emit,
+      editing.activation,
+      @sidebar.sidebar_collapse(scope),
+      disabled=editing.creation is Creating(_) ||
+        account.departure.editor_disabled(),
+    ),
+    @html.div(class="grid min-w-0 grid-cols-2 gap-2", [
+      @html.label(
+        class="relative \{action_class} has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent",
+        title="Import Markdown",
+        for_="loomark-import",
+        [
+          @view.upload_icon("pointer-events-none block size-4 shrink-0"),
+          @html.span("Import"),
+          @html.input(
+            input_type=File,
+            id="loomark-import",
+            class="sr-only",
+            on_files=emit.map(files => ImportFilesSelected(files)),
+            attrs=@html.Attrs::build()
+              .aria_label("Import Markdown")
+              .disabled(account.departure.editor_disabled()),
+          ),
+        ],
+      ),
+      @html.button(
+        type_="button",
+        class=action_class,
+        title="Export Markdown",
+        attrs=@html.Attrs::build().aria_label("Export Markdown"),
+        on_click=emit(ExportRequested),
+        [
+          @view.download_icon("pointer-events-none block size-4 shrink-0"),
+          @html.span("Export"),
+        ],
+      ),
+    ]),
+  ])
 }
 
 ///|
@@ -280,7 +330,7 @@ fn mode_bar(
     ""
   }
   @html.header(
-    class="relative flex min-h-11 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-lm-rule bg-lm-surface px-3 py-1 max-[641px]:px-2 max-[641px]:py-0",
+    class="relative flex h-11 shrink-0 flex-nowrap items-center gap-2 overflow-hidden border-b border-lm-rule bg-lm-surface px-3 py-1 max-[641px]:px-2 max-[641px]:py-0",
     [
       @html.div(
         class="flex min-w-0 items-center gap-2 \{toolbar_control_spacing}",
@@ -310,40 +360,7 @@ fn mode_bar(
         ],
       ),
       sync_status,
-      @html.div(class="flex min-w-0 flex-wrap items-center gap-1", [
-        examples_bar(
-          emit,
-          editing.activation,
-          disabled=editing.creation is Creating(_) ||
-            account.departure.editor_disabled(),
-        ),
-        @html.label(
-          class="relative flex min-h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-lm-rule bg-transparent p-0 text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent max-[641px]:min-h-11",
-          title="Import Markdown",
-          for_="loomark-import",
-          [
-            @view.upload_icon("pointer-events-none block size-4"),
-            @html.input(
-              input_type=File,
-              id="loomark-import",
-              class="sr-only",
-              on_files=emit.map(files => ImportFilesSelected(files)),
-              attrs=@html.Attrs::build()
-                .aria_label("Import Markdown")
-                .disabled(account.departure.editor_disabled()),
-            ),
-          ],
-        ),
-        @html.button(
-          type_="button",
-          class="flex min-h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-lm-rule bg-transparent p-0 text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
-          title="Export Markdown",
-          attrs=@html.Attrs::build().aria_label("Export Markdown"),
-          on_click=emit(ExportRequested),
-          @view.download_icon("pointer-events-none block size-4"),
-        ),
-        account_controls(account, emit),
-      ]),
+      account_controls(account, emit),
     ],
   )
 }
@@ -407,6 +424,24 @@ fn creation_failure_view(
     "A new document could not be created. " + reason,
     "Retry creating",
     emit(CreateRequested),
+  )
+}
+
+///|
+fn example_creation_failure_view(
+  activation : Activation,
+  text : String,
+  failure : @source_repository.CreateFailure,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  let reason = match failure {
+    @source_repository.CreateFailure::DocumentIdentityUnavailable =>
+      "This browser cannot create a document identity."
+  }
+  failure_notice(
+    "The example document could not be created. " + reason,
+    "Try again",
+    emit(ExampleSelected(activation, text)),
   )
 }
 
@@ -532,7 +567,10 @@ fn view(
                 collapsible=@sidebar.SidebarOffcanvas,
                 aria_label="Documents",
                 class="[--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-                recent_navigation,
+                [
+                  recent_navigation,
+                  sidebar_tools(sidebar, editing, account, emit),
+                ],
               ),
               @html.div(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
@@ -550,6 +588,13 @@ fn view(
                       save_failure_view(failure, emit)
                     (_, CreationFailed(failure)) =>
                       creation_failure_view(failure, emit)
+                    (_, ExampleCreationFailed(text, failure)) =>
+                      example_creation_failure_view(
+                        editing.activation,
+                        text,
+                        failure,
+                        emit,
+                      )
                     _ =>
                       match
                         editing.documents.delete_status(editing.activation.key) {

@@ -247,7 +247,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   @sidebar.sidebar_provider_with_state(
     state=sidebar_state,
     input=layout_input,
-    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem]",
+    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[641px]:[--rui-sidebar-width:100vw]",
     (sidebar, layout) => {
       let (
         (page, editor_panels, sync_status, dialog, recent_navigation),

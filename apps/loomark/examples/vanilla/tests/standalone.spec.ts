@@ -645,21 +645,26 @@ test("Export downloads the current Document text with its Derived name", async (
   expect(downloaded).toBe(source)
 })
 
-test("Import activates, saves, and reopens normalized text", async ({ page }) => {
+test("Import creates a new Document without changing the existing Document", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
+  const existingText = "# Existing document\n\nKeep this text.\n"
   const normalized = "Imported\ntext\n"
+  await text.fill(existingText)
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+  const [existing] = await readStoredDocuments(page)
 
   await page.getByLabel("Import Markdown")
     .setInputFiles("tests/fixtures/import-bom-crlf.bin")
 
   await expect(text).toHaveValue(normalized)
-  await expect.poll(() => readStoredDocuments(page)).toEqual([{
-    document_id: expect.any(String),
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
+  const documents = await readStoredDocuments(page)
+  expect(documents).toContainEqual(existing)
+  expect(documents).toContainEqual({
+    document_id: expect.not.stringMatching(existing.document_id),
     text: normalized,
-  }])
-  await page.reload()
-  await expect(text).toHaveValue(normalized)
+  })
 })
 
 test("importing the same file twice creates two Documents", async ({ page }) => {
@@ -1752,29 +1757,55 @@ test("Document delete icon is directly accessible and keyboard operable", async 
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
+  await waitForRepositoryOpen(page)
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   await expect(toggle)
     .toHaveAttribute("aria-expanded", "false")
   const sidebar = page.locator("#loomark-document-sidebar")
   await expect(sidebar)
     .toHaveAttribute("aria-hidden", "true")
-  await toggle.click()
-  await expect(sidebar).toBeVisible()
-  const newDocument = page.getByRole("button", { name: "New document" })
-  await expect(newDocument).toBeVisible()
-  await expect(newDocument.locator(".i-lucide-square-pen")).toBeVisible()
-  await expect(page.locator("label[title=\"Import Markdown\"] .i-lucide-upload"))
-    .toBeVisible()
-  const importControl = page.getByTitle("Import Markdown", { exact: true })
-  await expect(importControl).toHaveCSS("cursor", "pointer")
-  const choosingFile = page.waitForEvent("filechooser")
-  await importControl.click()
-  await (await choosingFile).setFiles([])
-  await expect(page.getByRole("button", { name: "Export Markdown" })
-    .locator(".i-lucide-download")).toBeVisible()
+  const topBar = page.locator("header")
+  expect(await topBar.evaluate(element => ({
+    height: element.getBoundingClientRect().height,
+    scrollHeight: element.scrollHeight,
+  }))).toEqual({ height: 44, scrollHeight: 44 })
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
+  await toggle.click()
+  await expect(sidebar).toBeVisible()
+  await expect(sidebar).toHaveCSS("opacity", "1")
+  expect(await sidebar.evaluate(element => element.getBoundingClientRect().width))
+    .toBe(390)
+  const newDocument = page.getByRole("button", { name: "New document" })
+  await expect(newDocument).toBeVisible()
+  await expect(newDocument.locator(".i-lucide-square-pen")).toBeVisible()
+  const sidebarFooter = sidebar.locator('[data-slot="sidebar-footer"]')
+  await expect(sidebarFooter.getByRole("toolbar", { name: "Example documents" }))
+    .toBeVisible()
+  await expect(sidebarFooter.locator("label[title=\"Import Markdown\"] .i-lucide-upload"))
+    .toBeVisible()
+  await expect(sidebarFooter.getByText("Import", { exact: true })).toBeVisible()
+  const importControl = sidebarFooter.locator("label[title=\"Import Markdown\"]")
+  await expect(importControl).toHaveCSS("cursor", "pointer")
+  const importInput = page.getByLabel("Import Markdown")
+  const exportControl = sidebarFooter.getByRole("button", { name: "Export Markdown" })
+  await exportControl.focus()
+  await page.keyboard.press("Shift+Tab")
+  await expect(importInput).toBeFocused()
+  expect(await importInput.evaluate(input => input.matches(":focus-visible"))).toBe(true)
+  await expect(importControl).toHaveCSS("outline-style", "solid")
+  await expect(importControl).toHaveCSS("outline-width", "2px")
+  expect(await importControl.evaluate(label => {
+    const bounds = label.getBoundingClientRect()
+    const target = document.elementFromPoint(
+      bounds.x + bounds.width / 2,
+      bounds.y + bounds.height / 2,
+    )
+    return target !== null && label.contains(target)
+  })).toBe(true)
+  await expect(exportControl.locator(".i-lucide-download")).toBeVisible()
+  await expect(sidebarFooter.getByText("Export", { exact: true })).toBeVisible()
   expect(await page.evaluate(() => ({
     viewport: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
@@ -2222,43 +2253,37 @@ test("Split uses RUI keyboard resizing and preserves textarea across orientation
   await expect(resize).toHaveValue("51")
 })
 
-test("Example documents immediately replace the active Document", async ({ page }) => {
+test("Examples create and open new Documents, preserve existing Documents, and close the sidebar", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.goto("/")
 
   const text = page.getByRole("textbox", { name: "Text" })
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  const sidebar = page.locator("#loomark-document-sidebar")
   await text.fill("# Work in progress\n")
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+  const [existing] = await readStoredDocuments(page)
   const examples = page.getByRole("toolbar", { name: "Example documents" })
+  const cases = [
+    ["Create Markdown feature tour example document", "# Markdown Feature Tour\n"],
+    ["Create Hello example document", "# Hello World\n"],
+    ["Create Blog example document", "# Getting Started\n"],
+    ["Create List example document", "# Shopping List\n"],
+    ["Create Code example document", "# README\n"],
+  ] as const
 
-  await examples.getByRole("button", {
-    name: "Apply Markdown feature tour example",
-  }).click()
-  await expect(text).toHaveValue(/^# Markdown Feature Tour\n/)
+  for (const [index, [name, firstLine]] of cases.entries()) {
+    await toggle.click()
+    await examples.getByRole("button", { name }).click()
+    await expect(sidebar).toHaveAttribute("aria-hidden", "true")
+    await expect.poll(async () => (await text.inputValue()).startsWith(firstLine))
+      .toBe(true)
+    await expect.poll(() => readStoredDocuments(page)).toHaveLength(index + 2)
+  }
 
-  await examples.getByRole("button", { name: "Apply Hello example" }).click()
-  await expect(text).toHaveValue(
-    "# Hello World\n\nWelcome to Loomark.\n\n" +
-      "Use Text to edit Markdown, Preview to read the rendered document, " +
-      "and Split to work with both at once.\n",
-  )
-
-  await examples.getByRole("button", { name: "Guide: Apply Blog example" }).click()
-  await expect(text).toHaveValue(
-    "# Getting Started\n\nLoomark is a source-first incremental Markdown editor.\n\n" +
-      "## Features\n\nText remains the editing authority.\n\n" +
-      "Preview and Split share one read-only rendered result that updates " +
-      "from precise browser edits.",
-  )
-
-  await examples.getByRole("button", { name: "Apply List example" }).click()
-  await expect(text).toHaveValue(
-    "# Shopping List\n\nThings to pick up:\n\n" +
-      "- Apples\n- Bread\n- Coffee\n- Dark chocolate",
-  )
-
-  await examples.getByRole("button", { name: "Apply Code example" }).click()
-  await expect(text).toHaveValue(/^# README\n/)
-  await expect.poll(() => readStoredDocument(page).then(document => document?.text))
-    .toMatch(/^# README\n/)
+  const documents = await readStoredDocuments(page)
+  expect(documents).toContainEqual(existing)
+  expect(new Set(documents.map(document => document.document_id)).size).toBe(6)
 })
 
 test("Split keeps Text and Preview independently scrollable", async ({ page }) => {
