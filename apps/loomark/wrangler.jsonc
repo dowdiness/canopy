@@ -6,8 +6,8 @@
   // over wrangler.toml: a repository-root wrangler.jsonc shadows every
   // subdirectory wrangler.toml (e.g. apps/relay-server's). The Cloudflare Git
   // integration for this worker must set its root directory to apps/loomark
-  // so that `npx wrangler deploy` finds this file. The custom build keeps the
-  // external Workers Build on the same MoonBit/Warren bootstrap as CI.
+  // and deploy command to `npm run release:production`. The custom build keeps
+  // the release on the same MoonBit/Warren bootstrap as CI.
   "name": "loomark",
   "main": "server/index.ts",
   "compatibility_date": "2026-09-16",
@@ -29,5 +29,23 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
+  },
+  // Pin only the production binding; preserve the existing local D1 identity.
+  "env": {
+    "production": {
+      "name": "loomark",
+      "account_id": "dc542e028d3f757c2b8fc6ae059ab42e",
+      "secrets": {
+        "required": ["BETTER_AUTH_URL", "BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"]
+      },
+      "d1_databases": [
+        {
+          "binding": "AUTH_DB",
+          "database_name": "loomark-auth",
+          "database_id": "2d2151db-d303-4a92-bfbf-54e7878b79e4",
+          "migrations_dir": "server/migrations"
+        }
+      ]
+    }
   }
 }
