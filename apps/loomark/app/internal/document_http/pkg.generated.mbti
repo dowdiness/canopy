@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/app/internal/document_http"
+
+import {
+  "dowdiness/loomark/app/internal/source_repository",
+  "moonbit-community/rabbita/cmd",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn deliver(@source_repository.AccountId, @source_repository.DocumentId, @source_repository.PendingOperation, @cmd.Emit[DeliveryResult]) -> @cmd.Cmd
+
+pub fn discover(@source_repository.AccountId, @cmd.Emit[DiscoveryResult]) -> @cmd.Cmd
+
+pub fn get(@source_repository.AccountId, @source_repository.DocumentId, @cmd.Emit[RemoteResult]) -> @cmd.Cmd
+
+// Errors
+
+// Types and methods
+pub(all) enum DeliveryResult {
+  Acknowledged(@source_repository.SavedRevision)
+  RevisionConflict
+  AccountChanged
+  DocumentTooLarge
+  OperationRejected
+  Unavailable
+} derive(Eq, @debug.Debug)
+
+pub(all) enum DiscoveryResult {
+  Discovered(Array[@source_repository.RemoteEntry])
+  AccountChanged
+  Unavailable
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RemoteResult {
+  Found(@source_repository.RemoteDocument)
+  AccountChanged
+  Unavailable
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

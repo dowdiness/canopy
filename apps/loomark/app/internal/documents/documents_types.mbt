@@ -205,9 +205,16 @@ pub struct AcceptRemote {
 } derive(Eq)
 
 ///|
-pub(all) enum RemoteChange {
+pub(all) enum RemoteState {
+  Current
+  LocalAhead
+  RemoteAhead
+  Concurrent
+  Diverged
+  DeletedRemotely
   UpdateAvailable(AcceptRemote)
-  DeletedRemotely(AcceptRemote)
+  DeletionAvailable(AcceptRemote)
+  Unavailable
 } derive(Eq)
 
 ///|

@@ -15,10 +15,15 @@ pub fn[Id : Eq + Hash] build(input~ : @rabbita.Val[@vector.Vector[Seed[Id]]], vi
 
 // Types and methods
 pub(all) enum DeletionAvailability {
-  Available
+  Available(DeletionScope)
   Blocked
   Pending
-  Failed
+  Failed(DeletionScope)
+} derive(Eq)
+
+pub(all) enum DeletionScope {
+  ThisBrowser
+  AllDevices
 } derive(Eq)
 
 pub enum Intent[Id] {

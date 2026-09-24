@@ -204,30 +204,45 @@ pub fn State::sync_start(
 }
 
 ///|
-/// Project a remote revision only while the matching working copy is clean and
-/// idle. Persistence and account admission remain owned by the caller.
-pub fn State::remote_change(
+/// Project the working copy and newest observed remote head as one state. A
+/// remote action exists only when its body still matches that head exactly.
+pub fn State::remote_state(
   self : Self,
   replica : @source_repository.DocumentReplica,
-) -> RemoteChange? {
+  catalog_head : @source_repository.RemoteHead?,
+) -> RemoteState {
   let key = Key::replica(replica.account(), replica.document_id())
   guard find_record(self.records, key) is Some(record) &&
-    record.persistence is Replica(account, ReplicaAvailable) &&
+    replica.live() is Some(live) else {
+    return RemoteState::Unavailable
+  }
+  let knowledge = replica.remote_knowledge(catalog_head)
+  let relation = live.relation(record.document.text(), knowledge)
+  let action = if record.persistence is Replica(account, ReplicaAvailable) &&
     account == replica.account() &&
     self.visible_account == Some(account) &&
     replica.document() == Some(record.document) &&
     record.save is DocumentsSaveStatus::Saved &&
     record.edit is EditState::Idle &&
     self.saved.replica(account, replica.document_id()) == Some(replica) &&
-    replica.remote_update() is Some(update) else {
-    return None
+    replica.remote_update() is Some(update) &&
+    knowledge.head() == Some(update.head()) {
+    Some({ key, version: record.version, update, })
+  } else {
+    None
   }
-  let action = { key, version: record.version, update, }
-  match update.remote() {
-    @source_repository.RemoteDocument::Present(_, _) =>
-      Some(RemoteChange::UpdateAvailable(action))
-    Deleted(_) => Some(RemoteChange::DeletedRemotely(action))
-    Missing => None
+  match (relation, action) {
+    (@source_repository.Relation::RemoteAhead, Some(action)) =>
+      RemoteState::UpdateAvailable(action)
+    (@source_repository.Relation::DeletedRemotely, Some(action)) =>
+      RemoteState::DeletionAvailable(action)
+    (Current, _) => RemoteState::Current
+    (LocalAhead, _) => RemoteState::LocalAhead
+    (RemoteAhead, _) => RemoteState::RemoteAhead
+    (Concurrent, _) => RemoteState::Concurrent
+    (Diverged, _) => RemoteState::Diverged
+    (DeletedRemotely, _) => RemoteState::DeletedRemotely
+    (Unavailable, _) => RemoteState::Unavailable
   }
 }
 
@@ -235,11 +250,19 @@ pub fn State::remote_change(
 pub fn State::accept_remote(
   self : Self,
   replica : @source_repository.DocumentReplica,
+  catalog_head : @source_repository.RemoteHead?,
   action : AcceptRemote,
 ) -> RemoteAcceptance raise ActionError {
-  guard self.remote_change(replica) is Some(change) else { raise ExpiredAction }
-  let current = match change {
-    RemoteChange::UpdateAvailable(current) | DeletedRemotely(current) => current
+  let current = match self.remote_state(replica, catalog_head) {
+    RemoteState::UpdateAvailable(current) | DeletionAvailable(current) =>
+      current
+    Current
+    | LocalAhead
+    | RemoteAhead
+    | Concurrent
+    | Diverged
+    | DeletedRemotely
+    | Unavailable => raise ExpiredAction
   }
   guard current == action else { raise ExpiredAction }
   let write = action.update.accept()

@@ -262,7 +262,7 @@ test("divergent browser edits preserve the local branch and expose the remote br
   await signIn(phone, "conflict")
   await signIn(pc, "conflict")
   const phonePage = phone.pages()[0] ?? await phone.newPage()
-  await createSynced(phonePage, CONFLICT_ACCOUNT, baseline)
+  const id = await createSynced(phonePage, CONFLICT_ACCOUNT, baseline)
   const pcPage = pc.pages()[0] ?? await pc.newPage()
   await openRemote(pcPage, "Shared baseline", baseline)
 
@@ -286,6 +286,12 @@ test("divergent browser edits preserve the local branch and expose the remote br
   })
 
   await pcPage.getByRole("textbox", { name: "Text" }).fill(pcText)
+  await expect.poll(async () => {
+    const response = await pcPage.request.get(`${ORIGIN}/api/documents/${id}`, {
+      headers: { "X-Loomark-Account": CONFLICT_ACCOUNT },
+    })
+    return response.json()
+  }).toMatchObject({ id, revision: 2, text: pcText })
   await expectSynced(pcPage)
 
   await phone.setOffline(false)

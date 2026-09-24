@@ -210,8 +210,16 @@ fn activate_open(
     model.page.saved_documents() is Some(saved) else {
     return (model, command)
   }
-  let (replication, opened) = model.replication.take_open(saved)
-  guard opened is Some(opened) else { return (model, command) }
+  let (replication, opened, effect) = model.replication.take_selection(saved)
+  let command = @cmd.batch([
+    command,
+    effect
+    .map(value => run_replication_effect(saved, value, emit))
+    .unwrap_or(@cmd.none),
+  ])
+  guard opened is Some(opened) else {
+    return ({ ..model, replication, }, command)
+  }
   let replica = opened.replica()
   let opened = match editing.documents.open_replica(replica) {
     @documents.RemoteOpen::Opened(opened) => opened
@@ -832,43 +840,33 @@ fn run_sync_action(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Cmd {
   match action {
-    CreateOperation(plan, account, document_id) =>
+    CreateOperation(attempt) =>
       @source_repository.operation_id(
-        emit.map(result => {
-          Sync(OperationPrepared(plan, account, document_id, result))
-        }),
+        emit.map(result => Sync(OperationPrepared(attempt, result))),
       )
-    Deliver(effect, account, document_id, operation) =>
+    Deliver(attempt, operation) =>
       @document_http.deliver(
-        account,
-        document_id,
+        attempt.account(),
+        attempt.document_id(),
         operation,
-        emit.map(result => {
-          Sync(
-            DeliveryCompleted(
-              effect,
-              account,
-              document_id,
-              operation.operation_id(),
-              result,
-            ),
-          )
-        }),
+        emit.map(result => Sync(DeliveryCompleted(attempt, result))),
       )
-    GetRemote(effect, account, document_id, read) =>
+    GetRemote(attempt) =>
       @document_http.get(
-        account,
-        document_id,
-        emit.map(result => {
-          Sync(RemoteCompleted(effect, account, document_id, read, result))
-        }),
+        attempt.account(),
+        attempt.document_id(),
+        emit.map(result => Sync(RemoteCompleted(attempt, result))),
       )
-    CreateRecovery(effect, account, document_id) =>
+    OpenRemote(attempt) =>
+      @document_http.get(
+        attempt.account(),
+        attempt.document_id(),
+        emit.map(result => Sync(OpenCompleted(attempt, result))),
+      )
+    CreateRecovery(attempt) =>
       @source_repository.create(
         saved,
-        emit.map(result => {
-          Sync(RecoveryCreated(effect, account, document_id, result))
-        }),
+        emit.map(result => Sync(RecoveryCreated(attempt, result))),
       )
   }
 }
@@ -1129,7 +1127,10 @@ fn reduce(
         is Some(replica) else {
         return (model, @cmd.none)
       }
-      let accepted = Some(editing.documents.accept_remote(replica, action)) catch {
+      let known_remote = model.sync().remote_head(document_id)
+      let accepted = Some(
+        editing.documents.accept_remote(replica, known_remote, action),
+      ) catch {
         _ => None
       }
       guard accepted is Some(accepted) else { return (model, @cmd.none) }
@@ -1163,32 +1164,44 @@ fn reduce(
         }
       }
     }
-    RetrySync(action) =>
-      match action {
-        RetryPersistence(retry) => {
-          guard model.page.saved_documents() is Some(saved) else {
-            return (model, @cmd.none)
-          }
-          let result = Some(model.replication.retry(retry)) catch { _ => None }
-          guard result is Some((replication, effect)) else {
-            return (model, @cmd.none)
-          }
-          let model = { ..model, replication, }
-          (model, run_replication_effect(saved, effect, emit))
-        }
-        RetryNetwork(action) => {
-          let replica = action.replica()
-          let account = replica.account()
-          let document_id = replica.document_id()
-          guard model.page.saved_documents() is Some(saved) &&
-            saved.replica(account, document_id) == Some(replica) &&
-            model.sync().progress(replica) is @sync.Progress::Retryable(current) &&
-            current == action else {
-            return (model, @cmd.none)
-          }
-          settle_replica(model, replica, emit)
-        }
+    RetrySaving(action) => {
+      guard model.page.saved_documents() is Some(saved) else {
+        return (model, @cmd.none)
       }
+      let result = Some(model.replication.retry_save(action)) catch {
+        _ => None
+      }
+      guard result is Some((replication, effect)) else {
+        return (model, @cmd.none)
+      }
+      let model = { ..model, replication, }
+      (model, run_replication_effect(saved, effect, emit))
+    }
+    RetrySync(action) => {
+      guard model.page.saved_documents() is Some(saved) else {
+        return (model, @cmd.none)
+      }
+      let result = Some(model.replication.retry_sync(saved, action)) catch {
+        _ => None
+      }
+      guard result is Some((replication, effect)) else {
+        return (model, @cmd.none)
+      }
+      let model = { ..model, replication, }
+      (model, run_replication_effect(saved, effect, emit))
+    }
+    RetrySelection(action) => {
+      guard model.page.saved_documents() is Some(saved) else {
+        return (model, @cmd.none)
+      }
+      let result = Some(model.replication.retry_selection(saved, action)) catch {
+        _ => None
+      }
+      guard result is Some((replication, effect)) else {
+        return (model, @cmd.none)
+      }
+      ({ ..model, replication, }, run_replication_effect(saved, effect, emit))
+    }
     Sync(AccountResolved(lookup_id, result)) => {
       let (sync, selection) = model.sync().resolved(lookup_id, result)
       let (page, sync, command) = match selection {
@@ -1313,45 +1326,39 @@ fn reduce(
         ]),
       )
     }
-    Sync(OperationPrepared(plan, account, document_id, result)) => {
-      guard model.page.saved_documents() is Some(saved) &&
-        saved.replica(account, document_id) is Some(durable) &&
-        model.replication.status(account, document_id)
-        is @replica_persistence.Status::Current else {
-        return (
-          model.with_sync(
-            model.sync().planning_failed(plan, account, document_id),
-          ),
-          @cmd.none,
-        )
-      }
+    Sync(OperationPrepared(attempt, result)) =>
       match result {
-        None =>
-          (
-            model.with_sync(
-              model.sync().planning_failed(plan, account, document_id),
-            ),
-            @cmd.none,
-          )
+        None => {
+          let sync = model.sync().planning_failed(attempt) catch {
+              _ => return (model, @cmd.none)
+            }
+          (model.with_sync(sync), @cmd.none)
+        }
         Some(operation_id) => {
+          guard model.page.saved_documents() is Some(saved) &&
+            saved.replica(attempt.account(), attempt.document_id())
+            is Some(durable) &&
+            model.replication.status(attempt.account(), attempt.document_id())
+            is @replica_persistence.Status::Current else {
+            let sync = model.sync().planning_failed(attempt) catch {
+                _ => return (model, @cmd.none)
+              }
+            return (model.with_sync(sync), @cmd.none)
+          }
           let transition = Some(
-            model.sync().prepared(plan, durable, operation_id),
+            model.sync().prepared(attempt, durable, operation_id),
           ) catch {
             _ => None
           }
-          guard transition is Some((sync, attempt)) else {
-            return (
-              model.with_sync(
-                model.sync().planning_failed(plan, account, document_id),
-              ),
-              @cmd.none,
-            )
+          guard transition is Some((sync, write)) else {
+            return (model, @cmd.none)
           }
-          submit_sync_replica(model, sync, attempt, emit)
+          submit_sync_replica(model, sync, write, emit)
         }
       }
-    }
-    Sync(DeliveryCompleted(effect, account, document_id, operation_id, result)) => {
+    Sync(DeliveryCompleted(attempt, result)) => {
+      let account = attempt.account()
+      let document_id = attempt.document_id()
       guard model.page.saved_documents() is Some(saved) &&
         saved.replica(account, document_id) is Some(durable) else {
         return (model, @cmd.none)
@@ -1360,7 +1367,7 @@ fn reduce(
         @document_http.DeliveryResult::Acknowledged(revision) => {
           let base = model.replication.protocol_base(durable)
           let transition = Some(
-            model.sync().acknowledged(base, effect, operation_id, revision),
+            model.sync().acknowledged(base, attempt, revision),
           ) catch {
             // A delayed response cannot complete a different durable operation.
             _ => None
@@ -1372,16 +1379,14 @@ fn reduce(
         }
         RevisionConflict => {
           let base = model.replication.protocol_base(durable)
-          let sync = model.sync().revision_conflict(base, effect, operation_id) catch {
+          let sync = model.sync().revision_conflict(base, attempt) catch {
               _ => return (model, @cmd.none)
             }
           settle_replica(model.with_sync(sync), durable, emit)
         }
         DocumentTooLarge => {
           let base = model.replication.protocol_base(durable)
-          let transition = Some(
-            model.sync().delivery_too_large(base, effect, operation_id),
-          ) catch {
+          let transition = Some(model.sync().delivery_too_large(base, attempt)) catch {
             _ => None
           }
           guard transition is Some((sync, attempt)) else {
@@ -1391,9 +1396,7 @@ fn reduce(
         }
         OperationRejected => {
           let base = model.replication.protocol_base(durable)
-          let transition = Some(
-            model.sync().operation_rejected(base, effect, operation_id),
-          ) catch {
+          let transition = Some(model.sync().operation_rejected(base, attempt)) catch {
             _ => None
           }
           guard transition is Some((sync, attempt)) else {
@@ -1403,7 +1406,7 @@ fn reduce(
         }
         AccountChanged | Unavailable => {
           let base = model.replication.protocol_base(durable)
-          let sync = model.sync().delivery_failed(base, effect, operation_id) catch {
+          let sync = model.sync().delivery_failed(base, attempt) catch {
               _ => return (model, @cmd.none)
             }
           if result is AccountChanged {
@@ -1415,58 +1418,44 @@ fn reduce(
         }
       }
     }
-    Sync(RemoteCompleted(effect, account, document_id, read, result)) => {
-      if read is @sync.RemoteRead::Open(intent, expected) {
-        let durable = match model.page.saved_documents() {
-          Some(saved) => saved.replica(account, document_id)
-          None => None
-        }
-        let replica = match durable {
-          Some(value) => Some(model.replication.protocol_base(value))
-          None => model.replication.pending(account, document_id)
-        }
-        let transition = match result {
-          @document_http.RemoteResult::Found(remote) =>
-            Some(
-              model
-              .sync()
-              .opened(
-                effect, account, document_id, intent, expected, replica, remote,
-              ),
-            ) catch {
-              _ => None
-            }
-          AccountChanged | Unavailable =>
-            Some(
-              (
-                model
-                .sync()
-                .open_failed(effect, account, document_id, intent, expected),
-                @source_repository.OpenOutcome::Unavailable,
-              ),
-            ) catch {
-              _ => None
-            }
-        }
-        guard transition is Some((sync, outcome)) else {
-          return (model, @cmd.none)
-        }
-        let write = match outcome {
-          @source_repository.OpenOutcome::PersistAndOpen(write)
-          | PersistOnly(write) => Some(write)
-          Ready | Unavailable => None
-        }
-        let (model, store) = submit_sync_replica(model, sync, write, emit)
-        if result is @document_http.RemoteResult::AccountChanged {
-          let (sync, lookup) = resolve_changed_account(
-            model.sync(),
-            account,
-            emit,
+    Sync(OpenCompleted(attempt, result)) => {
+      let account = attempt.account()
+      match result {
+        @document_http.RemoteResult::Found(remote) => {
+          guard model.page.saved_documents() is Some(saved) else {
+            return (model, @cmd.none)
+          }
+          let transition = Some(
+            model.replication.opened(saved, attempt, remote),
+          ) catch {
+            _ => None
+          }
+          guard transition is Some((replication, effect)) else {
+            return (model, @cmd.none)
+          }
+          (
+            { ..model, replication, },
+            effect
+            .map(value => run_replication_effect(saved, value, emit))
+            .unwrap_or(@cmd.none),
           )
-          return (model.with_sync(sync), @cmd.batch([store, lookup]))
         }
-        return (model, store)
+        AccountChanged | Unavailable => {
+          let sync = model.sync().open_failed(attempt) catch {
+              _ => return (model, @cmd.none)
+            }
+          if result is AccountChanged {
+            let (sync, lookup) = resolve_changed_account(sync, account, emit)
+            (model.with_sync(sync), lookup)
+          } else {
+            (model.with_sync(sync), @cmd.none)
+          }
+        }
       }
+    }
+    Sync(RemoteCompleted(attempt, result)) => {
+      let account = attempt.account()
+      let document_id = attempt.document_id()
       guard model.page.saved_documents() is Some(saved) &&
         saved.replica(account, document_id) is Some(durable) else {
         return (model, @cmd.none)
@@ -1474,9 +1463,7 @@ fn reduce(
       match result {
         @document_http.RemoteResult::Found(remote) => {
           let base = model.replication.protocol_base(durable)
-          let transition = Some(
-            model.sync().received(base, effect, read, remote),
-          ) catch {
+          let transition = Some(model.sync().received(base, attempt, remote)) catch {
             _ => None
           }
           guard transition is Some((sync, write)) else {
@@ -1492,7 +1479,7 @@ fn reduce(
         }
         AccountChanged | Unavailable => {
           let base = model.replication.protocol_base(durable)
-          let sync = model.sync().remote_failed(base, effect, read) catch {
+          let sync = model.sync().remote_failed(base, attempt) catch {
               _ => return (model, @cmd.none)
             }
           if result is AccountChanged {
@@ -1504,21 +1491,22 @@ fn reduce(
         }
       }
     }
-    Sync(RecoveryCreated(effect, account, document_id, result)) => {
-      guard model.page.saved_documents() is Some(saved) &&
-        saved.replica(account, document_id) is Some(durable) else {
-        return (model, @cmd.none)
-      }
+    Sync(RecoveryCreated(attempt, result)) => {
       guard result is @source_repository.CreateResult::Created(recovery_id) else {
-        return (
-          model.with_sync(
-            model.sync().recovery_failed(account, document_id, effect),
-          ),
-          @cmd.none,
-        )
+        let sync = model.sync().recovery_failed(attempt) catch {
+            _ => return (model, @cmd.none)
+          }
+        return (model.with_sync(sync), @cmd.none)
+      }
+      guard model.page.saved_documents() is Some(saved) &&
+        saved.replica(attempt.account(), attempt.document_id()) is Some(durable) else {
+        let sync = model.sync().recovery_failed(attempt) catch {
+            _ => return (model, @cmd.none)
+          }
+        return (model.with_sync(sync), @cmd.none)
       }
       let base = model.replication.protocol_base(durable)
-      let transition = Some(model.sync().recover(base, effect, recovery_id)) catch {
+      let transition = Some(model.sync().recover(base, attempt, recovery_id)) catch {
         _ => None
       }
       guard transition is Some((sync, write)) else { return (model, @cmd.none) }
@@ -1544,26 +1532,25 @@ fn reduce(
         model.page.saved_documents() is Some(saved) else {
         return (model, @cmd.none)
       }
-      let durable = saved.replica(account, document_id)
-      let (replication, effect) = model.replication.select(document_id, durable)
-      let command = effect
-        .map(value => run_replication_effect(saved, value, emit))
-        .unwrap_or(@cmd.none)
+      let (replication, effects) = model.replication.select(saved, document_id)
+      let command = run_replication_effects(saved, effects, emit)
       ({ ..model, replication, }, command)
     }
     message => {
-      let sync = match message {
+      let model = match message {
         DocumentSelected(_) | CreateRequested | ImportFilesSelected(_) =>
-          model.sync().cancel_open()
-        _ => model.sync()
+          { ..model, replication: model.replication.cancel_selection(), }
+        _ => model
       }
-      let (page, command) = update_page(
+      let sync = model.sync()
+      let (page, page_command) = update_page(
         model.page,
         message,
         emit,
         text_area,
         preview_engine,
       )
+      let command = page_command
       match message {
         Opened(_) => {
           let (sync, lookup_id) = sync.begin_lookup()

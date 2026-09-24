@@ -154,10 +154,37 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   )
   let remote_documents = model.map(model => remote_documents(model.sync()))
   let account = model.map(model => account_status(model.sync()))
-  let document = model.map(document_sync_status)
-  let sync_status = account.map2(document, (account, document) => {
-    sync_status_view(account, document, emit)
+  let durability = model.map(document_durability)
+  let replica_persistence = model.map(document_replica_persistence)
+  let document_sync = model.map(document_sync)
+  let document_remote = model.map(document_remote_state)
+  let document_activity = model.map(document_sync_activity)
+  let selection = model.map(selection_activity)
+  let account_view = account.view(account => {
+    account_status_section(account, emit)
   })
+  let durability_view = durability.view(durability => {
+    local_durability_option_view(durability)
+  })
+  let replica_persistence_view = replica_persistence.view(persistence => {
+    replica_persistence_option_view(persistence, emit)
+  })
+  let document_sync_view = document_sync.view(sync => {
+    document_sync_option_view(sync, emit)
+  })
+  let document_remote_view = document_remote.view(remote => {
+    remote_state_option_view(remote, emit)
+  })
+  let document_activity_view = document_activity.view(activity => {
+    activity_option_view(activity, emit)
+  })
+  let selection_view = selection.view(activity => {
+    selection_activity_view(activity, emit)
+  })
+  let sync_status = account_view.view7(
+    durability_view, replica_persistence_view, document_sync_view, document_remote_view,
+    document_activity_view, selection_view, sync_status_view,
+  )
   let membership = page.map(document_membership)
   let remote_seeds = remote_documents.map2(membership, remote_document_seeds)
   let feature_input = page.map2(remote_seeds, (page, remote) => {

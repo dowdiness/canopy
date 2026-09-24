@@ -11,6 +11,9 @@ import {
 // Values
 
 // Errors
+pub(all) suberror ExpiredRetry {
+  ExpiredRetry
+} derive(Eq, @debug.Debug)
 
 // Types and methods
 pub(all) enum Effect {
@@ -18,28 +21,36 @@ pub(all) enum Effect {
   Network(@sync.Action)
 } derive(Eq, @debug.Debug)
 
-pub struct OpenReplica {
+pub struct SelectedReplica {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn OpenReplica::replica(Self) -> @source_repository.DocumentReplica
+pub fn SelectedReplica::replica(Self) -> @source_repository.DocumentReplica
 
 pub struct State {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn State::State(protocol? : @sync.State, persistence? : @replica_persistence.State) -> Self
+pub fn State::activity(Self, @source_repository.DocumentReplica) -> @sync.Activity
+pub fn State::cancel_selection(Self) -> Self
 pub fn State::complete(Self, @replica_persistence.Attempt, Result[Unit, @source_repository.ReplicaFailure]) -> (Self, @replica_persistence.Completion) raise @replica_persistence.StaleAttempt
+pub fn State::editing_base(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
 pub fn State::head(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
+pub fn State::opened(Self, @source_repository.SavedDocuments, @sync.OpenAttempt, @source_repository.RemoteDocument) -> (Self, Effect?) raise @sync.WorkError
 pub fn State::pending(Self, @source_repository.AccountId, @source_repository.DocumentId) -> @source_repository.DocumentReplica?
 pub fn State::persistence(Self) -> @replica_persistence.State
 pub fn State::protocol(Self) -> @sync.State
+pub fn State::protocol_base(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
 pub fn State::resume_account(Self, @source_repository.SavedDocuments, @source_repository.AccountId) -> (Self, Array[Effect])
-pub fn State::retry(Self, @replica_persistence.Retry) -> (Self, Effect) raise @replica_persistence.ExpiredRetry
-pub fn State::select(Self, @source_repository.DocumentId, @source_repository.DocumentReplica?) -> (Self, Effect?)
+pub fn State::retry_document(Self, @source_repository.AccountId, @source_repository.DocumentId) -> (Self, Effect?)
+pub fn State::retry_save(Self, @replica_persistence.Retry) -> (Self, Effect) raise ExpiredRetry
+pub fn State::retry_selection(Self, @source_repository.SavedDocuments, @sync.SelectionRetry) -> (Self, Effect) raise ExpiredRetry
+pub fn State::retry_sync(Self, @source_repository.SavedDocuments, @sync.Retry) -> (Self, Effect) raise ExpiredRetry
+pub fn State::select(Self, @source_repository.SavedDocuments, @source_repository.DocumentId) -> (Self, Array[Effect])
 pub fn State::settle_account(Self, @source_repository.SavedDocuments, @source_repository.AccountId) -> (Self, Array[Effect])
 pub fn State::settle_replica(Self, @source_repository.DocumentReplica) -> (Self, Effect?)
 pub fn State::status(Self, @source_repository.AccountId, @source_repository.DocumentId) -> @replica_persistence.Status
 pub fn State::submit(Self, @source_repository.ReplicaWrite) -> (Self, Effect?)
-pub fn State::take_open(Self, @source_repository.SavedDocuments) -> (Self, OpenReplica?)
+pub fn State::take_selection(Self, @source_repository.SavedDocuments) -> (Self, SelectedReplica?, Effect?)
 pub fn State::with_protocol(Self, @sync.State) -> Self
 
 // Type aliases

@@ -92,12 +92,6 @@ priv enum DocumentDeletion {
 } derive(Eq)
 
 ///|
-priv enum SyncRetry {
-  RetryPersistence(@replica_persistence.Retry)
-  RetryNetwork(@sync.Retry)
-} derive(Eq)
-
-///|
 priv enum Msg {
   Opened(@source_repository.OpenResult)
   EmptyCreateCompleted(Int, @source_repository.CreateResult)
@@ -120,7 +114,9 @@ priv enum Msg {
   RetryAccount
   StartSync(@documents.StartSync)
   AcceptRemote(@documents.AcceptRemote)
-  RetrySync(SyncRetry)
+  RetrySaving(@replica_persistence.Retry)
+  RetrySync(@sync.Retry)
+  RetrySelection(@sync.SelectionRetry)
   DocumentSelected(@documents.Key)
   CreateRequested
   CreateCompleted(Int, @source_repository.CreateResult)
@@ -144,30 +140,9 @@ priv enum SyncMsg {
     @replica_persistence.Attempt,
     Result[Unit, @source_repository.ReplicaFailure]
   )
-  OperationPrepared(
-    @sync.PlanId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId,
-    @source_repository.OperationId?
-  )
-  DeliveryCompleted(
-    @sync.EffectId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId,
-    @source_repository.OperationId,
-    @document_http.DeliveryResult
-  )
-  RemoteCompleted(
-    @sync.EffectId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId,
-    @sync.RemoteRead,
-    @document_http.RemoteResult
-  )
-  RecoveryCreated(
-    @sync.EffectId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId,
-    @source_repository.CreateResult
-  )
+  OperationPrepared(@sync.OperationAttempt, @source_repository.OperationId?)
+  DeliveryCompleted(@sync.DeliveryAttempt, @document_http.DeliveryResult)
+  RemoteCompleted(@sync.ReadAttempt, @document_http.RemoteResult)
+  OpenCompleted(@sync.OpenAttempt, @document_http.RemoteResult)
+  RecoveryCreated(@sync.RecoveryAttempt, @source_repository.CreateResult)
 }

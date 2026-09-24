@@ -37,6 +37,7 @@ pub struct Metadata {
   id : String
   revision : Double
   deleted : Bool
+  preview : String?
 }
 
 pub struct Mutation {

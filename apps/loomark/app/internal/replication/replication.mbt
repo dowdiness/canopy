@@ -6,13 +6,20 @@ pub(all) enum Effect {
 } derive(Eq, Debug)
 
 ///|
-/// The canonical durable Replica selected by one consumed remote-open intent.
-pub struct OpenReplica {
+pub(all) suberror ExpiredRetry {
+  ExpiredRetry
+} derive(Eq, Debug)
+
+///|
+/// The canonical durable Replica produced by one consumed selection.
+pub struct SelectedReplica {
   priv replica : @source_repository.DocumentReplica
 } derive(Eq, Debug)
 
 ///|
-pub fn OpenReplica::replica(self : Self) -> @source_repository.DocumentReplica {
+pub fn SelectedReplica::replica(
+  self : Self,
+) -> @source_repository.DocumentReplica {
   self.replica
 }
 
@@ -55,6 +62,18 @@ pub fn State::editing_base(
 }
 
 ///|
+/// The newest Replica fact available to pure projections. Failed writes remain
+/// visible here even though new edits correctly branch from durable state.
+pub fn State::head(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+) -> @source_repository.DocumentReplica {
+  self.persistence
+  .pending(durable.account(), durable.document_id())
+  .unwrap_or(durable)
+}
+
+///|
 pub fn State::protocol_base(
   self : Self,
   durable : @source_repository.DocumentReplica,
@@ -90,12 +109,55 @@ pub fn State::submit(
 }
 
 ///|
-pub fn State::retry(
+pub fn State::retry_save(
   self : Self,
   retry : @replica_persistence.Retry,
-) -> (Self, Effect) raise @replica_persistence.ExpiredRetry {
-  let (persistence, attempt) = self.persistence.retry(retry)
+) -> (Self, Effect) raise ExpiredRetry {
+  let (persistence, attempt) = self.persistence.retry(retry) catch {
+    _ => raise ExpiredRetry
+  }
   ({ ..self, persistence, }, Persist(attempt))
+}
+
+///|
+pub fn State::retry_sync(
+  self : Self,
+  saved : @source_repository.SavedDocuments,
+  retry : @sync.Retry,
+) -> (Self, Effect) raise ExpiredRetry {
+  guard self.persistence.status(retry.account(), retry.document_id())
+    is @replica_persistence.Status::Current &&
+    saved.replica(retry.account(), retry.document_id()) is Some(durable) else {
+    raise ExpiredRetry
+  }
+  let (protocol, action) = self.protocol.retry(durable, retry) catch {
+    _ => raise ExpiredRetry
+  }
+  ({ ..self, protocol, }, Effect::Network(action))
+}
+
+///|
+pub fn State::retry_selection(
+  self : Self,
+  saved : @source_repository.SavedDocuments,
+  retry : @sync.SelectionRetry,
+) -> (Self, Effect) raise ExpiredRetry {
+  guard saved.replica(retry.account(), retry.document_id()) is None &&
+    self.persistence.pending(retry.account(), retry.document_id()) is None else {
+    raise ExpiredRetry
+  }
+  let (protocol, action) = self.protocol.retry_selection(retry) catch {
+    _ => raise ExpiredRetry
+  }
+  ({ ..self, protocol, }, Effect::Network(action))
+}
+
+///|
+pub fn State::activity(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+) -> @sync.Activity {
+  self.protocol.activity(durable)
 }
 
 ///|
@@ -106,8 +168,11 @@ pub fn State::retry_document(
 ) -> (Self, Effect?) {
   match self.persistence.status(account, document_id) {
     @replica_persistence.Status::Retryable(retry, _) => {
-      let (self, effect) = self.retry(retry) catch { _ => return (self, None) }
-      (self, Some(effect))
+      let result = Some(self.retry_save(retry)) catch { _ => None }
+      match result {
+        Some((self, effect)) => (self, Some(effect))
+        None => (self, None)
+      }
     }
     Current | Persisting => (self, None)
   }
@@ -124,61 +189,107 @@ pub fn State::complete(
 }
 
 ///|
-/// Record a remote selection and admit at most one effect. Existing or pending
-/// Replica durability always precedes a per-document remote read.
+fn State::advance_selection(
+  self : Self,
+  replica : @source_repository.DocumentReplica?,
+) -> (Self, Effect?) {
+  let (protocol, step) = self.protocol.advance_selection(replica)
+  let self = { ..self, protocol, }
+  match step {
+    @sync.SelectionStep::Wait => (self, None)
+    Fetch(attempt) =>
+      (self, Some(Effect::Network(@sync.Action::OpenRemote(attempt))))
+    Persist(write) => self.submit(write)
+  }
+}
+
+///|
+/// Record a remote selection. Existing Replicas use their ordinary sync lane;
+/// only a remote-only document requires a selection-specific fetch.
 pub fn State::select(
   self : Self,
+  saved : @source_repository.SavedDocuments,
   document_id : @source_repository.DocumentId,
-  durable : @source_repository.DocumentReplica?,
-) -> (Self, Effect?) {
+) -> (Self, Array[Effect]) {
   guard self.protocol.remote_entry(document_id)
     is Some(@source_repository.RemoteEntry::Present(_, _, _)) &&
     self.protocol.session() is @sync.Session::Current(account, _) else {
-    return (self, None)
+    return (self, [])
   }
-  let protocol = self.protocol.select_open(document_id)
+  let protocol = self.protocol.select(document_id)
   let self = { ..self, protocol, }
-  let replica = match durable {
-    Some(value) => Some(self.persistence.editing_base(value))
-    None => self.persistence.pending(account, document_id)
-  }
   match self.persistence.status(account, document_id) {
     @replica_persistence.Status::Current => {
-      let (protocol, action) = self.protocol.advance_open(replica)
-      ({ ..self, protocol, }, action.map(value => Effect::Network(value)))
+      let replica = saved.replica(account, document_id)
+      let (self, selection) = self.advance_selection(replica)
+      let (self, sync) = match replica {
+        Some(replica) => self.settle_replica(replica)
+        None => (self, None)
+      }
+      let effects = [selection, sync].filter_map(effect => effect)
+      (self, effects)
     }
-    Persisting => (self, None)
+    Persisting => (self, [])
     Retryable(retry, _) => {
-      let (self, effect) = self.retry(retry) catch {
+      let (self, effect) = self.retry_save(retry) catch {
         _ => (self, abort("projected retry must remain current"))
       }
-      (self, Some(effect))
+      (self, [effect])
     }
   }
 }
 
 ///|
-/// Consume a selected remote open only when its canonical Replica is durable
-/// and covers the selected revision.
-pub fn State::take_open(
+/// Accept a selected remote response only while the document remains
+/// remote-only, then make the received Replica durable before activation.
+pub fn State::opened(
   self : Self,
   saved : @source_repository.SavedDocuments,
-) -> (Self, OpenReplica?) {
-  guard self.protocol.ready_open()
-    is Some((intent, account, document_id, revision)) &&
+  attempt : @sync.OpenAttempt,
+  remote : @source_repository.RemoteDocument,
+) -> (Self, Effect?) raise @sync.WorkError {
+  let account = attempt.account()
+  let document_id = attempt.document_id()
+  guard saved.replica(account, document_id) is None &&
+    self.persistence.pending(account, document_id) is None else {
+    raise @sync.WorkError::StaleWork
+  }
+  let (protocol, write) = self.protocol.opened(attempt, remote)
+  let self = { ..self, protocol, }
+  match write {
+    Some(write) => self.submit(write)
+    None => (self, None)
+  }
+}
+
+///|
+/// Consume a selection only when its canonical Replica is durable and still
+/// satisfies the current catalog requirement.
+pub fn State::take_selection(
+  self : Self,
+  saved : @source_repository.SavedDocuments,
+) -> (Self, SelectedReplica?, Effect?) {
+  guard self.protocol.ready_selection() is Some((intent, account, document_id)) &&
     self.protocol.session() is @sync.Session::Current(current, _) &&
     current == account &&
     self.persistence.status(account, document_id)
     is @replica_persistence.Status::Current &&
     saved.replica(account, document_id) is Some(replica) &&
-    !replica.is_deleted() &&
-    replica.baseline_revision() >= revision.value() else {
-    return (self, None)
+    self.protocol.remote_entry(document_id)
+    is Some(@source_repository.RemoteEntry::Present(_, required, _)) &&
+    replica.open(required) is @source_repository.OpenStep::Ready else {
+    return (self, None, None)
   }
-  (
-    { ..self, protocol: self.protocol.complete_open(intent), },
-    Some({ replica, }),
-  )
+  let protocol = self.protocol.complete_selection(intent) catch {
+    _ => abort("ready open must complete")
+  }
+  let (self, effect) = { ..self, protocol, }.settle_replica(replica)
+  (self, Some({ replica, }), effect)
+}
+
+///|
+pub fn State::cancel_selection(self : Self) -> Self {
+  { ..self, protocol: self.protocol.cancel_selection(), }
 }
 
 ///|
@@ -195,6 +306,8 @@ pub fn State::settle_replica(
     is @replica_persistence.Status::Current else {
     return (self, None)
   }
+  let (self, selection) = self.advance_selection(Some(replica))
+  guard selection is None else { return (self, selection) }
   let (protocol, action) = self.protocol.advance(replica)
   ({ ..self, protocol, }, action.map(value => Effect::Network(value)))
 }
@@ -214,7 +327,7 @@ pub fn State::resume_account(
     let (replication, effects) = match
       replication.status(account, replica.document_id()) {
       @replica_persistence.Status::Retryable(retry, _) => {
-        let (replication, effect) = replication.retry(retry) catch {
+        let (replication, effect) = replication.retry_save(retry) catch {
           _ => (replication, abort("projected retry must remain current"))
         }
         (replication, effects + [effect])

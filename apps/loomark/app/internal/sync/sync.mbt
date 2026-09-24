@@ -20,74 +20,233 @@ pub enum Session {
 } derive(Eq, Debug)
 
 ///|
-pub struct PlanId(Int) derive(Eq, Debug)
-
-///|
 pub struct DiscoveryId(Int) derive(Eq, Debug)
 
 ///|
-pub struct EffectId(Int) derive(Eq, Debug)
-
-///|
-pub struct OpenIntent(Int) derive(Eq, Debug)
-
-///|
-pub struct Retry {
-  priv replica : @source_repository.DocumentReplica
+pub struct OperationAttempt {
+  priv id : Int
+  priv account : @source_repository.AccountId
+  priv document_id : @source_repository.DocumentId
 } derive(Eq, Debug)
 
 ///|
-pub fn Retry::replica(self : Self) -> @source_repository.DocumentReplica {
-  self.replica
+pub fn OperationAttempt::account(self : Self) -> @source_repository.AccountId {
+  self.account
 }
 
 ///|
-pub enum Progress {
-  Inactive
+pub fn OperationAttempt::document_id(
+  self : Self,
+) -> @source_repository.DocumentId {
+  self.document_id
+}
+
+///|
+pub struct DeliveryAttempt {
+  priv id : Int
+  priv account : @source_repository.AccountId
+  priv document_id : @source_repository.DocumentId
+  priv operation_id : @source_repository.OperationId
+} derive(Eq, Debug)
+
+///|
+pub fn DeliveryAttempt::account(self : Self) -> @source_repository.AccountId {
+  self.account
+}
+
+///|
+pub fn DeliveryAttempt::document_id(
+  self : Self,
+) -> @source_repository.DocumentId {
+  self.document_id
+}
+
+///|
+priv enum ReplicaRead {
+  ResolveConflict(@source_repository.OperationId)
+  Refresh(@source_repository.SavedRevision)
+} derive(Eq, Debug)
+
+///|
+pub struct ReadAttempt {
+  priv id : Int
+  priv account : @source_repository.AccountId
+  priv document_id : @source_repository.DocumentId
+  priv read : ReplicaRead
+} derive(Eq, Debug)
+
+///|
+pub fn ReadAttempt::account(self : Self) -> @source_repository.AccountId {
+  self.account
+}
+
+///|
+pub fn ReadAttempt::document_id(self : Self) -> @source_repository.DocumentId {
+  self.document_id
+}
+
+///|
+pub struct RecoveryAttempt {
+  priv id : Int
+  priv account : @source_repository.AccountId
+  priv document_id : @source_repository.DocumentId
+} derive(Eq, Debug)
+
+///|
+pub fn RecoveryAttempt::account(self : Self) -> @source_repository.AccountId {
+  self.account
+}
+
+///|
+pub fn RecoveryAttempt::document_id(
+  self : Self,
+) -> @source_repository.DocumentId {
+  self.document_id
+}
+
+///|
+pub struct SelectionIntent(Int) derive(Eq, Debug)
+
+///|
+pub struct Retry {
+  priv account : @source_repository.AccountId
+  priv document_id : @source_repository.DocumentId
+  priv failed_attempt : Int
+} derive(Eq, Debug)
+
+///|
+pub fn Retry::account(self : Self) -> @source_repository.AccountId {
+  self.account
+}
+
+///|
+pub fn Retry::document_id(self : Self) -> @source_repository.DocumentId {
+  self.document_id
+}
+
+///|
+pub enum Activity {
+  Idle
   Working
   Retryable(Retry)
   Blocked
 } derive(Eq, Debug)
 
 ///|
-priv struct OpenTarget {
-  intent : OpenIntent
+pub(all) enum Observation {
+  Unknown
+  Observed
+  Unavailable
+} derive(Eq, Debug)
+
+///|
+priv struct Selection {
+  intent : SelectionIntent
   account : @source_repository.AccountId
   document_id : @source_repository.DocumentId
-  revision : @source_repository.SavedRevision
 } derive(Eq, Debug)
 
 ///|
-/// One remote-open lifecycle. The selected target and its active request can
-/// never disagree because they are represented by the same value.
+pub struct OpenAttempt {
+  priv id : Int
+  priv selection : Selection
+} derive(Eq, Debug)
+
+///|
+pub fn OpenAttempt::account(self : Self) -> @source_repository.AccountId {
+  self.selection.account
+}
+
+///|
+pub fn OpenAttempt::document_id(self : Self) -> @source_repository.DocumentId {
+  self.selection.document_id
+}
+
+///|
+pub struct SelectionRetry {
+  priv failed : OpenAttempt
+} derive(Eq, Debug)
+
+///|
+pub fn SelectionRetry::account(self : Self) -> @source_repository.AccountId {
+  self.failed.account()
+}
+
+///|
+pub fn SelectionRetry::document_id(
+  self : Self,
+) -> @source_repository.DocumentId {
+  self.failed.document_id()
+}
+
+///|
+pub enum SelectionActivity {
+  Idle
+  Working
+  Retryable(SelectionRetry)
+} derive(Eq, Debug)
+
+///|
+pub(all) enum SelectionStep {
+  Wait
+  Fetch(OpenAttempt)
+  Persist(@source_repository.ReplicaWrite)
+} derive(Eq, Debug)
+
+///|
+/// A selection is a demand for an openable durable Replica. Only a remote-only
+/// document owns a separate fetch lifecycle here; existing Replicas continue
+/// through their ordinary network lane.
 priv enum Opening {
   Idle
-  Selected(OpenTarget)
-  Fetching(OpenTarget, EffectId)
-  Persisting(OpenTarget)
-  Ready(OpenTarget)
+  Selected(Selection)
+  Fetching(OpenAttempt)
+  Failed(OpenAttempt)
+  Persisting(Selection)
+  Ready(Selection)
 } derive(Eq, Debug)
 
 ///|
-pub(all) enum RemoteRead {
-  Conflict(@source_repository.OperationId)
-  Revision(@source_repository.SavedRevision)
-  Open(OpenIntent, @source_repository.SavedRevision)
+priv enum Work {
+  Prepare(OperationAttempt, @source_repository.OperationDraft)
+  Deliver(DeliveryAttempt)
+  Read(ReadAttempt)
+  Recover(RecoveryAttempt)
 } derive(Eq, Debug)
+
+///|
+priv struct AccountCatalog {
+  account : @source_repository.AccountId
+  entries : Array[@source_repository.RemoteEntry]
+  observation : Observation
+  discovery : DiscoveryId?
+} derive(Eq, Debug)
+
+///|
+fn AccountCatalog::AccountCatalog(
+  account : @source_repository.AccountId,
+) -> AccountCatalog {
+  { account, entries: [], observation: Unknown, discovery: None, }
+}
 
 ///|
 priv enum Catalog {
-  Idle(Array[@source_repository.RemoteEntry])
-  Loading(DiscoveryId, Array[@source_repository.RemoteEntry])
+  Unbound
+  Bound(AccountCatalog)
 } derive(Eq, Debug)
 
 ///|
+fn Catalog::account(self : Self) -> @source_repository.AccountId? {
+  match self {
+    Unbound => None
+    Bound(catalog) => Some(catalog.account)
+  }
+}
+
+///|
 priv enum NetworkState {
-  Planning(PlanId, @source_repository.OperationDraft)
-  Delivering(EffectId, @source_repository.OperationId)
-  RetryRemote(RemoteRead)
-  FetchingRemote(EffectId, RemoteRead)
-  Recovering(EffectId)
+  Running(Work)
+  RetryPending(Work)
   Blocked(@source_repository.OperationDraft)
 } derive(Eq, Debug)
 
@@ -102,7 +261,7 @@ priv struct Network {
 priv enum Next {
   NoWork
   NetworkRunning
-  NetworkRetry(Int, RemoteRead)
+  Restart(Int)
   NetworkBlocked
   Deliver(@source_repository.PendingOperation)
   Fetch(@source_repository.SavedRevision)
@@ -112,28 +271,11 @@ priv enum Next {
 
 ///|
 pub(all) enum Action {
-  CreateOperation(
-    PlanId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId
-  )
-  Deliver(
-    EffectId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId,
-    @source_repository.PendingOperation
-  )
-  GetRemote(
-    EffectId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId,
-    RemoteRead
-  )
-  CreateRecovery(
-    EffectId,
-    @source_repository.AccountId,
-    @source_repository.DocumentId
-  )
+  CreateOperation(OperationAttempt)
+  Deliver(DeliveryAttempt, @source_repository.PendingOperation)
+  GetRemote(ReadAttempt)
+  OpenRemote(OpenAttempt)
+  CreateRecovery(RecoveryAttempt)
 } derive(Eq, Debug)
 
 ///|
@@ -144,30 +286,26 @@ pub(all) suberror WorkError {
 ///|
 pub struct State {
   priv session : Session
-  priv catalog_account : @source_repository.AccountId?
   priv catalog : Catalog
   priv opening : Opening
   priv network : Array[Network]
   priv last_lookup_id : Int
-  priv last_plan_id : Int
   priv last_discovery_id : Int
-  priv last_effect_id : Int
-  priv last_open_intent : Int
+  priv last_attempt_id : Int
+  priv last_selection_intent : Int
 } derive(Eq, Debug)
 
 ///|
 pub fn State::State() -> State {
   {
     session: SessionUnavailable,
-    catalog_account: None,
-    catalog: Idle([]),
+    catalog: Catalog::Unbound,
     opening: Opening::Idle,
     network: [],
     last_lookup_id: 0,
-    last_plan_id: 0,
     last_discovery_id: 0,
-    last_effect_id: 0,
-    last_open_intent: 0,
+    last_attempt_id: 0,
+    last_selection_intent: 0,
   }
 }
 
@@ -207,28 +345,36 @@ pub fn State::resolved(
     SignedOut => Some(AccountSelection::NoAccountSelected)
     AccountUnavailable => None
   }
-  let (catalog_account, catalog) = match result {
-    Resolved(id, _) if self.catalog_account == Some(id) =>
-      (self.catalog_account, self.catalog)
-    Resolved(id, _) => (Some(id), Idle([]))
-    SignedOut => (None, Idle([]))
-    AccountUnavailable => (self.catalog_account, self.catalog)
+  let catalog = match result {
+    Resolved(id, _) if self.catalog.account() == Some(id) => self.catalog
+    Resolved(id, _) => Catalog::Bound(AccountCatalog(id))
+    SignedOut => Catalog::Unbound
+    AccountUnavailable => self.catalog
   }
-  ({ ..self, session, catalog_account, catalog, }, account)
+  ({ ..self, session, catalog, }, account)
 }
 
 ///|
-fn Catalog::entries(self : Self) -> Array[@source_repository.RemoteEntry] {
-  match self {
-    Idle(entries) | Loading(_, entries) => entries
+pub fn State::observation(self : Self) -> Observation {
+  match self.catalog {
+    Bound(catalog) => catalog.observation
+    Unbound => Observation::Unknown
+  }
+}
+
+///|
+pub fn State::discovering(self : Self) -> Bool {
+  match self.catalog {
+    Bound({ discovery: Some(_), .. }) => true
+    Bound({ discovery: None, .. }) | Unbound => false
   }
 }
 
 ///|
 pub fn State::catalog(self : Self) -> Array[@source_repository.RemoteEntry] {
-  match (self.session, self.catalog_account) {
-    (Current(account, _), Some(owner)) if account == owner =>
-      self.catalog.entries()
+  match (self.session, self.catalog) {
+    (Current(account, _), Bound(catalog)) if account == catalog.account =>
+      catalog.entries
     _ => []
   }
 }
@@ -238,7 +384,8 @@ fn State::retained_remote_entry(
   self : Self,
   document_id : @source_repository.DocumentId,
 ) -> @source_repository.RemoteEntry? {
-  let entries = self.catalog.entries()
+  guard self.catalog is Bound(catalog) else { return None }
+  let entries = catalog.entries
   entries
   .view()
   .search_by(entry => entry.document_id() == document_id)
@@ -251,16 +398,25 @@ pub fn State::remote_entry(
   document_id : @source_repository.DocumentId,
 ) -> @source_repository.RemoteEntry? {
   guard self.session is Current(account, _) &&
-    self.catalog_account == Some(account) else {
+    self.catalog.account() == Some(account) else {
     return None
   }
   self.retained_remote_entry(document_id)
 }
 
 ///|
+pub fn State::remote_head(
+  self : Self,
+  document_id : @source_repository.DocumentId,
+) -> @source_repository.RemoteHead? {
+  self.remote_entry(document_id).map(entry => entry.head())
+}
+
+///|
 pub fn State::begin_discovery(self : Self) -> (Self, DiscoveryId?) {
   guard self.session is Current(account, _) &&
-    self.catalog_account == Some(account) else {
+    self.catalog is Bound(catalog) &&
+    catalog.account == account else {
     return (self, None)
   }
   let value = self.last_discovery_id + 1
@@ -268,7 +424,7 @@ pub fn State::begin_discovery(self : Self) -> (Self, DiscoveryId?) {
   (
     {
       ..self,
-      catalog: Loading(id, self.catalog.entries()),
+      catalog: Bound({ ..catalog, discovery: Some(id), }),
       last_discovery_id: value,
     },
     Some(id),
@@ -308,26 +464,30 @@ fn Opening::observe(
   account : @source_repository.AccountId,
   entry : @source_repository.RemoteEntry,
 ) -> Opening {
-  let target = match self {
+  let selection = match self {
     Idle => return self
-    Selected(target)
-    | Fetching(target, _)
-    | Persisting(target)
-    | Ready(target) => target
+    Selected(selection) | Persisting(selection) | Ready(selection) => selection
+    Fetching(attempt) | Failed(attempt) => attempt.selection
   }
-  guard target.account == account &&
-    target.document_id == entry.document_id() &&
-    entry is @source_repository.RemoteEntry::Deleted(_, revision) &&
-    revision.value() >= target.revision.value() else {
+  guard selection.account == account &&
+    selection.document_id == entry.document_id() else {
     return self
   }
-  Idle
+  match entry {
+    @source_repository.RemoteEntry::Deleted(_, _) => Idle
+    Present(_, _, _) =>
+      match self {
+        Ready(_) => Selected(selection)
+        Idle | Selected(_) | Fetching(_) | Failed(_) | Persisting(_) => self
+      }
+  }
 }
 
 ///|
 fn opening_observe_catalog(
   opening : Opening,
   account : @source_repository.AccountId,
+  old : Array[@source_repository.RemoteEntry],
   fresh : Array[@source_repository.RemoteEntry],
   merged : Array[@source_repository.RemoteEntry],
 ) -> Opening {
@@ -336,7 +496,18 @@ fn opening_observe_catalog(
       merged
       .view()
       .search_by(entry => entry.document_id() == candidate.document_id()) {
-      Some(index) => opening.observe(account, merged[index])
+      Some(index) => {
+        let retained = merged[index]
+        let previous = old
+          .view()
+          .search_by(entry => entry.document_id() == candidate.document_id())
+          .map(previous => old[previous])
+        if previous == Some(retained) {
+          opening
+        } else {
+          opening.observe(account, retained)
+        }
+      }
       None => opening
     }
   })
@@ -368,20 +539,23 @@ fn State::observe_remote(
   document_id : @source_repository.DocumentId,
   remote : @source_repository.RemoteDocument,
 ) -> Self {
-  guard self.catalog_account == Some(account) &&
+  guard self.catalog is Bound(catalog) &&
+    catalog.account == account &&
     remote_advances(self.retained_remote_entry(document_id), remote) &&
     remote.entry(document_id) is Some(entry) else {
     return self
   }
-  let entries = merge_catalog(self.catalog.entries(), [entry])
-  let catalog = match self.catalog {
-    Catalog::Idle(_) => Catalog::Idle(entries)
-    Loading(id, _) => Loading(id, entries)
-  }
+  let entries = merge_catalog(catalog.entries, [entry])
   {
     ..self,
-    catalog,
-    opening: opening_observe_catalog(self.opening, account, [entry], entries),
+    catalog: Bound({ ..catalog, entries, }),
+    opening: opening_observe_catalog(
+      self.opening,
+      account,
+      catalog.entries,
+      [entry],
+      entries,
+    ),
   }
 }
 
@@ -392,221 +566,244 @@ pub fn State::discovered(
   id : DiscoveryId,
   entries : Array[@source_repository.RemoteEntry]?,
 ) -> (Self, Bool) {
-  guard self.session is Current(current, _) &&
-    current == account &&
-    self.catalog_account == Some(account) &&
-    self.catalog is Loading(active, old) &&
-    active == id else {
+  guard self.catalog is Bound(catalog) &&
+    catalog.account == account &&
+    catalog.discovery == Some(id) else {
     return (self, false)
   }
-  let (catalog, opening) = match entries {
+  let (observation, catalog_entries, opening) = match entries {
     Some(fresh) => {
-      let merged = merge_catalog(old, fresh)
+      let merged = merge_catalog(catalog.entries, fresh)
       (
-        Catalog::Idle(merged),
-        opening_observe_catalog(self.opening, account, fresh, merged),
+        Observation::Observed,
+        merged,
+        opening_observe_catalog(
+          self.opening,
+          account,
+          catalog.entries,
+          fresh,
+          merged,
+        ),
       )
     }
-    None => (Catalog::Idle(old), self.opening)
+    None => (Observation::Unavailable, catalog.entries, self.opening)
   }
-  ({ ..self, catalog, opening, }, true)
+  (
+    {
+      ..self,
+      catalog: Bound({
+        ..catalog,
+        entries: catalog_entries,
+        observation,
+        discovery: None,
+      }),
+      opening,
+    },
+    true,
+  )
 }
 
 ///|
-fn State::effect(self : Self) -> (Self, EffectId) {
-  let value = self.last_effect_id + 1
-  ({ ..self, last_effect_id: value, }, EffectId(value))
+fn State::attempt_id(self : Self) -> (Self, Int) {
+  let value = self.last_attempt_id + 1
+  ({ ..self, last_attempt_id: value, }, value)
 }
 
 ///|
-pub fn State::cancel_open(self : Self) -> Self {
+pub fn State::cancel_selection(self : Self) -> Self {
   { ..self, opening: Opening::Idle, }
 }
 
 ///|
-fn replica_covers(
-  replica : @source_repository.DocumentReplica,
-  revision : @source_repository.SavedRevision,
-) -> Bool {
-  replica.baseline_revision() >= revision.value()
+pub fn State::selection_activity(self : Self) -> SelectionActivity {
+  match self.opening {
+    Idle | Ready(_) => SelectionActivity::Idle
+    Selected(_) | Fetching(_) | Persisting(_) => Working
+    Failed(attempt) => Retryable({ failed: attempt, })
+  }
 }
 
 ///|
-pub fn State::select_open(
+fn State::selected_revision(
+  self : Self,
+  selection : Selection,
+) -> @source_repository.SavedRevision? {
+  guard self.session is Current(account, _) &&
+    account == selection.account &&
+    self.remote_entry(selection.document_id)
+    is Some(@source_repository.RemoteEntry::Present(_, revision, _)) else {
+    return None
+  }
+  Some(revision)
+}
+
+///|
+pub fn State::select(
   self : Self,
   document_id : @source_repository.DocumentId,
 ) -> Self {
   guard self.remote_entry(document_id)
-    is Some(@source_repository.RemoteEntry::Present(_, revision, _)) &&
+    is Some(@source_repository.RemoteEntry::Present(_, _, _)) &&
     self.session is Current(account, _) else {
     return self
   }
-  let intent_value = self.last_open_intent + 1
-  let intent = OpenIntent(intent_value)
+  let intent_value = self.last_selection_intent + 1
   {
     ..self,
-    opening: Selected({ intent, account, document_id, revision, }),
-    last_open_intent: intent_value,
+    opening: Selected({
+      intent: SelectionIntent(intent_value),
+      account,
+      document_id,
+    }),
+    last_selection_intent: intent_value,
   }
 }
 
 ///|
-/// Start a selected remote read only after Replication has admitted it against
-/// the document's persistence lane.
-pub fn State::advance_open(
+/// Derive one selection step from the current catalog and authoritative
+/// Replica. Existing Replicas never start a second selection-specific GET.
+pub fn State::advance_selection(
   self : Self,
   replica : @source_repository.DocumentReplica?,
-) -> (Self, Action?) {
-  let target = match self.opening {
-    Selected(target) => target
-    Persisting(target) => {
-      guard replica
-        .map(value => replica_covers(value, target.revision))
-        .unwrap_or(false) else {
-        return (self, None)
+) -> (Self, SelectionStep) {
+  let selection = match self.opening {
+    Selected(selection) | Persisting(selection) => selection
+    Fetching(attempt) | Failed(attempt) if replica is Some(candidate) &&
+      candidate.account() == attempt.selection.account &&
+      candidate.document_id() == attempt.selection.document_id =>
+      attempt.selection
+    Idle | Fetching(_) | Failed(_) | Ready(_) => return (self, Wait)
+  }
+  guard self.selected_revision(selection) is Some(required) else {
+    return ({ ..self, opening: Opening::Idle, }, Wait)
+  }
+  match replica {
+    Some(replica) if replica.account() == selection.account &&
+      replica.document_id() == selection.document_id =>
+      match replica.open(required) {
+        @source_repository.OpenStep::Ready =>
+          ({ ..self, opening: Ready(selection), }, Wait)
+        Persist(write) =>
+          ({ ..self, opening: Persisting(selection), }, Persist(write))
+        AwaitSync => ({ ..self, opening: Selected(selection), }, Wait)
+        Unavailable => ({ ..self, opening: Opening::Idle, }, Wait)
       }
-      return ({ ..self, opening: Ready(target), }, None)
+    Some(_) => ({ ..self, opening: Opening::Idle, }, Wait)
+    None => {
+      let (self, id) = self.attempt_id()
+      let attempt : OpenAttempt = { id, selection, }
+      ({ ..self, opening: Fetching(attempt), }, Fetch(attempt))
     }
-    Idle | Fetching(_, _) | Ready(_) => return (self, None)
   }
-  guard self.session is Current(current, _) && current == target.account else {
-    return (self, None)
-  }
-  guard replica is None ||
-    (
-      replica is Some(candidate) &&
-      candidate.account() == target.account &&
-      candidate.document_id() == target.document_id
-    ) else {
-    return (self, None)
-  }
-  if replica
-    .map(value => replica_covers(value, target.revision))
-    .unwrap_or(false) {
-    return ({ ..self, opening: Ready(target), }, None)
-  }
-  if self.find_network(target.account, target.document_id) is Some(_) {
-    return (self, None)
-  }
-  let (self, effect) = self.effect()
-  let read = RemoteRead::Open(target.intent, target.revision)
-  (
-    { ..self, opening: Fetching(target, effect), },
-    Some(GetRemote(effect, target.account, target.document_id, read)),
-  )
 }
 
 ///|
 pub fn State::opened(
   self : Self,
-  effect : EffectId,
-  account : @source_repository.AccountId,
-  document_id : @source_repository.DocumentId,
-  intent : OpenIntent,
-  expected : @source_repository.SavedRevision,
-  replica : @source_repository.DocumentReplica?,
+  attempt : OpenAttempt,
   remote : @source_repository.RemoteDocument,
-) -> (Self, @source_repository.OpenOutcome) raise WorkError {
-  let target = { intent, account, document_id, revision: expected, }
-  guard self.opening == Fetching(target, effect) else { raise StaleWork }
-  guard self.session is Current(current, _) && current == account else {
+) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
+  let selection = attempt.selection
+  guard self.opening == Fetching(attempt) else { raise StaleWork }
+  guard self.selected_revision(selection) is Some(required) else {
     raise StaleWork
   }
-  let self = self.observe_remote(account, document_id, remote)
-  guard remote.revision() >= expected.value() else {
-    return (
-      { ..self, opening: Opening::Idle, },
-      @source_repository.OpenOutcome::Unavailable,
-    )
+  guard remote.revision() >= required.value() else {
+    return ({ ..self, opening: Failed(attempt), }, None)
   }
-  match replica {
-    Some(replica) if replica.account() == account &&
-      replica.document_id() == document_id => {
-      let outcome = replica.open(remote) catch {
-        _ => abort("Unmounted Replica must be openable")
-      }
-      let self = match outcome {
-        @source_repository.OpenOutcome::PersistOnly(_) | Unavailable =>
-          { ..self, opening: Opening::Idle, }
-        Ready => { ..self, opening: Opening::Ready(target), }
-        PersistAndOpen(_) => { ..self, opening: Persisting(target), }
-      }
-      (self, outcome)
-    }
-    Some(_) => raise StaleWork
-    None => {
-      guard remote is @source_repository.RemoteDocument::Present(actual, text) else {
-        return (
-          { ..self, opening: Opening::Idle, },
-          @source_repository.OpenOutcome::Unavailable,
-        )
-      }
-      let document = @source_repository.Document::create(document_id, text)
-      (
-        { ..self, opening: Persisting(target), },
-        @source_repository.OpenOutcome::PersistAndOpen(
-          @source_repository.DocumentReplica::receive(account, document, actual).store(),
-        ),
+  let self = self.observe_remote(
+    selection.account,
+    selection.document_id,
+    remote,
+  )
+  match remote {
+    @source_repository.RemoteDocument::Present(revision, text) => {
+      let document = @source_repository.Document::create(
+        selection.document_id,
+        text,
       )
+      let write = @source_repository.DocumentReplica::receive(
+        selection.account,
+        document,
+        revision,
+      ).store()
+      ({ ..self, opening: Persisting(selection), }, Some(write))
     }
+    Missing | Deleted(_) => ({ ..self, opening: Opening::Idle, }, None)
   }
 }
 
 ///|
 pub fn State::open_failed(
   self : Self,
-  effect : EffectId,
-  account : @source_repository.AccountId,
-  document_id : @source_repository.DocumentId,
-  intent : OpenIntent,
-  expected : @source_repository.SavedRevision,
+  attempt : OpenAttempt,
 ) -> Self raise WorkError {
-  let target = { intent, account, document_id, revision: expected, }
-  guard self.opening == Fetching(target, effect) else { raise StaleWork }
-  { ..self, opening: Opening::Idle, }
+  guard self.opening == Fetching(attempt) else { raise StaleWork }
+  { ..self, opening: Opening::Failed(attempt), }
 }
 
 ///|
-pub fn State::pending_open(
+pub fn State::retry_selection(
+  self : Self,
+  retry : SelectionRetry,
+) -> (Self, Action) raise WorkError {
+  let failed = retry.failed
+  let selection = failed.selection
+  guard self.opening == Failed(failed) &&
+    self.session is Current(account, _) &&
+    account == selection.account &&
+    self.selected_revision(selection) is Some(_) else {
+    raise StaleWork
+  }
+  let (self, id) = self.attempt_id()
+  let attempt : OpenAttempt = { id, selection, }
+  ({ ..self, opening: Fetching(attempt), }, OpenRemote(attempt))
+}
+
+///|
+pub fn State::selection(
   self : Self,
 ) -> (
-  OpenIntent,
+  SelectionIntent,
   @source_repository.AccountId,
   @source_repository.DocumentId,
-  @source_repository.SavedRevision,
 )? {
   match self.opening {
-    Selected(target)
-    | Fetching(target, _)
-    | Persisting(target)
-    | Ready(target) =>
-      Some((target.intent, target.account, target.document_id, target.revision))
+    Selected(selection) | Persisting(selection) | Ready(selection) =>
+      Some((selection.intent, selection.account, selection.document_id))
+    Fetching(attempt) | Failed(attempt) => {
+      let selection = attempt.selection
+      Some((selection.intent, selection.account, selection.document_id))
+    }
     Idle => None
   }
 }
 
 ///|
-pub fn State::ready_open(
+pub fn State::ready_selection(
   self : Self,
 ) -> (
-  OpenIntent,
+  SelectionIntent,
   @source_repository.AccountId,
   @source_repository.DocumentId,
-  @source_repository.SavedRevision,
 )? {
   match self.opening {
-    Ready(target) =>
-      Some((target.intent, target.account, target.document_id, target.revision))
-    Idle | Selected(_) | Fetching(_, _) | Persisting(_) => None
+    Ready(selection) =>
+      Some((selection.intent, selection.account, selection.document_id))
+    Idle | Selected(_) | Fetching(_) | Failed(_) | Persisting(_) => None
   }
 }
 
 ///|
-pub fn State::complete_open(self : Self, intent : OpenIntent) -> Self {
+pub fn State::complete_selection(
+  self : Self,
+  intent : SelectionIntent,
+) -> Self raise WorkError {
   match self.opening {
     Ready(target) if target.intent == intent =>
       { ..self, opening: Opening::Idle, }
-    Idle | Selected(_) | Fetching(_, _) | Persisting(_) | Ready(_) => self
+    Idle | Selected(_) | Fetching(_) | Failed(_) | Persisting(_) | Ready(_) =>
+      raise StaleWork
   }
 }
 
@@ -622,17 +819,53 @@ fn State::find_network(
 }
 
 ///|
-pub fn State::progress(
+pub fn State::activity(
   self : Self,
   replica : @source_repository.DocumentReplica,
-) -> Progress {
-  match self.next(replica) {
-    NoWork => Inactive
-    NetworkBlocked => Blocked
-    NetworkRunning => Working
-    NetworkRetry(_, _) | Deliver(_) | Fetch(_) | Recover | Plan(_) =>
-      Retryable({ replica, })
+) -> Activity {
+  let account = replica.account()
+  let document_id = replica.document_id()
+  match self.find_network(account, document_id) {
+    None => Idle
+    Some(index) => {
+      let task = self.network[index]
+      guard task.state.accepts(replica) else { return Idle }
+      match task.state {
+        RetryPending(work) =>
+          Retryable({
+            account: task.account,
+            document_id: task.document_id,
+            failed_attempt: work.attempt_id(),
+          })
+        Blocked(_) => Blocked
+        Running(_) => Working
+      }
+    }
   }
+}
+
+///|
+/// Consume exactly the retry projected from the current network task. The
+/// durable Replica is supplied by the aggregate after authoritative lookup.
+pub fn State::retry(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+  retry : Retry,
+) -> (Self, Action) raise WorkError {
+  guard durable.account() == retry.account &&
+    durable.document_id() == retry.document_id &&
+    self.session is Current(current, _) &&
+    current == retry.account &&
+    self.find_network(retry.account, retry.document_id) is Some(index) else {
+    raise StaleWork
+  }
+  let task = self.network[index]
+  guard task.state is RetryPending(work) &&
+    work.attempt_id() == retry.failed_attempt &&
+    work.accepts(durable) else {
+    raise StaleWork
+  }
+  self.restart(index, work, durable)
 }
 
 ///|
@@ -660,12 +893,10 @@ fn State::next(
   match self.find_network(account, document_id) {
     Some(index) =>
       return match self.network[index].state {
-        RetryRemote(read) => NetworkRetry(index, read)
+        RetryPending(work) if work.accepts(replica) => Restart(index)
+        RetryPending(_) => NoWork
         Blocked(_) => NetworkBlocked
-        Planning(_, _)
-        | Delivering(_, _)
-        | FetchingRemote(_, _)
-        | Recovering(_) => NetworkRunning
+        Running(_) => NetworkRunning
       }
     None => ()
   }
@@ -719,33 +950,134 @@ fn State::replace_network(
 }
 
 ///|
+fn Work::attempt_id(self : Self) -> Int {
+  match self {
+    Prepare(attempt, _) => attempt.id
+    Deliver(attempt) => attempt.id
+    Read(attempt) => attempt.id
+    Recover(attempt) => attempt.id
+  }
+}
+
+///|
+fn Work::accepts(
+  self : Self,
+  replica : @source_repository.DocumentReplica,
+) -> Bool {
+  match self {
+    Prepare(_, draft) =>
+      replica.directive() ==
+      @source_repository.ReplicaDirective::CreateOperation(draft)
+    Deliver(attempt) =>
+      replica.directive()
+      is @source_repository.ReplicaDirective::Send(operation) &&
+      operation.operation_id() == attempt.operation_id
+    Read({ read: ResolveConflict(operation_id), .. }) =>
+      replica.directive()
+      is @source_repository.ReplicaDirective::Send(operation) &&
+      operation.operation_id() == operation_id
+    Read({ read: Refresh(required), .. }) =>
+      replica.document() is Some(_) &&
+      replica.observed_revision() < required.value()
+    Recover(_) =>
+      replica.directive()
+      is @source_repository.ReplicaDirective::RecoveryRequired
+  }
+}
+
+///|
 fn NetworkState::accepts(
   self : Self,
   replica : @source_repository.DocumentReplica,
 ) -> Bool {
   match self {
-    Planning(_, draft) =>
-      replica.directive() ==
-      @source_repository.ReplicaDirective::CreateOperation(draft)
-    Delivering(_, operation_id) =>
-      replica.directive()
-      is @source_repository.ReplicaDirective::Send(operation) &&
-      operation.operation_id() == operation_id
-    RetryRemote(Conflict(operation_id))
-    | FetchingRemote(_, Conflict(operation_id)) =>
-      replica.directive()
-      is @source_repository.ReplicaDirective::Send(operation) &&
-      operation.operation_id() == operation_id
-    RetryRemote(Revision(_)) | FetchingRemote(_, Revision(_)) =>
-      replica.document() is Some(_)
-    RetryRemote(Open(_, _)) | FetchingRemote(_, Open(_, _)) => false
-    Recovering(_) =>
-      replica.directive()
-      is @source_repository.ReplicaDirective::RecoveryRequired
+    Running(work) | RetryPending(work) => work.accepts(replica)
     Blocked(blocked) =>
       replica.directive() ==
       @source_repository.ReplicaDirective::CreateOperation(blocked)
   }
+}
+
+///|
+fn Work::renew(self : Self, id : Int) -> Work {
+  match self {
+    Prepare(attempt, draft) =>
+      Prepare(
+        { id, account: attempt.account, document_id: attempt.document_id, },
+        draft,
+      )
+    Deliver(attempt) =>
+      Deliver({
+        id,
+        account: attempt.account,
+        document_id: attempt.document_id,
+        operation_id: attempt.operation_id,
+      })
+    Read(attempt) =>
+      Read({
+        id,
+        account: attempt.account,
+        document_id: attempt.document_id,
+        read: attempt.read,
+      })
+    Recover(attempt) =>
+      Recover({
+        id,
+        account: attempt.account,
+        document_id: attempt.document_id,
+      })
+  }
+}
+
+///|
+fn Work::action(
+  self : Self,
+  durable : @source_repository.DocumentReplica,
+) -> Action raise WorkError {
+  guard self.accepts(durable) else { raise StaleWork }
+  match self {
+    Prepare(attempt, _) => Action::CreateOperation(attempt)
+    Deliver(attempt) => {
+      guard durable.directive()
+        is @source_repository.ReplicaDirective::Send(operation) else {
+        raise StaleWork
+      }
+      Action::Deliver(attempt, operation)
+    }
+    Read(attempt) => Action::GetRemote(attempt)
+    Recover(attempt) => Action::CreateRecovery(attempt)
+  }
+}
+
+///|
+fn State::restart(
+  self : Self,
+  index : Int,
+  failed : Work,
+  durable : @source_repository.DocumentReplica,
+) -> (Self, Action) raise WorkError {
+  guard self.network[index].state == RetryPending(failed) &&
+    failed.accepts(durable) else {
+    raise StaleWork
+  }
+  let (self, id) = self.attempt_id()
+  let running = match (failed, self.newer_revision(durable)) {
+    (Read(attempt), Some(current)) if attempt.read is Refresh(previous) =>
+      Read({
+        ..attempt,
+        id,
+        read: Refresh(
+          if current.value() > previous.value() {
+            current
+          } else {
+            previous
+          },
+        ),
+      })
+    _ => failed.renew(id)
+  }
+  let action = running.action(durable)
+  (self.replace_network(index, Running(running)), action)
 }
 
 ///|
@@ -804,58 +1136,79 @@ pub fn State::advance(
   self : Self,
   durable : @source_repository.DocumentReplica,
 ) -> (Self, Action?) {
-  let (self, open) = self.advance_open(Some(durable))
-  guard open is None else { return (self, open) }
+  let self = self.retain_compatible_network(durable)
   let account = durable.account()
   let document_id = durable.document_id()
   match self.next(durable) {
-    NetworkRetry(index, read) => {
-      let (self, effect) = self.effect()
-      (
-        self.replace_network(index, FetchingRemote(effect, read)),
-        Some(Action::GetRemote(effect, account, document_id, read)),
-      )
+    Restart(index) => {
+      guard self.network[index].state is RetryPending(work) else {
+        abort("restart requires failed work")
+      }
+      let (self, action) = self.restart(index, work, durable) catch {
+        _ => abort("compatible failed work must restart")
+      }
+      (self, Some(action))
     }
     Deliver(operation) => {
-      let (self, effect) = self.effect()
+      let (self, id) = self.attempt_id()
+      let attempt : DeliveryAttempt = {
+        id,
+        account,
+        document_id,
+        operation_id: operation.operation_id(),
+      }
       let task : Network = {
         account,
         document_id,
-        state: Delivering(effect, operation.operation_id()),
+        state: Running(Work::Deliver(attempt)),
       }
       (
         { ..self, network: self.network + [task], },
-        Some(Action::Deliver(effect, account, document_id, operation)),
+        Some(Action::Deliver(attempt, operation)),
       )
     }
     Fetch(revision) => {
-      let (self, effect) = self.effect()
-      let read = RemoteRead::Revision(revision)
+      let (self, id) = self.attempt_id()
+      let attempt : ReadAttempt = {
+        id,
+        account,
+        document_id,
+        read: ReplicaRead::Refresh(revision),
+      }
       let task : Network = {
         account,
         document_id,
-        state: FetchingRemote(effect, read),
+        state: Running(Work::Read(attempt)),
       }
       (
         { ..self, network: self.network + [task], },
-        Some(Action::GetRemote(effect, account, document_id, read)),
+        Some(Action::GetRemote(attempt)),
       )
     }
     Recover => {
-      let (self, effect) = self.effect()
-      let task : Network = { account, document_id, state: Recovering(effect), }
+      let (self, id) = self.attempt_id()
+      let attempt : RecoveryAttempt = { id, account, document_id, }
+      let task : Network = {
+        account,
+        document_id,
+        state: Running(Work::Recover(attempt)),
+      }
       (
         { ..self, network: self.network + [task], },
-        Some(Action::CreateRecovery(effect, account, document_id)),
+        Some(Action::CreateRecovery(attempt)),
       )
     }
     Plan(draft) => {
-      let value = self.last_plan_id + 1
-      let id = PlanId(value)
-      let task : Network = { account, document_id, state: Planning(id, draft), }
+      let (self, id) = self.attempt_id()
+      let attempt : OperationAttempt = { id, account, document_id, }
+      let task : Network = {
+        account,
+        document_id,
+        state: Running(Work::Prepare(attempt, draft)),
+      }
       (
-        { ..self, network: self.network + [task], last_plan_id: value, },
-        Some(Action::CreateOperation(id, account, document_id)),
+        { ..self, network: self.network + [task], },
+        Some(Action::CreateOperation(attempt)),
       )
     }
     NoWork | NetworkRunning | NetworkBlocked => (self, None)
@@ -865,14 +1218,14 @@ pub fn State::advance(
 ///|
 pub fn State::prepared(
   self : Self,
-  id : PlanId,
+  attempt : OperationAttempt,
   durable : @source_repository.DocumentReplica,
   operation_id : @source_repository.OperationId,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
   guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
-    self.network[index].state is Planning(active, draft) &&
-    active == id &&
+    self.network[index].state is Running(Prepare(active, draft)) &&
+    active == attempt &&
     durable.directive() ==
     @source_repository.ReplicaDirective::CreateOperation(draft) else {
     raise StaleWork
@@ -884,29 +1237,27 @@ pub fn State::prepared(
 ///|
 pub fn State::planning_failed(
   self : Self,
-  id : PlanId,
-  account : @source_repository.AccountId,
-  document_id : @source_repository.DocumentId,
-) -> Self {
-  match self.find_network(account, document_id) {
-    Some(index) if self.network[index].state is Planning(active, _) &&
-      active == id => self.remove_network(index)
-    _ => self
+  attempt : OperationAttempt,
+) -> Self raise WorkError {
+  guard self.find_network(attempt.account, attempt.document_id) is Some(index) &&
+    self.network[index].state is Running(work) &&
+    work is Prepare(active, _) &&
+    active == attempt else {
+    raise StaleWork
   }
+  self.replace_network(index, RetryPending(work))
 }
 
 ///|
 fn State::delivery(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  operation_id : @source_repository.OperationId,
+  attempt : DeliveryAttempt,
 ) -> Int raise WorkError {
   guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
-    self.network[index].state is Delivering(active_effect, active_operation) &&
-    active_effect == effect &&
-    active_operation == operation_id else {
+    self.network[index].state is Running(Deliver(active)) &&
+    active == attempt else {
     raise StaleWork
   }
   index
@@ -916,12 +1267,11 @@ fn State::delivery(
 pub fn State::acknowledged(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  operation_id : @source_repository.OperationId,
+  attempt : DeliveryAttempt,
   revision : @source_repository.SavedRevision,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
-  let index = self.delivery(durable, effect, operation_id)
-  let write = durable.acknowledge(operation_id, revision) catch {
+  let index = self.delivery(durable, attempt)
+  let write = durable.acknowledge(attempt.operation_id, revision) catch {
     _ => raise StaleWork
   }
   (self.remove_network(index), Some(write))
@@ -931,37 +1281,39 @@ pub fn State::acknowledged(
 pub fn State::delivery_failed(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  operation_id : @source_repository.OperationId,
+  attempt : DeliveryAttempt,
 ) -> Self raise WorkError {
-  let index = self.delivery(durable, effect, operation_id)
-  self.remove_network(index)
+  let index = self.delivery(durable, attempt)
+  self.replace_network(index, RetryPending(Work::Deliver(attempt)))
 }
 
 ///|
 pub fn State::revision_conflict(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  operation_id : @source_repository.OperationId,
+  attempt : DeliveryAttempt,
 ) -> Self raise WorkError {
-  let index = self.delivery(durable, effect, operation_id)
-  self.replace_network(index, RetryRemote(Conflict(operation_id)))
+  let index = self.delivery(durable, attempt)
+  let read : ReadAttempt = {
+    id: attempt.id,
+    account: attempt.account,
+    document_id: attempt.document_id,
+    read: ReplicaRead::ResolveConflict(attempt.operation_id),
+  }
+  self.replace_network(index, RetryPending(Work::Read(read)))
 }
 
 ///|
 fn State::remote_fetch(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  read : RemoteRead,
+  attempt : ReadAttempt,
 ) -> Int raise WorkError {
   guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
     self.network[index].state.accepts(durable) &&
-    self.network[index].state is FetchingRemote(active_effect, active_read) &&
-    active_effect == effect &&
-    active_read == read else {
+    self.network[index].state is Running(Read(active)) &&
+    active == attempt else {
     raise StaleWork
   }
   index
@@ -971,26 +1323,21 @@ fn State::remote_fetch(
 pub fn State::remote_failed(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  read : RemoteRead,
+  attempt : ReadAttempt,
 ) -> Self raise WorkError {
-  let index = self.remote_fetch(durable, effect, read)
-  match read {
-    Conflict(_) | Revision(_) => self.replace_network(index, RetryRemote(read))
-    Open(_, _) => self.remove_network(index)
-  }
+  let index = self.remote_fetch(durable, attempt)
+  self.replace_network(index, RetryPending(Work::Read(attempt)))
 }
 
 ///|
 fn State::reject_delivery(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  operation_id : @source_repository.OperationId,
+  attempt : DeliveryAttempt,
   block : Bool,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
-  let index = self.delivery(durable, effect, operation_id)
-  let write = durable.reject_operation(operation_id) catch {
+  let index = self.delivery(durable, attempt)
+  let write = durable.reject_operation(attempt.operation_id) catch {
     _ => raise StaleWork
   }
   let self = if block {
@@ -1010,12 +1357,11 @@ fn State::reject_delivery(
 pub fn State::delivery_too_large(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  operation_id : @source_repository.OperationId,
+  attempt : DeliveryAttempt,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
   guard durable.directive()
     is @source_repository.ReplicaDirective::Send(operation) &&
-    operation.operation_id() == operation_id else {
+    operation.operation_id() == attempt.operation_id else {
     raise StaleWork
   }
   let unchanged = match (durable.is_deleting(), operation.content()) {
@@ -1026,35 +1372,33 @@ pub fn State::delivery_too_large(
       .unwrap_or(false)
     (true, Save(_)) | (_, Delete) => false
   }
-  self.reject_delivery(durable, effect, operation_id, unchanged)
+  self.reject_delivery(durable, attempt, unchanged)
 }
 
 ///|
 pub fn State::operation_rejected(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  operation_id : @source_repository.OperationId,
+  attempt : DeliveryAttempt,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
-  self.reject_delivery(durable, effect, operation_id, false)
+  self.reject_delivery(durable, attempt, false)
 }
 
 ///|
 fn reconcile(
   durable : @source_repository.DocumentReplica,
-  read : RemoteRead,
+  read : ReplicaRead,
   remote : @source_repository.RemoteDocument,
 ) -> @source_repository.ReconcilePlan raise WorkError {
   match read {
-    RemoteRead::Conflict(operation_id) =>
+    ReplicaRead::ResolveConflict(operation_id) =>
       durable.reject_conflict(operation_id, remote) catch {
         _ => raise StaleWork
       }
-    Revision(expected) => {
+    Refresh(expected) => {
       guard remote.revision() >= expected.value() else { raise StaleWork }
       durable.reconcile(remote)
     }
-    Open(_, _) => raise StaleWork
   }
 }
 
@@ -1062,17 +1406,16 @@ fn reconcile(
 pub fn State::received(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
-  read : RemoteRead,
+  attempt : ReadAttempt,
   remote : @source_repository.RemoteDocument,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
-  let index = self.remote_fetch(durable, effect, read)
+  let index = self.remote_fetch(durable, attempt)
   let self = self.observe_remote(
     durable.account(),
     durable.document_id(),
     remote,
   )
-  let plan = reconcile(durable, read, remote)
+  let plan = reconcile(durable, attempt.read, remote)
   match plan {
     @source_repository.ReconcilePlan::Unchanged =>
       (self.remove_network(index), None)
@@ -1084,14 +1427,14 @@ pub fn State::received(
 pub fn State::recover(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  effect : EffectId,
+  attempt : RecoveryAttempt,
   recovery_id : @source_repository.DocumentId,
 ) -> (Self, @source_repository.ReplicaWrite?) raise WorkError {
   guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
     self.network[index].state.accepts(durable) &&
-    self.network[index].state is Recovering(active) &&
-    active == effect else {
+    self.network[index].state is Running(Recover(active)) &&
+    active == attempt else {
     raise StaleWork
   }
   let write = durable.fork(recovery_id) catch { _ => raise StaleWork }
@@ -1101,13 +1444,12 @@ pub fn State::recover(
 ///|
 pub fn State::recovery_failed(
   self : Self,
-  account : @source_repository.AccountId,
-  document_id : @source_repository.DocumentId,
-  effect : EffectId,
-) -> Self {
-  match self.find_network(account, document_id) {
-    Some(index) if self.network[index].state is Recovering(active) &&
-      active == effect => self.remove_network(index)
-    _ => self
+  attempt : RecoveryAttempt,
+) -> Self raise WorkError {
+  guard self.find_network(attempt.account, attempt.document_id) is Some(index) &&
+    self.network[index].state is Running(Recover(active)) &&
+    active == attempt else {
+    raise StaleWork
   }
+  self.replace_network(index, RetryPending(Work::Recover(attempt)))
 }

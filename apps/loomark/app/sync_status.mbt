@@ -4,22 +4,24 @@ priv enum AccountStatus {
   SignedOut
   SignedIn(String)
   Unavailable
+  SyncUnavailable
 } derive(Eq)
 
 ///|
-priv enum DocumentSyncStatus {
-  SavingOnDevice
-  NotSaved
-  SignInRequired
-  LocalOnly
-  ReadyToSync(@documents.StartSync)
-  SavedOnDevice
-  WaitingToSync
-  Synced
-  RetryAvailable(SyncRetry)
-  SyncBlocked
-  UpdateAvailable(@documents.AcceptRemote)
-  DeletedRemotely(@documents.AcceptRemote)
+/// Whether the current working copy is recoverable from this device.
+priv enum LocalDurability {
+  Saving
+  Stored
+  NotStored
+} derive(Eq)
+
+///|
+priv enum DocumentSync {
+  DeviceOnly
+  SyncAvailable(@documents.StartSync)
+  Linking
+  Unavailable
+  Linked
 } derive(Eq)
 
 ///|
@@ -27,86 +29,110 @@ fn account_status(sync : @sync.State) -> AccountStatus {
   match sync.session() {
     @sync.Session::Resolving(_) => AccountStatus::Checking
     NoAccount => SignedOut
+    Current(_, _) if sync.observation() is @sync.Observation::Unavailable =>
+      SyncUnavailable
     Current(_, name) => SignedIn(name)
     SessionUnavailable => Unavailable
   }
 }
 
 ///|
-fn replica_status(
-  sync : @sync.State,
-  replica : @source_repository.DocumentReplica,
-  remote_change : @documents.RemoteChange?,
-) -> DocumentSyncStatus {
-  match sync.progress(replica) {
-    Working => WaitingToSync
-    Retryable(action) => RetryAvailable(RetryNetwork(action))
-    Blocked => SyncBlocked
-    Inactive =>
-      match replica.directive() {
-        @source_repository.ReplicaDirective::Synchronized => Synced
-        CreateOperation(_) | Send(_) | RecoveryRequired => WaitingToSync
-        UpdateAvailable(_) =>
-          match remote_change {
-            Some(@documents.RemoteChange::UpdateAvailable(action)) =>
-              DocumentSyncStatus::UpdateAvailable(action)
-            Some(DeletedRemotely(action)) =>
-              DocumentSyncStatus::DeletedRemotely(action)
-            None => WaitingToSync
-          }
-      }
+fn local_durability(
+  editing : EditingState,
+  key : @documents.Key,
+) -> LocalDurability? {
+  match editing.documents.save_status(key) {
+    Some(Clean) => Some(LocalDurability::Stored)
+    Some(SaveFailed(_)) => Some(LocalDurability::NotStored)
+    Some(@documents.SaveStatus::Unsaved) => Some(LocalDurability::Saving)
+    None => None
   }
 }
 
 ///|
-fn document_sync_status(model : Model) -> DocumentSyncStatus? {
+fn document_durability(model : Model) -> LocalDurability? {
+  guard model.page is Editing(editing) else { return None }
+  local_durability(editing, editing.activation.key)
+}
+
+///|
+/// Replica durability belongs to the local persistence lane, not to the
+/// current account session. It therefore remains actionable while account
+/// lookup is unavailable and while a recovery Source still has Replica
+/// ownership.
+fn document_replica_persistence(model : Model) -> @replica_persistence.Status? {
+  guard model.page is Editing(editing) &&
+    editing.documents.replica_owner(editing.activation.key)
+    is Some((account, document_id)) else {
+    return None
+  }
+  Some(model.replication.status(account, document_id))
+}
+
+///|
+fn document_sync(model : Model) -> DocumentSync? {
   guard model.page is Editing(editing) else { return None }
   let key = editing.activation.key
-  match editing.documents.replica_owner(key) {
-    Some((account, document_id)) =>
-      match model.replication.status(account, document_id) {
-        @replica_persistence.Status::Persisting => return Some(SavingOnDevice)
-        Retryable(action, _) =>
-          return Some(RetryAvailable(RetryPersistence(action)))
-        Current => ()
-      }
-    None => ()
-  }
-  match editing.documents.save_status(key) {
-    Some(@documents.SaveStatus::Unsaved) => return Some(SavingOnDevice)
-    Some(SaveFailed(_)) => return Some(NotSaved)
-    Some(Clean) => ()
-    None => return None
-  }
   match key {
-    @documents.Key::Source(_) =>
-      match model.sync().session() {
+    @documents.Key::Source(_) => {
+      let sync = match model.sync().session() {
         @sync.Session::Current(account, _) =>
           match editing.documents.sync_start(key, account) {
-            @documents.SyncStart::Ready(action) => Some(ReadyToSync(action))
-            Starting => Some(WaitingToSync)
-            Unavailable => Some(SavedOnDevice)
+            @documents.SyncStart::Ready(action) =>
+              DocumentSync::SyncAvailable(action)
+            Starting => DocumentSync::Linking
+            Unavailable => DocumentSync::DeviceOnly
           }
-        NoAccount => Some(SignInRequired)
-        Resolving(_) | SessionUnavailable => Some(LocalOnly)
+        NoAccount | Resolving(_) | SessionUnavailable =>
+          DocumentSync::DeviceOnly
       }
+      Some(sync)
+    }
     Replica(account, document_id) => {
       guard editing.documents.snapshot().replica(account, document_id)
-        is Some(replica) else {
-        return Some(NotSaved)
+        is Some(_) else {
+        return Some(DocumentSync::Unavailable)
       }
-      match model.sync().session() {
-        @sync.Session::Current(current, _) if current == account =>
-          Some(
-            replica_status(
-              model.sync(),
-              replica,
-              editing.documents.remote_change(replica),
-            ),
-          )
-        Resolving(_) | NoAccount | Current(_, _) | SessionUnavailable =>
-          Some(SavedOnDevice)
+      guard model.sync().session() is @sync.Session::Current(current, _) &&
+        current == account else {
+        return Some(DocumentSync::Unavailable)
       }
+      Some(DocumentSync::Linked)
     }
   }
+}
+
+///|
+fn document_remote_state(model : Model) -> @documents.RemoteState? {
+  guard model.page is Editing(editing) &&
+    editing.activation.key is @documents.Key::Replica(account, document_id) &&
+    editing.documents.snapshot().replica(account, document_id) is Some(durable) &&
+    model.sync().session() is @sync.Session::Current(current, _) &&
+    current == account else {
+    return None
+  }
+  let candidate = model.replication.head(durable)
+  Some(
+    editing.documents.remote_state(
+      candidate,
+      model.sync().remote_head(document_id),
+    ),
+  )
+}
+
+///|
+fn document_sync_activity(model : Model) -> @sync.Activity? {
+  guard model.page is Editing(editing) &&
+    editing.activation.key is @documents.Key::Replica(account, document_id) &&
+    editing.documents.snapshot().replica(account, document_id) is Some(durable) &&
+    model.sync().session() is @sync.Session::Current(current, _) &&
+    current == account else {
+    return None
+  }
+  Some(model.replication.activity(durable))
+}
+
+///|
+fn selection_activity(model : Model) -> @sync.SelectionActivity {
+  model.sync().selection_activity()
 }

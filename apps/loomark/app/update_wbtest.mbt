@@ -259,7 +259,7 @@ test "account resolution schedules durable sync work" {
   let replica = saved.replica(account, document_id("one")).unwrap()
   let (expected, action) = resolved.advance(replica)
   let expected = expected.begin_discovery().0
-  assert_true(action is Some(@sync.Action::CreateOperation(_, _, _)))
+  assert_true(action is Some(@sync.Action::CreateOperation(_)))
 
   let (model, _) = test_root_update(
     test_model(page, resolving),
@@ -283,18 +283,13 @@ test "delivery receipt enters the replica writer before becoming durable" {
     documents: @documents.State::State(saved).project_account(account),
   })
   let (sync, action) = current_sync(account).advance(replica)
-  guard action is Some(@sync.Action::Deliver(effect, _, _, _)) else {
+  guard action is Some(@sync.Action::Deliver(delivery, _)) else {
     fail("delivery")
   }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
-  let (expected, write) = sync.acknowledged(
-    replica,
-    effect,
-    sync_operation_id(),
-    revision,
-  )
+  let (expected, write) = sync.acknowledged(replica, delivery, revision)
   let write = write.unwrap()
   let (_, attempt) = @replica_persistence.State().submit(write)
   let attempt = attempt.unwrap()
@@ -302,10 +297,7 @@ test "delivery receipt enters the replica writer before becoming durable" {
     test_model(page, sync),
     Sync(
       DeliveryCompleted(
-        effect,
-        account,
-        document_id("one"),
-        sync_operation_id(),
+        delivery,
         @document_http.DeliveryResult::Acknowledged(revision),
       ),
     ),
@@ -349,28 +341,20 @@ test "account resolution retries a failed receipt replica" {
     documents: @documents.State::State(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
-    is (sync, Some(@sync.Action::Deliver(effect, _, _, _))) else {
+    is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
-  let (_, write) = sync.acknowledged(
-    replica,
-    effect,
-    sync_operation_id(),
-    revision,
-  )
+  let (_, write) = sync.acknowledged(replica, delivery, revision)
   let write = write.unwrap()
   let (_, attempt) = @replica_persistence.State().submit(write)
   let (persisting, _) = test_root_update(
     test_model(page, sync),
     Sync(
       DeliveryCompleted(
-        effect,
-        account,
-        document_id("one"),
-        sync_operation_id(),
+        delivery,
         @document_http.DeliveryResult::Acknowledged(revision),
       ),
     ),
@@ -408,18 +392,13 @@ test "account retry keeps an Undo made while replica storage is in flight" {
     documents: @documents.State::State(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
-    is (sync, Some(@sync.Action::Deliver(effect, _, _, _))) else {
+    is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
-  let (sync, acknowledgment) = sync.acknowledged(
-    replica,
-    effect,
-    sync_operation_id(),
-    revision,
-  )
+  let (sync, acknowledgment) = sync.acknowledged(replica, delivery, revision)
   let acknowledgment = acknowledgment.unwrap()
   let (persistence, acknowledgment_attempt) = @replica_persistence.State().submit(
     acknowledgment,
@@ -627,17 +606,13 @@ test "network retry waits while a newer replica write is in flight" {
   }
   let (saved, replica) = pending_sync_snapshot(account)
   guard current_sync(account).advance(replica)
-    is (delivering, Some(@sync.Action::Deliver(effect, _, _, operation))) else {
+    is (delivering, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
-  let retryable = delivering.delivery_failed(
-    replica,
-    effect,
-    operation.operation_id(),
-  ) catch {
+  let retryable = delivering.delivery_failed(replica, delivery) catch {
     _ => abort("active delivery")
   }
-  guard retryable.progress(replica) is @sync.Progress::Retryable(retry) else {
+  guard retryable.activity(replica) is @sync.Activity::Retryable(retry) else {
     fail("network retry")
   }
   guard replica.edit("newer") is @source_repository.EditPlan::Persist(write) else {
@@ -654,12 +629,12 @@ test "network retry waits while a newer replica write is in flight" {
     page,
     replication: @replication.State(protocol=retryable, persistence~),
   }
-  let (unchanged, _) = test_root_update(model, RetrySync(RetryNetwork(retry)))
+  let (unchanged, _) = test_root_update(model, RetrySync(retry))
   assert_true(unchanged == model)
 }
 
 ///|
-test "operation identity retires stale planning while replica storage is busy" {
+test "operation identity failure stays retryable while replica storage is busy" {
   let account = @source_repository.AccountId::parse("account") catch {
     _ => abort("valid test account")
   }
@@ -667,7 +642,7 @@ test "operation identity retires stale planning while replica storage is busy" {
   let replica = saved.replica(account, document_id("one")).unwrap()
   let idle = current_sync(account)
   guard idle.advance(replica)
-    is (planning, Some(@sync.Action::CreateOperation(plan, _, _))) else {
+    is (planning, Some(@sync.Action::CreateOperation(attempt))) else {
     fail("operation plan")
   }
   guard replica.edit("newer") is @source_repository.EditPlan::Persist(write) else {
@@ -686,17 +661,40 @@ test "operation identity retires stale planning while replica storage is busy" {
   }
   let (retired, _) = test_root_update(
     model,
-    Sync(
-      OperationPrepared(
-        plan,
-        account,
-        document_id("one"),
-        Some(sync_operation_id()),
-      ),
-    ),
+    Sync(OperationPrepared(attempt, Some(sync_operation_id()))),
   )
-  assert_true(retired.sync().progress(replica) is @sync.Progress::Retryable(_))
+  assert_true(retired.sync().activity(replica) is @sync.Activity::Retryable(_))
   assert_true(retired.replication.persistence() == persistence)
+}
+
+///|
+test "operation identity generation failure remains retryable" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid test account")
+  }
+  let saved = test_sync_snapshot(account)
+  let replica = saved.replica(account, document_id("one")).unwrap()
+  guard current_sync(account).advance(replica)
+    is (planning, Some(@sync.Action::CreateOperation(attempt))) else {
+    fail("operation preparation")
+  }
+  let page = Editing({
+    ..test_editing(),
+    activation: {
+      key: @documents.Key::replica(account, document_id("one")),
+      generation: 0,
+    },
+    documents: @documents.State::State(saved).project_account(account),
+  })
+  let (failed, _) = test_root_update(
+    test_model(page, planning),
+    Sync(OperationPrepared(attempt, None)),
+  )
+  guard failed.sync().activity(replica) is @sync.Activity::Retryable(retry) else {
+    fail("retryable preparation")
+  }
+  let (retrying, _) = test_root_update(failed, RetrySync(retry))
+  assert_true(retrying.sync().activity(replica) is @sync.Activity::Working)
 }
 
 ///|
@@ -735,7 +733,7 @@ test "account switch defers a conflict fetch until its account is current" {
     documents: @documents.State::State(saved).project_account(account_a),
   })
   guard current_sync(account_a).advance(replica)
-    is (sync, Some(@sync.Action::Deliver(effect, _, _, _))) else {
+    is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
   let (sync, lookup) = sync.begin_lookup()
@@ -744,15 +742,12 @@ test "account switch defers a conflict fetch until its account is current" {
     test_model(page, sync),
     Sync(
       DeliveryCompleted(
-        effect,
-        account_a,
-        document_id("one"),
-        sync_operation_id(),
+        delivery,
         @document_http.DeliveryResult::RevisionConflict,
       ),
     ),
   )
-  let expected = sync.revision_conflict(replica, effect, sync_operation_id())
+  let expected = sync.revision_conflict(replica, delivery)
   assert_true(deferred.sync() == expected)
 
   let (resolving, lookup) = deferred.sync().begin_lookup()
@@ -765,7 +760,7 @@ test "account switch defers a conflict fetch until its account is current" {
     @sync.Resolved(account_a, "A"),
   ).0.advance(replica)
   let expected = expected.begin_discovery().0
-  assert_true(action is Some(@sync.Action::GetRemote(_, _, _, _)))
+  assert_true(action is Some(@sync.Action::GetRemote(_)))
   assert_true(current.sync() == expected)
 }
 
@@ -784,23 +779,19 @@ test "revision conflict waits for recovery identity before atomic persistence" {
     documents: @documents.State::State(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
-    is (sync, Some(@sync.Action::Deliver(delivery, _, _, _))) else {
+    is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
   let remote = @source_repository.RemoteDocument::Present(revision, "remote")
-  let conflicted = sync.revision_conflict(
-    replica,
-    delivery,
-    sync_operation_id(),
-  )
+  let conflicted = sync.revision_conflict(replica, delivery)
   let (fetching, fetch) = conflicted.advance(replica)
-  guard fetch is Some(@sync.Action::GetRemote(read_effect, _, _, read)) else {
+  guard fetch is Some(@sync.Action::GetRemote(read)) else {
     fail("conflict read")
   }
-  let (expected, write) = fetching.received(replica, read_effect, read, remote)
+  let (expected, write) = fetching.received(replica, read, remote)
   let write = write.unwrap()
   let diverged = write.replica()
   let (fetching_model, _) = test_root_update(
@@ -808,9 +799,6 @@ test "revision conflict waits for recovery identity before atomic persistence" {
     Sync(
       DeliveryCompleted(
         delivery,
-        account,
-        document_id("one"),
-        sync_operation_id(),
         @document_http.DeliveryResult::RevisionConflict,
       ),
     ),
@@ -818,25 +806,14 @@ test "revision conflict waits for recovery identity before atomic persistence" {
   assert_true(fetching_model.sync() == fetching)
   let (recovering, _) = test_root_update(
     fetching_model,
-    Sync(
-      RemoteCompleted(
-        read_effect,
-        account,
-        document_id("one"),
-        read,
-        @document_http.RemoteResult::Found(remote),
-      ),
-    ),
+    Sync(RemoteCompleted(read, @document_http.RemoteResult::Found(remote))),
   )
   assert_true(recovering.sync() == expected)
 
   let (_, attempt) = fetching_model.replication.persistence().submit(write)
   let attempt = attempt.unwrap()
   guard expected.advance(diverged)
-    is (
-      awaiting_recovery,
-      Some(@sync.Action::CreateRecovery(recovery_effect, _, _)),
-    ) else {
+    is (awaiting_recovery, Some(@sync.Action::CreateRecovery(recovery))) else {
     fail("recovery")
   }
   let mut created : @source_repository.DocumentId? = None
@@ -847,14 +824,10 @@ test "revision conflict waits for recovery identity before atomic persistence" {
       match message {
         Sync(
           RecoveryCreated(
-            effect,
-            owner,
-            source,
+            attempt,
             @source_repository.CreateResult::Created(recovery_id)
           )
-        ) if effect == recovery_effect &&
-          owner == account &&
-          source == document_id("one") => created = Some(recovery_id)
+        ) if attempt == recovery => created = Some(recovery_id)
         _ => ()
       }
       @cmd.none
@@ -866,13 +839,13 @@ test "revision conflict waits for recovery identity before atomic persistence" {
 
   let recovery_id = created.unwrap()
   let (expected, write) = awaiting_recovery.recover(
-    diverged, recovery_effect, recovery_id,
+    diverged, recovery, recovery_id,
   )
   let write = write.unwrap()
-  guard write is @source_repository.Fork(_, recovery) else {
+  guard write is @source_repository.Fork(_, recovery_document) else {
     fail("atomic recovery")
   }
-  assert_eq(recovery.text(), "local")
+  assert_eq(recovery_document.text(), "local")
   guard recovering.replication.submit(write)
     is (_, Some(@replication.Persist(fork_attempt))) else {
     fail("fork persistence")
@@ -886,9 +859,7 @@ test "revision conflict waits for recovery identity before atomic persistence" {
     creating,
     Sync(
       RecoveryCreated(
-        recovery_effect,
-        account,
-        document_id("one"),
+        recovery,
         @source_repository.CreateResult::Created(recovery_id),
       ),
     ),
@@ -1008,25 +979,19 @@ test "failed conflict recovery identity leaves durable recovery work retryable" 
     documents: @documents.State::State(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
-    is (sync, Some(@sync.Action::Deliver(delivery, _, _, _))) else {
+    is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
   let remote = @source_repository.RemoteDocument::Present(revision, "remote")
-  let conflicted = sync.revision_conflict(
-    replica,
-    delivery,
-    sync_operation_id(),
-  )
+  let conflicted = sync.revision_conflict(replica, delivery)
   guard conflicted.advance(replica)
-    is (driven, Some(@sync.Action::GetRemote(read_effect, _, _, read))) else {
+    is (driven, Some(@sync.Action::GetRemote(read))) else {
     fail("conflict read")
   }
-  let (persisting, divergence) = driven.received(
-    replica, read_effect, read, remote,
-  )
+  let (persisting, divergence) = driven.received(replica, read, remote)
   let divergence = divergence.unwrap()
   let diverged = divergence.replica()
   let (fetching, _) = test_root_update(
@@ -1034,9 +999,6 @@ test "failed conflict recovery identity leaves durable recovery work retryable" 
     Sync(
       DeliveryCompleted(
         delivery,
-        account,
-        document_id("one"),
-        sync_operation_id(),
         @document_http.DeliveryResult::RevisionConflict,
       ),
     ),
@@ -1044,24 +1006,13 @@ test "failed conflict recovery identity leaves durable recovery work retryable" 
   assert_true(fetching.sync() == driven)
   let (recovering, _) = test_root_update(
     fetching,
-    Sync(
-      RemoteCompleted(
-        read_effect,
-        account,
-        document_id("one"),
-        read,
-        @document_http.RemoteResult::Found(remote),
-      ),
-    ),
+    Sync(RemoteCompleted(read, @document_http.RemoteResult::Found(remote))),
   )
   assert_true(recovering.sync() == persisting)
   let (_, attempt) = fetching.replication.persistence().submit(divergence)
   let attempt = attempt.unwrap()
   guard persisting.advance(diverged)
-    is (
-      awaiting_recovery,
-      Some(@sync.Action::CreateRecovery(recovery_effect, _, _)),
-    ) else {
+    is (awaiting_recovery, Some(@sync.Action::CreateRecovery(recovery))) else {
     fail("recovery")
   }
   let (recovering, _) = test_root_update(
@@ -1073,9 +1024,7 @@ test "failed conflict recovery identity leaves durable recovery work retryable" 
     recovering,
     Sync(
       RecoveryCreated(
-        recovery_effect,
-        account,
-        document_id("one"),
+        recovery,
         @source_repository.CreateResult::CreateFailed(
           DocumentIdentityUnavailable,
         ),
@@ -1083,7 +1032,7 @@ test "failed conflict recovery identity leaves durable recovery work retryable" 
     ),
   )
   assert_true(
-    retryable.sync().advance(diverged).1 is Some(@sync.CreateRecovery(_, _, _)),
+    retryable.sync().advance(diverged).1 is Some(@sync.CreateRecovery(_)),
   )
 }
 
@@ -1127,14 +1076,27 @@ test "accepting a remote update starts a fresh editor activation" {
     }
   let key = @documents.Key::replica(account, document.id())
   let documents = @documents.State::State(saved).project_account(account)
-  guard documents.remote_change(replica)
-    is Some(@documents.RemoteChange::UpdateAvailable(action)) else {
+  let head = @source_repository.RemoteHead::Present(remote_revision)
+  guard documents.remote_state(replica, Some(head))
+    is @documents.RemoteState::UpdateAvailable(action) else {
     fail("update action")
   }
+  let (sync, discovery) = current_sync(account).begin_discovery()
+  let sync = sync.discovered(
+      account,
+      discovery.unwrap(),
+      Some([
+        @source_repository.RemoteEntry::Present(
+          document.id(),
+          remote_revision,
+          "remote",
+        ),
+      ]),
+    ).0
   let base = test_editing()
   let model = test_model(
     Editing({ ..base, activation: { key, generation: 0, }, documents, }),
-    current_sync(account),
+    sync,
   )
 
   let (accepted, _) = test_root_update(model, AcceptRemote(action))
@@ -1250,13 +1212,17 @@ fn discover_entry(
   entry : @source_repository.RemoteEntry,
 ) -> Model {
   let (sync, discovery) = model.sync().begin_discovery()
-  let (sync, accepted) = sync.discovered(
-    account,
-    discovery.unwrap(),
-    Some([entry]),
+  let (model, _) = test_root_update(
+    model.with_sync(sync),
+    Sync(
+      DiscoveryCompleted(
+        account,
+        discovery.unwrap(),
+        @document_http.DiscoveryResult::Discovered([entry]),
+      ),
+    ),
   )
-  guard accepted else { abort("discovery rejected") }
-  model.with_sync(sync)
+  model
 }
 
 ///|
@@ -1264,68 +1230,40 @@ fn select_remote(
   model : Model,
   key : @documents.Key,
   entry : @source_repository.RemoteEntry,
-) -> (Model, @sync.EffectId, @sync.RemoteRead) {
-  guard key is @documents.Key::Replica(account, document_id) else {
-    abort("remote key")
-  }
-  let durable = match model.page.saved_documents() {
-    Some(saved) => saved.replica(account, document_id)
-    None => None
-  }
-  guard model.replication.select(entry.document_id(), durable)
-    is (
-      expected,
-      Some(@replication.Network(@sync.GetRemote(effect, _, _, read))),
-    ) else {
+) -> (Model, @sync.OpenAttempt) {
+  guard key is @documents.Key::Replica(_, _) else { abort("remote key") }
+  let saved = model.page.saved_documents().unwrap()
+  guard model.replication.select(saved, entry.document_id())
+    is (expected, [@replication.Network(@sync.OpenRemote(attempt))]) else {
     abort("expected remote open")
   }
   let (selected, _) = test_root_update(model, DocumentSelected(key))
   guard selected.replication == expected else {
     abort("remote selection mismatch")
   }
-  (selected, effect, read)
+  (selected, attempt)
 }
 
 ///|
 fn receive_open(
   model : Model,
-  account : @source_repository.AccountId,
-  document_id : @source_repository.DocumentId,
-  effect : @sync.EffectId,
-  read : @sync.RemoteRead,
+  attempt : @sync.OpenAttempt,
   remote : @source_repository.RemoteDocument,
 ) -> (Model, @replica_persistence.Attempt?) {
-  guard read is @sync.RemoteRead::Open(intent, expected_revision) else {
-    abort("expected open read")
+  let saved = model.page.saved_documents().unwrap()
+  let (expected, effect) = model.replication.opened(saved, attempt, remote) catch {
+    _ => abort("remote open rejected")
   }
-  let durable = match model.page.saved_documents() {
-    Some(saved) => saved.replica(account, document_id)
-    None => None
-  }
-  let (expected, outcome) = model
-    .sync()
-    .opened(
-      effect, account, document_id, intent, expected_revision, durable, remote,
-    ) catch {
-      _ => abort("remote open rejected")
-    }
   let (received, _) = test_root_update(
     model,
-    Sync(
-      RemoteCompleted(
-        effect,
-        account,
-        document_id,
-        read,
-        @document_http.RemoteResult::Found(remote),
-      ),
-    ),
+    Sync(OpenCompleted(attempt, @document_http.RemoteResult::Found(remote))),
   )
-  guard received.sync() == expected else { abort("remote receipt mismatch") }
-  let attempt = match outcome {
-    @source_repository.OpenOutcome::PersistAndOpen(write)
-    | PersistOnly(write) => model.replication.persistence().submit(write).1
-    Ready | Unavailable => None
+  guard received.replication == expected else {
+    abort("remote receipt mismatch")
+  }
+  let attempt = match effect {
+    Some(@replication.Persist(attempt)) => Some(attempt)
+    Some(Network(_)) | None => None
   }
   (received, attempt)
 }
@@ -1352,6 +1290,41 @@ fn store_sync_attempt(
 }
 
 ///|
+test "failed remote selection retries through a fresh typed open attempt" {
+  let account = sync_test_account("account")
+  let remote_id = document_id("remote")
+  let revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("valid revision")
+  }
+  let entry = @source_repository.RemoteEntry::Present(
+    remote_id, revision, "Remote",
+  )
+  let initial = test_model(
+    Editing(test_editing()),
+    discovered_sync(account, entry),
+  )
+  let (fetching, first) = select_remote(
+    initial,
+    @documents.Key::replica(account, remote_id),
+    entry,
+  )
+  let (failed, _) = test_root_update(
+    fetching,
+    Sync(OpenCompleted(first, @document_http.RemoteResult::Unavailable)),
+  )
+  guard failed.sync().selection_activity()
+    is @sync.SelectionActivity::Retryable(retry) else {
+    fail("retryable open")
+  }
+  let (retrying, _) = test_root_update(failed, RetrySelection(retry))
+  assert_true(
+    retrying.sync().selection_activity() is @sync.SelectionActivity::Working,
+  )
+  let (unchanged, _) = test_root_update(retrying, RetrySelection(retry))
+  assert_true(unchanged == retrying)
+}
+
+///|
 test "remote selection persists its received replica before activation" {
   let account = @source_repository.AccountId::parse("account") catch {
     _ => abort("valid account")
@@ -1368,12 +1341,9 @@ test "remote selection persists its received replica before activation" {
     Editing(test_editing()),
     discovered_sync(account, entry),
   )
-  guard initial.replication.select(entry.document_id(), None)
-    is (
-      expected,
-      Some(@replication.Network(@sync.GetRemote(effect, _, _, read))),
-    ) &&
-    read is @sync.RemoteRead::Open(intent, expected_revision) else {
+  let saved = initial.page.saved_documents().unwrap()
+  guard initial.replication.select(saved, entry.document_id())
+    is (expected, [@replication.Network(@sync.OpenRemote(open))]) else {
     fail("open")
   }
   let (fetching, _) = test_root_update(initial, DocumentSelected(key))
@@ -1385,27 +1355,15 @@ test "remote selection persists its received replica before activation" {
   let remote = @source_repository.RemoteDocument::Present(
     revision, "# Remote\nBody",
   )
-  let (expected, outcome) = fetching
-    .sync()
-    .opened(effect, account, remote_id, intent, expected_revision, None, remote)
-  guard outcome is @source_repository.OpenOutcome::PersistAndOpen(write) else {
+  guard fetching.replication.opened(saved, open, remote)
+    is (expected, Some(@replication.Persist(attempt))) else {
     fail("remote persistence")
   }
-  let (_, attempt) = fetching.replication.persistence().submit(write)
-  let attempt = attempt.unwrap()
   let (storing, _) = test_root_update(
     fetching,
-    Sync(
-      RemoteCompleted(
-        effect,
-        account,
-        remote_id,
-        read,
-        @document_http.RemoteResult::Found(remote),
-      ),
-    ),
+    Sync(OpenCompleted(open, @document_http.RemoteResult::Found(remote))),
   )
-  assert_true(storing.sync() == expected)
+  assert_true(storing.replication == expected)
   guard storing.page is Editing(before) else { fail("editing") }
   assert_eq(before.documents.text(key), None)
 
@@ -1443,20 +1401,26 @@ test "remote tombstone persists without activating its Replica" {
     Editing({ ..test_editing(), documents: @documents.State::State(saved), }),
     discovered_sync(account, entry),
   )
-  guard initial.replication.select(entry.document_id(), Some(replica))
-    is (
-      replication,
-      Some(@replication.Network(@sync.GetRemote(effect, _, _, read))),
-    ) else {
-    fail("open")
+  guard initial.replication.select(saved, entry.document_id())
+    is (replication, [@replication.Network(@sync.GetRemote(read))]) else {
+    fail("refresh")
   }
   let fetching = { ..initial, replication, }
   let tombstone = @source_repository.RemoteDocument::Deleted(second)
-  let (storing, attempt) = receive_open(
-    fetching, account, remote_id, effect, read, tombstone,
+  let base = fetching.replication.protocol_base(replica)
+  let (sync, write) = fetching.sync().received(base, read, tombstone) catch {
+      _ => abort("remote tombstone rejected")
+    }
+  guard fetching.replication.with_protocol(sync).submit(write.unwrap())
+    is (expected, Some(@replication.Persist(attempt))) else {
+    fail("tombstone persistence")
+  }
+  let (storing, _) = test_root_update(
+    fetching,
+    Sync(RemoteCompleted(read, @document_http.RemoteResult::Found(tombstone))),
   )
-  let attempt = attempt.unwrap()
-  assert_eq(storing.sync().pending_open(), None)
+  assert_eq(storing.replication, expected)
+  assert_eq(storing.sync().selection(), None)
   guard storing.page is Editing(editing) else { fail("editing") }
   assert_true(editing.activation.key == source_key("one"))
 
@@ -1491,11 +1455,9 @@ test "reselecting a remote document retries its failed replica" {
     Editing(test_editing()),
     discovered_sync(account, entry),
   )
-  let (fetching, effect, read) = select_remote(initial, key, entry)
+  let (fetching, open) = select_remote(initial, key, entry)
   let remote = @source_repository.RemoteDocument::Present(revision, "remote")
-  let (storing, attempt) = receive_open(
-    fetching, account, remote_id, effect, read, remote,
-  )
+  let (storing, attempt) = receive_open(fetching, open, remote)
   let attempt = attempt.unwrap()
   let (failed, _) = test_root_update(
     storing,
@@ -1526,7 +1488,7 @@ test "reselecting a remote document retries its failed replica" {
 }
 
 ///|
-test "newer remote selection waits for Replica durability before GET" {
+test "selection waits for a catalog revision discovered during persistence" {
   let account = @source_repository.AccountId::parse("account") catch {
     _ => abort("valid account")
   }
@@ -1548,71 +1510,31 @@ test "newer remote selection waits for Replica durability before GET" {
     Editing(test_editing()),
     discovered_sync(account, first_entry),
   )
-  let (opening_first, first_effect, first_read) = select_remote(
-    initial, key, first_entry,
-  )
+  let (opening_first, first_open) = select_remote(initial, key, first_entry)
   let first_remote = @source_repository.RemoteDocument::Present(
     first_revision, "first text",
   )
   let (storing_first, first_attempt) = receive_open(
-    opening_first, account, id, first_effect, first_read, first_remote,
+    opening_first, first_open, first_remote,
   )
   let first_attempt = first_attempt.unwrap()
 
   let newer = discover_entry(storing_first, account, second_entry)
-  guard newer.replication.select(second_entry.document_id(), None)
-    is (waiting, None) else {
-    fail("selection must wait")
-  }
-  let (selected, _) = test_root_update(newer, DocumentSelected(key))
-  assert_true(selected.replication == waiting)
   assert_true(
-    selected.replication.status(account, id)
+    newer.replication.status(account, id)
     is @replica_persistence.Status::Persisting,
   )
-  let (committed, _) = waiting.complete(first_attempt, Ok(())) catch {
-    _ => abort("first Replica completion")
-  }
-  guard committed.settle_replica(first_attempt.write().replica())
-    is (
-      expected_fetch,
-      Some(
-        @replication.Network(@sync.GetRemote(second_effect, _, _, second_read))
-      ),
-    ) else {
-    fail("GET must be released after durability")
-  }
-  let (stored_first, next) = store_sync_attempt(selected, first_attempt)
+  let (stored_first, next) = store_sync_attempt(newer, first_attempt)
   assert_eq(next, None)
-  assert_true(stored_first.replication == expected_fetch)
   guard stored_first.page is Editing(editing) else { fail("editing") }
-  assert_eq(editing.documents.text(key), None)
   assert_true(editing.activation.key == source_key("one"))
-
-  let second_remote = @source_repository.RemoteDocument::Present(
-    second_revision, "second text",
+  assert_eq(editing.documents.text(key), None)
+  let durable = editing.documents.snapshot().replica(account, id).unwrap()
+  assert_eq(durable.baseline_revision(), 1.0)
+  assert_true(
+    stored_first.replication.activity(durable) is @sync.Activity::Working,
   )
-  let (storing_second, second_attempt) = receive_open(
-    stored_first, account, id, second_effect, second_read, second_remote,
-  )
-  let second_attempt = second_attempt.unwrap()
-  assert_eq(
-    second_attempt.write().replica().generation(),
-    first_attempt.write().replica().generation() + 1.0,
-  )
-  let (opened, next) = store_sync_attempt(storing_second, second_attempt)
-  assert_eq(next, None)
-  guard opened.page is Editing(editing) else { fail("editing") }
-  assert_true(editing.activation.key == key)
-  assert_eq(editing.documents.text(key), Some("second text"))
-  assert_eq(
-    editing.documents
-    .snapshot()
-    .replica(account, id)
-    .unwrap()
-    .baseline_revision(),
-    2.0,
-  )
+  assert_true(stored_first.sync().selection() is Some(_))
 }
 
 ///|
@@ -1638,14 +1560,12 @@ test "an unopened available Replica opens without reloading" {
     Editing(test_editing()),
     discovered_sync(account, first_entry),
   )
-  let (fetching, first_effect, first_read) = select_remote(
-    initial, key, first_entry,
-  )
+  let (fetching, first_open) = select_remote(initial, key, first_entry)
   let first_remote = @source_repository.RemoteDocument::Present(
     first_revision, "first text",
   )
   let (storing, first_attempt) = receive_open(
-    fetching, account, id, first_effect, first_read, first_remote,
+    fetching, first_open, first_remote,
   )
   let first_attempt = first_attempt.unwrap()
   let (cancelled, _) = test_root_update(
@@ -1680,18 +1600,18 @@ test "an unopened available Replica opens without reloading" {
   }
 
   let available = discover_entry(available, account, second_entry)
-  let (fetching, effect, read) = select_remote(available, key, second_entry)
-  let remote = @source_repository.RemoteDocument::Present(
-    second_revision, "second text",
-  )
-  let (storing, attempt) = receive_open(
-    fetching, account, id, effect, read, remote,
-  )
-  let (opened, _) = store_sync_attempt(storing, attempt.unwrap())
+  let saved = available.page.saved_documents().unwrap()
+  guard available.replication.select(saved, second_entry.document_id())
+    is (expected, [@replication.Persist(open_attempt)]) else {
+    fail("open retained revision")
+  }
+  let (storing, _) = test_root_update(available, DocumentSelected(key))
+  assert_eq(storing.replication, expected)
+  let (opened, _) = store_sync_attempt(storing, open_attempt)
   guard opened.page is Editing(editing) else { fail("editing") }
   assert_true(editing.activation.key == key)
   assert_eq(editing.documents.text(key), Some("second text"))
-  assert_eq(opened.sync().pending_open(), None)
+  assert_eq(opened.sync().selection(), None)
 }
 
 ///|
@@ -1717,14 +1637,12 @@ test "remote selection retries failed Replica durability before GET" {
     Editing(test_editing()),
     discovered_sync(account, first_entry),
   )
-  let (opening_first, first_effect, first_read) = select_remote(
-    initial, key, first_entry,
-  )
+  let (opening_first, first_open) = select_remote(initial, key, first_entry)
   let first_remote = @source_repository.RemoteDocument::Present(
     first_revision, "first text",
   )
   let (storing_first, first_attempt) = receive_open(
-    opening_first, account, id, first_effect, first_read, first_remote,
+    opening_first, first_open, first_remote,
   )
   let first_attempt = first_attempt.unwrap()
   let (failed, _) = test_root_update(
@@ -1737,8 +1655,9 @@ test "remote selection retries failed Replica durability before GET" {
     ),
   )
   let newer = discover_entry(failed, account, second_entry)
-  guard newer.replication.select(second_entry.document_id(), None)
-    is (expected_retrying, Some(@replication.Persist(retry_attempt))) else {
+  let saved = newer.page.saved_documents().unwrap()
+  guard newer.replication.select(saved, second_entry.document_id())
+    is (expected_retrying, [@replication.Persist(retry_attempt)]) else {
     fail("durability retry")
   }
   let (retrying, _) = test_root_update(newer, DocumentSelected(key))
@@ -1751,12 +1670,10 @@ test "remote selection retries failed Replica durability before GET" {
     _ => abort("retry completion")
   }
   guard committed.settle_replica(retry_attempt.write().replica()).1
-    is Some(
-      @replication.Network(@sync.GetRemote(_, _, _, @sync.Open(_, revision)))
-    ) else {
+    is Some(@replication.Network(@sync.GetRemote(open))) else {
     fail("GET after retry durability")
   }
-  assert_eq(revision, second_revision)
+  assert_eq(open.document_id(), id)
 }
 
 ///|
@@ -1768,6 +1685,9 @@ test "remote persistence never interrupts an active composition" {
   let revision = @source_repository.SavedRevision::parse(1.0) catch {
     _ => abort("valid revision")
   }
+  let next_revision = @source_repository.SavedRevision::parse(2.0) catch {
+    _ => abort("valid revision")
+  }
   let entry = @source_repository.RemoteEntry::Present(
     remote_id, revision, "Remote",
   )
@@ -1776,32 +1696,20 @@ test "remote persistence never interrupts an active composition" {
     Editing(test_editing()),
     discovered_sync(account, entry),
   )
-  guard initial.replication.select(entry.document_id(), None)
-    is (_, Some(@replication.Network(@sync.GetRemote(effect, _, _, read)))) &&
-    read is @sync.RemoteRead::Open(intent, expected) else {
+  let saved = initial.page.saved_documents().unwrap()
+  guard initial.replication.select(saved, entry.document_id())
+    is (_, [@replication.Network(@sync.OpenRemote(open))]) else {
     fail("open")
   }
   let (fetching, _) = test_root_update(initial, DocumentSelected(key))
   let remote = @source_repository.RemoteDocument::Present(revision, "remote")
-  let outcome = fetching
-    .sync()
-    .opened(effect, account, remote_id, intent, expected, None, remote).1
-  guard outcome is @source_repository.OpenOutcome::PersistAndOpen(write) else {
+  guard fetching.replication.opened(saved, open, remote)
+    is (_, Some(@replication.Persist(attempt))) else {
     fail("remote persistence")
   }
-  let (_, attempt) = fetching.replication.persistence().submit(write)
-  let attempt = attempt.unwrap()
   let (storing, _) = test_root_update(
     fetching,
-    Sync(
-      RemoteCompleted(
-        effect,
-        account,
-        remote_id,
-        read,
-        @document_http.RemoteResult::Found(remote),
-      ),
-    ),
+    Sync(OpenCompleted(open, @document_http.RemoteResult::Found(remote))),
   )
   let (composing, _) = test_root_update(storing, CompositionStarted(0))
   let (completed, _) = test_root_update(
@@ -1812,11 +1720,25 @@ test "remote persistence never interrupts an active composition" {
   assert_true(editing.activation.key == source_key("one"))
   assert_eq(editing.documents.text(key), None)
 
+  let completed = discover_entry(
+    completed,
+    account,
+    @source_repository.RemoteEntry::Present(
+      remote_id, next_revision, "Newer remote",
+    ),
+  )
   let (activated, _) = test_root_update(completed, CompositionEnded(0))
   guard activated.page is Editing(editing) else { fail("editing") }
-  assert_true(editing.activation.key == key)
-  assert_eq(editing.documents.text(key), Some("remote"))
-  assert_eq(activated.sync().pending_open(), None)
+  assert_true(editing.activation.key == source_key("one"))
+  assert_eq(editing.documents.text(key), None)
+  assert_true(activated.sync().selection() is Some(_))
+  let durable = editing.documents
+    .snapshot()
+    .replica(account, remote_id)
+    .unwrap()
+  assert_true(
+    activated.replication.activity(durable) is @sync.Activity::Working,
+  )
 }
 
 ///|
@@ -1860,27 +1782,19 @@ test "discovery persists a newer remote revision without replacing the editor" {
   )
   let (expected, _) = sync.discovered(account, discovery, Some([entry]))
   let (expected, action) = expected.advance(replica)
-  guard action is Some(@sync.Action::GetRemote(effect, _, _, read)) else {
+  guard action is Some(@sync.Action::GetRemote(read)) else {
     fail("remote revision read")
   }
   assert_true(discovered.sync() == expected)
 
   let remote = @source_repository.RemoteDocument::Present(next, "remote")
-  let (expected, write) = expected.received(replica, effect, read, remote)
+  let (expected, write) = expected.received(replica, read, remote)
   guard write is Some(write) else { fail("persist observed revision") }
   let (_, attempt) = discovered.replication.persistence().submit(write)
   let attempt = attempt.unwrap()
   let (storing, _) = test_root_update(
     discovered,
-    Sync(
-      RemoteCompleted(
-        effect,
-        account,
-        id,
-        read,
-        @document_http.RemoteResult::Found(remote),
-      ),
-    ),
+    Sync(RemoteCompleted(read, @document_http.RemoteResult::Found(remote))),
   )
   assert_true(storing.sync() == expected)
   guard storing.page is Editing(editing) else { fail("editing") }
@@ -2032,10 +1946,7 @@ test "replica failure keeps optimistic text and retries the same write" {
     fail("retryable persistence")
   }
   let (_, retry_attempt) = failed.replication.persistence().retry(retry_action)
-  let (retrying, _) = test_root_update(
-    failed,
-    RetrySync(RetryPersistence(retry_action)),
-  )
+  let (retrying, _) = test_root_update(failed, RetrySaving(retry_action))
   assert_true(retry_attempt.write().replica() == replica)
   let (stored, _) = test_root_update(
     retrying,

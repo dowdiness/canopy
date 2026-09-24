@@ -111,18 +111,64 @@ test "account lookup compares delayed responses with the retained catalog" {
 }
 
 ///|
+test "discovery completion survives lookup of the same account" {
+  let account = test_account("account")
+  let current = signed_in(account)
+  let (discovering, discovery) = current.begin_discovery()
+  let (resolving, lookup) = discovering.begin_lookup()
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(2.0),
+    "Remote",
+  )
+  let (observed, accepted) = resolving.discovered(
+    account,
+    discovery.unwrap(),
+    Some([entry]),
+  )
+  assert_true(accepted)
+  assert_false(observed.discovering())
+  let restored = observed.resolved(lookup, Resolved(account, "Writer")).0
+  assert_eq(restored.observation(), Observation::Observed)
+  assert_eq(restored.remote_entry(test_document_id()), Some(entry))
+}
+
+///|
+test "new discovery supersedes an older completion" {
+  let account = test_account("account")
+  let current = signed_in(account)
+  let (first, first_id) = current.begin_discovery()
+  let (second, second_id) = first.begin_discovery()
+  let (stale, accepted) = second.discovered(
+    account,
+    first_id.unwrap(),
+    Some([]),
+  )
+  assert_false(accepted)
+  assert_eq(stale, second)
+  assert_true(stale.discovering())
+  let (observed, accepted) = stale.discovered(
+    account,
+    second_id.unwrap(),
+    Some([]),
+  )
+  assert_true(accepted)
+  assert_false(observed.discovering())
+}
+
+///|
 test "delivery capability prevents operation-id ABA" {
   let replica = sending_replica()
   let state = signed_in(replica.account())
-  guard state.advance(replica) is (state, Some(Deliver(first, _, _, _))) else {
+  guard state.advance(replica) is (state, Some(Deliver(first, _))) else {
     fail("first delivery")
   }
-  let state = state.delivery_failed(replica, first, test_operation_id())
-  guard state.advance(replica) is (state, Some(Deliver(second, _, _, _))) else {
+  let state = state.delivery_failed(replica, first)
+  guard state.advance(replica) is (state, Some(Deliver(second, _))) else {
     fail("second delivery")
   }
   let stale : Result[(State, @source_repository.ReplicaWrite?), WorkError] = Ok(
-    state.acknowledged(replica, first, test_operation_id(), revision(1.0)),
+    state.acknowledged(replica, first, revision(1.0)),
   ) catch {
     error => Err(error)
   }
@@ -131,27 +177,118 @@ test "delivery capability prevents operation-id ABA" {
 }
 
 ///|
+test "a delivery retry expires after its retried attempt fails" {
+  let replica = sending_replica()
+  let state = signed_in(replica.account())
+  guard state.advance(replica) is (state, Some(Deliver(first, _))) else {
+    fail("first delivery")
+  }
+  let state = state.delivery_failed(replica, first)
+  guard state.activity(replica) is Retryable(first_retry) else {
+    fail("first retry")
+  }
+  let (state, action) = state.retry(replica, first_retry) catch {
+    _ => abort("current retry")
+  }
+  guard action is Deliver(second, _) else { fail("second delivery") }
+  let state = state.delivery_failed(replica, second)
+  guard state.activity(replica) is Retryable(second_retry) else {
+    fail("second retry")
+  }
+  let expired = try state.retry(replica, first_retry) catch {
+    StaleWork => true
+  } noraise {
+    _ => false
+  }
+  assert_true(expired)
+  assert_true(state.retry(replica, second_retry) is (_, Deliver(_, _)))
+}
+
+///|
+test "selection does not consume a failed delivery retry" {
+  let account = test_account("account")
+  let received = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("base"),
+    revision(1.0),
+  )
+  guard received.edit("edited") is @source_repository.EditPlan::Persist(write) &&
+    write.replica().directive()
+    is @source_repository.ReplicaDirective::CreateOperation(draft) else {
+    fail("edited replica")
+  }
+  let replica = draft.start(test_operation_id()).replica()
+  let state = with_catalog(signed_in(account), account, [
+    @source_repository.RemoteEntry::Present(
+      replica.document_id(),
+      revision(1.0),
+      "Remote",
+    ),
+  ])
+  guard state.advance(replica) is (delivering, Some(Deliver(attempt, _))) else {
+    fail("delivery")
+  }
+  let failed = delivering.delivery_failed(replica, attempt) catch {
+    _ => abort("active delivery")
+  }
+  guard failed.activity(replica) is Retryable(retry) else {
+    fail("retry capability")
+  }
+  let selected = failed.select(replica.document_id())
+  guard selected.advance_selection(Some(replica))
+    is (ready, SelectionStep::Wait) else {
+    fail("ready selection")
+  }
+  assert_eq(ready.activity(replica), Activity::Retryable(retry))
+  guard ready.retry(replica, retry) is (_, Deliver(_, resumed)) else {
+    fail("resumed delivery")
+  }
+  assert_eq(resumed.operation_id(), test_operation_id())
+}
+
+///|
 test "editing a blocked payload admits a new save" {
   let replica = sending_replica()
   let state = signed_in(replica.account())
-  guard state.advance(replica) is (state, Some(Deliver(effect, _, _, _))) else {
+  guard state.advance(replica) is (state, Some(Deliver(attempt, _))) else {
     fail("delivery")
   }
-  let (state, rejected) = state.delivery_too_large(
-    replica,
-    effect,
-    test_operation_id(),
-  ) catch {
+  let (state, rejected) = state.delivery_too_large(replica, attempt) catch {
     _ => abort("current delivery")
   }
   let blocked = rejected.unwrap().replica()
-  assert_eq(state.progress(blocked), Progress::Blocked)
+  assert_eq(state.activity(blocked), Activity::Blocked)
   let (state, changed) = state.save(blocked, "small")
   let changed = changed.unwrap().replica()
-  assert_true(state.progress(changed) is Progress::Retryable(_))
-  assert_true(
-    state.advance(changed).1 is Some(Action::CreateOperation(_, _, _)),
-  )
+  assert_eq(state.activity(changed), Activity::Idle)
+  assert_true(state.advance(changed).1 is Some(Action::CreateOperation(_)))
+}
+
+///|
+test "selection preserves a blocked delivery" {
+  let replica = sending_replica()
+  let state = with_catalog(signed_in(replica.account()), replica.account(), [
+    @source_repository.RemoteEntry::Present(
+      replica.document_id(),
+      revision(1.0),
+      "Remote",
+    ),
+  ])
+  guard state.advance(replica) is (state, Some(Deliver(attempt, _))) else {
+    fail("delivery")
+  }
+  let (blocked, rejected) = state.delivery_too_large(replica, attempt) catch {
+    _ => abort("current delivery")
+  }
+  let replica = rejected.unwrap().replica()
+  guard blocked.select(replica.document_id()).advance_selection(Some(replica))
+    is (selected, SelectionStep::Wait) else {
+    fail("selection")
+  }
+  assert_eq(selected.activity(replica), Activity::Blocked)
+  let cancelled = selected.cancel_selection()
+  assert_eq(cancelled.activity(replica), Activity::Blocked)
+  assert_eq(cancelled.advance(replica).1, None)
 }
 
 ///|
@@ -165,29 +302,22 @@ test "durable deletion plans and delivers one delete operation" {
   let state = signed_in(account)
   let (state, deletion) = state.delete(replica, "latest local text")
   let deleting = deletion.replica()
-  guard state.advance(deleting)
-    is (state, Some(CreateOperation(plan, owner, document_id))) else {
+  guard state.advance(deleting) is (state, Some(CreateOperation(attempt))) else {
     fail("delete operation draft")
   }
-  assert_eq(owner, account)
-  assert_eq(document_id, test_document_id())
-  let (state, prepared) = state.prepared(plan, deleting, test_operation_id()) catch {
+  assert_eq(attempt.account(), account)
+  assert_eq(attempt.document_id(), test_document_id())
+  let (state, prepared) = state.prepared(attempt, deleting, test_operation_id()) catch {
     _ => abort("current delete draft")
   }
   let pending = prepared.unwrap().replica()
-  guard state.advance(pending)
-    is (state, Some(Deliver(effect, owner, document_id, operation))) else {
+  guard state.advance(pending) is (state, Some(Deliver(delivery, operation))) else {
     fail("delete delivery")
   }
-  assert_eq(owner, account)
-  assert_eq(document_id, test_document_id())
+  assert_eq(delivery.account(), account)
+  assert_eq(delivery.document_id(), test_document_id())
   assert_eq(operation.content(), @source_repository.PendingContent::Delete)
-  let (_, acknowledged) = state.acknowledged(
-    pending,
-    effect,
-    test_operation_id(),
-    revision(2.0),
-  ) catch {
+  let (_, acknowledged) = state.acknowledged(pending, delivery, revision(2.0)) catch {
     _ => abort("delete acknowledgment")
   }
   assert_true(acknowledged.unwrap().replica().is_deleted())
@@ -214,15 +344,14 @@ test "deletion invalidates an in-flight conflict recovery" {
   }
   let replica = diverged.replica()
   let state = signed_in(account)
-  guard state.advance(replica)
-    is (recovering, Some(CreateRecovery(effect, _, _))) else {
+  guard state.advance(replica) is (recovering, Some(CreateRecovery(attempt))) else {
     fail("recovery")
   }
   let (state, deletion) = recovering.delete(replica, "local")
   let deleting = deletion.replica()
-  assert_true(state.advance(deleting).1 is Some(CreateOperation(_, _, _)))
+  assert_true(state.advance(deleting).1 is Some(CreateOperation(_)))
   let delayed = try
-    state.recover(deleting, effect, test_document_id(value="recovery"))
+    state.recover(deleting, attempt, test_document_id(value="recovery"))
   catch {
     StaleWork => true
   } noraise {
@@ -232,14 +361,14 @@ test "deletion invalidates an in-flight conflict recovery" {
 }
 
 ///|
-test "progress exposes only network work for one replica" {
+test "activity exposes only active or failed work for one replica" {
   let replica = sending_replica()
   let idle = signed_in(replica.account())
-  assert_true(idle.progress(replica) is Progress::Retryable(_))
-  guard idle.advance(replica) is (working, Some(Deliver(_, _, _, _))) else {
+  assert_eq(idle.activity(replica), Activity::Idle)
+  guard idle.advance(replica) is (working, Some(Deliver(_, _))) else {
     fail("delivery")
   }
-  assert_eq(working.progress(replica), Progress::Working)
+  assert_eq(working.activity(replica), Activity::Working)
   let other = @source_repository.DocumentReplica::receive(
     replica.account(),
     @source_repository.Document::create(
@@ -248,11 +377,11 @@ test "progress exposes only network work for one replica" {
     ),
     revision(1.0),
   )
-  assert_eq(working.progress(other), Progress::Inactive)
+  assert_eq(working.activity(other), Activity::Idle)
 }
 
 ///|
-test "opening a remote document returns one replica write" {
+test "selecting a remote-only document returns one replica write" {
   let account = test_account("account")
   let entry = @source_repository.RemoteEntry::Present(
     test_document_id(),
@@ -260,35 +389,64 @@ test "opening a remote document returns one replica write" {
     "Remote",
   )
   let catalog = with_catalog(signed_in(account), account, [entry])
-  guard catalog.select_open(test_document_id()).advance_open(None)
-    is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+  guard catalog.select(test_document_id()).advance_selection(None)
+    is (state, SelectionStep::Fetch(attempt)) else {
     fail("open read")
   }
-  let (state, outcome) = state.opened(
-    effect,
-    account,
-    test_document_id(),
-    intent,
-    expected,
-    None,
+  let (state, write) = state.opened(
+    attempt,
     @source_repository.RemoteDocument::Present(revision(2.0), "remote text"),
   )
-  guard outcome is @source_repository.OpenOutcome::PersistAndOpen(write) else {
-    fail("received Replica persistence")
-  }
+  guard write is Some(write) else { fail("received Replica persistence") }
   let replica = write.replica()
   assert_eq(
     replica.document().map(document => document.text()),
     Some("remote text"),
   )
-  assert_eq(
-    state.select_open(test_document_id()).advance_open(Some(replica)).1,
-    None,
-  )
+  guard state.advance_selection(Some(replica)) is (ready, SelectionStep::Wait) else {
+    fail("durable selection")
+  }
+  assert_true(ready.ready_selection() is Some(_))
 }
 
 ///|
-test "a newer remote open advances the supplied causal head" {
+test "an authoritative Replica supersedes an active selection fetch" {
+  let account = test_account("account")
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(2.0),
+    "Remote",
+  )
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select(test_document_id()).advance_selection(None)
+    is (fetching, SelectionStep::Fetch(attempt)) else {
+    fail("selection fetch")
+  }
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("durable"),
+    revision(2.0),
+  )
+  guard fetching.advance_selection(Some(replica))
+    is (ready, SelectionStep::Wait) &&
+    ready.ready_selection() is Some(_) else {
+    fail("authoritative Replica")
+  }
+  let stale = try
+    ready.opened(
+      attempt,
+      @source_repository.RemoteDocument::Present(revision(2.0), "stale"),
+    )
+  catch {
+    WorkError::StaleWork => true
+  } noraise {
+    _ => false
+  }
+  assert_true(stale)
+}
+
+///|
+test "an existing Replica uses its ordinary refresh lane" {
   let account = test_account("account")
   let first = @source_repository.DocumentReplica::receive(
     account,
@@ -301,25 +459,27 @@ test "a newer remote open advances the supplied causal head" {
     "Second",
   )
   let catalog = with_catalog(signed_in(account), account, [entry])
-  guard catalog.select_open(test_document_id()).advance_open(Some(first))
-    is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
-    fail("newer open")
+  let selected = catalog.select(test_document_id())
+  guard selected.advance_selection(Some(first))
+    is (waiting, SelectionStep::Wait) else {
+    fail("waiting selection")
   }
-  let (_, outcome) = state.opened(
-    effect,
-    account,
-    test_document_id(),
-    intent,
-    expected,
-    Some(first),
+  guard waiting.advance(first) is (reading, Some(GetRemote(attempt))) else {
+    fail("ordinary refresh")
+  }
+  let (state, write) = reading.received(
+    first,
+    attempt,
     @source_repository.RemoteDocument::Present(revision(2.0), "second"),
   )
-  guard outcome is @source_repository.OpenOutcome::PersistAndOpen(write) else {
-    fail("newer Replica persistence")
-  }
+  guard write is Some(write) else { fail("newer Replica persistence") }
   let second = write.replica()
   assert_eq(second.generation(), first.generation() + 1.0)
-  assert_eq(second.baseline_revision(), 2.0)
+  guard state.advance_selection(Some(second))
+    is (_, SelectionStep::Persist(opened)) else {
+    fail("open retained remote")
+  }
+  assert_eq(opened.replica().baseline_revision(), 2.0)
 }
 
 ///|
@@ -331,21 +491,16 @@ test "a tombstone ends a pending remote open" {
     "Remote",
   )
   let catalog = with_catalog(signed_in(account), account, [entry])
-  guard catalog.select_open(test_document_id()).advance_open(None)
-    is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+  guard catalog.select(test_document_id()).advance_selection(None)
+    is (state, SelectionStep::Fetch(attempt)) else {
     fail("open read")
   }
-  let (state, outcome) = state.opened(
-    effect,
-    account,
-    test_document_id(),
-    intent,
-    expected,
-    None,
+  let (state, write) = state.opened(
+    attempt,
     @source_repository.RemoteDocument::Deleted(revision(2.0)),
   )
-  assert_eq(outcome, @source_repository.OpenOutcome::Unavailable)
-  assert_eq(state.pending_open(), None)
+  assert_eq(write, None)
+  assert_eq(state.selection(), None)
   assert_true(
     state.remote_entry(test_document_id())
     is Some(@source_repository.RemoteEntry::Deleted(_, _)),
@@ -361,22 +516,17 @@ test "catalog tombstone retires an older open fetch" {
     "Remote",
   )
   let catalog = with_catalog(signed_in(account), account, [entry])
-  guard catalog.select_open(test_document_id()).advance_open(None)
-    is (fetching, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+  guard catalog.select(test_document_id()).advance_selection(None)
+    is (fetching, SelectionStep::Fetch(attempt)) else {
     fail("open read")
   }
   let retired = with_catalog(fetching, account, [
     @source_repository.RemoteEntry::Deleted(test_document_id(), revision(2.0)),
   ])
-  assert_eq(retired.pending_open(), None)
-  let stale : Result[(State, @source_repository.OpenOutcome), WorkError] = Ok(
+  assert_eq(retired.selection(), None)
+  let stale : Result[(State, @source_repository.ReplicaWrite?), WorkError] = Ok(
     retired.opened(
-      effect,
-      account,
-      test_document_id(),
-      intent,
-      expected,
-      None,
+      attempt,
       @source_repository.RemoteDocument::Present(revision(1.0), "remote"),
     ),
   ) catch {
@@ -394,24 +544,19 @@ test "catalog tombstone retires an open awaiting durability" {
     "Remote",
   )
   let catalog = with_catalog(signed_in(account), account, [entry])
-  guard catalog.select_open(test_document_id()).advance_open(None)
-    is (fetching, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+  guard catalog.select(test_document_id()).advance_selection(None)
+    is (fetching, SelectionStep::Fetch(attempt)) else {
     fail("open read")
   }
-  let (persisting, outcome) = fetching.opened(
-    effect,
-    account,
-    test_document_id(),
-    intent,
-    expected,
-    None,
+  let (persisting, write) = fetching.opened(
+    attempt,
     @source_repository.RemoteDocument::Present(revision(1.0), "remote"),
   )
-  assert_true(outcome is @source_repository.OpenOutcome::PersistAndOpen(_))
+  assert_true(write is Some(_))
   let retired = with_catalog(persisting, account, [
     @source_repository.RemoteEntry::Deleted(test_document_id(), revision(2.0)),
   ])
-  assert_eq(retired.pending_open(), None)
+  assert_eq(retired.selection(), None)
 }
 
 ///|
@@ -423,19 +568,14 @@ test "account lookup retires an active open request without retaining work" {
     "Remote",
   )
   let catalog = with_catalog(signed_in(account), account, [entry])
-  guard catalog.select_open(test_document_id()).advance_open(None)
-    is (fetching, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
+  guard catalog.select(test_document_id()).advance_selection(None)
+    is (fetching, SelectionStep::Fetch(attempt)) else {
     fail("first open")
   }
   let (resolving, lookup) = fetching.begin_lookup()
-  let stale : Result[(State, @source_repository.OpenOutcome), WorkError] = Ok(
+  let stale : Result[(State, @source_repository.ReplicaWrite?), WorkError] = Ok(
     resolving.opened(
-      effect,
-      account,
-      test_document_id(),
-      intent,
-      expected,
-      None,
+      attempt,
       @source_repository.RemoteDocument::Present(revision(2.0), "remote"),
     ),
   ) catch {
@@ -443,15 +583,155 @@ test "account lookup retires an active open request without retaining work" {
   }
   assert_eq(stale, Err(WorkError::StaleWork))
   let current = resolving.resolved(lookup, Resolved(account, "Writer")).0
-  guard current.select_open(test_document_id()).advance_open(None)
-    is (_, Some(GetRemote(next, _, _, Open(_, _)))) else {
+  guard current.select(test_document_id()).advance_selection(None)
+    is (_, SelectionStep::Fetch(next)) else {
     fail("next open")
   }
-  assert_true(next != effect)
+  assert_true(next != attempt)
 }
 
 ///|
-test "a tombstone for an existing Replica persists without remaining open" {
+test "failed remote open exposes one expiring retry capability" {
+  let account = test_account("account")
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(2.0),
+    "Remote",
+  )
+  let catalog = with_catalog(signed_in(account), account, [entry])
+  guard catalog.select(test_document_id()).advance_selection(None)
+    is (fetching, SelectionStep::Fetch(first)) else {
+    fail("first open")
+  }
+  let failed = fetching.open_failed(first) catch { _ => abort("active open") }
+  guard failed.selection_activity() is SelectionActivity::Retryable(retry) else {
+    fail("retryable open")
+  }
+  guard failed.retry_selection(retry) is (retrying, OpenRemote(second)) else {
+    fail("retried open")
+  }
+  assert_true(second != first)
+  let stale : Result[(State, @source_repository.ReplicaWrite?), WorkError] = Ok(
+    retrying.opened(
+      first,
+      @source_repository.RemoteDocument::Present(revision(2.0), "stale"),
+    ),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(stale, Err(WorkError::StaleWork))
+  let failed_again = retrying.open_failed(second) catch {
+    _ => abort("retried open")
+  }
+  let expired : Result[(State, Action), WorkError] = Ok(
+    failed_again.retry_selection(retry),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(expired, Err(WorkError::StaleWork))
+}
+
+///|
+test "selection uses a failed Replica refresh instead of a second fetch" {
+  let account = test_account("account")
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("base"),
+    revision(1.0),
+  )
+  let catalog = with_catalog(signed_in(account), account, [
+    @source_repository.RemoteEntry::Present(
+      test_document_id(),
+      revision(2.0),
+      "Remote",
+    ),
+  ])
+  guard catalog.advance(replica) is (reading, Some(GetRemote(attempt))) else {
+    fail("refresh")
+  }
+  let selected = reading.select(test_document_id())
+  let failed = selected.remote_failed(replica, attempt) catch {
+    _ => abort("active refresh")
+  }
+  assert_true(failed.activity(replica) is Activity::Retryable(_))
+  guard failed.advance(replica) is (_, Some(GetRemote(retry))) else {
+    fail("refresh retry")
+  }
+  assert_true(retry != attempt)
+}
+
+///|
+test "a selected refresh retry coalesces to the current catalog revision" {
+  let account = test_account("account")
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("base"),
+    revision(1.0),
+  )
+  let catalog = with_catalog(signed_in(account), account, [
+    @source_repository.RemoteEntry::Present(
+      test_document_id(),
+      revision(2.0),
+      "Remote",
+    ),
+  ])
+  guard catalog.advance(replica) is (reading, Some(GetRemote(read))) else {
+    fail("background read")
+  }
+  let failed = reading.remote_failed(replica, read) catch {
+    _ => abort("active background read")
+  }
+  let current = with_catalog(failed, account, [
+    @source_repository.RemoteEntry::Present(
+      test_document_id(),
+      revision(3.0),
+      "Newest",
+    ),
+  ]).select(test_document_id())
+  guard current.advance(replica) is (_, Some(GetRemote(retry))) &&
+    retry.read is Refresh(required) else {
+    fail("coalesced refresh")
+  }
+  assert_eq(required, revision(3.0))
+}
+
+///|
+test "new intent and account lookup invalidate a failed open retry" {
+  let account = test_account("account")
+  let first_id = test_document_id(value="first")
+  let second_id = test_document_id(value="second")
+  let catalog = with_catalog(signed_in(account), account, [
+    @source_repository.RemoteEntry::Present(first_id, revision(1.0), "First"),
+    @source_repository.RemoteEntry::Present(second_id, revision(1.0), "Second"),
+  ])
+  guard catalog.select(first_id).advance_selection(None)
+    is (fetching, SelectionStep::Fetch(attempt)) else {
+    fail("first open")
+  }
+  let failed = fetching.open_failed(attempt) catch { _ => abort("active open") }
+  guard failed.selection_activity() is SelectionActivity::Retryable(retry) else {
+    fail("retryable open")
+  }
+  let selected = failed.select(second_id)
+  let expired : Result[(State, Action), WorkError] = Ok(
+    selected.retry_selection(retry),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(expired, Err(WorkError::StaleWork))
+  let resolving = failed.begin_lookup().0
+  let expired : Result[(State, Action), WorkError] = Ok(
+    resolving.retry_selection(retry),
+  ) catch {
+    error => Err(error)
+  }
+  assert_eq(expired, Err(WorkError::StaleWork))
+  let cancelled = failed.cancel_selection()
+  assert_true(cancelled.selection_activity() is SelectionActivity::Idle)
+}
+
+///|
+test "a tombstone for an existing Replica uses the ordinary refresh lane" {
   let account = test_account("account")
   let replica = @source_repository.DocumentReplica::receive(
     account,
@@ -464,28 +744,18 @@ test "a tombstone for an existing Replica persists without remaining open" {
     "Remote",
   )
   let catalog = with_catalog(signed_in(account), account, [entry])
-  guard catalog.select_open(test_document_id()).advance_open(Some(replica))
-    is (state, Some(GetRemote(effect, _, _, Open(intent, expected)))) else {
-    fail("open read")
+  let selected = catalog.select(test_document_id())
+  guard selected.advance(replica) is (state, Some(GetRemote(attempt))) else {
+    fail("refresh")
   }
   let tombstone = @source_repository.RemoteDocument::Deleted(revision(2.0))
-  let (state, outcome) = state.opened(
-    effect,
-    account,
-    test_document_id(),
-    intent,
-    expected,
-    Some(replica),
-    tombstone,
-  )
-  guard outcome is @source_repository.OpenOutcome::PersistOnly(write) else {
-    fail("tombstone persistence")
-  }
+  let (state, outcome) = state.received(replica, attempt, tombstone)
+  guard outcome is Some(write) else { fail("tombstone persistence") }
   assert_eq(
     write.replica().directive(),
     @source_repository.ReplicaDirective::UpdateAvailable(tombstone),
   )
-  assert_eq(state.pending_open(), None)
+  assert_eq(state.selection(), None)
 }
 
 ///|
@@ -503,18 +773,62 @@ test "failed catalog revision fetch remains retryable" {
       "Remote",
     ),
   ])
-  guard state.advance(replica)
-    is (state, Some(GetRemote(effect, _, _, Revision(expected)))) else {
+  guard state.advance(replica) is (state, Some(GetRemote(attempt))) &&
+    attempt.read is Refresh(_) else {
     fail("revision fetch")
   }
-  let state = state.remote_failed(replica, effect, Revision(expected)) catch {
+  let state = state.remote_failed(replica, attempt) catch {
     _ => abort("active fetch")
   }
-  assert_true(state.progress(replica) is Retryable(_))
+  assert_true(state.activity(replica) is Retryable(_))
   assert_true(
-    state.advance(replica).1 is Some(GetRemote(_, _, _, Revision(retry))) &&
+    state.advance(replica).1 is Some(GetRemote(retry_attempt)) &&
+    retry_attempt.read is Refresh(retry) &&
     retry == revision(2.0),
   )
+}
+
+///|
+test "a remote-read retry expires after its retried attempt fails" {
+  let account = test_account("account")
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    test_document("base"),
+    revision(1.0),
+  )
+  let state = with_catalog(signed_in(account), account, [
+    @source_repository.RemoteEntry::Present(
+      test_document_id(),
+      revision(2.0),
+      "Remote",
+    ),
+  ])
+  guard state.advance(replica) is (state, Some(GetRemote(first))) else {
+    fail("first read")
+  }
+  let state = state.remote_failed(replica, first) catch {
+    _ => abort("first read")
+  }
+  guard state.activity(replica) is Retryable(first_retry) else {
+    fail("first retry")
+  }
+  let (state, action) = state.retry(replica, first_retry) catch {
+    _ => abort("current retry")
+  }
+  guard action is GetRemote(second) else { fail("second read") }
+  let state = state.remote_failed(replica, second) catch {
+    _ => abort("second read")
+  }
+  guard state.activity(replica) is Retryable(second_retry) else {
+    fail("second retry")
+  }
+  let expired = try state.retry(replica, first_retry) catch {
+    StaleWork => true
+  } noraise {
+    _ => false
+  }
+  assert_true(expired)
+  assert_true(state.retry(replica, second_retry) is (_, GetRemote(_)))
 }
 
 ///|
@@ -540,7 +854,8 @@ test "an available update continues observing newer catalog revisions" {
     ),
   ])
   assert_true(
-    state.advance(available).1 is Some(GetRemote(_, _, _, Revision(expected))) &&
+    state.advance(available).1 is Some(GetRemote(attempt)) &&
+    attempt.read is Refresh(expected) &&
     expected == revision(3.0),
   )
 }
@@ -569,4 +884,51 @@ test "catalog keeps unseen entries and only accepts newer revisions" {
     state.remote_entry(first)
     is Some(@source_repository.RemoteEntry::Deleted(_, _)),
   )
+}
+
+///|
+test "failed discovery retains catalog facts and exposes observation failure" {
+  let account = test_account("account")
+  let entry = @source_repository.RemoteEntry::Present(
+    test_document_id(),
+    revision(2.0),
+    "Remote",
+  )
+  let observed = with_catalog(signed_in(account), account, [entry])
+  let (refreshing, discovery) = observed.begin_discovery()
+  assert_eq(refreshing.observation(), Observation::Observed)
+  assert_true(refreshing.discovering())
+  let (unavailable, accepted) = refreshing.discovered(
+    account,
+    discovery.unwrap(),
+    None,
+  )
+  assert_true(accepted)
+  assert_false(unavailable.discovering())
+  assert_eq(unavailable.observation(), Observation::Unavailable)
+  assert_eq(unavailable.remote_entry(test_document_id()), Some(entry))
+}
+
+///|
+test "remote response is retained independently of catalog freshness" {
+  let replica = sending_replica()
+  let unknown = signed_in(replica.account())
+  guard unknown.advance(replica) is (delivering, Some(Deliver(delivery, _))) else {
+    fail("delivery")
+  }
+  let retrying = delivering.revision_conflict(replica, delivery) catch {
+    _ => abort("active delivery")
+  }
+  guard retrying.advance(replica) is (fetching, Some(GetRemote(attempt))) else {
+    fail("conflict fetch")
+  }
+  let remote = @source_repository.RemoteDocument::Present(
+    revision(2.0),
+    "Remote",
+  )
+  let (received, _) = fetching.received(replica, attempt, remote) catch {
+    _ => abort("active fetch")
+  }
+  assert_eq(received.observation(), Observation::Unknown)
+  assert_true(received.remote_entry(test_document_id()) is Some(_))
 }

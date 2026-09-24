@@ -84,64 +84,179 @@ fn account_status_view(
     SignedOut => sync_status_label("Signed out")
     SignedIn(name) => sync_status_label(name)
     Unavailable => sync_status_button("Retry account", RetryAccount, emit)
+    SyncUnavailable => sync_status_button("Retry sync", RetryAccount, emit)
   }
 }
 
 ///|
-fn document_sync_status_view(
-  status : DocumentSyncStatus?,
+fn local_durability_view(durability : LocalDurability) -> @rabbita.Html {
+  match durability {
+    Saving => sync_status_label("Saving on this device", compact="Saving")
+    Stored => sync_status_label("Saved on this device", compact="Saved")
+    NotStored => sync_status_label("Not saved")
+  }
+}
+
+///|
+fn remote_state_view(
+  remote : @documents.RemoteState,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
-  match status {
-    None => @html.nothing
-    Some(SavingOnDevice) =>
-      sync_status_label("Saving on this device", compact="Saving")
-    Some(NotSaved) => sync_status_label("Not saved")
-    Some(SignInRequired) =>
-      sync_status_label("Sign in to sync", compact="Sign in")
-    Some(LocalOnly) | Some(SavedOnDevice) =>
-      sync_status_label("Saved on this device", compact="Saved")
-    Some(ReadyToSync(action)) =>
-      sync_status_button("Sync", StartSync(action), emit)
-    Some(WaitingToSync) => sync_status_label("Syncing")
-    Some(Synced) => sync_status_label("Synced")
-    Some(RetryAvailable(action)) =>
-      sync_status_button("Retry sync", RetrySync(action), emit)
-    Some(SyncBlocked) => sync_status_label("Sync paused")
-    Some(UpdateAvailable(action)) =>
+  match remote {
+    @documents.RemoteState::Current => sync_status_label("Synced")
+    LocalAhead => sync_status_label("Local changes")
+    RemoteAhead => sync_status_label("Update pending")
+    Concurrent => sync_status_label("Checking changes")
+    Diverged => sync_status_label("Conflict")
+    DeletedRemotely => sync_status_label("Deletion pending")
+    UpdateAvailable(action) =>
       sync_status_button("Open update", AcceptRemote(action), emit)
-    Some(DeletedRemotely(action)) =>
+    DeletionAvailable(action) =>
       sync_status_button("Remove deleted document", AcceptRemote(action), emit)
+    Unavailable => @html.nothing
   }
+}
+
+///|
+fn replica_persistence_view(
+  persistence : @replica_persistence.Status,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match persistence {
+    @replica_persistence.Status::Current => @html.nothing
+    Persisting => sync_status_label("Saving sync state", compact="Saving sync")
+    Retryable(action, _) =>
+      sync_status_button("Retry saving", RetrySaving(action), emit)
+  }
+}
+
+///|
+fn activity_view(
+  activity : @sync.Activity,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match activity {
+    @sync.Activity::Idle => @html.nothing
+    Working => sync_status_label("Syncing")
+    Retryable(action) =>
+      sync_status_button("Retry sync", RetrySync(action), emit)
+    Blocked => sync_status_label("Sync paused")
+  }
+}
+
+///|
+fn selection_activity_view(
+  activity : @sync.SelectionActivity,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match activity {
+    @sync.SelectionActivity::Idle => @html.nothing
+    Working => sync_status_label("Opening")
+    Retryable(action) =>
+      sync_status_button("Retry opening", RetrySelection(action), emit)
+  }
+}
+
+///|
+fn render_document_sync(
+  sync : DocumentSync,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match sync {
+    DeviceOnly | Unavailable => @html.nothing
+    SyncAvailable(action) => sync_status_button("Sync", StartSync(action), emit)
+    Linking => sync_status_label("Preparing sync", compact="Preparing")
+    Linked => @html.nothing
+  }
+}
+
+///|
+fn local_durability_option_view(durability : LocalDurability?) -> @rabbita.Html {
+  match durability {
+    None => @html.nothing
+    Some(durability) => local_durability_view(durability)
+  }
+}
+
+///|
+fn document_sync_option_view(
+  sync : DocumentSync?,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match sync {
+    None => @html.nothing
+    Some(sync) => render_document_sync(sync, emit)
+  }
+}
+
+///|
+fn replica_persistence_option_view(
+  persistence : @replica_persistence.Status?,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match persistence {
+    None => @html.nothing
+    Some(persistence) => replica_persistence_view(persistence, emit)
+  }
+}
+
+///|
+fn remote_state_option_view(
+  remote : @documents.RemoteState?,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match remote {
+    None => @html.nothing
+    Some(remote) => remote_state_view(remote, emit)
+  }
+}
+
+///|
+fn activity_option_view(
+  activity : @sync.Activity?,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  match activity {
+    None => @html.nothing
+    Some(activity) => activity_view(activity, emit)
+  }
+}
+
+///|
+fn account_status_section(
+  account : AccountStatus,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
+  @html.div(
+    class=match account {
+      SignedIn(_) => "contents max-[820px]:hidden"
+      Checking | SignedOut | Unavailable | SyncUnavailable => "contents"
+    },
+    [
+      account_status_view(account, emit),
+      @html.span(
+        class="text-lm-rule max-[641px]:hidden",
+        attrs=@html.Attrs::build().aria_hidden("true"),
+        "·",
+      ),
+    ],
+  )
 }
 
 ///|
 fn sync_status_view(
-  account : AccountStatus,
-  document : DocumentSyncStatus?,
-  emit : @rabbita.Emit[Msg],
+  account : @rabbita.Html,
+  durability : @rabbita.Html,
+  persistence : @rabbita.Html,
+  sync : @rabbita.Html,
+  remote : @rabbita.Html,
+  activity : @rabbita.Html,
+  opening : @rabbita.Html,
 ) -> @rabbita.Html {
   @html.div(
-    class="flex min-w-0 items-center gap-1 overflow-hidden text-xs text-lm-muted max-[641px]:order-3 max-[641px]:w-full max-[641px]:justify-center",
+    class="flex min-w-0 flex-wrap items-center justify-center gap-1 text-xs text-lm-muted max-[641px]:order-3 max-[641px]:w-full",
     attrs=@html.Attrs::build().role("status").aria_live("polite"),
-    [
-      @html.div(
-        class=if account == Unavailable {
-          "contents"
-        } else {
-          "contents max-[820px]:hidden"
-        },
-        [
-          account_status_view(account, emit),
-          @html.span(
-            class="text-lm-rule",
-            attrs=@html.Attrs::build().aria_hidden("true"),
-            "·",
-          ),
-        ],
-      ),
-      document_sync_status_view(document, emit),
-    ],
+    [account, durability, persistence, sync, remote, activity, opening],
   )
 }
 
