@@ -59,6 +59,8 @@ fn test_editing() -> EditingState {
     compact: false,
     preview,
     import_failed: false,
+    imports_pending: 0,
+    account: SignedOut,
     new_preparation_request_id: 0,
   }
 }
@@ -2540,6 +2542,8 @@ test "final active delete falls back to a new document" {
     compact: false,
     preview,
     import_failed: false,
+    imports_pending: 0,
+    account: SignedOut,
     new_preparation_request_id: 0,
   }
   let (documents, decisions) = initial.documents.reduce(

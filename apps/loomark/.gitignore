@@ -1,2 +1,4 @@
-.dev.vars
-.dev.vars.*
+.env
+.env.local
+.env.development
+.env.production

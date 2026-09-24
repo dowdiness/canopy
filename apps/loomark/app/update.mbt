@@ -57,6 +57,7 @@ fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
 ///|
 fn EditingState::can_activate(self : Self) -> Bool {
   !(self.creation is Creating(_)) &&
+  !self.account.leaving() &&
   !self.documents.is_composing(self.activation.key) &&
   !self.deletion_blocks_document_changes()
 }
@@ -269,7 +270,62 @@ fn update_page(
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
 ) -> (Page, @rabbita.Cmd) {
-  match (model, msg) {
+  if model is Editing(editing) &&
+    editing.account.leaving() &&
+    login_blocks_message(msg) {
+    return (model, @cmd.none)
+  }
+  let (next, command) = match (model, msg) {
+    (Editing(editing), AccountLoaded(result, failed)) if editing.account ==
+      CheckingAccount =>
+      (
+        Editing({ ..editing, account: account_result(result, failed), }),
+        @cmd.none,
+      )
+    (Editing(editing), CheckAccount) if editing.account == AccountUnavailable =>
+      (Editing({ ..editing, account: CheckingAccount, }), check_account(emit))
+    (Editing(editing), LoginRequested) if editing.account
+      is (SignedOut | LoginFailed(_)) => begin_login(editing, emit)
+    (Editing(editing), LoginPrepared(result)) if editing.account ==
+      StartingLogin =>
+      match google_authorization_url(result) {
+        Some(url) =>
+          (
+            Editing({ ..editing, account: RedirectingToGoogle, }),
+            @cmd.custom_cmd(_ => load_url(url)),
+          )
+        None =>
+          (
+            Editing({ ..editing, account: LoginFailed(AuthenticationFailed), }),
+            @cmd.none,
+          )
+      }
+    (Editing(editing), LogoutRequested) =>
+      match editing.account {
+        SignedIn(name) | LogoutFailed(name) =>
+          (
+            Editing({ ..editing, account: SigningOut(name), }),
+            @http.post("/api/auth/sign-out")
+            .with_json(({} : Json))
+            .expect_empty(emit.map(error => LogoutCompleted(error))),
+          )
+        _ => (model, @cmd.none)
+      }
+    (Editing(editing), LogoutCompleted(error)) =>
+      match editing.account {
+        SigningOut(name) =>
+          (
+            Editing({
+              ..editing,
+              account: match error {
+                None => SignedOut
+                Some(_) => LogoutFailed(name)
+              },
+            }),
+            @cmd.none,
+          )
+        _ => (model, @cmd.none)
+      }
     (Loading(compact), Opened(Ready(saved, initial))) =>
       match initial {
         Some(document) => {
@@ -296,9 +352,11 @@ fn update_page(
               compact,
               preview,
               import_failed: false,
+              imports_pending: 0,
+              account: CheckingAccount,
               new_preparation_request_id: 0,
             }),
-            command,
+            @cmd.batch([command, check_account(emit)]),
           )
         }
         None => {
@@ -357,9 +415,11 @@ fn update_page(
                 compact: preparing.compact,
                 preview,
                 import_failed: false,
+                imports_pending: 0,
+                account: CheckingAccount,
                 new_preparation_request_id: preparing.request_id,
               }),
-              command,
+              @cmd.batch([command, check_account(emit)]),
             )
           }
         }
@@ -480,15 +540,34 @@ fn update_page(
         None => (Editing(editing), @cmd.none)
         Some(file) =>
           (
-            Editing({ ..editing, import_failed: false, }),
+            Editing({
+              ..editing,
+              import_failed: false,
+              imports_pending: editing.imports_pending + 1,
+            }),
             @browser.read(file, emit.map(result => ImportReadCompleted(result))),
           )
       }
     (Editing(editing), ImportReadCompleted(Err(_))) =>
-      (Editing({ ..editing, import_failed: true, }), @cmd.none)
+      (
+        Editing({
+          ..editing,
+          import_failed: true,
+          imports_pending: (editing.imports_pending - 1).max(0),
+        }),
+        @cmd.none,
+      )
     (Editing(editing), ImportReadCompleted(Ok(bytes))) =>
       match decode_import(bytes) {
-        None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
+        None =>
+          (
+            Editing({
+              ..editing,
+              import_failed: true,
+              imports_pending: (editing.imports_pending - 1).max(0),
+            }),
+            @cmd.none,
+          )
         Some(text) =>
           (
             Editing(editing),
@@ -499,8 +578,19 @@ fn update_page(
           )
       }
     (Editing(editing), ImportCreateCompleted(_, CreateFailed(_))) =>
-      (Editing({ ..editing, import_failed: true, }), @cmd.none)
+      (
+        Editing({
+          ..editing,
+          import_failed: true,
+          imports_pending: (editing.imports_pending - 1).max(0),
+        }),
+        @cmd.none,
+      )
     (Editing(editing), ImportCreateCompleted(text, Created(document_id))) => {
+      let editing = {
+        ..editing,
+        imports_pending: (editing.imports_pending - 1).max(0),
+      }
       let (next, persist) = reduce_documents(
         editing,
         @documents.Msg::Imported(document_id, text),
@@ -635,6 +725,7 @@ fn update_page(
     }
     _ => (model, @cmd.none)
   }
+  advance_login(next, emit, command)
 }
 
 ///|

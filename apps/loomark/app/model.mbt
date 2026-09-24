@@ -59,6 +59,8 @@ priv struct EditingState {
   compact : Bool
   preview : @preview.State
   import_failed : Bool
+  imports_pending : Int
+  account : AccountState
   new_preparation_request_id : Int
 } derive(Eq)
 
@@ -125,6 +127,12 @@ priv enum Msg {
   DeleteConfirmed(@documents.Key)
   RetryDelete(@documents.Key)
   DismissDeleteFailure(@documents.Key)
+  AccountLoaded(Result[Json, Error], Bool)
+  CheckAccount
+  LoginRequested
+  LoginPrepared(Result[Json, Error])
+  LogoutRequested
+  LogoutCompleted(Error?)
   Sync(SyncMsg)
 }
 

@@ -98,7 +98,7 @@ work, run `npm run dev:styles` in a second terminal so
 stylesheet is ignored; `styles/tailwind.css` and static utility bundles in
 MoonBit are the sources of truth.
 
-### Account service (integration in progress)
+### Google sign-in and account service
 
 Google authentication uses Better Auth. Its configuration and Worker dispatch
 stay in TypeScript. MoonBit's `server/documents/` owns HTTP admission and wire
@@ -110,6 +110,22 @@ HTTP, D1, and Web Crypto bindings over the existing `js_ffi` bridge.
 The server builds separately from the browser bundle.
 Authentication and documents share one D1 database, with document access scoped
 to the authenticated user.
+
+The header's **Sign in with Google** button saves pending local edits before
+leaving the editor. Failed saves keep the document open; failed authentication
+offers a retry. Signed-in users can sign out without removing local documents.
+
+For local authentication, copy `.env.example` to `.env`, set
+`BETTER_AUTH_URL=http://localhost:8787`, and register
+`http://localhost:8787/api/auth/callback/google` as an authorized redirect URI
+on the Google OAuth client. Then run:
+
+```bash
+cd apps/loomark
+npm ci
+npm run db:migrate:local
+npm run dev:worker
+```
 
 The Source repository now recognizes account-scoped `replica/` records.
 Each replica is one length-prefixed IndexedDB string with a small JSON header

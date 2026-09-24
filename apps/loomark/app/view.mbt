@@ -303,11 +303,11 @@ fn mode_bar(
         ],
       ),
       sync_status,
-      @html.div(class="flex min-w-0 items-center gap-1", [
+      @html.div(class="flex min-w-0 flex-wrap items-center gap-1", [
         examples_bar(
           emit,
           editing.activation,
-          disabled=editing.creation is Creating(_),
+          disabled=editing.creation is Creating(_) || editing.account.leaving(),
         ),
         @html.label(
           class="relative flex min-h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-lm-rule bg-transparent p-0 text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent max-[641px]:min-h-11",
@@ -320,7 +320,9 @@ fn mode_bar(
               id="loomark-import",
               class="sr-only",
               on_files=emit.map(files => ImportFilesSelected(files)),
-              attrs=@html.Attrs::build().aria_label("Import Markdown"),
+              attrs=@html.Attrs::build()
+                .aria_label("Import Markdown")
+                .disabled(editing.account.leaving()),
             ),
           ],
         ),
@@ -332,6 +334,7 @@ fn mode_bar(
           on_click=emit(ExportRequested),
           @view.download_icon("pointer-events-none block size-4"),
         ),
+        account_controls(editing, emit),
       ]),
     ],
   )
@@ -526,6 +529,7 @@ fn view(
                 class="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
                 [
                   mode_bar(sidebar, editing, sync_status, emit),
+                  account_notice(editing.account),
                   mode_content(editing.mode, editor_panels),
                   match
                     (

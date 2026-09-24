@@ -19,6 +19,8 @@ import {
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
+  "moonbit-community/rabbita/http",
+  "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/immut/vector",
   "Yoorkin/rui",
