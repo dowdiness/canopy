@@ -1702,17 +1702,22 @@ fn reduce(
       }
       match result {
         @document_http.DeliveryResult::Acknowledged(revision) => {
-          let base = model.replication.protocol_base(durable)
           let transition = Some(
-            model.sync().acknowledged(base, attempt, revision),
+            model.replication.acknowledge_delivery(durable, attempt, revision),
           ) catch {
             // A delayed response cannot complete a different durable operation.
             _ => None
           }
-          guard transition is Some((sync, attempt)) else {
+          guard transition is Some((replication, effect)) else {
             return (model, @cmd.none)
           }
-          submit_sync_replica(model, sync, attempt, emit)
+          let model = { ..model, replication, }
+          (
+            model,
+            effect
+            .map(value => run_replication_effect(saved, value, emit))
+            .unwrap_or(@cmd.none),
+          )
         }
         RevisionConflict => {
           let base = model.replication.protocol_base(durable)
@@ -1799,20 +1804,21 @@ fn reduce(
       }
       match result {
         @document_http.RemoteResult::Found(remote) => {
-          let base = model.replication.protocol_base(durable)
-          let transition = Some(model.sync().received(base, attempt, remote)) catch {
+          let transition = Some(
+            model.replication.receive_remote(durable, attempt, remote),
+          ) catch {
             _ => None
           }
-          guard transition is Some((sync, write)) else {
+          guard transition is Some((replication, effect)) else {
             return (model, @cmd.none)
           }
-          let (model, store) = submit_sync_replica(model, sync, write, emit)
-          let (model, advance) = if write is None {
-            settle_replica(model, durable, emit)
-          } else {
-            (model, @cmd.none)
-          }
-          (model, @cmd.batch([store, advance]))
+          let model = { ..model, replication, }
+          (
+            model,
+            effect
+            .map(value => run_replication_effect(saved, value, emit))
+            .unwrap_or(@cmd.none),
+          )
         }
         AccountChanged | Unavailable => {
           let base = model.replication.protocol_base(durable)

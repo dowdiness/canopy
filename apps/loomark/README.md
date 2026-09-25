@@ -320,10 +320,16 @@ document keys, while account/document/generation identity rejects unrelated
 delayed completions. No generic account-incarnation token or callback registry
 is added. The pure document reducer emits an exact Source operation for
 local-only data and an account-qualified eligible Document for synced data.
-Sync protocol transitions derive replica writes but never execute them. All
-Autosave, acknowledgment, reconciliation, sync-start, and recovery writes enter
-the aggregate's one persistence state machine; the root only interprets the
-already-admitted persistence or network effect.
+Sync protocol transitions derive replica writes but never execute them. The
+aggregate admits successful delivery receipts and remote-read reconciliations
+against the newest causal Replica head; resulting writes enter its persistence
+lane and cannot advance sync before commit. If a read yields no write, only the
+current account and lane can advance. All Autosave, acknowledgment,
+reconciliation, sync-start, and recovery writes enter the aggregate's one
+persistence state machine. The root still classifies protocol failures, resolves
+accounts, handles page state, interprets admitted persistence or network
+effects, and applies browser storage acknowledgments to its latest Documents
+state.
 
 Account lookup itself carries a latest-request ID because its result determines
 the account and cannot yet be routed by one. While that lookup is unresolved,
