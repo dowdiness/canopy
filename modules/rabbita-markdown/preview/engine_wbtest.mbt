@@ -234,7 +234,10 @@ test "PreviewEngine publishes lazy task-list HTML after an edit" {
 ///|
 test "PreviewEngine keeps a healthy parser for ReplaceAll" {
   let engine = PreviewEngine::PreviewEngine()
-  ignore(engine.prepare("Before\n"))
+  guard engine.prepare("Before\n") is Ok(before) else {
+    abort("initial preparation failed")
+  }
+  assert_true(engine.accept(before))
   assert_eq(
     engine.apply(@text_change.ReplaceAll("# After\n"), "# After\n"),
     Ok(()),
@@ -243,6 +246,9 @@ test "PreviewEngine keeps a healthy parser for ReplaceAll" {
     abort("ReplaceAll refresh failed")
   }
   assert_true(!result.empty)
+  let html = @rabbita_testing.server_side_render(() => result.html)
+  assert_true(html.contains("After"))
+  assert_false(html.contains("Before"))
   match engine.state {
     Healthy(source~, ..) => assert_eq(source, "# After\n")
     NoPair | Broken => abort("expected healthy Preview parser")
