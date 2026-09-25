@@ -22,9 +22,6 @@ enum Msg {
 }
 
 ///|
-let initial_text = "# Markdown playground\n\nEdit this document and switch between **Text**, **Preview**, and **Split**.\n\n- Your text lives in this example app.\n- Preview is derived from accepted edits.\n"
-
-///|
 fn update(
   model : Model,
   msg : Msg,
@@ -103,22 +100,20 @@ fn view(
   emit : @rabbita.Emit[Msg],
   model : Model,
   area : @text_area.TextArea,
+  id : String,
+  name : String,
 ) -> @rabbita.Html {
-  @html.div(class="page", [
-    @html.header([
-      @html.p(class="eyebrow", "RABBITA MARKDOWN / PROTOTYPE"),
-      @html.h1("A document, without an app around it."),
-      @html.p(
-        class="intro",
-        "A small consumer of the extracted input and preview packages. No account, storage, or sync.",
-      ),
-    ]),
-    @html.div(class="workspace", [
+  @html.section(
+    class="workspace",
+    attrs=@html.Attrs::build().aria_label(name),
+    [
       @html.div(class="toolbar", [
-        @html.span(class="document-name", "Untitled.md"),
+        @html.span(class="document-name", name),
         @html.div(
           class="modes",
-          attrs=@html.Attrs::build().aria_label("View mode").role("group"),
+          attrs=@html.Attrs::build()
+            .aria_label("\{name} view mode")
+            .role("group"),
           [
             mode_button(Text, model.mode, "Text", emit),
             mode_button(Preview, model.mode, "Preview", emit),
@@ -140,7 +135,7 @@ fn view(
             rows=20,
             class="editor-input",
             attrs=area.attach(
-              @html.Attrs::build().aria_label("Markdown text"),
+              @html.Attrs::build().aria_label("\{name} Markdown text"),
               change => emit(Edit(change)),
               composing => emit(CompositionChanged(composing)),
             ),
@@ -152,7 +147,7 @@ fn view(
           attrs=@html.Attrs::build()
             .hidden(model.mode == Text)
             .aria_label("Rendered Markdown"),
-          model.preview.view(),
+          model.preview.view(id="\{id}-preview"),
         ),
       ]),
       @html.div(class="footer", [
@@ -165,29 +160,72 @@ fn view(
         ),
         @html.span("Not saved"),
       ]),
-    ]),
-  ])
+    ],
+  )
+}
+
+///|
+fn editor(
+  id : String,
+  name : String,
+  initial_text : String,
+  initial_mode : Mode,
+) -> @rabbita.Val[@rabbita.Html] {
+  let area = @text_area.TextArea::TextArea("\{id}-text")
+  let engine = @preview.PreviewEngine::PreviewEngine()
+  let (model, emit) = @rabbita.create_state_with_init(
+    init=emit => {
+      let (preview, activated) = engine.activate(
+        @preview.Input(0, initial_text),
+      )
+      let (preview, requested) = if initial_mode == Text {
+        (preview, @cmd.none)
+      } else {
+        engine.request(
+          preview,
+          @preview.Input(0, initial_text),
+          emit.map(event => PreviewCompleted(event)),
+        )
+      }
+      (
+        { text: initial_text, mode: initial_mode, preview, composing: false, },
+        @cmd.batch([area.initialize(initial_text), activated, requested]),
+      )
+    },
+    update=(model, msg, emit) => update(model, msg, emit, area, engine),
+  )
+  model.map(current => view(emit, current, area, id, name))
 }
 
 ///|
 #cfg(target="js")
 fn main {
   fn app() {
-    let area = @text_area.TextArea::TextArea("markdown-demo-text")
-    let engine = @preview.PreviewEngine::PreviewEngine()
-    let (model, emit) = @rabbita.create_state_with_init(
-      init=_emit => {
-        let (preview, command) = engine.activate(
-          @preview.Input(0, initial_text),
-        )
-        (
-          { text: initial_text, mode: Text, preview, composing: false, },
-          @cmd.batch([area.initialize(initial_text), command]),
-        )
-      },
-      update=(model, msg, emit) => update(model, msg, emit, area, engine),
+    let left = editor(
+      "draft-a",
+      "Draft A",
+      "# First draft\n\nAn **independent** Markdown document.\n\n- Alpha\n- Beta\n",
+      Text,
     )
-    model.map(current => view(emit, current, area))
+    let right = editor(
+      "draft-b",
+      "Draft B",
+      "# Second draft\n\nEdit here without changing Draft A.\n\n- One\n- Two\n",
+      Split,
+    )
+    left.map2(right, (left, right) => {
+      @html.div(class="page", [
+        @html.header([
+          @html.p(class="eyebrow", "RABBITA MARKDOWN / PROTOTYPE"),
+          @html.h1("Two documents, no application around them."),
+          @html.p(
+            class="intro",
+            "Independent input and preview. No account, storage, or sync.",
+          ),
+        ]),
+        @html.div(class="editor-grid", [left, right]),
+      ])
+    })
   }
   @rabbita.new(app).mount("app")
 }

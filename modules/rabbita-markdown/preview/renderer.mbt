@@ -110,7 +110,10 @@ fn render_opaque_source(
   match position {
     Phrasing => @html.text(value)
     Flow =>
-      @html.pre(class="m-0 whitespace-pre-wrap font-lm-ui text-inherit", value)
+      @html.pre(
+        class="rmd-opaque m-0 whitespace-pre-wrap font-lm-ui text-inherit",
+        value,
+      )
   }
 }
 

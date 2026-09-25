@@ -34,7 +34,7 @@ pub fn PreviewEngine::update(Self, State, Input, Event, @cmd.Emit[Event]) -> (St
 pub struct State {
   // private fields
 } derive(Eq)
-pub fn State::view(Self) -> @html.Html
+pub fn State::view(Self, id? : String) -> @html.Html
 
 // Type aliases
 

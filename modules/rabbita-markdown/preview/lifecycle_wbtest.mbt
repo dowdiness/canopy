@@ -10,6 +10,23 @@ fn render_lifecycle_state(state : State) -> String {
 }
 
 ///|
+test "Preview view uses only a caller-supplied scroll ID" {
+  let state : State = { phase: Unrequested, demanded: false, }
+  let unnamed = render_lifecycle_state(state)
+  assert_false(unnamed.contains(" id=\""))
+  let left = @rabbita_testing.server_side_render(() => {
+    state.view(id="left-preview")
+  })
+  let right = @rabbita_testing.server_side_render(() => {
+    state.view(id="right-preview")
+  })
+  assert_true(left.contains("id=\"left-preview\""))
+  assert_false(left.contains("right-preview"))
+  assert_true(right.contains("id=\"right-preview\""))
+  assert_false(right.contains("left-preview"))
+}
+
+///|
 test "suspend fences preparation before after-paint work" {
   let engine = PreviewEngine::PreviewEngine()
   let input = Input(1, "# Current\n")

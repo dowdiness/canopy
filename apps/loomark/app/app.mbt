@@ -118,7 +118,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 } else {
                   ["display:none;overflow:hidden"]
                 },
-                input.preview.view(),
+                input.preview.view(id="loomark-preview-scroll"),
               ),
             ]
           }

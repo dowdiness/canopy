@@ -1,0 +1,87 @@
+/* Load this stylesheet in consumers that do not use Loomark's Tailwind theme. */
+.rmd-preview {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  color: var(--rmd-ink, #25342f);
+  background: var(--rmd-background, #fff);
+  font: 1rem/1.7 var(--rmd-font, system-ui, sans-serif);
+}
+
+.rmd-preview:focus-visible {
+  outline: 2px solid var(--rmd-accent, #26744a);
+  outline-offset: -2px;
+}
+
+.rmd-preview-content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 46rem;
+  min-width: 0;
+  margin-inline: auto;
+  padding: 2rem clamp(1rem, 4vw, 2rem) 4rem;
+  overflow-wrap: anywhere;
+}
+
+.rmd-preview-content :where(h1, h2, h3, h4, h5, h6) {
+  color: var(--rmd-ink, #25342f);
+  font-weight: 650;
+  line-height: 1.25;
+  margin: 1.5em 0 .55em;
+}
+
+.rmd-preview-content :where(h1) { font-size: 1.8em; }
+.rmd-preview-content :where(h2) { font-size: 1.4em; }
+.rmd-preview-content :where(h3) { font-size: 1.2em; }
+.rmd-preview-content :where(p, ul, ol, blockquote, pre) { margin: 0 0 1.1em; }
+.rmd-preview-content :where(ul, ol) { padding-inline-start: 1.6em; }
+.rmd-preview-content :where(li + li) { margin-block-start: .25em; }
+.rmd-preview-content :where(li > ul, li > ol) { margin-block: .4em; }
+.rmd-preview-content :where(a) { color: var(--rmd-accent, #26744a); }
+.rmd-preview-content :where(a:hover) { text-decoration-thickness: 2px; }
+.rmd-preview-content :where(blockquote) {
+  padding-inline-start: 1em;
+  border-inline-start: 3px solid var(--rmd-rule, #d5ded6);
+  color: var(--rmd-muted, #65756e);
+}
+.rmd-preview-content :where(code, pre) { font-family: var(--rmd-mono, ui-monospace, monospace); }
+.rmd-preview-content :where(code):not(pre code) {
+  padding: .1em .3em;
+  border-radius: .25em;
+  background: var(--rmd-code-background, #f0f3ef);
+}
+.rmd-preview-content :where(pre) {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 1em;
+  border-radius: .4em;
+  background: var(--rmd-code-background, #f0f3ef);
+  white-space: pre-wrap;
+}
+.rmd-preview-content :where(pre.rmd-opaque) {
+  padding: 0;
+  background: none;
+  font-family: inherit;
+}
+.rmd-preview-content :where(img) { max-width: 100%; height: auto; }
+.rmd-preview-content :where(hr) { border: 0; border-top: 1px solid var(--rmd-rule, #d5ded6); margin: 2em 0; }
+.rmd-preview-content :where([data-loomark-task-checkbox]) {
+  margin-inline-end: .5em;
+  accent-color: var(--rmd-accent, #26744a);
+  vertical-align: middle;
+  opacity: 1;
+}
+.rmd-preview-content :where(:first-child) { margin-top: 0; }
+.rmd-status { color: var(--rmd-muted, #65756e); }
+.rmd-error { color: var(--rmd-danger, #a33b38); }
+.rmd-error-stale {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: .65em 1em;
+  border-bottom: 1px solid var(--rmd-danger, #a33b38);
+  background: var(--rmd-danger-background, #fff0ee);
+  font-size: .875em;
+}
