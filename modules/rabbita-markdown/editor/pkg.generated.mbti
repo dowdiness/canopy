@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/rabbita_markdown/editor"
+
+import {
+  "dowdiness/rabbita_markdown/preview",
+  "dowdiness/rabbita_markdown/text_area",
+  "dowdiness/text_change",
+  "moonbit-community/rabbita/cmd",
+}
+
+// Values
+pub fn accepted(@text_area.TextArea, @preview.PreviewEngine, @preview.State, Int, String, @text_change.TextChange, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
+
+pub fn activate(@text_area.TextArea, @preview.PreviewEngine, Int, String, Bool, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
+
+pub fn visibility_changed(@preview.PreviewEngine, @preview.State, Int, String, Bool, Bool, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

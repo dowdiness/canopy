@@ -1,0 +1,9 @@
+import {
+  "dowdiness/rabbita_markdown/preview",
+  "dowdiness/rabbita_markdown/text_area",
+  "dowdiness/text_change",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+}
+
+supported_targets = "js"

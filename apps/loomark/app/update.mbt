@@ -103,20 +103,13 @@ fn activate_surface(
   text_area : @text_area.TextArea,
   preview_engine : @preview.PreviewEngine,
 ) -> (@preview.State, @rabbita.Cmd) {
-  let input = @preview.Input(activation.generation, text)
-  let (preview, activate_command) = preview_engine.activate(input)
-  let (preview, request_command) = if mode == Text {
-    (preview, @cmd.none)
-  } else {
-    preview_engine.request(
-      preview,
-      input,
-      emit.map(event => PreviewEvent(event)),
-    )
-  }
-  (
-    preview,
-    @cmd.batch([text_area.initialize(text), activate_command, request_command]),
+  @editor.activate(
+    text_area,
+    preview_engine,
+    activation.generation,
+    text,
+    mode != Text,
+    emit.map(event => PreviewEvent(event)),
   )
 }
 
@@ -419,10 +412,12 @@ fn update_page(
                 text_area.initialize(editing.documents.text(key).unwrap_or("")),
               )
             } else {
-              text_area.accepted(text)
-              let (preview, preview_command) = preview_engine.document_changed(
+              let (preview, preview_command) = @editor.accepted(
+                text_area,
+                preview_engine,
                 editing.preview,
-                preview_input(editing),
+                editing.activation.generation,
+                text,
                 change,
                 emit.map(event => PreviewEvent(event)),
               )
@@ -445,25 +440,18 @@ fn update_page(
         (Editing(editing), @cmd.none)
       }
     (Editing(editing), ModeSelected(mode)) => {
-      let entering_preview = editing.mode == Text && mode != Text
-      let leaving_preview = editing.mode != Text && mode == Text
+      let was_visible = editing.mode != Text
       let editing = { ..editing, mode, }
-      if entering_preview {
-        let (preview, command) = preview_engine.request(
-          editing.preview,
-          preview_input(editing),
-          emit.map(event => PreviewEvent(event)),
-        )
-        (Editing({ ..editing, preview, }), command)
-      } else if leaving_preview {
-        let (preview, command) = preview_engine.suspend(
-          editing.preview,
-          preview_input(editing),
-        )
-        (Editing({ ..editing, preview, }), command)
-      } else {
-        (Editing(editing), @cmd.none)
-      }
+      let (preview, command) = @editor.visibility_changed(
+        preview_engine,
+        editing.preview,
+        editing.activation.generation,
+        editing.documents.text(editing.activation.key).unwrap_or(""),
+        was_visible,
+        mode != Text,
+        emit.map(event => PreviewEvent(event)),
+      )
+      (Editing({ ..editing, preview, }), command)
     }
     (Editing(editing), ImportFilesSelected(files)) =>
       match files.get(0) {

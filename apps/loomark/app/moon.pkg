@@ -11,6 +11,7 @@ import {
   "dowdiness/loomark/internal/recent_documents",
   "dowdiness/loomark/internal/view",
   "dowdiness/loomark/internal/sidebar",
+  "dowdiness/rabbita_markdown/editor",
   "dowdiness/rabbita_markdown/preview",
   "dowdiness/rabbita_markdown/text_area",
   "dowdiness/loomark/internal/timeout",

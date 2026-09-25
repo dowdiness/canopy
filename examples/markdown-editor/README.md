@@ -1,8 +1,9 @@
 # Markdown editor prototype
 
-A save-free Rabbita consumer of `dowdiness/rabbita_markdown/text_area` and
-`dowdiness/rabbita_markdown/preview`. The example owns the committed document
-string; only accepted `TextChange` values advance the incremental preview.
+A save-free Rabbita consumer of `dowdiness/rabbita_markdown/editor`,
+`text_area`, and `preview`. The example owns the committed document string;
+only accepted `TextChange` values advance the incremental preview through
+the shared editor coordination functions.
 
 Run from this directory with `warren dev` (or build with `warren build`).
 The page renders two independent documents: Draft A starts in Text mode and

@@ -36,10 +36,12 @@ fn update(
           (model, area.value(text => emit(Edit(@text_change.ReplaceAll(text)))))
         Some(text) if text == model.text => (model, @cmd.none)
         Some(text) => {
-          area.accepted(text)
-          let (preview, command) = engine.document_changed(
+          let (preview, command) = @editor.accepted(
+            area,
+            engine,
             model.preview,
-            @preview.Input(0, text),
+            0,
+            text,
             change,
             emit.map(event => PreviewCompleted(event)),
           )
@@ -48,18 +50,15 @@ fn update(
       }
     CompositionChanged(composing) => ({ ..model, composing, }, @cmd.none)
     ModeSelected(mode) => {
-      let input = @preview.Input(0, model.text)
-      let (preview, command) = if model.mode == Text && mode != Text {
-        engine.request(
-          model.preview,
-          input,
-          emit.map(event => PreviewCompleted(event)),
-        )
-      } else if model.mode != Text && mode == Text {
-        engine.suspend(model.preview, input)
-      } else {
-        (model.preview, @cmd.none)
-      }
+      let (preview, command) = @editor.visibility_changed(
+        engine,
+        model.preview,
+        0,
+        model.text,
+        model.mode != Text,
+        mode != Text,
+        emit.map(event => PreviewCompleted(event)),
+      )
       ({ ..model, mode, preview, }, command)
     }
     PreviewCompleted(event) => {
@@ -176,21 +175,17 @@ fn editor(
   let engine = @preview.PreviewEngine::PreviewEngine()
   let (model, emit) = @rabbita.create_state_with_init(
     init=emit => {
-      let (preview, activated) = engine.activate(
-        @preview.Input(0, initial_text),
+      let (preview, command) = @editor.activate(
+        area,
+        engine,
+        0,
+        initial_text,
+        initial_mode != Text,
+        emit.map(event => PreviewCompleted(event)),
       )
-      let (preview, requested) = if initial_mode == Text {
-        (preview, @cmd.none)
-      } else {
-        engine.request(
-          preview,
-          @preview.Input(0, initial_text),
-          emit.map(event => PreviewCompleted(event)),
-        )
-      }
       (
         { text: initial_text, mode: initial_mode, preview, composing: false, },
-        @cmd.batch([area.initialize(initial_text), activated, requested]),
+        command,
       )
     },
     update=(model, msg, emit) => update(model, msg, emit, area, engine),
