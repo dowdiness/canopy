@@ -48,6 +48,7 @@ members = [
   "./apps/block-editor",
   "./examples/codemirror",
   "./examples/resizable",
+  "./examples/markdown-editor",
   "./examples/disclosure",
   "./tools/verification/sync_session",
 ]
