@@ -4,9 +4,9 @@
 @source "../app";
 @source not "../app/example_documents";
 @source not "../app/example_*.g.mbt";
-@source "../internal/preview";
-@source not "../internal/preview/*test.mbt";
-@source not "../internal/preview/*benchmark*.mbt";
+@source "../../../modules/rabbita-markdown/preview";
+@source not "../../../modules/rabbita-markdown/preview/*test.mbt";
+@source not "../../../modules/rabbita-markdown/preview/*benchmark*.mbt";
 @source "../internal/recent_documents";
 @source not "../internal/recent_documents/*test.mbt";
 @source "../internal/view";

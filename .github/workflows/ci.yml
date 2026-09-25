@@ -79,6 +79,7 @@ jobs:
               - '.github/workflows/ci.yml'
             run_loomark_standalone_e2e:
               - 'apps/loomark/**'
+              - 'modules/rabbita-markdown/**'
               - 'modules/js-ffi/**'
               - 'modules/worker-platform/**'
               - 'deps/loom'

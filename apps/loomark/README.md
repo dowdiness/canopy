@@ -18,8 +18,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 `apps/loomark/main/main.mbt` mounts that application. Browser integration is
 split between `apps/loomark/app/internal/source_repository`, which reconciles exact-text Documents
 and derives an in-memory Catalog through `open`, `save`, and `delete`,
-and `apps/loomark/internal/text_area`, which converts native textarea
-input sequences into shared `TextChange` operations.
+and `modules/rabbita-markdown/text_area`, which converts native textarea
+input sequences into shared `TextChange` operations. The same module owns the
+incremental Preview engine; Loomark owns the document text and coordinates both.
 
 Recent documents are a demand-driven keyed projection: DocumentLead extraction is retained per document and visible row rendering is disposable while the sidebar is collapsed.
 

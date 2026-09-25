@@ -11,6 +11,7 @@ import {
   "dowdiness/worker_platform@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/markdown@0.1.0",
+  "dowdiness/rabbita_markdown@0.1.0",
   "dowdiness/seam@0.1.0",
   "dowdiness/text_change@0.1.0",
 }

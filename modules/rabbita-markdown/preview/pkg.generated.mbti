@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/internal/preview"
+package "dowdiness/rabbita_markdown/preview"
 
 import {
   "dowdiness/text_change",
