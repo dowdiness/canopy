@@ -16,6 +16,7 @@ pub struct TextArea {
   // private fields
 }
 pub fn TextArea::TextArea(String) -> Self
+pub fn TextArea::accepted(Self, String) -> Unit
 pub fn TextArea::attach(Self, @html.Attrs, (@text_change.TextChange) -> @cmd.Cmd, (Bool) -> @cmd.Cmd) -> @html.Attrs
 pub fn TextArea::initialize(Self, String) -> @cmd.Cmd
 pub fn TextArea::value(Self, (String) -> @cmd.Cmd) -> @cmd.Cmd

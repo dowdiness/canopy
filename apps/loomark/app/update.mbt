@@ -419,6 +419,7 @@ fn update_page(
                 text_area.initialize(editing.documents.text(key).unwrap_or("")),
               )
             } else {
+              text_area.accepted(text)
               let (preview, preview_command) = preview_engine.document_changed(
                 editing.preview,
                 preview_input(editing),

@@ -37,15 +37,28 @@ priv enum InputOperation {
 }
 
 ///|
+let next_text_area_owner : Ref[Int] = Ref::Ref(0)
+
+///|
 /// One browser-owned textarea used by Loomark.
 pub struct TextArea {
   priv id : String
+  priv owner : String
   priv mut state : InputState
+  priv mut restore_version : Int
+  priv mut pending_restore : String?
 }
 
 ///|
 pub fn TextArea::TextArea(id : String) -> TextArea {
-  { id, state: Idle, }
+  next_text_area_owner.val += 1
+  {
+    id,
+    owner: next_text_area_owner.val.to_string(),
+    state: Idle,
+    restore_version: 0,
+    pending_restore: None,
+  }
 }
 
 ///|
@@ -254,6 +267,7 @@ pub fn TextArea::attach(
 ) -> @html.Attrs {
   attrs
   .id(self.id)
+  .data_set("rmd-text-area-owner", self.owner)
   .on_beforeinput(event => {
     let text_area = input_target(event)
     if self.state is Composing(_) || event.is_composing() {
@@ -303,10 +317,39 @@ pub fn TextArea::initialize(
   document_text : String,
 ) -> @cmd.Cmd {
   self.state = Idle
+  self.restore_version += 1
+  self.pending_restore = Some(document_text)
+  let version = self.restore_version
   @cmd.custom_cmd(
-    _ => text_area_by_id(self.id).set_value(document_text),
+    _ => {
+      guard version == self.restore_version else { return }
+      guard self.pending_restore is Some(text) else { return }
+      self.pending_restore = None
+      guard @dom.document().get_element_by_id(self.id).to_option()
+        is Some(element) else {
+        return
+      }
+      guard @dom.IsElement::get_attribute(element, "data-rmd-text-area-owner") ==
+        Some(self.owner) else {
+        return
+      }
+      guard @dom.IsEventTarget::to_html_text_area_element(element)
+        is Some(text_area) else {
+        return
+      }
+      text_area.set_value(text)
+    },
     kind=@cmd.after_render,
   )
+}
+
+///|
+/// Keep a pending restoration aligned with the latest accepted Document text.
+/// Normal edits do not write to the native textarea or disturb selection.
+pub fn TextArea::accepted(self : TextArea, text : String) -> Unit {
+  if self.pending_restore is Some(_) {
+    self.pending_restore = Some(text)
+  }
 }
 
 ///|

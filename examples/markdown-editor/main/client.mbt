@@ -36,6 +36,7 @@ fn update(
           (model, area.value(text => emit(Edit(@text_change.ReplaceAll(text)))))
         Some(text) if text == model.text => (model, @cmd.none)
         Some(text) => {
+          area.accepted(text)
           let (preview, command) = engine.document_changed(
             model.preview,
             @preview.Input(0, text),

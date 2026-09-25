@@ -6,6 +6,13 @@ owns the accepted document text and connects the two: it applies each
 `TextChange` to its document before notifying the preview. Storage, sync, mode
 controls, and split-pane layout remain in Loomark.
 
+When an edit is accepted, call `TextArea::accepted` with the resulting text
+before returning from the app update. It normally leaves the browser textarea
+alone; if an earlier rejection scheduled an after-render restoration, that
+restoration instead uses the latest accepted text. `initialize` still handles
+document activation and rejected edits. The app must fence old-document input
+notifications before accepting them.
+
 The packages are currently building blocks for the workspace, not yet a
 standalone embeddable editor or a stable external integration API. For preview
 rendering outside Loomark, load `styles/preview.css` alongside the compiled
