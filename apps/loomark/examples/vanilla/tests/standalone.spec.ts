@@ -1720,6 +1720,54 @@ test("Delete document cancellation preserves the Source and editor", async ({ pa
   await expect(text).toHaveValue("# Still editable\n")
 })
 
+test("queued full-value input cannot commit a rejected range edit to Documents", async ({ page }) => {
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
+  await openStoredDocuments(page, [documentA, documentB])
+  await page.getByRole("tab", { name: "Split" }).click()
+  const text = page.getByRole("textbox", { name: "Text" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await expect(text).toHaveValue(documentA.text)
+  await expect(preview.getByRole("heading", { name: "A" })).toBeVisible()
+  await page.evaluate(installDocumentPutLog, sourceKey(documentA.document_id))
+
+  // A divergent native value gives valid before/after range facts whose start
+  // is past the accepted Document text. Loomark rejects that ReplaceRange and
+  // restores the Document; the subsequent ReplaceAll was queued before that
+  // rejection and must not commit the divergent native value.
+  const beforeDrain = await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    area.value = "# A\nLONG"
+    area.setSelectionRange(area.value.length, area.value.length)
+    area.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true, composed: true, cancelable: true, inputType: "insertText", data: "!",
+    }))
+    area.value += "!"
+    area.setSelectionRange(area.value.length, area.value.length)
+    area.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, inputType: "insertText", data: "!",
+    }))
+    area.value += "X"
+    area.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, inputType: "insertText", data: "X",
+    }))
+    return area.value
+  })
+  expect(beforeDrain).toBe("# A\nLONG!X")
+  await expect(text).toHaveValue(documentA.text)
+  await expect(preview.getByRole("heading", { name: "A" })).toBeVisible()
+  await expect(preview).not.toContainText("LONG")
+  await page.waitForTimeout(350) // Let an incorrectly accepted edit reach quiet Autosave.
+  expect(await readDocumentPutLog(page)).toEqual([])
+  expect(await readStoredDocuments(page)).toEqual([documentA, documentB])
+
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(3, 3))
+  await text.press("B")
+  await expect(text).toHaveValue("# AB\n")
+  await expect(preview.getByRole("heading", { name: "AB" })).toBeVisible()
+  await expectStoredDocument(page, { ...documentA, text: "# AB\n" })
+})
+
 test("final Delete leaves an empty New with a live Split Preview", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
