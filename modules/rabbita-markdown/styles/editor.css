@@ -1,0 +1,40 @@
+/* Load alongside preview.css for MarkdownEditor::view. */
+.rmd-editor {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.rmd-editor-pane {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: auto;
+}
+
+.rmd-editor-pane[hidden] { display: none; }
+.rmd-editor-split { border-right: 1px solid var(--rmd-rule, #d5ded6); }
+
+.rmd-editor-input {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  min-height: 18rem;
+  border: 0;
+  padding: 2rem;
+  background: var(--rmd-background, #fff);
+  color: var(--rmd-ink, #25342f);
+  caret-color: var(--rmd-accent, #26744a);
+  font: 1rem/1.7 var(--rmd-mono, ui-monospace, monospace);
+  resize: vertical;
+}
+
+.rmd-editor-input:focus-visible {
+  outline: 2px solid var(--rmd-accent, #26744a);
+  outline-offset: -2px;
+}
+
+@media (max-width: 700px) {
+  .rmd-editor { flex-direction: column; }
+  .rmd-editor-split { border-right: 0; border-bottom: 1px solid var(--rmd-rule, #d5ded6); }
+}

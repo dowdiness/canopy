@@ -6,6 +6,7 @@ import {
   "dowdiness/rabbita_markdown/text_area",
   "dowdiness/text_change",
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
 }
 
 // Values
@@ -18,6 +19,38 @@ pub fn visibility_changed(@preview.PreviewEngine, @preview.State, Int, String, B
 // Errors
 
 // Types and methods
+pub struct EditorEvent {
+  // private fields
+}
+
+pub struct EditorState {
+  // private fields
+} derive(Eq)
+
+pub struct InputEdit {
+  // private fields
+}
+
+pub struct MarkdownEditor {
+  // private fields
+}
+pub fn MarkdownEditor::MarkdownEditor(String) -> Self
+pub fn MarkdownEditor::accepted(Self, EditorState, Int, String, @text_change.TextChange, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::activate(Self, Int, String, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::admit(Self, InputEdit) -> @text_change.TextChange?
+pub fn MarkdownEditor::input_view(Self, String, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd, disabled? : Bool, read_only? : Bool, rows? : Int, autofocus? : Bool, class? : String) -> @html.Html
+pub fn MarkdownEditor::mode_changed(Self, EditorState, Int, String, Mode, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::preview_view(Self, EditorState, id? : String) -> @html.Html
+pub fn MarkdownEditor::restore(Self, String) -> @cmd.Cmd
+pub fn MarkdownEditor::update(Self, EditorState, Int, String, EditorEvent, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::value(Self, (String) -> @cmd.Cmd) -> @cmd.Cmd
+pub fn MarkdownEditor::view(Self, EditorState, Mode, String, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd, disabled? : Bool, read_only? : Bool) -> @html.Html
+
+pub(all) enum Mode {
+  Text
+  Preview
+  Split
+} derive(Eq)
 
 // Type aliases
 

@@ -37,10 +37,31 @@ priv enum InputOperation {
 }
 
 ///|
+/// A native edit captured before the host decides whether to accept it.
+pub struct InputEdit {
+  priv owner : String
+  priv version : Int
+  priv change : @text_change.TextChange
+}
+
+///|
+fn admit_edit(
+  owner : String,
+  version : Int,
+  edit : InputEdit,
+) -> @text_change.TextChange? {
+  if owner == edit.owner && version == edit.version {
+    Some(edit.change)
+  } else {
+    None
+  }
+}
+
+///|
 let next_text_area_owner : Ref[Int] = Ref::Ref(0)
 
 ///|
-/// One browser-owned textarea used by Loomark.
+/// One browser-owned textarea for a Markdown editor instance.
 pub struct TextArea {
   priv id : String
   priv owner : String
@@ -247,13 +268,19 @@ fn decide_composition_end(
 fn emit_decision(
   decision : InputDecision,
   text_area : @dom.HTMLTextAreaElement,
-  on_change : (@text_change.TextChange) -> @cmd.Cmd,
+  owner : String,
+  version : Int,
+  on_change : (InputEdit) -> @cmd.Cmd,
 ) -> @cmd.Cmd {
   match decision {
     Ignore => @cmd.none
-    Emit(change) => on_change(change)
+    Emit(change) => on_change({ owner, version, change, })
     ReadValue =>
-      on_change(@text_change.TextChange::ReplaceAll(text_area.get_value()))
+      on_change({
+        owner,
+        version,
+        change: @text_change.TextChange::ReplaceAll(text_area.get_value()),
+      })
   }
 }
 
@@ -262,7 +289,7 @@ fn emit_decision(
 pub fn TextArea::attach(
   self : TextArea,
   attrs : @html.Attrs,
-  on_change : (@text_change.TextChange) -> @cmd.Cmd,
+  on_change : (InputEdit) -> @cmd.Cmd,
   on_composing : (Bool) -> @cmd.Cmd,
 ) -> @html.Attrs {
   attrs
@@ -288,7 +315,13 @@ pub fn TextArea::attach(
       event.is_composing(),
     )
     self.state = next_state
-    emit_decision(decision, text_area, on_change)
+    emit_decision(
+      decision,
+      text_area,
+      self.owner,
+      self.restore_version,
+      on_change,
+    )
   })
   .on_compositionstart(event => {
     let text_area = composition_target(event)
@@ -304,10 +337,44 @@ pub fn TextArea::attach(
     )
     self.state = CompositionEnded
     @cmd.batch([
-      emit_decision(decision, text_area, on_change),
+      emit_decision(
+        decision,
+        text_area,
+        self.owner,
+        self.restore_version,
+        on_change,
+      ),
       on_composing(false),
     ])
   })
+}
+
+///|
+/// Classify an input once, before applying it to host-owned text.
+pub fn TextArea::admit(
+  self : TextArea,
+  edit : InputEdit,
+) -> @text_change.TextChange? {
+  admit_edit(self.owner, self.restore_version, edit)
+}
+
+///|
+fn TextArea::write_pending(self : TextArea, version : Int) -> Unit {
+  guard version == self.restore_version else { return }
+  guard self.pending_restore is Some(text) else { return }
+  self.pending_restore = None
+  guard @dom.document().get_element_by_id(self.id).to_option() is Some(element) else {
+    return
+  }
+  guard @dom.IsElement::get_attribute(element, "data-rmd-text-area-owner") ==
+    Some(self.owner) else {
+    return
+  }
+  guard @dom.IsEventTarget::to_html_text_area_element(element)
+    is Some(text_area) else {
+    return
+  }
+  text_area.set_value(text)
 }
 
 ///|
@@ -320,27 +387,18 @@ pub fn TextArea::initialize(
   self.restore_version += 1
   self.pending_restore = Some(document_text)
   let version = self.restore_version
-  @cmd.custom_cmd(
-    _ => {
-      guard version == self.restore_version else { return }
-      guard self.pending_restore is Some(text) else { return }
-      self.pending_restore = None
-      guard @dom.document().get_element_by_id(self.id).to_option()
-        is Some(element) else {
-        return
-      }
-      guard @dom.IsElement::get_attribute(element, "data-rmd-text-area-owner") ==
-        Some(self.owner) else {
-        return
-      }
-      guard @dom.IsEventTarget::to_html_text_area_element(element)
-        is Some(text_area) else {
-        return
-      }
-      text_area.set_value(text)
-    },
-    kind=@cmd.after_render,
-  )
+  @cmd.custom_cmd(_ => self.write_pending(version), kind=@cmd.after_render)
+}
+
+///|
+/// Restore a rejected edit on an existing textarea before the next native
+/// input task. Activation still uses initialize, after its node is mounted.
+pub fn TextArea::restore(self : TextArea, text : String) -> @cmd.Cmd {
+  self.state = Idle
+  self.restore_version += 1
+  self.pending_restore = Some(text)
+  let version = self.restore_version
+  @cmd.custom_cmd(_ => self.write_pending(version))
 }
 
 ///|

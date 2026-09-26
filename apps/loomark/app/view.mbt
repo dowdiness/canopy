@@ -379,7 +379,7 @@ fn document_sidebar_trigger(
 ///|
 fn text_area_view(
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
+  editor : @editor.MarkdownEditor,
   activation : Activation,
   disabled? : Bool,
   read_only? : Bool,
@@ -389,24 +389,21 @@ fn text_area_view(
     Map([
       (
         "activation-\{activation.generation}",
-        @html.textarea(
-          rows=24,
-          autofocus=true,
+        editor.input_view(
+          "Text",
+          input => emit(InputChanged(activation.generation, input)),
+          composing => {
+            if composing {
+              emit(CompositionStarted(activation.generation))
+            } else {
+              emit(CompositionEnded(activation.generation))
+            }
+          },
           disabled?,
           read_only?,
+          rows=24,
+          autofocus=true,
           class="m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent px-[max(3rem,calc((100%_-_44rem)_/_2))] pt-8 pb-16 font-lm-mono text-base leading-[1.65] text-lm-ink caret-lm-accent outline-0 [tab-size:2] max-[641px]:px-3 max-[641px]:pt-6 max-[641px]:pb-12",
-          attrs=text_area.attach(
-            @html.Attrs::build().aria_label("Text"),
-            change => emit(TextChanged(activation.generation, change)),
-            composing => {
-              if composing {
-                emit(CompositionStarted(activation.generation))
-              } else {
-                emit(CompositionEnded(activation.generation))
-              }
-            },
-          ),
-          @html.nothing,
         ),
       ),
     ]),

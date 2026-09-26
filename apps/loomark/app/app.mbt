@@ -24,14 +24,11 @@ fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
 ///|
 /// Prototype: manage and switch Loomark documents inside RUI Sidebar.
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
-  let text_area = @text_area.TextArea::TextArea("loomark-text")
-  let preview_engine = @preview.PreviewEngine::PreviewEngine()
+  let editor = @editor.MarkdownEditor::MarkdownEditor("loomark-text")
   let initial_compact = compact_viewport(@browser.viewport_width())
   let (model, emit) = @rabbita.create_state_with_init(
     init=emit => initial_state(emit, initial_compact),
-    update=(model, msg, emit) => {
-      update(model, msg, emit, text_area, preview_engine)
-    },
+    update=(model, msg, emit) => update(model, msg, emit, editor),
     subscriptions=(current, emit) => {
       @sub.batch([
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
@@ -92,7 +89,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 },
                 text_area_view(
                   emit,
-                  text_area,
+                  editor,
                   input.activation,
                   disabled=input.disabled,
                   read_only=input.read_only,
@@ -118,7 +115,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 } else {
                   ["display:none;overflow:hidden"]
                 },
-                input.preview.view(id="loomark-preview-scroll"),
+                editor.preview_view(input.preview, id="loomark-preview-scroll"),
               ),
             ]
           }

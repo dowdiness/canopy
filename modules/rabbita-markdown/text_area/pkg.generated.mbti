@@ -12,13 +12,19 @@ import {
 // Errors
 
 // Types and methods
+pub struct InputEdit {
+  // private fields
+}
+
 pub struct TextArea {
   // private fields
 }
 pub fn TextArea::TextArea(String) -> Self
 pub fn TextArea::accepted(Self, String) -> Unit
-pub fn TextArea::attach(Self, @html.Attrs, (@text_change.TextChange) -> @cmd.Cmd, (Bool) -> @cmd.Cmd) -> @html.Attrs
+pub fn TextArea::admit(Self, InputEdit) -> @text_change.TextChange?
+pub fn TextArea::attach(Self, @html.Attrs, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd) -> @html.Attrs
 pub fn TextArea::initialize(Self, String) -> @cmd.Cmd
+pub fn TextArea::restore(Self, String) -> @cmd.Cmd
 pub fn TextArea::value(Self, (String) -> @cmd.Cmd) -> @cmd.Cmd
 
 // Type aliases

@@ -10,11 +10,12 @@ fn compact_viewport(width : Double) -> Bool {
 }
 
 ///|
-fn preview_input(editing : EditingState) -> @preview.Input {
-  @preview.Input(
-    editing.activation.generation,
-    editing.documents.text(editing.activation.key).unwrap_or(""),
-  )
+fn editor_mode(mode : EditorMode) -> @editor.Mode {
+  match mode {
+    Text => @editor.Text
+    Preview => @editor.Preview
+    Split => @editor.Split
+  }
 }
 
 ///|
@@ -100,15 +101,12 @@ fn activate_surface(
   text : String,
   mode : EditorMode,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
-) -> (@preview.State, @rabbita.Cmd) {
-  @editor.activate(
-    text_area,
-    preview_engine,
+  editor : @editor.MarkdownEditor,
+) -> (@editor.EditorState, @rabbita.Cmd) {
+  editor.activate(
     activation.generation,
     text,
-    mode != Text,
+    editor_mode(mode),
     emit.map(event => PreviewEvent(event)),
   )
 }
@@ -118,8 +116,7 @@ fn EditingState::activate(
   self : Self,
   target : ActivationTarget,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
 ) -> (EditingState, @rabbita.Cmd) {
   let document = target.document
   let activation = {
@@ -131,8 +128,7 @@ fn EditingState::activate(
     document.text(),
     self.mode,
     emit,
-    text_area,
-    preview_engine,
+    editor,
   )
   let remember = match target.resume_hint {
     Some(hint) => hint.remember()
@@ -146,8 +142,7 @@ fn activate_open(
   model : Model,
   command : @rabbita.Cmd,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
   guard model.page is Editing(editing) &&
     !model.departure.editor_disabled() &&
@@ -176,9 +171,7 @@ fn activate_open(
     document: opened.document(),
     resume_hint: None,
   }
-  let (editing, activation_command) = editing.activate(
-    target, emit, text_area, preview_engine,
-  )
+  let (editing, activation_command) = editing.activate(target, emit, editor)
   (
     { ..model, page: Editing({ ..editing, documents, }), replication, },
     @cmd.batch([command, activation_command]),
@@ -214,8 +207,7 @@ fn update_page(
   model : Page,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
   actions : Array[@documents.Action],
 ) -> (Page, @rabbita.Cmd) {
   let (next, command) = match (model, msg) {
@@ -232,8 +224,7 @@ fn update_page(
             document.text(),
             Text,
             emit,
-            text_area,
-            preview_engine,
+            editor,
           )
           (
             Editing({
@@ -294,8 +285,7 @@ fn update_page(
               "",
               preparing.mode,
               emit,
-              text_area,
-              preview_engine,
+              editor,
             )
             (
               Editing({
@@ -353,9 +343,7 @@ fn update_page(
           None => (Editing({ ..editing, creation: Idle, }), @cmd.none)
           Some(target) => {
             let ready = { ..editing, creation: Idle, }
-            let (next, surface) = ready.activate(
-              target, emit, text_area, preview_engine,
-            )
+            let (next, surface) = ready.activate(target, emit, editor)
             (Editing(next), surface)
           }
         }
@@ -372,6 +360,18 @@ fn update_page(
       } else {
         (Editing(editing), @cmd.none)
       }
+    (Editing(editing), InputChanged(generation, input)) =>
+      match editor.admit(input) {
+        None => (Editing(editing), @cmd.none)
+        Some(change) =>
+          update_page(
+            Editing(editing),
+            TextChanged(generation, change),
+            emit,
+            editor,
+            actions,
+          )
+      }
     (Editing(editing), TextChanged(generation, change)) =>
       if generation != editing.activation.generation {
         (Editing(editing), @cmd.none)
@@ -379,7 +379,7 @@ fn update_page(
         editing.deletion_blocks_document_changes() {
         (
           Editing(editing),
-          text_area.initialize(
+          editor.restore(
             editing.documents.text(editing.activation.key).unwrap_or(""),
           ),
         )
@@ -389,14 +389,7 @@ fn update_page(
           None =>
             (
               Editing(editing),
-              text_area.value(text => {
-                emit(
-                  TextChanged(
-                    generation,
-                    @text_change.TextChange::ReplaceAll(text),
-                  ),
-                )
-              }),
+              editor.restore(editing.documents.text(key).unwrap_or("")),
             )
           Some(text) if editing.documents.text(key) == Some(text) =>
             (Editing(editing), @cmd.none)
@@ -409,12 +402,10 @@ fn update_page(
             if editing.documents.text(key) != Some(text) {
               (
                 Editing(editing),
-                text_area.initialize(editing.documents.text(key).unwrap_or("")),
+                editor.restore(editing.documents.text(key).unwrap_or("")),
               )
             } else {
-              let (preview, preview_command) = @editor.accepted(
-                text_area,
-                preview_engine,
+              let (preview, preview_command) = editor.accepted(
                 editing.preview,
                 editing.activation.generation,
                 text,
@@ -440,15 +431,14 @@ fn update_page(
         (Editing(editing), @cmd.none)
       }
     (Editing(editing), ModeSelected(mode)) => {
-      let was_visible = editing.mode != Text
+      let previous = editing.mode
       let editing = { ..editing, mode, }
-      let (preview, command) = @editor.visibility_changed(
-        preview_engine,
+      let (preview, command) = editor.mode_changed(
         editing.preview,
         editing.activation.generation,
         editing.documents.text(editing.activation.key).unwrap_or(""),
-        was_visible,
-        mode != Text,
+        editor_mode(previous),
+        editor_mode(mode),
         emit.map(event => PreviewEvent(event)),
       )
       (Editing({ ..editing, preview, }), command)
@@ -524,9 +514,7 @@ fn update_page(
             deletion: NoDeletion,
             import_failed: false,
           }
-          let (next, surface) = ready.activate(
-            target, emit, text_area, preview_engine,
-          )
+          let (next, surface) = ready.activate(target, emit, editor)
           (Editing(next), surface)
         }
       }
@@ -538,9 +526,10 @@ fn update_page(
       (Editing(editing), @browser.download(filename, text))
     }
     (Editing(editing), PreviewEvent(event)) => {
-      let (preview, command) = preview_engine.update(
+      let (preview, command) = editor.update(
         editing.preview,
-        preview_input(editing),
+        editing.activation.generation,
+        editing.documents.text(editing.activation.key).unwrap_or(""),
         event,
         emit.map(event => PreviewEvent(event)),
       )
@@ -596,9 +585,7 @@ fn update_page(
           None => (Editing(editing), @cmd.none)
           Some(target) => {
             let ready = { ..editing, creation: Idle, }
-            let (next, command) = ready.activate(
-              target, emit, text_area, preview_engine,
-            )
+            let (next, command) = ready.activate(target, emit, editor)
             (Editing(next), command)
           }
         }
@@ -613,9 +600,7 @@ fn update_page(
       match editing.selectable_activation(document_id) {
         None => (Editing(editing), @cmd.none)
         Some(target) => {
-          let (editing, command) = editing.activate(
-            target, emit, text_area, preview_engine,
-          )
+          let (editing, command) = editing.activate(target, emit, editor)
           (Editing(editing), command)
         }
       }
@@ -1070,15 +1055,13 @@ fn update_documents(
   model : Model,
   event : @documents.Msg,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
   let (page, actions, page_command) = reduce_page_documents(
     model.page,
     event,
     emit,
-    text_area,
-    preview_engine,
+    editor,
   )
   let (model, action_command) = apply_document_actions(
     model.with_page(page),
@@ -1242,7 +1225,8 @@ fn begin_account_lookup(
 ///|
 fn is_user_mutating(msg : Msg) -> Bool {
   match msg {
-    TextChanged(_, _)
+    InputChanged(_, _)
+    | TextChanged(_, _)
     | CompositionStarted(_)
     | ExampleSelected(_, _)
     | ImportFilesSelected(_)
@@ -1302,8 +1286,7 @@ fn reduce(
   model : Model,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
   let model = if model.departure
     is (SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _)) &&
@@ -1358,16 +1341,14 @@ fn reduce(
         model,
         @documents.Msg::ApplyPendingEdit(document_id, revision),
         emit,
-        text_area,
-        preview_engine,
+        editor,
       )
     DocumentsLifecycle(feedback) =>
       update_documents(
         model,
         @documents.Msg::FeedbackReceived(feedback),
         emit,
-        text_area,
-        preview_engine,
+        editor,
       )
     CompositionEnded(generation) =>
       match model.page {
@@ -1376,8 +1357,7 @@ fn reduce(
             model,
             @documents.Msg::CompositionEnded(editing.activation.key),
             emit,
-            text_area,
-            preview_engine,
+            editor,
           )
         _ => (model, @cmd.none)
       }
@@ -1388,8 +1368,7 @@ fn reduce(
             { ..model, page: Editing({ ..editing, deletion: NoDeletion, }), },
             @documents.Msg::DeleteConfirmed(document_id),
             emit,
-            text_area,
-            preview_engine,
+            editor,
           )
         _ => (model, @cmd.none)
       }
@@ -1398,8 +1377,7 @@ fn reduce(
         model,
         @documents.Msg::RetryDelete(document_id),
         emit,
-        text_area,
-        preview_engine,
+        editor,
       )
     VisibilityChanged(true) =>
       match model.page {
@@ -1408,8 +1386,7 @@ fn reduce(
             model,
             @documents.Msg::VisibilityFlush(editing.activation.key),
             emit,
-            text_area,
-            preview_engine,
+            editor,
           )
         _ => (model, @cmd.none)
       }
@@ -1420,8 +1397,7 @@ fn reduce(
             model,
             @documents.Msg::RetrySave(editing.activation.key),
             emit,
-            text_area,
-            preview_engine,
+            editor,
           )
         _ => (model, @cmd.none)
       }
@@ -1468,7 +1444,7 @@ fn reduce(
             resume_hint: None,
           }
           let (editing, activate) = { ..editing, documents, }.activate(
-            target, emit, text_area, preview_engine,
+            target, emit, editor,
           )
           let (model, persist) = submit_replica(
             { ..model, page: Editing(editing), },
@@ -1481,8 +1457,7 @@ fn reduce(
           let (page, activate) = reconcile_active(
             { ..editing, documents, },
             emit,
-            text_area,
-            preview_engine,
+            editor,
             @cmd.none,
           )
           let (model, persist) = submit_replica({ ..model, page, }, write, emit)
@@ -1620,8 +1595,7 @@ fn reduce(
             model.page,
             @documents.Msg::FeedbackReceived(feedback),
             emit,
-            text_area,
-            preview_engine,
+            editor,
           )
         None => (model.page, [], @cmd.none)
       }
@@ -1879,8 +1853,7 @@ fn reduce(
         model.page,
         message,
         emit,
-        text_area,
-        preview_engine,
+        editor,
         actions,
       )
       let (model, action_command) = apply_document_actions(
@@ -1905,13 +1878,10 @@ fn update(
   model : Model,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
-  let (model, command) = reduce(model, msg, emit, text_area, preview_engine)
-  let (model, command) = activate_open(
-    model, command, emit, text_area, preview_engine,
-  )
+  let (model, command) = reduce(model, msg, emit, editor)
+  let (model, command) = activate_open(model, command, emit, editor)
   let (model, departure_command) = settle_departure(model, emit)
   (model, @cmd.batch([command, departure_command]))
 }
@@ -1921,8 +1891,7 @@ fn reduce_page_documents(
   model : Page,
   event : @documents.Msg,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
 ) -> (Page, Array[@documents.Action], @rabbita.Cmd) {
   match model {
     Editing(editing) => {
@@ -1947,9 +1916,7 @@ fn reduce_page_documents(
         }
         _ => editing
       }
-      let (page, command) = reconcile_active(
-        editing, emit, text_area, preview_engine, @cmd.none,
-      )
+      let (page, command) = reconcile_active(editing, emit, editor, @cmd.none)
       (page, actions, command)
     }
     PreparingNew(preparing) => {
@@ -1964,8 +1931,7 @@ fn reduce_page_documents(
 fn reconcile_active(
   editing : EditingState,
   emit : @rabbita.Emit[Msg],
-  text_area : @text_area.TextArea,
-  preview_engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
   prior : @rabbita.Cmd,
 ) -> (Page, @rabbita.Cmd) {
   let active_id = editing.activation.key
@@ -1977,9 +1943,7 @@ fn reconcile_active(
         match activation_target(editing.documents, document_id) {
           None => (Editing(editing), prior)
           Some(target) => {
-            let (editing, command) = editing.activate(
-              target, emit, text_area, preview_engine,
-            )
+            let (editing, command) = editing.activate(target, emit, editor)
             (Editing(editing), @cmd.batch([prior, command]))
           }
         }

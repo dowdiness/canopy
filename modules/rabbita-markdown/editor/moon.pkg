@@ -4,6 +4,7 @@ import {
   "dowdiness/text_change",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
 }
 
 supported_targets = "js"

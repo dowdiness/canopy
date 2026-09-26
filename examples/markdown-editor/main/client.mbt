@@ -1,24 +1,17 @@
 ///|
-enum Mode {
-  Text
-  Preview
-  Split
-} derive(Eq)
-
-///|
 struct Model {
   text : String
-  mode : Mode
-  preview : @preview.State
+  mode : @editor.Mode
+  editor : @editor.EditorState
   composing : Bool
 } derive(Eq)
 
 ///|
 enum Msg {
-  Edit(@text_change.TextChange)
+  Edit(@editor.InputEdit)
   CompositionChanged(Bool)
-  ModeSelected(Mode)
-  PreviewCompleted(@preview.Event)
+  ModeSelected(@editor.Mode)
+  EditorCompleted(@editor.EditorEvent)
 }
 
 ///|
@@ -26,57 +19,57 @@ fn update(
   model : Model,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
-  area : @text_area.TextArea,
-  engine : @preview.PreviewEngine,
+  editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
   match msg {
-    Edit(change) =>
-      match change.apply(model.text) {
-        None =>
-          (model, area.value(text => emit(Edit(@text_change.ReplaceAll(text)))))
-        Some(text) if text == model.text => (model, @cmd.none)
-        Some(text) => {
-          let (preview, command) = @editor.accepted(
-            area,
-            engine,
-            model.preview,
-            0,
-            text,
-            change,
-            emit.map(event => PreviewCompleted(event)),
-          )
-          ({ ..model, text, preview, }, command)
-        }
+    Edit(input) =>
+      match editor.admit(input) {
+        None => (model, @cmd.none)
+        Some(change) =>
+          match change.apply(model.text) {
+            None => (model, editor.restore(model.text))
+            Some(text) if text == model.text => (model, @cmd.none)
+            Some(text) => {
+              let (state, command) = editor.accepted(
+                model.editor,
+                0,
+                text,
+                change,
+                emit.map(event => EditorCompleted(event)),
+              )
+              ({ ..model, text, editor: state, }, command)
+            }
+          }
       }
     CompositionChanged(composing) => ({ ..model, composing, }, @cmd.none)
     ModeSelected(mode) => {
-      let (preview, command) = @editor.visibility_changed(
-        engine,
-        model.preview,
+      let (state, command) = editor.mode_changed(
+        model.editor,
         0,
         model.text,
-        model.mode != Text,
-        mode != Text,
-        emit.map(event => PreviewCompleted(event)),
+        model.mode,
+        mode,
+        emit.map(event => EditorCompleted(event)),
       )
-      ({ ..model, mode, preview, }, command)
+      ({ ..model, mode, editor: state, }, command)
     }
-    PreviewCompleted(event) => {
-      let (preview, command) = engine.update(
-        model.preview,
-        @preview.Input(0, model.text),
+    EditorCompleted(event) => {
+      let (state, command) = editor.update(
+        model.editor,
+        0,
+        model.text,
         event,
-        emit.map(event => PreviewCompleted(event)),
+        emit.map(event => EditorCompleted(event)),
       )
-      ({ ..model, preview, }, command)
+      ({ ..model, editor: state, }, command)
     }
   }
 }
 
 ///|
 fn mode_button(
-  mode : Mode,
-  selected : Mode,
+  mode : @editor.Mode,
+  selected : @editor.Mode,
   label : String,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
@@ -99,8 +92,7 @@ fn mode_button(
 fn view(
   emit : @rabbita.Emit[Msg],
   model : Model,
-  area : @text_area.TextArea,
-  id : String,
+  editor : @editor.MarkdownEditor,
   name : String,
 ) -> @rabbita.Html {
   @html.section(
@@ -115,41 +107,19 @@ fn view(
             .aria_label("\{name} view mode")
             .role("group"),
           [
-            mode_button(Text, model.mode, "Text", emit),
-            mode_button(Preview, model.mode, "Preview", emit),
-            mode_button(Split, model.mode, "Split", emit),
+            mode_button(@editor.Text, model.mode, "Text", emit),
+            mode_button(@editor.Preview, model.mode, "Preview", emit),
+            mode_button(@editor.Split, model.mode, "Split", emit),
           ],
         ),
       ]),
-      @html.div(class="panes", [
-        @html.section(
-          class=if model.mode == Split {
-            "pane source split"
-          } else {
-            "pane source"
-          },
-          attrs=@html.Attrs::build()
-            .hidden(model.mode == Preview)
-            .aria_label("Markdown source"),
-          @html.textarea(
-            rows=20,
-            class="editor-input",
-            attrs=area.attach(
-              @html.Attrs::build().aria_label("\{name} Markdown text"),
-              change => emit(Edit(change)),
-              composing => emit(CompositionChanged(composing)),
-            ),
-            @html.nothing,
-          ),
-        ),
-        @html.section(
-          class="pane result",
-          attrs=@html.Attrs::build()
-            .hidden(model.mode == Text)
-            .aria_label("Rendered Markdown"),
-          model.preview.view(id="\{id}-preview"),
-        ),
-      ]),
+      editor.view(
+        model.editor,
+        model.mode,
+        "\{name} Markdown text",
+        change => emit(Edit(change)),
+        composing => emit(CompositionChanged(composing)),
+      ),
       @html.div(class="footer", [
         @html.span(
           if model.composing {
@@ -169,28 +139,30 @@ fn editor(
   id : String,
   name : String,
   initial_text : String,
-  initial_mode : Mode,
+  initial_mode : @editor.Mode,
 ) -> @rabbita.Val[@rabbita.Html] {
-  let area = @text_area.TextArea::TextArea("\{id}-text")
-  let engine = @preview.PreviewEngine::PreviewEngine()
+  let editor = @editor.MarkdownEditor::MarkdownEditor("\{id}-text")
   let (model, emit) = @rabbita.create_state_with_init(
     init=emit => {
-      let (preview, command) = @editor.activate(
-        area,
-        engine,
+      let (state, command) = editor.activate(
         0,
         initial_text,
-        initial_mode != Text,
-        emit.map(event => PreviewCompleted(event)),
+        initial_mode,
+        emit.map(event => EditorCompleted(event)),
       )
       (
-        { text: initial_text, mode: initial_mode, preview, composing: false, },
+        {
+          text: initial_text,
+          mode: initial_mode,
+          editor: state,
+          composing: false,
+        },
         command,
       )
     },
-    update=(model, msg, emit) => update(model, msg, emit, area, engine),
+    update=(model, msg, emit) => update(model, msg, emit, editor),
   )
-  model.map(current => view(emit, current, area, id, name))
+  model.map(current => view(emit, current, editor, name))
 }
 
 ///|
@@ -201,13 +173,13 @@ fn main {
       "draft-a",
       "Draft A",
       "# First draft\n\nAn **independent** Markdown document.\n\n- Alpha\n- Beta\n",
-      Text,
+      @editor.Text,
     )
     let right = editor(
       "draft-b",
       "Draft B",
       "# Second draft\n\nEdit here without changing Draft A.\n\n- One\n- Two\n",
-      Split,
+      @editor.Split,
     )
     left.map2(right, (left, right) => {
       @html.div(class="page", [

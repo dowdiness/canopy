@@ -1,22 +1,26 @@
 # Markdown editor prototype
 
-A save-free Rabbita consumer of `dowdiness/rabbita_markdown/editor`,
-`text_area`, and `preview`. The example owns the committed document string;
-only accepted `TextChange` values advance the incremental preview through
-the shared editor coordination functions.
+A save-free Rabbita consumer of `dowdiness/rabbita_markdown/editor.MarkdownEditor`.
+It uses no direct `text_area` or `preview` imports or pane assembly. The example
+owns the committed document string; only accepted `TextChange` values advance
+the incremental preview.
 
 Run from this directory with `warren dev` (or build with `warren build`).
 The page renders two independent documents: Draft A starts in Text mode and
 Draft B in Split. Switch each among Text, Preview, and Split; edits to one do
 not change the other. The text is intentionally discarded on reload.
 
-This is an integration experiment, **not** a reusable editor facade. Each
-instance supplies its own textarea and optional preview DOM IDs; the preview
-has no ID by default. The example links the module's `styles/preview.css`
-into `public/` for Warren to copy. Its preview is styled without importing
-Loomark or Tailwind CSS; the example's `styles.css` owns only the page,
-controls, input, and split layout. The preview renderer still emits legacy
-Loomark classes for the existing application until that styling is migrated.
+After installing the Loomark E2E dependencies, build with
+`../../_build/tools/bin/warren build --browser-entry main --public-dir "$PWD/public"`
+and run `node test.mjs` to check independent edits, preview, DOM selection, and
+synthetic IME composition.
+
+This is an integration experiment, **not** a stable external editor API. Each
+instance supplies its own textarea DOM ID; the preview has no ID by default.
+The example links the module's `styles/editor.css` and `styles/preview.css`
+into `public/` for Warren to copy. Neither needs Loomark or Tailwind CSS;
+the example's `styles.css` owns only the page, controls, and containing dimensions.
+The preview renderer still emits legacy Loomark classes for the existing app.
 
 Browser check: ordinary typing, select-all followed by typing, and a
 programmatic `InputEvent` full replacement update the accepted text and preview

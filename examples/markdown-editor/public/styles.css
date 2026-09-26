@@ -15,12 +15,8 @@ h1 { font-family: ui-serif, Georgia, serif; font-size: clamp(28px, 4vw, 44px); f
 .modes button { cursor: pointer; border: 0; border-radius: 6px; color: #40584b; background: transparent; padding: 8px 15px; }
 .modes button.selected { background: #fff; color: #175b38; box-shadow: 0 1px 4px #25342f24; }
 button:focus-visible, textarea:focus-visible, [role="region"][aria-label="Markdown preview"]:focus-visible { outline: 2px solid #26744a; outline-offset: -2px; }
-.panes { display: flex; min-height: 500px; }
-.pane { min-width: 0; flex: 1; overflow: auto; }
-.pane[hidden] { display: none; }
-.pane.split:first-child { border-right: 1px solid #e3e8e1; }
-.editor-input { display: block; width: 100%; min-height: 500px; resize: vertical; border: 0; outline: 0; padding: 30px; color: #25342f; font: 15px/1.7 ui-monospace, monospace; }
-.result > div { min-height: 500px; }
+.workspace .rmd-editor { min-height: 500px; }
+.workspace .rmd-editor-input, .workspace .rmd-editor-result > div { min-height: 500px; }
 .footer { border-top: 1px solid #e3e8e1; color: #65756e; font-size: 12px; }
 @media (max-width: 950px) { .editor-grid { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 700px) { .page { padding: 24px 12px; } .toolbar { gap: 12px; flex-wrap: wrap; } .panes { flex-direction: column; } .pane.split:first-child { border-right: 0; border-bottom: 1px solid #e3e8e1; } .editor-input, .result > div { min-height: 280px; } }
+@media (max-width: 700px) { .page { padding: 24px 12px; } .toolbar { gap: 12px; flex-wrap: wrap; } .workspace .rmd-editor-input, .workspace .rmd-editor-result > div { min-height: 280px; } }

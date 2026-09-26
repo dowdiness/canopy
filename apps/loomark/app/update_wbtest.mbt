@@ -47,8 +47,11 @@ fn test_snapshot() -> @source_repository.SavedDocuments {
 fn test_editing() -> EditingState {
   let snapshot = test_snapshot()
   let documents = @documents.State::State(snapshot)
-  let (preview, _) = @preview.PreviewEngine::PreviewEngine().activate(
-    @preview.Input(0, "one"),
+  let (preview, _) = @editor.MarkdownEditor::MarkdownEditor("loomark-test-text").activate(
+    0,
+    "one",
+    @editor.Text,
+    @cmd.Emit(_ => @cmd.none),
   )
   {
     activation: { key: source_key("one"), generation: 0, },
@@ -70,8 +73,7 @@ fn test_update(model : Page, msg : Msg) -> (Page, @cmd.Cmd) {
     test_model(model, @sync.State()),
     msg,
     @cmd.Emit(_ => @cmd.none),
-    @text_area.TextArea::TextArea("loomark-test-text"),
-    @preview.PreviewEngine::PreviewEngine(),
+    @editor.MarkdownEditor::MarkdownEditor("loomark-test-text"),
   )
   (model.page, command)
 }
@@ -82,8 +84,7 @@ fn test_root_update(model : Model, msg : Msg) -> (Model, @cmd.Cmd) {
     model,
     msg,
     @cmd.Emit(_ => @cmd.none),
-    @text_area.TextArea::TextArea("loomark-test-text"),
-    @preview.PreviewEngine::PreviewEngine(),
+    @editor.MarkdownEditor::MarkdownEditor("loomark-test-text"),
   )
 }
 
@@ -850,8 +851,7 @@ test "revision conflict waits for recovery identity before atomic persistence" {
       }
       @cmd.none
     }),
-    @text_area.TextArea::TextArea("loomark-test-text"),
-    @preview.PreviewEngine::PreviewEngine(),
+    @editor.MarkdownEditor::MarkdownEditor("loomark-test-text"),
   )
   assert_true(recovering.sync() == awaiting_recovery)
 
@@ -2612,8 +2612,11 @@ test "final active delete falls back to a new document" {
     @source_repository.Document::create(document_id("one"), "one"),
   ]).unwrap()
   let documents = @documents.State::State(snapshot)
-  let (preview, _) = @preview.PreviewEngine::PreviewEngine().activate(
-    @preview.Input(0, "one"),
+  let (preview, _) = @editor.MarkdownEditor::MarkdownEditor("loomark-test-text").activate(
+    0,
+    "one",
+    @editor.Text,
+    @cmd.Emit(_ => @cmd.none),
   )
   let initial = {
     activation: { key: source_key("one"), generation: 0, },

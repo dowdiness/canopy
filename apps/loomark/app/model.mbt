@@ -61,7 +61,7 @@ priv struct EditingState {
   deletion : DocumentDeletion
   mode : EditorMode
   compact : Bool
-  preview : @preview.State
+  preview : @editor.EditorState
   import_failed : Bool
   imports_pending : Int
   new_preparation_request_id : Int
@@ -80,7 +80,7 @@ priv struct EditorPanelsInput {
   disabled : Bool
   read_only : Bool
   mode : EditorMode
-  preview : @preview.State
+  preview : @editor.EditorState
 } derive(Eq)
 
 ///|
@@ -156,6 +156,7 @@ priv enum Msg {
   EmptyCreateCompleted(Int, @source_repository.CreateResult)
   ExampleSelected(Activation, String)
   ExampleCreateCompleted(Int, String, @source_repository.CreateResult)
+  InputChanged(Int, @editor.InputEdit)
   TextChanged(Int, @text_change.TextChange)
   CompositionStarted(Int)
   CompositionEnded(Int)
@@ -165,7 +166,7 @@ priv enum Msg {
   ImportCreateCompleted(String, @source_repository.CreateResult)
   DismissImportFailure
   ExportRequested
-  PreviewEvent(@preview.Event)
+  PreviewEvent(@editor.EditorEvent)
   ViewportChanged(Double)
   DocumentsLifecycle(@documents.Feedback)
   ApplyPendingEdit(@documents.Key, Int)
