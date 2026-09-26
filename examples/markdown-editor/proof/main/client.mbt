@@ -34,11 +34,12 @@ fn update(
   first : @editor.MarkdownEditor,
   second : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
+  let area = if model.replacement { second } else { first }
   match msg {
     BeginRejection => {
       let text = "abc"
       let generation = model.generation + 1
-      let (state, command) = first.activate(
+      let (state, command) = area.activate(
         generation,
         text,
         @editor.Text,
@@ -58,10 +59,10 @@ fn update(
       )
     }
     Race => (model, @cmd.batch([emit(Reject), emit(Accept)]))
-    Reject => (model, first.restore(model.text))
+    Reject => (model, area.restore(model.text))
     Accept => {
       let text = "# Accepted after rejection\n"
-      let (state, changed) = first.accepted(
+      let (state, changed) = area.accepted(
         model.editor,
         model.generation,
         text,
@@ -71,10 +72,10 @@ fn update(
       ({ ..model, text, editor: state, }, changed)
     }
     Open => {
-      let obsolete = first.restore(model.text)
+      let obsolete = area.restore(model.text)
       let text = "# Opened another document\n"
       let generation = model.generation + 1
-      let (state, command) = first.activate(
+      let (state, command) = area.activate(
         generation,
         text,
         model.mode,
@@ -87,11 +88,11 @@ fn update(
     }
     StaleEdit => (model, emit(Edit(1, @text_change.ReplaceAll("# Obsolete\n"))))
     Unmount => {
-      let obsolete = first.restore(model.text)
+      let obsolete = area.restore(model.text)
       ({ ..model, mounted: false, }, obsolete)
     }
     ReplaceInstance => {
-      let obsolete = first.restore(model.text)
+      let obsolete = area.restore(model.text)
       let text = "# New textarea owner\n"
       let generation = model.generation + 1
       let (state, current) = second.activate(
@@ -106,7 +107,6 @@ fn update(
       )
     }
     NativeEdit(generation, input) => {
-      let area = if model.replacement { second } else { first }
       match area.admit(input) {
         None => (model, @cmd.none)
         Some(change) =>
@@ -115,7 +115,6 @@ fn update(
     }
     Edit(generation, change) => {
       guard generation == model.generation else { return (model, @cmd.none) }
-      let area = if model.replacement { second } else { first }
       if model.reject_next {
         return (
           { ..model, reject_next: false, rejected: true, },
@@ -138,7 +137,6 @@ fn update(
       }
     }
     ModeSelected(mode) => {
-      let area = if model.replacement { second } else { first }
       let (state, command) = area.mode_changed(
         model.editor,
         model.generation,
@@ -150,7 +148,6 @@ fn update(
       ({ ..model, mode, editor: state, }, command)
     }
     EditorCompleted(event) => {
-      let area = if model.replacement { second } else { first }
       let (state, command) = area.update(
         model.editor,
         model.generation,
