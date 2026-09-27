@@ -31,7 +31,7 @@ fn Reader::read_bytes(self : Reader, n : Int) -> Bytes raise CodecError {
   if self.pos + n > self.data.length() {
     raise CodecError::UnexpectedEndOfInput
   }
-  let out = self.data.view(start=self.pos, end=self.pos + n).to_owned()
+  let out = self.data.exact_view(start=self.pos, end=self.pos + n).to_owned()
   self.pos += n
   out
 }

@@ -36,7 +36,7 @@ fn sized_node(
 
 ///|
 test "empty selection yields an empty plan" {
-  let plan = try! arrange_with_skyline([], region_width=400.0)
+  let plan = try! @skyline.arrange_with_skyline([], region_width=400.0)
   debug_inspect(plan.positions.length(), content="0")
 }
 
@@ -46,7 +46,7 @@ test "packs two nodes on one row when the region is wide enough" {
     sized_node(1, 100.0, 50.0, width=244.0, height=132.0),
     sized_node(2, 400.0, 80.0, width=260.0, height=148.0),
   ]
-  let plan = try! arrange_with_skyline(nodes, region_width=504.0)
+  let plan = try! @skyline.arrange_with_skyline(nodes, region_width=504.0)
   debug_inspect(plan.positions.length(), content="2")
   debug_inspect(
     plan.positions[0].id.to_string(),
@@ -72,7 +72,7 @@ test "stacks nodes when the region is only wide enough for one" {
     sized_node(1, 100.0, 50.0, width=244.0, height=132.0),
     sized_node(2, 400.0, 80.0, width=260.0, height=148.0),
   ]
-  let plan = try! arrange_with_skyline(nodes, region_width=300.0)
+  let plan = try! @skyline.arrange_with_skyline(nodes, region_width=300.0)
   debug_inspect(plan.positions[0].point.x(), content="100")
   debug_inspect(plan.positions[0].point.y(), content="50")
   debug_inspect(plan.positions[1].point.x(), content="100")
@@ -85,15 +85,19 @@ test "gap is reserved between packed nodes" {
     sized_node(1, 0.0, 0.0, width=10.0, height=10.0),
     sized_node(2, 40.0, 5.0, width=10.0, height=10.0),
   ]
-  let plan = try! arrange_with_skyline(nodes, region_width=40.0, gap=8.0)
+  let plan = try! @skyline.arrange_with_skyline(
+    nodes,
+    region_width=40.0,
+    gap=8.0,
+  )
   debug_inspect(plan.positions[0].point.x(), content="0")
   debug_inspect(plan.positions[1].point.x(), content="18")
 }
 
 ///|
 test "rejects a non-positive region width" {
-  let result : Result[LayoutPlan, LayoutError] = Ok(
-    arrange_with_skyline([], region_width=0.0),
+  let result : Result[@skyline.LayoutPlan, @skyline.LayoutError] = Ok(
+    @skyline.arrange_with_skyline([], region_width=0.0),
   ) catch {
     error => Err(error)
   }
@@ -106,7 +110,7 @@ test "lowers to MoveNodes without inventing a new graph operation" {
     sized_node(1, 20.0, 30.0, width=10.0, height=10.0),
     sized_node(2, 80.0, 90.0, width=10.0, height=10.0),
   ]
-  let plan = try! arrange_with_skyline(nodes, region_width=40.0)
+  let plan = try! @skyline.arrange_with_skyline(nodes, region_width=40.0)
   debug_inspect(
     plan.to_move_nodes(),
     content=(
@@ -137,7 +141,7 @@ test "MoveNodes apply updates canvas positions from a layout plan" {
     @graph_model.empty_interaction(),
     [],
   )
-  let plan = try! arrange_with_skyline(nodes, region_width=40.0)
+  let plan = try! @skyline.arrange_with_skyline(nodes, region_width=40.0)
   let next = @graph_model.apply_action(state, plan.to_move_nodes())
   let first = @graph_model.find_node(next.nodes, node_id(1)).unwrap()
   let second = @graph_model.find_node(next.nodes, node_id(2)).unwrap()
@@ -153,13 +157,16 @@ test "compact region is twice the widest node plus gap" {
     sized_node(1, 0.0, 0.0, width=244.0, height=132.0),
     sized_node(2, 0.0, 0.0, width=260.0, height=148.0),
   ]
-  debug_inspect(try! compact_region_width(nodes, gap=16.0), content="552")
+  debug_inspect(
+    try! @skyline.compact_region_width(nodes, gap=16.0),
+    content="552",
+  )
 }
 
 ///|
 test "compact region rejects an empty selection" {
-  let result : Result[Double, LayoutError] = Ok(
-    compact_region_width([], gap=16.0),
+  let result : Result[Double, @skyline.LayoutError] = Ok(
+    @skyline.compact_region_width([], gap=16.0),
   ) catch {
     error => Err(error)
   }
@@ -169,8 +176,8 @@ test "compact region rejects an empty selection" {
 ///|
 test "too-wide item reports packed widths" {
   let nodes = [sized_node(1, 0.0, 0.0, width=100.0, height=10.0)]
-  let result : Result[LayoutPlan, LayoutError] = Ok(
-    arrange_with_skyline(nodes, region_width=10.0),
+  let result : Result[@skyline.LayoutPlan, @skyline.LayoutError] = Ok(
+    @skyline.arrange_with_skyline(nodes, region_width=10.0),
   ) catch {
     error => Err(error)
   }
@@ -186,8 +193,12 @@ test "compact region fits two nodes after length quantization" {
     sized_node(1, 0.0, 0.0, width=10.1, height=10.0),
     sized_node(2, 80.0, 0.0, width=10.1, height=10.0),
   ]
-  let region = try! compact_region_width(nodes, gap=8.0)
-  let plan = try! arrange_with_skyline(nodes, region_width=region, gap=8.0)
+  let region = try! @skyline.compact_region_width(nodes, gap=8.0)
+  let plan = try! @skyline.arrange_with_skyline(
+    nodes,
+    region_width=region,
+    gap=8.0,
+  )
   debug_inspect(plan.positions[0].point.x(), content="0")
   debug_inspect(plan.positions[0].point.y(), content="0")
   debug_inspect(plan.positions[1].point.x(), content="18.125")

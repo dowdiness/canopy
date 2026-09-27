@@ -945,3 +945,15 @@ pub fn listen(
     cm_sub_loader,
   )
 }
+
+///|
+pub extend ChangeDelta with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ChangeDelta with Eq::{equal, not_equal}
+
+///|
+pub extend ChangeEvent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ChangeEvent with Eq::{equal, not_equal}

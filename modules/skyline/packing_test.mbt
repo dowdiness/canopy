@@ -1,9 +1,9 @@
 ///|
 test "uses the lowest then leftmost position" {
-  let packer = try! Packer::Packer(width=10)
-  let first = try! packer.place(Size::Size(width=6, height=4))
-  let second = try! packer.place(Size::Size(width=4, height=3))
-  let third = try! packer.place(Size::Size(width=7, height=2))
+  let packer = try! @skyline.Packer::Packer(width=10)
+  let first = try! packer.place(@skyline.Size::Size(width=6, height=4))
+  let second = try! packer.place(@skyline.Size::Size(width=4, height=3))
+  let third = try! packer.place(@skyline.Size::Size(width=7, height=2))
   debug_inspect(
     first,
     content=(
@@ -27,11 +27,11 @@ test "uses the lowest then leftmost position" {
 
 ///|
 test "pack_in_order preserves input indices" {
-  let result = try! pack_in_order(
+  let result = try! @skyline.pack_in_order(
     [
-      try! Size::Size(width=6, height=4),
-      try! Size::Size(width=4, height=3),
-      try! Size::Size(width=7, height=2),
+      try! @skyline.Size::Size(width=6, height=4),
+      try! @skyline.Size::Size(width=4, height=3),
+      try! @skyline.Size::Size(width=7, height=2),
     ],
     bin_width=10,
   )
@@ -59,7 +59,9 @@ test "pack_in_order preserves input indices" {
 
 ///|
 test "rejects a bin whose width is not positive" {
-  let result : Result[Packer, PackError] = Ok(Packer::Packer(width=0)) catch {
+  let result : Result[@skyline.Packer, @skyline.PackError] = Ok(
+    @skyline.Packer::Packer(width=0),
+  ) catch {
     error => Err(error)
   }
   debug_inspect(result, content="Err(InvalidBinWidth(0))")
@@ -67,8 +69,8 @@ test "rejects a bin whose width is not positive" {
 
 ///|
 test "rejects a non-positive max height" {
-  let result : Result[Packer, PackError] = Ok(
-    Packer::Packer(width=10, max_height=-1),
+  let result : Result[@skyline.Packer, @skyline.PackError] = Ok(
+    @skyline.Packer::Packer(width=10, max_height=-1),
   ) catch {
     error => Err(error)
   }
@@ -77,7 +79,9 @@ test "rejects a non-positive max height" {
 
 ///|
 test "rejects a non-positive size" {
-  let result : Result[Size, PackError] = Ok(Size::Size(width=0, height=2)) catch {
+  let result : Result[@skyline.Size, @skyline.PackError] = Ok(
+    @skyline.Size::Size(width=0, height=2),
+  ) catch {
     error => Err(error)
   }
   debug_inspect(result, content="Err(InvalidSize(0, 2))")
@@ -85,9 +89,9 @@ test "rejects a non-positive size" {
 
 ///|
 test "rejects an item wider than the bin before searching" {
-  let packer = try! Packer::Packer(width=10)
-  let result : Result[Placement, PackError] = Ok(
-    packer.place(try! Size::Size(width=11, height=1)),
+  let packer = try! @skyline.Packer::Packer(width=10)
+  let result : Result[@skyline.Placement, @skyline.PackError] = Ok(
+    packer.place(try! @skyline.Size::Size(width=11, height=1)),
   ) catch {
     error => Err(error)
   }
@@ -96,9 +100,9 @@ test "rejects an item wider than the bin before searching" {
 
 ///|
 test "raises NoPlacement when the item exceeds max_height" {
-  let packer = try! Packer::Packer(width=10, max_height=5)
-  let result : Result[Placement, PackError] = Ok(
-    packer.place(try! Size::Size(width=3, height=6)),
+  let packer = try! @skyline.Packer::Packer(width=10, max_height=5)
+  let result : Result[@skyline.Placement, @skyline.PackError] = Ok(
+    packer.place(try! @skyline.Size::Size(width=3, height=6)),
   ) catch {
     error => Err(error)
   }
@@ -107,10 +111,10 @@ test "raises NoPlacement when the item exceeds max_height" {
 
 ///|
 test "place_constrained only uses supplied x coordinates" {
-  let packer = try! Packer::Packer(width=10)
-  ignore(try! packer.place(try! Size::Size(width=4, height=2)))
+  let packer = try! @skyline.Packer::Packer(width=10)
+  ignore(try! packer.place(try! @skyline.Size::Size(width=4, height=2)))
   let placed = try! packer.place_constrained(
-    try! Size::Size(width=3, height=2),
+    try! @skyline.Size::Size(width=3, height=2),
     [0, 4],
   )
   debug_inspect(
@@ -123,9 +127,9 @@ test "place_constrained only uses supplied x coordinates" {
 
 ///|
 test "place_constrained does not insert probe points" {
-  let packer = try! Packer::Packer(width=10)
-  let result : Result[Placement, PackError] = Ok(
-    packer.place_constrained(try! Size::Size(width=3, height=2), [3]),
+  let packer = try! @skyline.Packer::Packer(width=10)
+  let result : Result[@skyline.Placement, @skyline.PackError] = Ok(
+    packer.place_constrained(try! @skyline.Size::Size(width=3, height=2), [3]),
   ) catch {
     error => Err(error)
   }
@@ -135,16 +139,16 @@ test "place_constrained does not insert probe points" {
       #|Ok({ x: 3, y: 0, width: 3, height: 2 })
     ),
   )
-  let packed = try! packer.place(try! Size::Size(width=3, height=2))
+  let packed = try! packer.place(try! @skyline.Size::Size(width=3, height=2))
   debug_inspect(packed.x, content="0")
   debug_inspect(packed.y, content="0")
 }
 
 ///|
 test "place_constrained with no valid x raises NoPlacement" {
-  let packer = try! Packer::Packer(width=10)
-  let result : Result[Placement, PackError] = Ok(
-    packer.place_constrained(try! Size::Size(width=3, height=2), [8, 9]),
+  let packer = try! @skyline.Packer::Packer(width=10)
+  let result : Result[@skyline.Placement, @skyline.PackError] = Ok(
+    packer.place_constrained(try! @skyline.Size::Size(width=3, height=2), [8, 9]),
   ) catch {
     error => Err(error)
   }
@@ -153,11 +157,11 @@ test "place_constrained with no valid x raises NoPlacement" {
 
 ///|
 test "merges a uniform top edge after filling a gap" {
-  let packer = try! Packer::Packer(width=10)
-  ignore(try! packer.place(try! Size::Size(width=6, height=4)))
-  ignore(try! packer.place(try! Size::Size(width=4, height=4)))
+  let packer = try! @skyline.Packer::Packer(width=10)
+  ignore(try! packer.place(try! @skyline.Size::Size(width=6, height=4)))
+  ignore(try! packer.place(try! @skyline.Size::Size(width=4, height=4)))
   debug_inspect(packer.height(), content="4")
-  let third = try! packer.place(try! Size::Size(width=10, height=1))
+  let third = try! packer.place(try! @skyline.Size::Size(width=10, height=1))
   debug_inspect(
     third,
     content=(
@@ -169,21 +173,23 @@ test "merges a uniform top edge after filling a gap" {
 ///|
 test "same inputs produce the same placements" {
   let sizes = [
-    try! Size::Size(width=5, height=2),
-    try! Size::Size(width=3, height=4),
-    try! Size::Size(width=7, height=1),
+    try! @skyline.Size::Size(width=5, height=2),
+    try! @skyline.Size::Size(width=3, height=4),
+    try! @skyline.Size::Size(width=7, height=1),
   ]
-  let first = try! pack_in_order(sizes, bin_width=10)
-  let second = try! pack_in_order(sizes, bin_width=10)
+  let first = try! @skyline.pack_in_order(sizes, bin_width=10)
+  let second = try! @skyline.pack_in_order(sizes, bin_width=10)
   debug_inspect(first == second, content="true")
 }
 
 ///|
 test "overflowing a stacked top raises CoordinateOverflow" {
-  let packer = try! Packer::Packer(width=1)
-  ignore(try! packer.place(try! Size::Size(width=1, height=@int.MAX_VALUE)))
-  let result : Result[Placement, PackError] = Ok(
-    packer.place(try! Size::Size(width=1, height=1)),
+  let packer = try! @skyline.Packer::Packer(width=1)
+  ignore(
+    try! packer.place(try! @skyline.Size::Size(width=1, height=@int.MAX_VALUE)),
+  )
+  let result : Result[@skyline.Placement, @skyline.PackError] = Ok(
+    packer.place(try! @skyline.Size::Size(width=1, height=1)),
   ) catch {
     error => Err(error)
   }

@@ -171,3 +171,11 @@ test "sdeg phase0: heading level change through edit path has fresh NodeId" {
   inspect(before.text_span_text == Some("Alpha"), content="true")
   inspect(after.text_span_text == Some("Alpha"), content="true")
 }
+
+///|
+pub extend HeadingEditPathObservation with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend HeadingEditPathObservation with Eq::{equal, not_equal}

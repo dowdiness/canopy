@@ -353,3 +353,12 @@ pub impl ToJson for SourceMap with fn to_json(self) {
   }
   Json::array(entries)
 }
+
+///|
+pub extend SourceMap with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SourceMap with Eq::{equal, not_equal}
+
+///|
+pub extend SourceMap with ToJson::{to_json}

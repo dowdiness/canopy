@@ -1,5 +1,6 @@
 import {
   "dowdiness/js_ffi" @js,
+  "moonbitlang/core/debug",
 }
 
 import {

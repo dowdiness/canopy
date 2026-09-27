@@ -200,3 +200,9 @@ pub fn State::departure_status(
   }
   status
 }
+
+///|
+pub extend DepartureFailure with Eq::{equal, not_equal}
+
+///|
+pub extend DepartureStatus with Eq::{equal, not_equal}

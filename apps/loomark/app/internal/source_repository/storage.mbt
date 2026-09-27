@@ -234,3 +234,57 @@ pub fn operation_id(msg : @cmd.Emit[OperationId?]) -> @cmd.Cmd {
   let id = OperationId::parse(random_uuid()) catch { _ => return msg(None) }
   msg(Some(id))
 }
+
+///|
+pub extend CreateFailure with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CreateFailure with Eq::{equal, not_equal}
+
+///|
+pub extend CreateResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CreateResult with Eq::{equal, not_equal}
+
+///|
+pub extend DeleteFailure with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeleteFailure with Eq::{equal, not_equal}
+
+///|
+pub extend DeleteResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeleteResult with Eq::{equal, not_equal}
+
+///|
+pub extend OpenFailure with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OpenFailure with Eq::{equal, not_equal}
+
+///|
+pub extend OpenResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OpenResult with Eq::{equal, not_equal}
+
+///|
+pub extend ReplicaFailure with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReplicaFailure with Eq::{equal, not_equal}
+
+///|
+pub extend SaveFailure with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SaveFailure with Eq::{equal, not_equal}
+
+///|
+pub extend SaveResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SaveResult with Eq::{equal, not_equal}

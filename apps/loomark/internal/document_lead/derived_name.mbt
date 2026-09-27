@@ -127,3 +127,9 @@ pub fn DerivedName::update(self : Self, source : String) -> Self {
 pub fn DerivedName::text(self : Self) -> String {
   self.text
 }
+
+///|
+pub extend DerivedName with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DerivedName with Eq::{equal, not_equal}

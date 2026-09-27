@@ -6,19 +6,19 @@
 
 ///|
 test "parser: get_ast_pretty contains expression" {
-  let se = (try! new_lambda_editor("agent1")).0
+  let se = (try! @companion.new_lambda_editor("agent1")).0
   se.set_text("42")
-  let pretty = get_lambda_ast_pretty(se)
+  let pretty = @companion.get_lambda_ast_pretty(se)
   inspect(pretty.contains("42"), content="true")
   inspect(pretty.contains("Expression:"), content="true")
 }
 
 ///|
 test "parser: complex expression parses correctly" {
-  let se = (try! new_lambda_editor("agent1")).0
+  let se = (try! @companion.new_lambda_editor("agent1")).0
   se.set_text("(f, x) => f x")
   inspect(
-    @ast.print_term(get_lambda_ast(se)),
+    @ast.print_term(@companion.get_lambda_ast(se)),
     content=(
       #|(f) => (x) => f x
     ),
@@ -27,9 +27,9 @@ test "parser: complex expression parses correctly" {
 
 ///|
 test "parser: let binding with body" {
-  let se = (try! new_lambda_editor("agent1")).0
+  let se = (try! @companion.new_lambda_editor("agent1")).0
   se.set_text("let x = 1\nx + 2")
-  let ast = get_lambda_ast(se)
+  let ast = @companion.get_lambda_ast(se)
   inspect(
     @ast.print_term(ast),
     content=(
@@ -41,16 +41,19 @@ test "parser: let binding with body" {
 
 ///|
 test "parser: if-then-else expression" {
-  let se = (try! new_lambda_editor("agent1")).0
+  let se = (try! @companion.new_lambda_editor("agent1")).0
   se.set_text("if x then 1 else 2")
-  inspect(@ast.print_term(get_lambda_ast(se)), content="if x then 1 else 2")
+  inspect(
+    @ast.print_term(@companion.get_lambda_ast(se)),
+    content="if x then 1 else 2",
+  )
 }
 
 ///|
 test "parser: arithmetic addition" {
-  let se = (try! new_lambda_editor("agent1")).0
+  let se = (try! @companion.new_lambda_editor("agent1")).0
   se.set_text("1 + 2 + 3")
-  let ast = get_lambda_ast(se)
+  let ast = @companion.get_lambda_ast(se)
   inspect(
     @ast.print_term(ast),
     content=(
@@ -61,9 +64,9 @@ test "parser: arithmetic addition" {
 
 ///|
 test "parser: resolution tracks bound and free variables" {
-  let se = (try! new_lambda_editor("agent1")).0
+  let se = (try! @companion.new_lambda_editor("agent1")).0
   se.set_text("(x) => x + y")
-  let res = get_lambda_resolution(se)
+  let res = @companion.get_lambda_resolution(se)
   // Verify resolution is populated (bound x, free y)
   inspect(res.vars.length() > 0, content="true")
 }

@@ -13,11 +13,16 @@ import {
 pub(all) suberror ActionError {
   ExpiredAction
 } derive(Eq, @debug.Debug)
+pub fn ActionError::equal(Self, Self) -> Bool
+pub fn ActionError::not_equal(Self, Self) -> Bool
+pub fn ActionError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct AcceptRemote {
   // private fields
 } derive(Eq)
+pub fn AcceptRemote::equal(Self, Self) -> Bool
+pub fn AcceptRemote::not_equal(Self, Self) -> Bool
 
 pub(all) enum Action {
   ArmMaximum(Int)
@@ -34,6 +39,8 @@ pub struct DeleteOperation {
   document_id : @source_repository.DocumentId
   request_id : Int
 } derive(Eq)
+pub fn DeleteOperation::equal(Self, Self) -> Bool
+pub fn DeleteOperation::not_equal(Self, Self) -> Bool
 
 pub(all) enum DeleteStatus {
   NotDeletable
@@ -42,12 +49,16 @@ pub(all) enum DeleteStatus {
   DeleteFailed(@source_repository.DeleteFailure)
   DeletePersistenceFailed(@source_repository.ReplicaFailure)
 } derive(Eq)
+pub fn DeleteStatus::equal(Self, Self) -> Bool
+pub fn DeleteStatus::not_equal(Self, Self) -> Bool
 
 pub enum DepartureFailure {
   Save(Key, @source_repository.SaveFailure)
   Delete(Key, @source_repository.DeleteFailure)
   Replica(Key, @source_repository.ReplicaFailure)
 } derive(Eq)
+pub fn DepartureFailure::equal(Self, Self) -> Bool
+pub fn DepartureFailure::not_equal(Self, Self) -> Bool
 
 pub enum DepartureStatus {
   AwaitingInput
@@ -55,6 +66,8 @@ pub enum DepartureStatus {
   Failed(DepartureFailure)
   Ready
 } derive(Eq)
+pub fn DepartureStatus::equal(Self, Self) -> Bool
+pub fn DepartureStatus::not_equal(Self, Self) -> Bool
 
 pub(all) enum Feedback {
   MaximumElapsed(Int)
@@ -70,7 +83,11 @@ pub enum Key {
   Source(@source_repository.DocumentId)
   Replica(@source_repository.AccountId, @source_repository.DocumentId)
 } derive(Eq, Hash)
+pub fn Key::equal(Self, Self) -> Bool
+pub fn Key::hash(Self) -> Int
+pub fn Key::hash_combine(Self, Hasher) -> Unit
 pub fn Key::lifecycle_key(Self) -> String
+pub fn Key::not_equal(Self, Self) -> Bool
 pub fn Key::replica(@source_repository.AccountId, @source_repository.DocumentId) -> Self
 pub fn Key::source(@source_repository.DocumentId) -> Self
 
@@ -117,29 +134,39 @@ pub(all) enum RemoteState {
   DeletionAvailable(AcceptRemote)
   Unavailable
 } derive(Eq)
+pub fn RemoteState::equal(Self, Self) -> Bool
+pub fn RemoteState::not_equal(Self, Self) -> Bool
 
 pub struct ReplicaEdit {
   // private fields
 } derive(Eq)
 pub fn ReplicaEdit::document(Self) -> @source_repository.Document
 pub fn ReplicaEdit::durable(Self) -> @source_repository.DocumentReplica
+pub fn ReplicaEdit::equal(Self, Self) -> Bool
+pub fn ReplicaEdit::not_equal(Self, Self) -> Bool
 
 pub struct SaveOperation {
   key : Key
   document : @source_repository.Document
 } derive(Eq)
+pub fn SaveOperation::equal(Self, Self) -> Bool
+pub fn SaveOperation::not_equal(Self, Self) -> Bool
 
 pub(all) enum SaveStatus {
   Clean
   Unsaved
   SaveFailed(@source_repository.SaveFailure)
 } derive(Eq)
+pub fn SaveStatus::equal(Self, Self) -> Bool
+pub fn SaveStatus::not_equal(Self, Self) -> Bool
 
 pub struct StartSync {
   // private fields
 } derive(Eq)
 pub fn StartSync::account(Self) -> @source_repository.AccountId
 pub fn StartSync::document_id(Self) -> @source_repository.DocumentId
+pub fn StartSync::equal(Self, Self) -> Bool
+pub fn StartSync::not_equal(Self, Self) -> Bool
 
 pub struct State {
   // private fields
@@ -150,10 +177,12 @@ pub fn State::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise Ac
 pub fn State::delete_status(Self, Key) -> DeleteStatus?
 pub fn State::departure_status(Self, @replica_persistence.State) -> DepartureStatus
 pub fn State::document(Self, Key) -> @source_repository.Document?
+pub fn State::equal(Self, Self) -> Bool
 pub fn State::fallback_document(Self, Key) -> Key?
 pub fn State::hide_accounts(Self) -> Self
 pub fn State::is_composing(Self, Key) -> Bool
 pub fn State::known_keys(Self) -> Array[Key]
+pub fn State::not_equal(Self, Self) -> Bool
 pub fn State::open_replica(Self, @source_repository.DocumentReplica) -> RemoteOpen
 pub fn State::pending_edits(Self) -> Array[(Key, Int)]
 pub fn State::prepare_departure(Self) -> (Self, Array[Action])
@@ -174,6 +203,8 @@ pub(all) enum SyncStart {
   Ready(StartSync)
   Starting
 } derive(Eq)
+pub fn SyncStart::equal(Self, Self) -> Bool
+pub fn SyncStart::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

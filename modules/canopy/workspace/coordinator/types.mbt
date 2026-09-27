@@ -153,3 +153,30 @@ fn Coordinator::Coordinator(runtime~ : @incr.Runtime) -> Coordinator {
     next_id: Ref(0),
   }
 }
+
+///|
+pub extend AbortKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend AbortKind with Eq::{equal, not_equal}
+
+///|
+pub extend AbortKind with Show::{output, to_string}
+
+///|
+pub extend AbortReport with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend AbortReport with Show::{output, to_string}
+
+///|
+pub extend EditorId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EditorId with Eq::{equal, not_equal}
+
+///|
+pub extend EditorId with Hash::{hash, hash_combine}
+
+///|
+pub extend EditorId with Show::{output, to_string}

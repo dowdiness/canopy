@@ -34,6 +34,9 @@ pub struct PortableCommit {
 } derive(Eq, @debug.Debug)
 pub fn PortableCommit::after(Self) -> String
 pub fn PortableCommit::before(Self) -> String
+pub fn PortableCommit::equal(Self, Self) -> Bool
+pub fn PortableCommit::not_equal(Self, Self) -> Bool
+pub fn PortableCommit::to_repr(Self) -> @debug.Repr
 pub fn PortableCommit::transform(Self) -> @dowdiness/canopy/core.SpanEdit
 
 pub(all) enum PortableCommitError {
@@ -47,6 +50,9 @@ pub struct PortableCommitEvidence {
 } derive(Eq, @debug.Debug)
 pub fn PortableCommitEvidence::after(Self) -> String?
 pub fn PortableCommitEvidence::before(Self) -> String
+pub fn PortableCommitEvidence::equal(Self, Self) -> Bool
+pub fn PortableCommitEvidence::not_equal(Self, Self) -> Bool
+pub fn PortableCommitEvidence::to_repr(Self) -> @debug.Repr
 
 pub(all) enum PortableCommitIssue {
   RuntimeFailure(detail~ : String)
@@ -54,6 +60,9 @@ pub(all) enum PortableCommitIssue {
   ProjectionFailed(error~ : PortableProjectionError)
   UnexpectedTransformCount(count~ : Int)
 } derive(Eq, @debug.Debug)
+pub fn PortableCommitIssue::equal(Self, Self) -> Bool
+pub fn PortableCommitIssue::not_equal(Self, Self) -> Bool
+pub fn PortableCommitIssue::to_repr(Self) -> @debug.Repr
 
 pub(all) enum PortableCommitOutcome {
   Applied(PortableCommit)
@@ -64,10 +73,13 @@ pub(all) enum PortableCommitOutcome {
 pub struct PortableCoordinateMap {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn PortableCoordinateMap::equal(Self, Self) -> Bool
+pub fn PortableCoordinateMap::not_equal(Self, Self) -> Bool
 pub fn PortableCoordinateMap::project_edit(Self, @dowdiness/canopy/core.SpanEdit, Self) -> Result[@dowdiness/canopy/core.SpanEdit, PortableProjectionError]
 pub fn PortableCoordinateMap::project_offset(Self, Int) -> Result[Int, PortableProjectionError]
 pub fn PortableCoordinateMap::project_range(Self, Int, Int) -> Result[(Int, Int), PortableProjectionError]
 pub fn PortableCoordinateMap::source(Self) -> String
+pub fn PortableCoordinateMap::to_repr(Self) -> @debug.Repr
 
 pub enum PortableProjectionError {
   InvalidHiddenRange
@@ -77,6 +89,9 @@ pub enum PortableProjectionError {
   CanonicalAfterSourceMismatch
   NonRepresentable
 } derive(Eq, @debug.Debug)
+pub fn PortableProjectionError::equal(Self, Self) -> Bool
+pub fn PortableProjectionError::not_equal(Self, Self) -> Bool
+pub fn PortableProjectionError::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

@@ -169,3 +169,9 @@ pub fn adjust_position(
     pos - old_len + new_len
   }
 }
+
+///|
+pub extend PeerCursor with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PeerCursor with Show::{output, to_string}

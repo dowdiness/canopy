@@ -45,6 +45,10 @@ supported_targets = "js"
 
 pkgtype(kind: "executable")
 
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"
+
 options(
   link: {
     "js": {

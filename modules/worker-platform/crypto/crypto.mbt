@@ -17,3 +17,9 @@ pub async fn sha256(text : String) -> String {
   let bytes : Bytes = @js.global().get("Uint8Array").construct([digest]).cast()
   @hex.encode(bytes)
 }
+
+///|
+pub extend CryptoError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CryptoError with Eq::{equal, not_equal}

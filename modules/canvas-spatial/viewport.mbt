@@ -58,3 +58,9 @@ pub fn Viewport::with_scale_around(
   let next_origin = ScreenPoint::from_xy(x~, y~)
   Viewport::from_scale(origin=next_origin, scale=absolute_scale)
 }
+
+///|
+pub extend Viewport with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Viewport with Eq::{equal, not_equal}

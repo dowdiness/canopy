@@ -183,3 +183,6 @@ pub fn Editor::apply_sync(self : Editor, msg : @text.SyncMessage) -> Unit raise 
     raise @text.TextError::VersionNotFound
   }
 }
+
+///|
+pub extend Editor with @moonbitlang/core/debug.Debug::{to_repr}

@@ -359,3 +359,21 @@ let binding_delete : Action = {
   group: Binding,
   needs_input: false,
 }
+
+///|
+pub extend Action with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Action with Eq::{equal, not_equal}
+
+///|
+pub extend ActionGroup with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ActionGroup with Eq::{equal, not_equal}
+
+///|
+pub extend NodeContext with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NodeContext with Eq::{equal, not_equal}

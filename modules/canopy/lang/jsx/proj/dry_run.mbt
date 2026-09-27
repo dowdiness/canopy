@@ -317,3 +317,15 @@ fn update_node(
   }
   false
 }
+
+///|
+pub extend DryRunModel with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DryRunModel with Eq::{equal, not_equal}
+
+///|
+pub extend DryRunNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DryRunNode with Eq::{equal, not_equal}

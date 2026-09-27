@@ -16,6 +16,9 @@ pub fn parse_edit_actions(String) -> Array[EditAction]
 pub suberror LlmError {
   LlmError(String)
 } derive(@debug.Debug)
+pub fn LlmError::output(Self, &Logger) -> Unit
+pub fn LlmError::to_repr(Self) -> @debug.Repr
+pub fn LlmError::to_string(Self) -> String
 pub impl Show for LlmError
 
 // Types and methods
@@ -25,6 +28,12 @@ pub(all) enum EditAction {
   Delete(line~ : Int)
   FixTypos(original~ : String, fixed~ : String)
 } derive(Eq, @debug.Debug)
+pub fn EditAction::equal(Self, Self) -> Bool
+pub fn EditAction::not_equal(Self, Self) -> Bool
+pub fn EditAction::output(Self, &Logger) -> Unit
+pub fn EditAction::to_json(Self) -> Json
+pub fn EditAction::to_repr(Self) -> @debug.Repr
+pub fn EditAction::to_string(Self) -> String
 pub impl Show for EditAction
 pub impl ToJson for EditAction
 
@@ -35,18 +44,27 @@ pub(all) struct GeminiConfig {
   max_output_tokens : Int
 } derive(@debug.Debug)
 pub fn GeminiConfig::GeminiConfig(api_key~ : String, model? : String, temperature? : Double, max_output_tokens? : Int) -> Self
+pub fn GeminiConfig::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Message {
   role : Role
   content : String
 } derive(Eq, @debug.Debug)
 pub fn Message::Message(role~ : Role, content~ : String) -> Self
+pub fn Message::equal(Self, Self) -> Bool
+pub fn Message::not_equal(Self, Self) -> Bool
+pub fn Message::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Role {
   System
   User
   Assistant
 } derive(Eq, @debug.Debug)
+pub fn Role::equal(Self, Self) -> Bool
+pub fn Role::not_equal(Self, Self) -> Bool
+pub fn Role::output(Self, &Logger) -> Unit
+pub fn Role::to_repr(Self) -> @debug.Repr
+pub fn Role::to_string(Self) -> String
 pub impl Show for Role
 
 // Type aliases

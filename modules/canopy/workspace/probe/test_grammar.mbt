@@ -432,3 +432,12 @@ pub fn get_test_ast(
     None => Branch("", [])
   }
 }
+
+///|
+pub extend TestKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TestKind with Eq::{equal, not_equal}
+
+///|
+pub extend TestToken with Eq::{equal, not_equal}

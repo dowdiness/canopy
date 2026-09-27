@@ -16,6 +16,8 @@ pub(all) enum CollisionStrategy {
   NoCollisionHandling
   ClampToViewport
 } derive(Eq)
+pub fn CollisionStrategy::equal(Self, Self) -> Bool
+pub fn CollisionStrategy::not_equal(Self, Self) -> Bool
 
 pub(all) enum DismissReason {
   PointerOutside
@@ -28,6 +30,7 @@ pub struct Model[T] {
 pub fn[T] Model::anchor(Self[T]) -> Point?
 pub fn[T] Model::close(Self[T]) -> Self[T]
 pub fn[T] Model::close_focus_cmd(Self[T]) -> @cmd.Cmd
+pub fn[T : Eq] Model::equal(Self[T], Self[T]) -> Bool
 pub fn[T] Model::focus_cmd(Self[T]) -> @cmd.Cmd
 pub fn[T] Model::focus_cmd_within(Self[T], root_id~ : String) -> @cmd.Cmd
 pub fn[T] Model::is_open(Self[T]) -> Bool
@@ -35,6 +38,7 @@ pub fn[T] Model::item(Self[T], Int) -> T?
 pub fn[T] Model::item_attrs(Self[T], Int, (Msg) -> @cmd.Cmd) -> @html.Attrs
 pub fn[T] Model::items(Self[T]) -> ArrayView[T]
 pub fn[T] Model::new(id~ : String) -> Self[T]
+pub fn[T : Eq] Model::not_equal(Self[T], Self[T]) -> Bool
 pub fn[T] Model::open(Self[T], anchor~ : Point, items~ : ArrayView[T]) -> Self[T]
 pub fn[T] Model::panel_attrs(Self[T], (Msg) -> @cmd.Cmd) -> @html.Attrs
 pub fn[T] Model::position_cmd(Self[T], positioning? : Positioning) -> @cmd.Cmd
@@ -62,12 +66,16 @@ pub(all) struct Point {
   y : Float
 } derive(Eq)
 pub fn Point::Point(x~ : Float, y~ : Float) -> Self
+pub fn Point::equal(Self, Self) -> Bool
+pub fn Point::not_equal(Self, Self) -> Bool
 
 pub struct Positioning {
   // private fields
 } derive(Eq)
 pub fn Positioning::Positioning(offset_x? : Float, offset_y? : Float, viewport_margin? : Float, collision? : CollisionStrategy) -> Self
 pub fn Positioning::default() -> Self
+pub fn Positioning::equal(Self, Self) -> Bool
+pub fn Positioning::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

@@ -82,7 +82,7 @@ fn LambdaHandle::pattern_source_snapshot(
 ///|
 fn is_utf8_byte_boundary(bytes : Bytes, offset : Int) -> Bool {
   guard offset >= 0 && offset <= bytes.length() else { return false }
-  try @utf8.decode(bytes.view(end=offset)) catch {
+  try @utf8.decode(bytes.exact_view(end=offset)) catch {
     _ => false
   } noraise {
     _ => true

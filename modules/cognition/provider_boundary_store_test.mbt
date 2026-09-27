@@ -1,9 +1,9 @@
 ///|
 fn provider_boundary_completion_for_test(
-  request : ProviderRequestDescriptor,
-  result : ProviderResult,
-) -> ProviderResultDescriptor {
-  ProviderResultDescriptor::new(
+  request : @cognition.ProviderRequestDescriptor,
+  result : @cognition.ProviderResult,
+) -> @cognition.ProviderResultDescriptor {
+  @cognition.ProviderResultDescriptor::new(
     request_id=request.id(),
     target=request.target(),
     options=request.options(),
@@ -15,8 +15,8 @@ fn provider_boundary_completion_for_test(
 
 ///|
 fn provider_boundary_summary_for_test(
-  store : CognitionStore,
-  key : CognitionKey,
+  store : @cognition.CognitionStore,
+  key : @cognition.CognitionKey,
 ) -> String raise {
   match store.get_value(key) {
     Some(Summary(summary)) => summary
@@ -26,10 +26,10 @@ fn provider_boundary_summary_for_test(
 
 ///|
 test "provider request planning records pending descriptor and reuses clean id" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/b.mbt"), Text("beta"))
-  let target = CognitionKey::PackedContext("explain alpha", 2)
+  let target = @cognition.CognitionKey::PackedContext("explain alpha", 2)
   let items = store.pack_context("explain alpha", 2)
 
   let request = store.plan_provider_request(
@@ -59,9 +59,13 @@ test "provider request planning records pending descriptor and reuses clean id" 
     Some(status) => {
       inspect(status.request_id() == request.id(), content="true")
       inspect(status.target() == target, content="true")
-      inspect(status.status() == ProviderRequestStatus::Pending, content="true")
       inspect(
-        status.classification() == ProviderStatusClassification::InFlight,
+        status.status() == @cognition.ProviderRequestStatus::Pending,
+        content="true",
+      )
+      inspect(
+        status.classification() ==
+        @cognition.ProviderStatusClassification::InFlight,
         content="true",
       )
     }
@@ -73,7 +77,7 @@ test "provider request planning records pending descriptor and reuses clean id" 
 test "provider request planning populates context from planned inputs" {
   let file_calls = Ref(0)
   let repo_calls = Ref(0)
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, text) {
       file_calls.val += 1
       "sync \{path}: \{text.length()}"
@@ -83,10 +87,10 @@ test "provider request planning populates context from planned inputs" {
       "repo: " + items.join(",")
     },
   }
-  let store = CognitionStore::new_with_provider(provider)
+  let store = @cognition.CognitionStore::new_with_provider(provider)
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/b.mbt"), Text("beta"))
-  let target = CognitionKey::PackedContext("alpha", 2)
+  let target = @cognition.CognitionKey::PackedContext("alpha", 2)
 
   let request = store.plan_provider_request(
     target~,
@@ -127,18 +131,18 @@ test "provider request planning populates context from planned inputs" {
 
 ///|
 test "provider request ids are collision-safe for embedded separators" {
-  let store = CognitionStore::new()
-  let first_options = ProviderOptionProvenance::new(
+  let store = @cognition.CognitionStore::new()
+  let first_options = @cognition.ProviderOptionProvenance::new(
     task_kind="task",
     provider_id="mock-provider",
     model_id="mock-model",
-    option_identity=RedactedOptionIdentity::new("same-options"),
+    option_identity=@cognition.RedactedOptionIdentity::new("same-options"),
   )
-  let second_options = ProviderOptionProvenance::new(
+  let second_options = @cognition.ProviderOptionProvenance::new(
     task_kind="shift)\ntask",
     provider_id="mock-provider",
     model_id="mock-model",
-    option_identity=RedactedOptionIdentity::new("same-options"),
+    option_identity=@cognition.RedactedOptionIdentity::new("same-options"),
   )
 
   let first = store.plan_provider_request(
@@ -163,9 +167,9 @@ test "provider request ids are collision-safe for embedded separators" {
 
 ///|
 test "provider request re-planning resets failed status to pending" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let request = store.plan_provider_request(
     target~,
     options=provider_boundary_options_for_test(),
@@ -174,17 +178,21 @@ test "provider request re-planning resets failed status to pending" {
   let failed = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Failed(ProviderError::Timeout),
+      @cognition.ProviderResult::Failed(@cognition.ProviderError::Timeout),
     ),
   )
   inspect(
-    failed.status() == ProviderRequestStatus::Failed(ProviderError::Timeout),
+    failed.status() ==
+    @cognition.ProviderRequestStatus::Failed(@cognition.ProviderError::Timeout),
     content="true",
   )
   match store.get_provider_result(request.id()) {
     Some(result) =>
       inspect(
-        result.status() == ProviderRequestStatus::Failed(ProviderError::Timeout),
+        result.status() ==
+        @cognition.ProviderRequestStatus::Failed(
+          @cognition.ProviderError::Timeout,
+        ),
         content="true",
       )
     None => fail("expected failed completion record")
@@ -197,7 +205,10 @@ test "provider request re-planning resets failed status to pending" {
   inspect(repeated.id() == request.id(), content="true")
   match store.get_provider_status(request.id()) {
     Some(status) =>
-      inspect(status.status() == ProviderRequestStatus::Pending, content="true")
+      inspect(
+        status.status() == @cognition.ProviderRequestStatus::Pending,
+        content="true",
+      )
     None => fail("expected provider status")
   }
   inspect(store.get_provider_result(request.id()) is None, content="true")
@@ -205,11 +216,11 @@ test "provider request re-planning resets failed status to pending" {
   let retry_status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       repeated,
-      ProviderResult::Succeeded(Summary("retry summary")),
+      @cognition.ProviderResult::Succeeded(Summary("retry summary")),
     ),
   )
   inspect(
-    retry_status.status() == ProviderRequestStatus::Succeeded,
+    retry_status.status() == @cognition.ProviderRequestStatus::Succeeded,
     content="true",
   )
   inspect(
@@ -220,9 +231,9 @@ test "provider request re-planning resets failed status to pending" {
 
 ///|
 test "provider request re-planning preserves terminal status" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let request = store.plan_provider_request(
     target~,
     options=provider_boundary_options_for_test(),
@@ -230,11 +241,11 @@ test "provider request re-planning preserves terminal status" {
   let success_status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Summary("provider summary")),
+      @cognition.ProviderResult::Succeeded(Summary("provider summary")),
     ),
   )
   inspect(
-    success_status.status() == ProviderRequestStatus::Succeeded,
+    success_status.status() == @cognition.ProviderRequestStatus::Succeeded,
     content="true",
   )
 
@@ -246,7 +257,7 @@ test "provider request re-planning preserves terminal status" {
   match store.get_provider_status(request.id()) {
     Some(status) =>
       inspect(
-        status.status() == ProviderRequestStatus::Succeeded,
+        status.status() == @cognition.ProviderRequestStatus::Succeeded,
         content="true",
       )
     None => fail("expected provider status")
@@ -259,11 +270,12 @@ test "provider request re-planning preserves terminal status" {
   let auth_status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       auth_request,
-      ProviderResult::Failed(ProviderError::Auth),
+      @cognition.ProviderResult::Failed(@cognition.ProviderError::Auth),
     ),
   )
   inspect(
-    auth_status.status() == ProviderRequestStatus::Failed(ProviderError::Auth),
+    auth_status.status() ==
+    @cognition.ProviderRequestStatus::Failed(@cognition.ProviderError::Auth),
     content="true",
   )
 
@@ -275,7 +287,8 @@ test "provider request re-planning preserves terminal status" {
   match store.get_provider_status(auth_request.id()) {
     Some(status) =>
       inspect(
-        status.status() == ProviderRequestStatus::Failed(ProviderError::Auth),
+        status.status() ==
+        @cognition.ProviderRequestStatus::Failed(@cognition.ProviderError::Auth),
         content="true",
       )
     None => fail("expected provider status")
@@ -285,15 +298,15 @@ test "provider request re-planning preserves terminal status" {
 ///|
 test "provider request planning does not recompute dirty file summary target" {
   let file_calls = Ref(0)
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, text) {
       file_calls.val += 1
       "sync \{path}: \{text.length()}"
     },
     repo_summary: fn(items) { "repo: " + items.join(",") },
   }
-  let store = CognitionStore::new_with_provider(provider)
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let store = @cognition.CognitionStore::new_with_provider(provider)
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.compute(target)
   inspect(file_calls.val, content="1")
@@ -323,10 +336,13 @@ test "provider request planning does not recompute dirty file summary target" {
   let status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Summary("external summary")),
+      @cognition.ProviderResult::Succeeded(Summary("external summary")),
     ),
   )
-  inspect(status.status() == ProviderRequestStatus::Succeeded, content="true")
+  inspect(
+    status.status() == @cognition.ProviderRequestStatus::Succeeded,
+    content="true",
+  )
   inspect(store.is_dirty(target), content="false")
   inspect(
     provider_boundary_summary_for_test(store, target),
@@ -336,7 +352,7 @@ test "provider request planning does not recompute dirty file summary target" {
 
 ///|
 test "provider completion accepts matching success and stores artifact" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.compute(FileSummary("src/a.mbt"))
   let request = store.plan_provider_request(
@@ -345,12 +361,15 @@ test "provider completion accepts matching success and stores artifact" {
   )
   let completion = provider_boundary_completion_for_test(
     request,
-    ProviderResult::Succeeded(Summary("provider summary")),
+    @cognition.ProviderResult::Succeeded(Summary("provider summary")),
   )
 
   let status = store.complete_provider_request(completion)
 
-  inspect(status.status() == ProviderRequestStatus::Succeeded, content="true")
+  inspect(
+    status.status() == @cognition.ProviderRequestStatus::Succeeded,
+    content="true",
+  )
   inspect(
     provider_boundary_summary_for_test(store, FileSummary("src/a.mbt")),
     content="provider summary",
@@ -358,7 +377,7 @@ test "provider completion accepts matching success and stores artifact" {
   match store.get_provider_result(request.id()) {
     Some(result) =>
       inspect(
-        result.status() == ProviderRequestStatus::Succeeded,
+        result.status() == @cognition.ProviderRequestStatus::Succeeded,
         content="true",
       )
     None => fail("expected completion record")
@@ -366,7 +385,7 @@ test "provider completion accepts matching success and stores artifact" {
   match store.get_provider_status(request.id()) {
     Some(stored) =>
       inspect(
-        stored.status() == ProviderRequestStatus::Succeeded,
+        stored.status() == @cognition.ProviderRequestStatus::Succeeded,
         content="true",
       )
     None => fail("expected provider status")
@@ -375,10 +394,10 @@ test "provider completion accepts matching success and stores artifact" {
 
 ///|
 test "provider completion rejects value type that does not match target" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.compute(FileSummary("src/a.mbt"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let before = provider_boundary_summary_for_test(store, target)
   let request = store.plan_provider_request(
     target~,
@@ -388,14 +407,16 @@ test "provider completion rejects value type that does not match target" {
   let status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Text("not a summary")),
+      @cognition.ProviderResult::Succeeded(Text("not a summary")),
     ),
   )
 
   inspect(
     status.status() ==
-    ProviderRequestStatus::Failed(
-      ProviderError::InvalidRequest(message="result value type mismatch"),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::InvalidRequest(
+        message="result value type mismatch",
+      ),
     ),
     content="true",
   )
@@ -404,10 +425,10 @@ test "provider completion rejects value type that does not match target" {
 
 ///|
 test "provider cancellation preserves last clean artifact and blocks completion" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.compute(FileSummary("src/a.mbt"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let before = provider_boundary_summary_for_test(store, target)
   let request = store.plan_provider_request(
     target~,
@@ -418,20 +439,24 @@ test "provider cancellation preserves last clean artifact and blocks completion"
     Some(status) =>
       inspect(
         status.status() ==
-        ProviderRequestStatus::Failed(ProviderError::Cancelled),
+        @cognition.ProviderRequestStatus::Failed(
+          @cognition.ProviderError::Cancelled,
+        ),
         content="true",
       )
     None => fail("expected cancellation status")
   }
   let late_completion = provider_boundary_completion_for_test(
     request,
-    ProviderResult::Succeeded(Summary("late provider summary")),
+    @cognition.ProviderResult::Succeeded(Summary("late provider summary")),
   )
   let late_status = store.complete_provider_request(late_completion)
 
   inspect(
     late_status.status() ==
-    ProviderRequestStatus::Failed(ProviderError::Cancelled),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::Cancelled,
+    ),
     content="true",
   )
   inspect(provider_boundary_summary_for_test(store, target), content=before)
@@ -439,10 +464,10 @@ test "provider cancellation preserves last clean artifact and blocks completion"
 
 ///|
 test "provider cancellation after success leaves terminal result intact" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.compute(FileSummary("src/a.mbt"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let request = store.plan_provider_request(
     target~,
     options=provider_boundary_options_for_test(),
@@ -450,18 +475,18 @@ test "provider cancellation after success leaves terminal result intact" {
   let complete_status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Summary("provider summary")),
+      @cognition.ProviderResult::Succeeded(Summary("provider summary")),
     ),
   )
   inspect(
-    complete_status.status() == ProviderRequestStatus::Succeeded,
+    complete_status.status() == @cognition.ProviderRequestStatus::Succeeded,
     content="true",
   )
 
   match store.cancel_provider_request(request.id()) {
     Some(status) =>
       inspect(
-        status.status() == ProviderRequestStatus::Succeeded,
+        status.status() == @cognition.ProviderRequestStatus::Succeeded,
         content="true",
       )
     None => fail("expected cancellation status")
@@ -473,7 +498,7 @@ test "provider cancellation after success leaves terminal result intact" {
   match store.get_provider_result(request.id()) {
     Some(result) =>
       inspect(
-        result.status() == ProviderRequestStatus::Succeeded,
+        result.status() == @cognition.ProviderRequestStatus::Succeeded,
         content="true",
       )
     None => fail("expected completion record")
@@ -481,7 +506,7 @@ test "provider cancellation after success leaves terminal result intact" {
   match store.get_provider_status(request.id()) {
     Some(status) =>
       inspect(
-        status.status() == ProviderRequestStatus::Succeeded,
+        status.status() == @cognition.ProviderRequestStatus::Succeeded,
         content="true",
       )
     None => fail("expected provider status")
@@ -490,11 +515,11 @@ test "provider cancellation after success leaves terminal result intact" {
 
 ///|
 test "provider cancellation is request scoped and idempotent" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/b.mbt"), Text("beta"))
-  let target_a = CognitionKey::FileSummary("src/a.mbt")
-  let target_b = CognitionKey::FileSummary("src/b.mbt")
+  let target_a = @cognition.CognitionKey::FileSummary("src/a.mbt")
+  let target_b = @cognition.CognitionKey::FileSummary("src/b.mbt")
   let request_a = store.plan_provider_request(
     target=target_a,
     options=provider_boundary_options_for_test(),
@@ -508,7 +533,9 @@ test "provider cancellation is request scoped and idempotent" {
     Some(status) =>
       inspect(
         status.status() ==
-        ProviderRequestStatus::Failed(ProviderError::Cancelled),
+        @cognition.ProviderRequestStatus::Failed(
+          @cognition.ProviderError::Cancelled,
+        ),
         content="true",
       )
     None => fail("expected first cancellation status")
@@ -517,7 +544,9 @@ test "provider cancellation is request scoped and idempotent" {
     Some(status) =>
       inspect(
         status.status() ==
-        ProviderRequestStatus::Failed(ProviderError::Cancelled),
+        @cognition.ProviderRequestStatus::Failed(
+          @cognition.ProviderError::Cancelled,
+        ),
         content="true",
       )
     None => fail("expected idempotent cancellation status")
@@ -526,19 +555,25 @@ test "provider cancellation is request scoped and idempotent" {
   let status_b = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request_b,
-      ProviderResult::Succeeded(Summary("provider b summary")),
+      @cognition.ProviderResult::Succeeded(Summary("provider b summary")),
     ),
   )
   let late_a = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request_a,
-      ProviderResult::Succeeded(Summary("late provider a summary")),
+      @cognition.ProviderResult::Succeeded(Summary("late provider a summary")),
     ),
   )
 
-  inspect(status_b.status() == ProviderRequestStatus::Succeeded, content="true")
   inspect(
-    late_a.status() == ProviderRequestStatus::Failed(ProviderError::Cancelled),
+    status_b.status() == @cognition.ProviderRequestStatus::Succeeded,
+    content="true",
+  )
+  inspect(
+    late_a.status() ==
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::Cancelled,
+    ),
     content="true",
   )
   inspect(
@@ -550,9 +585,9 @@ test "provider cancellation is request scoped and idempotent" {
 
 ///|
 test "provider driver shutdown leaves pending request observable" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let request = store.plan_provider_request(
     target~,
     options=provider_boundary_options_for_test(),
@@ -573,9 +608,13 @@ test "provider driver shutdown leaves pending request observable" {
   }
   match store.get_provider_status(request.id()) {
     Some(status) => {
-      inspect(status.status() == ProviderRequestStatus::Pending, content="true")
       inspect(
-        status.classification() == ProviderStatusClassification::InFlight,
+        status.status() == @cognition.ProviderRequestStatus::Pending,
+        content="true",
+      )
+      inspect(
+        status.classification() ==
+        @cognition.ProviderStatusClassification::InFlight,
         content="true",
       )
     }
@@ -585,10 +624,10 @@ test "provider driver shutdown leaves pending request observable" {
 
 ///|
 test "provider completion rejects stale source revisions after edit" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.compute(FileSummary("src/a.mbt"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let before = provider_boundary_summary_for_test(store, target)
   let request = store.plan_provider_request(
     target~,
@@ -599,13 +638,15 @@ test "provider completion rejects stale source revisions after edit" {
   let status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Summary("stale provider summary")),
+      @cognition.ProviderResult::Succeeded(Summary("stale provider summary")),
     ),
   )
 
   inspect(
     status.status() ==
-    ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::StaleCompletion,
+    ),
     content="true",
   )
   inspect(provider_boundary_summary_for_test(store, target), content=before)
@@ -613,7 +654,9 @@ test "provider completion rejects stale source revisions after edit" {
     Some(result) =>
       inspect(
         result.status() ==
-        ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+        @cognition.ProviderRequestStatus::Failed(
+          @cognition.ProviderError::StaleCompletion,
+        ),
         content="true",
       )
     None => fail("expected stale completion record")
@@ -622,10 +665,10 @@ test "provider completion rejects stale source revisions after edit" {
 
 ///|
 test "provider completion rejects stale source revisions after file removal" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let _ = store.compute(FileSummary("src/a.mbt"))
-  let target = CognitionKey::FileSummary("src/a.mbt")
+  let target = @cognition.CognitionKey::FileSummary("src/a.mbt")
   let request = store.plan_provider_request(
     target~,
     options=provider_boundary_options_for_test(),
@@ -635,13 +678,15 @@ test "provider completion rejects stale source revisions after file removal" {
   let status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Summary("stale provider summary")),
+      @cognition.ProviderResult::Succeeded(Summary("stale provider summary")),
     ),
   )
 
   inspect(
     status.status() ==
-    ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::StaleCompletion,
+    ),
     content="true",
   )
   inspect(store.known_files().contains("src/a.mbt"), content="false")
@@ -651,7 +696,9 @@ test "provider completion rejects stale source revisions after file removal" {
     Some(result) =>
       inspect(
         result.status() ==
-        ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+        @cognition.ProviderRequestStatus::Failed(
+          @cognition.ProviderError::StaleCompletion,
+        ),
         content="true",
       )
     None => fail("expected stale completion record")
@@ -660,7 +707,7 @@ test "provider completion rejects stale source revisions after file removal" {
 
 ///|
 test "provider completion rejects stale budgeted context after ranker selection changes" {
-  let ranker : ContextRanker = {
+  let ranker : @cognition.ContextRanker = {
     score_summary: fn(_query, key) {
       match key {
         FileSummary("src/gamma.mbt") => 1000
@@ -676,13 +723,13 @@ test "provider completion rejects stale budgeted context after ranker selection 
       }
     },
   }
-  let store = CognitionStore::new_with_provider_and_ranker(
-    CognitionProvider::mock(),
+  let store = @cognition.CognitionStore::new_with_provider_and_ranker(
+    @cognition.CognitionProvider::mock(),
     ranker,
   )
   let _ = store.set_input(FileText("src/alpha.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
-  let target = CognitionKey::BudgetedContext("focus", 3, 40)
+  let target = @cognition.CognitionKey::BudgetedContext("focus", 3, 40)
   let initial_items = store.pack_context_with_budget("focus", 3, 40)
   let request = store.plan_provider_request(
     target~,
@@ -711,13 +758,15 @@ test "provider completion rejects stale budgeted context after ranker selection 
   let status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(ContextItems(request.context())),
+      @cognition.ProviderResult::Succeeded(ContextItems(request.context())),
     ),
   )
 
   inspect(
     status.status() ==
-    ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::StaleCompletion,
+    ),
     content="true",
   )
   match store.get_value(target) {
@@ -731,7 +780,9 @@ test "provider completion rejects stale budgeted context after ranker selection 
     Some(result) =>
       inspect(
         result.status() ==
-        ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+        @cognition.ProviderRequestStatus::Failed(
+          @cognition.ProviderError::StaleCompletion,
+        ),
         content="true",
       )
     None => fail("expected stale budgeted-context completion record")
@@ -740,9 +791,9 @@ test "provider completion rejects stale budgeted context after ranker selection 
 
 ///|
 test "provider completion for input target avoids self dependency" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
-  let target = CognitionKey::FileText("src/a.mbt")
+  let target = @cognition.CognitionKey::FileText("src/a.mbt")
   let request = store.plan_provider_request(
     target~,
     options=provider_boundary_options_for_test(),
@@ -751,11 +802,14 @@ test "provider completion for input target avoids self dependency" {
   let status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Text("provider text")),
+      @cognition.ProviderResult::Succeeded(Text("provider text")),
     ),
   )
 
-  inspect(status.status() == ProviderRequestStatus::Succeeded, content="true")
+  inspect(
+    status.status() == @cognition.ProviderRequestStatus::Succeeded,
+    content="true",
+  )
   inspect(store.is_dirty(target), content="false")
   inspect(store.dependencies_of(target).contains(target), content="false")
   match store.get_value(target) {
@@ -766,8 +820,8 @@ test "provider completion for input target avoids self dependency" {
 
 ///|
 test "provider completion for new FileText registers workspace input" {
-  let store = CognitionStore::new()
-  let target = CognitionKey::FileText("generated.mbt")
+  let store = @cognition.CognitionStore::new()
+  let target = @cognition.CognitionKey::FileText("generated.mbt")
   let request = store.plan_provider_request(
     target~,
     options=provider_boundary_options_for_test(),
@@ -776,11 +830,14 @@ test "provider completion for new FileText registers workspace input" {
   let status = store.complete_provider_request(
     provider_boundary_completion_for_test(
       request,
-      ProviderResult::Succeeded(Text("let generated = 1")),
+      @cognition.ProviderResult::Succeeded(Text("let generated = 1")),
     ),
   )
 
-  inspect(status.status() == ProviderRequestStatus::Succeeded, content="true")
+  inspect(
+    status.status() == @cognition.ProviderRequestStatus::Succeeded,
+    content="true",
+  )
   inspect(store.known_files().contains("generated.mbt"), content="true")
   match store.get_value(target) {
     Some(Text(text)) => inspect(text, content="let generated = 1")
@@ -795,60 +852,64 @@ test "provider completion for new FileText registers workspace input" {
 
 ///|
 test "provider completion validates option provenance" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let request = store.plan_provider_request(
     target=FileSummary("src/a.mbt"),
     options=provider_boundary_options_for_test(),
   )
-  let bad_options = ProviderOptionProvenance::new(
+  let bad_options = @cognition.ProviderOptionProvenance::new(
     task_kind="summarize",
     provider_id="mock-provider",
     model_id="other-model",
-    option_identity=RedactedOptionIdentity::new(
+    option_identity=@cognition.RedactedOptionIdentity::new(
       "temperature=<redacted>;max=128",
     ),
   )
-  let completion = ProviderResultDescriptor::new(
+  let completion = @cognition.ProviderResultDescriptor::new(
     request_id=request.id(),
     target=request.target(),
     options=bad_options,
     source_revisions=request.source_revisions(),
     dependency_fingerprint=request.dependency_fingerprint(),
-    result=ProviderResult::Succeeded(Summary("wrong options")),
+    result=@cognition.ProviderResult::Succeeded(Summary("wrong options")),
   )
 
   let status = store.complete_provider_request(completion)
 
   inspect(
     status.status() ==
-    ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::StaleCompletion,
+    ),
     content="true",
   )
 }
 
 ///|
 test "provider completion validates dependency fingerprint" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   let request = store.plan_provider_request(
     target=FileSummary("src/a.mbt"),
     options=provider_boundary_options_for_test(),
   )
-  let completion = ProviderResultDescriptor::new(
+  let completion = @cognition.ProviderResultDescriptor::new(
     request_id=request.id(),
     target=request.target(),
     options=request.options(),
     source_revisions=request.source_revisions(),
-    dependency_fingerprint=ProviderDependencyFingerprint::new("bad"),
-    result=ProviderResult::Succeeded(Summary("bad fingerprint")),
+    dependency_fingerprint=@cognition.ProviderDependencyFingerprint::new("bad"),
+    result=@cognition.ProviderResult::Succeeded(Summary("bad fingerprint")),
   )
 
   let status = store.complete_provider_request(completion)
 
   inspect(
     status.status() ==
-    ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::StaleCompletion,
+    ),
     content="true",
   )
 }

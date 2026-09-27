@@ -27,3 +27,24 @@ pub(all) struct FindResult[T] {
 pub impl[T : Debug] Show for FindResult[T] with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+pub extend BTree with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend BTree with Eq::{equal, not_equal}
+
+///|
+pub extend BTreeNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend BTreeNode with Eq::{equal, not_equal}
+
+///|
+pub extend FindResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FindResult with Eq::{equal, not_equal}
+
+///|
+pub extend FindResult with Show::{output, to_string}

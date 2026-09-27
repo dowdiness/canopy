@@ -175,3 +175,45 @@ pub fn PeerPresence::from_ephemeral(value : EphemeralValue) -> PeerPresence? {
     _ => None
   }
 }
+
+///|
+pub extend DragPosition with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DragPosition with Eq::{equal, not_equal}
+
+///|
+pub extend DragState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DragState with Eq::{equal, not_equal}
+
+///|
+pub extend DragState with Show::{output, to_string}
+
+///|
+pub extend EditModeState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EditModeState with Eq::{equal, not_equal}
+
+///|
+pub extend EditModeState with Show::{output, to_string}
+
+///|
+pub extend PeerPresence with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PeerPresence with Eq::{equal, not_equal}
+
+///|
+pub extend PeerPresence with Show::{output, to_string}
+
+///|
+pub extend PresenceStatus with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PresenceStatus with Eq::{equal, not_equal}
+
+///|
+pub extend PresenceStatus with Show::{output, to_string}

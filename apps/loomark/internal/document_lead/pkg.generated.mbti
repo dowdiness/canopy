@@ -16,7 +16,10 @@ pub fn extract(String) -> DocumentLead
 pub struct DerivedName {
   // private fields
 }
+pub fn DerivedName::equal(Self, Self) -> Bool
+pub fn DerivedName::not_equal(Self, Self) -> Bool
 pub fn DerivedName::text(Self) -> String
+pub fn DerivedName::to_repr(Self) -> @debug.Repr
 pub fn DerivedName::update(Self, String) -> Self
 pub impl Eq for DerivedName
 pub impl @debug.Debug for DerivedName
@@ -24,9 +27,12 @@ pub impl @debug.Debug for DerivedName
 type DocumentLead derive(Eq, @debug.Debug)
 pub fn DocumentLead::description(Self) -> String
 pub fn DocumentLead::description_truncated(Self) -> Bool
+pub fn DocumentLead::equal(Self, Self) -> Bool
 pub fn DocumentLead::form(Self) -> DocumentLeadForm
+pub fn DocumentLead::not_equal(Self, Self) -> Bool
 pub fn DocumentLead::primary(Self) -> String
 pub fn DocumentLead::primary_truncated(Self) -> Bool
+pub fn DocumentLead::to_repr(Self) -> @debug.Repr
 
 pub enum DocumentLeadForm {
   Heading
@@ -37,6 +43,9 @@ pub enum DocumentLeadForm {
   Plain
   Empty
 } derive(Eq, @debug.Debug)
+pub fn DocumentLeadForm::equal(Self, Self) -> Bool
+pub fn DocumentLeadForm::not_equal(Self, Self) -> Bool
+pub fn DocumentLeadForm::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

@@ -1230,3 +1230,11 @@ pub fn[T] SyncEditor::causal_snapshot(
 pub fn[T] SyncEditor::identity(self : SyncEditor[T]) -> Int {
   self.authority.identity()
 }
+
+///|
+pub extend ProjectionObservationPhase with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProjectionObservationPhase with Eq::{equal, not_equal}

@@ -242,3 +242,15 @@ fn apply_span_edit(source : String, edit : @core.SpanEdit) -> String {
   builder.write_string(source[edit.start + edit.delete_len:].to_owned())
   builder.to_string()
 }
+
+///|
+pub extend PortableCoordinateMap with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PortableCoordinateMap with Eq::{equal, not_equal}
+
+///|
+pub extend PortableProjectionError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PortableProjectionError with Eq::{equal, not_equal}

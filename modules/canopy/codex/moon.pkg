@@ -7,7 +7,6 @@ import {
 
 import {
   "dowdiness/canopy/workspace/probe",
-  "dowdiness/canopy/editor",
 } for "test"
 
 options(

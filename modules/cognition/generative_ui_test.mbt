@@ -1,7 +1,7 @@
 ///|
 fn inspect_transition(
-  actual : GenerativeUiTransition,
-  expected : GenerativeUiTransition,
+  actual : @cognition.GenerativeUiTransition,
+  expected : @cognition.GenerativeUiTransition,
 ) -> Unit raise {
   inspect(actual == expected, content="true")
 }
@@ -9,9 +9,15 @@ fn inspect_transition(
 ///|
 fn generative_ui_start_for_test(
   base_revision : Int,
-) -> (GenerativeUiLifecycle, GenerativeUiGenerationId, GenerativeUiRevision) {
-  let lifecycle = GenerativeUiLifecycle::GenerativeUiLifecycle()
-  let revision = GenerativeUiRevision::GenerativeUiRevision(base_revision)
+) -> (
+  @cognition.GenerativeUiLifecycle,
+  @cognition.GenerativeUiGenerationId,
+  @cognition.GenerativeUiRevision,
+) {
+  let lifecycle = @cognition.GenerativeUiLifecycle::GenerativeUiLifecycle()
+  let revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(
+    base_revision,
+  )
   let transition = lifecycle.dispatch(Start(base_revision=revision))
   match transition {
     Started(generation_id~) => (lifecycle, generation_id, revision)
@@ -21,13 +27,13 @@ fn generative_ui_start_for_test(
 
 ///|
 fn generative_ui_chunk(
-  generation_id : GenerativeUiGenerationId,
-  base_revision : GenerativeUiRevision,
+  generation_id : @cognition.GenerativeUiGenerationId,
+  base_revision : @cognition.GenerativeUiRevision,
   sequence : Int,
   payload : String,
-) -> GenerativeUiEvent {
+) -> @cognition.GenerativeUiEvent {
   Input(
-    GenerativeUiInput::chunk(
+    @cognition.GenerativeUiInput::chunk(
       generation_id~,
       base_revision~,
       sequence~,
@@ -38,20 +44,32 @@ fn generative_ui_chunk(
 
 ///|
 fn generative_ui_finalize(
-  generation_id : GenerativeUiGenerationId,
-  base_revision : GenerativeUiRevision,
+  generation_id : @cognition.GenerativeUiGenerationId,
+  base_revision : @cognition.GenerativeUiRevision,
   sequence : Int,
-) -> GenerativeUiEvent {
-  Input(GenerativeUiInput::finalize(generation_id~, base_revision~, sequence~))
+) -> @cognition.GenerativeUiEvent {
+  Input(
+    @cognition.GenerativeUiInput::finalize(
+      generation_id~,
+      base_revision~,
+      sequence~,
+    ),
+  )
 }
 
 ///|
 fn generative_ui_cancel(
-  generation_id : GenerativeUiGenerationId,
-  base_revision : GenerativeUiRevision,
+  generation_id : @cognition.GenerativeUiGenerationId,
+  base_revision : @cognition.GenerativeUiRevision,
   sequence : Int,
-) -> GenerativeUiEvent {
-  Input(GenerativeUiInput::cancel(generation_id~, base_revision~, sequence~))
+) -> @cognition.GenerativeUiEvent {
+  Input(
+    @cognition.GenerativeUiInput::cancel(
+      generation_id~,
+      base_revision~,
+      sequence~,
+    ),
+  )
 }
 
 ///|
@@ -130,14 +148,14 @@ test "generative ui final freezes input and rejects later chunks" {
 test "generative ui rejects stale candidates without advancing revision" {
   let (lifecycle, generation_id, revision) = generative_ui_start_for_test(4)
   let _ = lifecycle.dispatch(generative_ui_finalize(generation_id, revision, 0))
-  let stale_revision = GenerativeUiRevision::GenerativeUiRevision(5)
+  let stale_revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(5)
   inspect_transition(
     lifecycle.dispatch(
       CandidateValid(generation_id~, current_revision=stale_revision),
     ),
     Rejected(
       reason=BaseRevisionMismatch(
-        expected=GenerativeUiRevision::GenerativeUiRevision(4),
+        expected=@cognition.GenerativeUiRevision::GenerativeUiRevision(4),
         received=stale_revision,
       ),
     ),
@@ -166,10 +184,12 @@ test "generative ui validates, dry-runs, and commits exactly once" {
     lifecycle.dispatch(
       ApplySucceeded(
         generation_id~,
-        revision=GenerativeUiRevision::GenerativeUiRevision(10),
+        revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(10),
       ),
     ),
-    Committed(revision=GenerativeUiRevision::GenerativeUiRevision(10)),
+    Committed(
+      revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(10),
+    ),
   )
   inspect(lifecycle.phase() == Committed, content="true")
   match lifecycle.committed_revision() {
@@ -180,7 +200,7 @@ test "generative ui validates, dry-runs, and commits exactly once" {
     lifecycle.dispatch(
       ApplySucceeded(
         generation_id~,
-        revision=GenerativeUiRevision::GenerativeUiRevision(10),
+        revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(10),
       ),
     ),
     Ignored(reason=TerminalState),
@@ -260,10 +280,10 @@ test "generative ui cancellation wins before applying and is too late during app
     applying.dispatch(
       ApplySucceeded(
         generation_id=applying_id,
-        revision=GenerativeUiRevision::GenerativeUiRevision(4),
+        revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(4),
       ),
     ),
-    Committed(revision=GenerativeUiRevision::GenerativeUiRevision(4)),
+    Committed(revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(4)),
   )
 }
 
@@ -325,13 +345,13 @@ test "generative ui cancellation, invalid candidates, dry-run failures, and appl
     mismatch.dispatch(
       ApplySucceeded(
         generation_id=mismatch_id,
-        revision=GenerativeUiRevision::GenerativeUiRevision(99),
+        revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(99),
       ),
     ),
     Failed(
       reason=ApplyRevisionMismatch(
-        expected=GenerativeUiRevision::GenerativeUiRevision(4),
-        received=GenerativeUiRevision::GenerativeUiRevision(99),
+        expected=@cognition.GenerativeUiRevision::GenerativeUiRevision(4),
+        received=@cognition.GenerativeUiRevision::GenerativeUiRevision(99),
       ),
     ),
   )
@@ -373,7 +393,7 @@ test "generative ui ignores stale generations and terminal late events" {
     lifecycle.dispatch(
       ApplySucceeded(
         generation_id~,
-        revision=GenerativeUiRevision::GenerativeUiRevision(1),
+        revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(1),
       ),
     ),
     Ignored(reason=StaleGeneration),
@@ -381,7 +401,7 @@ test "generative ui ignores stale generations and terminal late events" {
   let _ = lifecycle.dispatch(
     ApplySucceeded(
       generation_id=restarted_id,
-      revision=GenerativeUiRevision::GenerativeUiRevision(1),
+      revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(1),
     ),
   )
   inspect_transition(
@@ -402,7 +422,7 @@ test "generative ui resumption requires a newly selected committed revision" {
   let _ = first.dispatch(
     ApplySucceeded(
       generation_id=first_id,
-      revision=GenerativeUiRevision::GenerativeUiRevision(11),
+      revision=@cognition.GenerativeUiRevision::GenerativeUiRevision(11),
     ),
   )
   let committed_revision = first.committed_revision().unwrap()
@@ -422,7 +442,10 @@ test "generative ui resumption requires a newly selected committed revision" {
 ///|
 test "generative ui rejects an oversized chunk without mutating input state" {
   let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
-  let oversized = String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH + 1)
+  let oversized = String::repeat(
+    "x",
+    @cognition.GENERATIVE_UI_MAX_CHUNK_LENGTH + 1,
+  )
   inspect_transition(
     lifecycle.dispatch(
       generative_ui_chunk(generation_id, revision, 0, oversized),
@@ -449,9 +472,9 @@ test "generative ui rejects an overflow-adjacent sequence without mutation" {
 ///|
 test "generative ui rejects aggregate input growth at the limit" {
   let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
-  let chunk = String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH)
-  let chunk_count = GENERATIVE_UI_MAX_SOURCE_LENGTH /
-    GENERATIVE_UI_MAX_CHUNK_LENGTH
+  let chunk = String::repeat("x", @cognition.GENERATIVE_UI_MAX_CHUNK_LENGTH)
+  let chunk_count = @cognition.GENERATIVE_UI_MAX_SOURCE_LENGTH /
+    @cognition.GENERATIVE_UI_MAX_CHUNK_LENGTH
   for sequence in 0..<chunk_count {
     inspect_transition(
       lifecycle.dispatch(
@@ -469,14 +492,14 @@ test "generative ui rejects aggregate input growth at the limit" {
   inspect(lifecycle.next_sequence(), content=chunk_count.to_string())
   inspect(
     lifecycle.candidate_source().length(),
-    content=GENERATIVE_UI_MAX_SOURCE_LENGTH.to_string(),
+    content=@cognition.GENERATIVE_UI_MAX_SOURCE_LENGTH.to_string(),
   )
 }
 
 ///|
 test "generative ui rejects chunk count overflow without mutating state" {
   let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
-  for sequence in 0..<GENERATIVE_UI_MAX_CHUNKS {
+  for sequence in 0..<@cognition.GENERATIVE_UI_MAX_CHUNKS {
     inspect_transition(
       lifecycle.dispatch(
         generative_ui_chunk(generation_id, revision, sequence, "x"),
@@ -489,7 +512,7 @@ test "generative ui rejects chunk count overflow without mutating state" {
       generative_ui_chunk(
         generation_id,
         revision,
-        GENERATIVE_UI_MAX_CHUNKS,
+        @cognition.GENERATIVE_UI_MAX_CHUNKS,
         "x",
       ),
     ),
@@ -497,20 +520,20 @@ test "generative ui rejects chunk count overflow without mutating state" {
   )
   inspect(
     lifecycle.next_sequence(),
-    content=GENERATIVE_UI_MAX_CHUNKS.to_string(),
+    content=@cognition.GENERATIVE_UI_MAX_CHUNKS.to_string(),
   )
   inspect(
     lifecycle.candidate_source().length(),
-    content=GENERATIVE_UI_MAX_CHUNKS.to_string(),
+    content=@cognition.GENERATIVE_UI_MAX_CHUNKS.to_string(),
   )
 }
 
 ///|
 test "generative ui preserves duplicate and stale precedence over input limits" {
   let (lifecycle, generation_id, revision) = generative_ui_start_for_test(0)
-  let chunk = String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH)
-  let chunk_count = GENERATIVE_UI_MAX_SOURCE_LENGTH /
-    GENERATIVE_UI_MAX_CHUNK_LENGTH
+  let chunk = String::repeat("x", @cognition.GENERATIVE_UI_MAX_CHUNK_LENGTH)
+  let chunk_count = @cognition.GENERATIVE_UI_MAX_SOURCE_LENGTH /
+    @cognition.GENERATIVE_UI_MAX_CHUNK_LENGTH
   for sequence in 0..<chunk_count {
     let _ = lifecycle.dispatch(
       generative_ui_chunk(generation_id, revision, sequence, chunk),
@@ -533,11 +556,11 @@ test "generative ui preserves duplicate and stale precedence over input limits" 
     generative_ui_cancel(stale_generation, stale_revision, 0),
   )
   let _ = stale_lifecycle.restart(stale_revision)
-  let stale = GenerativeUiInput::chunk(
+  let stale = @cognition.GenerativeUiInput::chunk(
     generation_id=stale_generation,
     base_revision=stale_revision,
     sequence=0x7FFFFFFF,
-    payload=String::repeat("x", GENERATIVE_UI_MAX_CHUNK_LENGTH + 1),
+    payload=String::repeat("x", @cognition.GENERATIVE_UI_MAX_CHUNK_LENGTH + 1),
   )
   inspect_transition(
     stale_lifecycle.dispatch(Input(stale)),

@@ -35,3 +35,6 @@ fn first_focus(item_count : Int) -> Int? {
 fn Model::valid_index(self : Model, index : Int) -> Bool {
   index >= 0 && index < self.item_count
 }
+
+///|
+pub extend Model with Eq::{equal, not_equal}

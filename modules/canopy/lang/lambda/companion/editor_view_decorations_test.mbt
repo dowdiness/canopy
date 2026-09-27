@@ -8,7 +8,7 @@
 
 ///|
 test "get_view_tree returns Unit for empty editor" {
-  let editor = (try! new_lambda_editor("test")).0
+  let editor = (try! @companion.new_lambda_editor("test")).0
   let tree = editor.get_view_tree()
   guard tree is Some(node) else { fail("expected Unit projection") }
   inspect(node.kind_tag, content="Unit")
@@ -16,7 +16,7 @@ test "get_view_tree returns Unit for empty editor" {
 
 ///|
 test "FullTree emitted for empty editor then updated after text" {
-  let editor = (try! new_lambda_editor("test")).0
+  let editor = (try! @companion.new_lambda_editor("test")).0
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches1 = @editor.compute_view_patches(state, editor)
   let full_tree_unit = patches1
@@ -45,7 +45,7 @@ test "FullTree emitted for empty editor then updated after text" {
 
 ///|
 test "semantic decorations are emitted and stable" {
-  let editor = (try! new_lambda_editor("test-semantic-decorations")).0
+  let editor = (try! @companion.new_lambda_editor("test-semantic-decorations")).0
   editor.set_text("(x) => x")
   let state = @editor.ViewUpdateState::ViewUpdateState()
   let patches = @editor.compute_view_patches(state, editor)
@@ -77,7 +77,9 @@ test "semantic decorations are emitted and stable" {
 
 ///|
 test "analysis projection combines semantic and pattern decorations" {
-  let (editor, companion) = try! new_lambda_editor("test-analysis-projection")
+  let (editor, companion) = try! @companion.new_lambda_editor(
+    "test-analysis-projection",
+  )
   editor.set_text("(x) => x")
   let source = editor.get_text()
   let snapshot = @facts.SourceSnapshot::SourceSnapshot(
@@ -118,7 +120,7 @@ test "analysis projection combines semantic and pattern decorations" {
 
 ///|
 test "analysis projection drops stale pattern decorations but keeps semantic decorations" {
-  let (editor, companion) = try! new_lambda_editor(
+  let (editor, companion) = try! @companion.new_lambda_editor(
     "test-analysis-stale-keeps-semantic",
   )
   editor.set_text("(x) => x")
@@ -171,7 +173,9 @@ test "analysis projection drops stale pattern decorations but keeps semantic dec
 
 ///|
 test "missing else projects an EOF point diagnostic" {
-  let editor = (try! new_lambda_editor("test-missing-else-diagnostic")).0
+  let editor = (try! @companion.new_lambda_editor(
+      "test-missing-else-diagnostic",
+    )).0
   editor.set_text("if x then y")
   let patches = @editor.compute_view_patches(
     @editor.ViewUpdateState::ViewUpdateState(),
@@ -195,7 +199,7 @@ test "missing else projects an EOF point diagnostic" {
 
 ///|
 test "coded lexer diagnostic preserves its source range and code" {
-  let editor = (try! new_lambda_editor("test-coded-lexer-diagnostic")).0
+  let editor = (try! @companion.new_lambda_editor("test-coded-lexer-diagnostic")).0
   editor.set_text("@")
   let patches = @editor.compute_view_patches(
     @editor.ViewUpdateState::ViewUpdateState(),
@@ -218,7 +222,7 @@ test "coded lexer diagnostic preserves its source range and code" {
 
 ///|
 test "unresolved reference publishes the neutral semantic warning" {
-  let editor = (try! new_lambda_editor("test-semantic-diagnostic")).0
+  let editor = (try! @companion.new_lambda_editor("test-semantic-diagnostic")).0
   editor.set_text("(x) => y")
   let patches = @editor.compute_view_patches(
     @editor.ViewUpdateState::ViewUpdateState(),
@@ -246,7 +250,9 @@ test "unresolved reference publishes the neutral semantic warning" {
 
 ///|
 test "parser and semantic diagnostics coexist in one current-source patch" {
-  let editor = (try! new_lambda_editor("test-parser-semantic-coexist")).0
+  let editor = (try! @companion.new_lambda_editor(
+      "test-parser-semantic-coexist",
+    )).0
   editor.set_text("if x then y")
   let patches = @editor.compute_view_patches(
     @editor.ViewUpdateState::ViewUpdateState(),
@@ -273,7 +279,9 @@ test "parser and semantic diagnostics coexist in one current-source patch" {
 
 ///|
 test "binding an unresolved reference clears its semantic warning" {
-  let editor = (try! new_lambda_editor("test-semantic-diagnostic-clear")).0
+  let editor = (try! @companion.new_lambda_editor(
+      "test-semantic-diagnostic-clear",
+    )).0
   let state = @editor.ViewUpdateState::ViewUpdateState()
   editor.set_text("(x) => y")
   let _ = @editor.compute_view_patches(state, editor)

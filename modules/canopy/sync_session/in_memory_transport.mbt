@@ -67,3 +67,6 @@ pub impl SyncTransport for InMemoryTransport with fn on_receive(self, handler) {
 pub impl SyncTransport for InMemoryTransport with fn close(self) {
   self.room.unregister(self.peer_id)
 }
+
+///|
+pub extend InMemoryTransport with SyncTransport::{close, on_receive, send}

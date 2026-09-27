@@ -106,7 +106,7 @@ fn eval_commit_corpus(
   tokenize : (String) -> Array[String],
   label : String,
 ) -> (Double, Double) {
-  let corpus = Corpus::new(tokenize~)
+  let corpus = @echo.Corpus::new(tokenize~)
   for post in commit_posts {
     let _ = corpus.add_post(post)
   }

@@ -33,6 +33,11 @@ pub(all) enum EvalResult {
   Stuck(String)
   Suppressed
 } derive(Eq, @debug.Debug)
+pub fn EvalResult::equal(Self, Self) -> Bool
+pub fn EvalResult::not_equal(Self, Self) -> Bool
+pub fn EvalResult::output(Self, &Logger) -> Unit
+pub fn EvalResult::to_repr(Self) -> @debug.Repr
+pub fn EvalResult::to_string(Self) -> String
 pub impl Show for EvalResult
 
 // Type aliases

@@ -59,17 +59,26 @@ pub(all) enum Direction {
   Left
   Right
 } derive(@debug.Debug)
+pub fn Direction::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DropPosition {
   Before
   After
   Inside
 } derive(Eq, @debug.Debug)
+pub fn DropPosition::equal(Self, Self) -> Bool
+pub fn DropPosition::not_equal(Self, Self) -> Bool
+pub fn DropPosition::to_repr(Self) -> @debug.Repr
 
 pub(all) enum FocusHint {
   RestoreCursor
   MoveCursor(position~ : Int)
 } derive(Eq, @debug.Debug)
+pub fn FocusHint::equal(Self, Self) -> Bool
+pub fn FocusHint::not_equal(Self, Self) -> Bool
+pub fn FocusHint::output(Self, &Logger) -> Unit
+pub fn FocusHint::to_repr(Self) -> @debug.Repr
+pub fn FocusHint::to_string(Self) -> String
 pub impl Show for FocusHint
 
 pub struct FoldNode[T] {
@@ -78,7 +87,10 @@ pub struct FoldNode[T] {
   start : Int
   end : Int
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq] FoldNode::equal(Self[T], Self[T]) -> Bool
 pub fn[T] FoldNode::id(Self[T]) -> NodeId
+pub fn[T : Eq] FoldNode::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] FoldNode::to_repr(Self[T]) -> @debug.Repr
 
 pub(all) enum GenericTreeOp {
   Select(node_id~ : NodeId)
@@ -96,6 +108,9 @@ pub(all) enum GenericTreeOp {
   Collapse(node_id~ : NodeId)
   Expand(node_id~ : NodeId)
 } derive(@debug.Debug)
+pub fn GenericTreeOp::output(Self, &Logger) -> Unit
+pub fn GenericTreeOp::to_repr(Self) -> @debug.Repr
+pub fn GenericTreeOp::to_string(Self) -> String
 pub impl Show for GenericTreeOp
 
 pub struct IdentityHintConsumer {
@@ -113,9 +128,25 @@ pub(all) enum IdentityTransform {
   DeleteSubtree(node~ : NodeId)
   Opaque
 } derive(Eq, @debug.Debug)
+pub fn IdentityTransform::equal(Self, Self) -> Bool
+pub fn IdentityTransform::not_equal(Self, Self) -> Bool
+pub fn IdentityTransform::to_repr(Self) -> @debug.Repr
 
 pub struct NodeId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn NodeId::compare(Self, Self) -> Int
+pub fn NodeId::equal(Self, Self) -> Bool
 pub fn NodeId::from_int(Int) -> Self
+pub fn NodeId::hash(Self) -> Int
+pub fn NodeId::hash_combine(Self, Hasher) -> Unit
+pub fn NodeId::not_equal(Self, Self) -> Bool
+pub fn NodeId::op_ge(Self, Self) -> Bool
+pub fn NodeId::op_gt(Self, Self) -> Bool
+pub fn NodeId::op_le(Self, Self) -> Bool
+pub fn NodeId::op_lt(Self, Self) -> Bool
+pub fn NodeId::output(Self, &Logger) -> Unit
+pub fn NodeId::to_json(Self) -> Json
+pub fn NodeId::to_repr(Self) -> @debug.Repr
+pub fn NodeId::to_string(Self) -> String
 pub impl Show for NodeId
 pub impl ToJson for NodeId
 
@@ -128,10 +159,16 @@ pub struct ProjNode[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T] ProjNode::ProjNode(T, Int, Int, Int, Array[Self[T]]) -> Self[T]
 pub fn[T] ProjNode::branch(T, Int, Int, Array[Self[T]], @ref.Ref[Int]) -> Self[T]
+pub fn[T : Eq] ProjNode::equal(Self[T], Self[T]) -> Bool
 pub fn[T, U] ProjNode::fold(Self[T], (FoldNode[T], Array[U]) -> U) -> U
 pub fn[T] ProjNode::id(Self[T]) -> NodeId
 pub fn[T] ProjNode::leaf(T, @seam.SyntaxNode, @ref.Ref[Int]) -> Self[T]
 pub fn[T, U] ProjNode::map(Self[T], (T) -> U raise?) -> Self[U] raise?
+pub fn[T : Eq] ProjNode::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @dowdiness/loom/core.Renderable] ProjNode::output(Self[T], &Logger) -> Unit
+pub fn[T : ToJson] ProjNode::to_json(Self[T]) -> Json
+pub fn[T : @debug.Debug] ProjNode::to_repr(Self[T]) -> @debug.Repr
+pub fn[T : @dowdiness/loom/core.Renderable] ProjNode::to_string(Self[T]) -> String
 pub fn[T] ProjNode::walk_preorder(Self[T], (FoldNode[T]) -> Unit raise?) -> Unit raise?
 pub impl[T : @dowdiness/loom/core.Renderable] Show for ProjNode[T]
 pub impl[T : ToJson] ToJson for ProjNode[T]
@@ -145,6 +182,8 @@ pub(all) enum ReconcileTraceEvent {
   Renamed(NodeId, String)
   Freshened(NodeId, Int, NodeId, String)
 } derive(Eq)
+pub fn ReconcileTraceEvent::equal(Self, Self) -> Bool
+pub fn ReconcileTraceEvent::not_equal(Self, Self) -> Bool
 
 pub struct SourceMap {
   node_to_range : Map[NodeId, @dowdiness/loom/core.Range]
@@ -152,6 +191,7 @@ pub struct SourceMap {
   token_spans : Map[NodeId, Map[String, @dowdiness/loom/core.Range]]
 } derive(Eq, @debug.Debug)
 pub fn SourceMap::apply_edit(Self, Int, @dowdiness/loom/core.Range) -> Unit
+pub fn SourceMap::equal(Self, Self) -> Bool
 pub fn[T] SourceMap::from_ast(ProjNode[T]) -> Self
 pub fn SourceMap::get_all_token_spans(Self, NodeId) -> Array[(String, @dowdiness/loom/core.Range)]
 pub fn SourceMap::get_range(Self, NodeId) -> @dowdiness/loom/core.Range?
@@ -161,12 +201,15 @@ pub fn SourceMap::new() -> Self
 pub fn SourceMap::node_count(Self) -> Int
 pub fn SourceMap::nodes_at_position(Self, Int) -> Array[NodeId]
 pub fn SourceMap::nodes_in_range(Self, @dowdiness/loom/core.Range) -> Array[NodeId]
+pub fn SourceMap::not_equal(Self, Self) -> Bool
 pub fn[T] SourceMap::patch_subtree(Self, ProjNode[T]) -> Unit
 pub fn[T] SourceMap::rebuild(Self, ProjNode[T]) -> Unit
 pub fn SourceMap::rebuild_ranges(Self) -> Unit
 pub fn[T] SourceMap::remove_subtree(Self, ProjNode[T]) -> Unit
 pub fn SourceMap::set_span_from_token(Self, NodeId, String, @seam.SyntaxNode, @seam.RawKind) -> Unit
 pub fn SourceMap::set_token_span(Self, NodeId, String, @dowdiness/loom/core.Range) -> Unit
+pub fn SourceMap::to_json(Self) -> Json
+pub fn SourceMap::to_repr(Self) -> @debug.Repr
 pub impl ToJson for SourceMap
 
 pub(all) struct SpanEdit {
@@ -174,6 +217,11 @@ pub(all) struct SpanEdit {
   delete_len : Int
   inserted : String
 } derive(Eq, @debug.Debug)
+pub fn SpanEdit::equal(Self, Self) -> Bool
+pub fn SpanEdit::not_equal(Self, Self) -> Bool
+pub fn SpanEdit::output(Self, &Logger) -> Unit
+pub fn SpanEdit::to_repr(Self) -> @debug.Repr
+pub fn SpanEdit::to_string(Self) -> String
 pub impl Show for SpanEdit
 
 pub(all) enum StructuredChange {
@@ -184,6 +232,8 @@ pub(all) enum StructuredChange {
   Renamed(NodeId, String)
   Freshened(NodeId, Int, NodeId, String)
 } derive(Eq)
+pub fn StructuredChange::equal(Self, Self) -> Bool
+pub fn StructuredChange::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

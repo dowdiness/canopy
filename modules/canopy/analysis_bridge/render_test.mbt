@@ -25,7 +25,7 @@ test "facts_to_decorations filters stale and keeps current" {
     pattern_id="lam",
     captures=Map([]),
   )
-  let decs = facts_to_decorations([current, stale], snap)
+  let decs = @analysis_bridge.facts_to_decorations([current, stale], snap)
   inspect(decs.length(), content="1")
   inspect(decs[0].from, content="3")
   inspect(decs[0].to, content="6")
@@ -54,7 +54,7 @@ test "facts_to_decorations returns empty when all stale" {
     pattern_id="lam",
     captures=Map([]),
   )
-  let decs = facts_to_decorations([fact], snap)
+  let decs = @analysis_bridge.facts_to_decorations([fact], snap)
   inspect(decs.length(), content="0")
 }
 
@@ -74,7 +74,7 @@ test "facts_to_decorations non-ascii range passthrough" {
     pattern_id="cjk",
     captures=Map([]),
   )
-  let decs = facts_to_decorations([fact], snap)
+  let decs = @analysis_bridge.facts_to_decorations([fact], snap)
   inspect(decs.length(), content="1")
   inspect(decs[0].from, content="0")
   inspect(decs[0].to, content="2")
@@ -107,7 +107,7 @@ test "facts_to_match_list filters stale and returns current" {
     pattern_id="lam",
     captures=Map([]),
   )
-  let entries = facts_to_match_list([current, stale], snap)
+  let entries = @analysis_bridge.facts_to_match_list([current, stale], snap)
   inspect(entries.length(), content="1")
   inspect(entries[0].from, content="3")
   inspect(entries[0].to, content="6")
@@ -134,6 +134,6 @@ test "facts_to_match_list empty when all stale" {
     pattern_id="lam",
     captures=Map([]),
   )
-  let entries = facts_to_match_list([fact], snap)
+  let entries = @analysis_bridge.facts_to_match_list([fact], snap)
   inspect(entries.length(), content="0")
 }

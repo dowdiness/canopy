@@ -80,3 +80,8 @@ fn detach_failure_diff(
     resolved: diff.resolved.map(detach_failure),
   }
 }
+
+///|
+pub extend ReachableFailureAttribution with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}

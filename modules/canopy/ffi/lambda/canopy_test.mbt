@@ -2,24 +2,24 @@
 
 ///|
 test "editor creation rejects an empty agent identifier before registration" {
-  let before = create_editor("creation-boundary-before")
-  inspect(create_editor(""), content="-1")
-  inspect(create_editor_with_undo("", 500), content="-1")
-  let after = create_editor("creation-boundary-after")
+  let before = @lambda.create_editor("creation-boundary-before")
+  inspect(@lambda.create_editor(""), content="-1")
+  inspect(@lambda.create_editor_with_undo("", 500), content="-1")
+  let after = @lambda.create_editor("creation-boundary-after")
   inspect(after == before + 1, content="true")
-  destroy_editor(before)
-  destroy_editor(after)
+  @lambda.destroy_editor(before)
+  @lambda.destroy_editor(after)
 }
 
 ///|
 test "sync JSON export rejects an invalid editor handle" {
-  let all : Result[String, Error] = Ok(export_all_json(-1)) catch {
+  let all : Result[String, Error] = Ok(@lambda.export_all_json(-1)) catch {
     error => Err(error)
   }
-  let since : Result[String, Error] = Ok(export_since_json(-1, "")) catch {
+  let since : Result[String, Error] = Ok(@lambda.export_since_json(-1, "")) catch {
     error => Err(error)
   }
-  let version : Result[String, Error] = Ok(get_version_json(-1)) catch {
+  let version : Result[String, Error] = Ok(@lambda.get_version_json(-1)) catch {
     error => Err(error)
   }
   inspect(all is Err(_), content="true")
@@ -29,16 +29,16 @@ test "sync JSON export rejects an invalid editor handle" {
 
 ///|
 test "schema-1 peer Version is rejected across the Lambda FFI" {
-  let handle = create_editor("schema-2-version-boundary")
+  let handle = @lambda.create_editor("schema-2-version-boundary")
   let result : Result[String, Error] = Ok(
-    export_since_json(
+    @lambda.export_since_json(
       handle, "{\"schema\":1,\"format\":\"event-graph-walker/text-version\",\"entries\":[]}",
     ),
   ) catch {
     error => Err(error)
   }
   inspect(result is Err(@text.TextError::SyncFailed(_)), content="true")
-  destroy_editor(handle)
+  @lambda.destroy_editor(handle)
 }
 
 ///|
@@ -54,7 +54,7 @@ test "Web scenario: error persistence bug" {
   }
 
   // Get errors (like web UI does)
-  guard editor_ref.val is Some(ed1)
+  guard! editor_ref.val is Some(ed1)
   let errors1 = ed1.get_errors()
   println("After typing 'x':")
   println("  Errors: " + errors1.length().to_string())
@@ -67,7 +67,7 @@ test "Web scenario: error persistence bug" {
   }
 
   // Get errors
-  guard editor_ref.val is Some(ed2)
+  guard! editor_ref.val is Some(ed2)
   let errors2 = ed2.get_errors()
   println("After typing 'x+':")
   println("  Errors: " + errors2.length().to_string())
@@ -80,7 +80,7 @@ test "Web scenario: error persistence bug" {
   }
 
   // Get errors
-  guard editor_ref.val is Some(ed3)
+  guard! editor_ref.val is Some(ed3)
   let errors3 = ed3.get_errors()
   println("After typing 'x+ 1':")
   let text = match editor_ref.val {
@@ -118,14 +118,14 @@ test "get_diagnostics_json: unbound variable produces warning" {
 
 ///|
 test "get_diagnostics_json FFI: unbound variable" {
-  let handle = create_editor("test-diag-ffi")
-  set_text(handle, "x")
-  let json = get_diagnostics_json(handle)
+  let handle = @lambda.create_editor("test-diag-ffi")
+  @lambda.set_text(handle, "x")
+  let json = @lambda.get_diagnostics_json(handle)
   println("diagnostics JSON: " + json)
   // Should contain warning
   inspect(json.contains("warning"), content="true")
   inspect(json.contains("unbound"), content="true")
-  destroy_editor(handle)
+  @lambda.destroy_editor(handle)
 }
 
 ///|
@@ -133,23 +133,23 @@ test "get_diagnostics_json FFI: def_name populated for errors inside a named bin
   // `let f = y\nf` — `y` is unbound inside the body of def `f`.
   // The typecheck diagnostic should carry `def_name: "f"` so the
   // web UI can render it as a badge.
-  let handle = create_editor("test-def-name")
-  set_text(handle, "let f = y\nf")
-  let json = get_diagnostics_json(handle)
+  let handle = @lambda.create_editor("test-def-name")
+  @lambda.set_text(handle, "let f = y\nf")
+  let json = @lambda.get_diagnostics_json(handle)
   inspect(json.contains("\"def_name\":\"f\""), content="true")
   // And the message itself should no longer carry the `[f] ` prefix.
   inspect(json.contains("[f]"), content="false")
-  destroy_editor(handle)
+  @lambda.destroy_editor(handle)
 }
 
 ///|
 test "get_diagnostics_json FFI: def_name omitted for top-level errors" {
   // `x + 1` — unbound `x` at the module top level; no named-binding
   // context, so `def_name` should be absent from the JSON entirely.
-  let handle = create_editor("test-no-def-name")
-  set_text(handle, "x + 1")
-  let json = get_diagnostics_json(handle)
+  let handle = @lambda.create_editor("test-no-def-name")
+  @lambda.set_text(handle, "x + 1")
+  let json = @lambda.get_diagnostics_json(handle)
   inspect(json.contains("unbound"), content="true")
   inspect(json.contains("def_name"), content="false")
-  destroy_editor(handle)
+  @lambda.destroy_editor(handle)
 }

@@ -586,3 +586,156 @@ pub fn DocumentReplica::rewrite(self : Self) -> ReplicaWrite {
 pub fn DocumentReplica::promote_source(self : Self) -> ReplicaWrite {
   PromoteSource(self)
 }
+
+///|
+pub extend AccountId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend AccountId with Eq::{equal, not_equal}
+
+///|
+pub extend AccountId with Hash::{hash, hash_combine}
+
+///|
+pub extend DeletingReplica with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeletingReplica with Eq::{equal, not_equal}
+
+///|
+pub extend DeletionPhase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeletionPhase with Eq::{equal, not_equal}
+
+///|
+pub extend DocumentReplica with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DocumentReplica with Eq::{equal, not_equal}
+
+///|
+pub extend InvalidAccountId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidAccountId with Eq::{equal, not_equal}
+
+///|
+pub extend InvalidOperationId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidOperationId with Eq::{equal, not_equal}
+
+///|
+pub extend InvalidRecoveryId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidRecoveryId with Eq::{equal, not_equal}
+
+///|
+pub extend InvalidReplica with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidReplica with Eq::{equal, not_equal}
+
+///|
+pub extend InvalidRevision with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidRevision with Eq::{equal, not_equal}
+
+///|
+pub extend LiveBaseline with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LiveBaseline with Eq::{equal, not_equal}
+
+///|
+pub extend LivePhase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LivePhase with Eq::{equal, not_equal}
+
+///|
+pub extend LiveReplica with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LiveReplica with Eq::{equal, not_equal}
+
+///|
+pub extend OperationId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OperationId with Eq::{equal, not_equal}
+
+///|
+pub extend PendingContent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PendingContent with Eq::{equal, not_equal}
+
+///|
+pub extend PendingOperation with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PendingOperation with Eq::{equal, not_equal}
+
+///|
+pub extend RecoveryIdentity with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RecoveryIdentity with Eq::{equal, not_equal}
+
+///|
+pub extend Relation with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Relation with Eq::{equal, not_equal}
+
+///|
+pub extend RemoteDocument with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RemoteDocument with Eq::{equal, not_equal}
+
+///|
+pub extend RemoteEntry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RemoteEntry with Eq::{equal, not_equal}
+
+///|
+pub extend RemoteHead with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RemoteHead with Eq::{equal, not_equal}
+
+///|
+pub extend RemoteKnowledge with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RemoteKnowledge with Eq::{equal, not_equal}
+
+///|
+pub extend RemoteUpdate with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RemoteUpdate with Eq::{equal, not_equal}
+
+///|
+pub extend ReplicaState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReplicaState with Eq::{equal, not_equal}
+
+///|
+pub extend ReplicaWrite with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReplicaWrite with Eq::{equal, not_equal}
+
+///|
+pub extend SavedRevision with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SavedRevision with Eq::{equal, not_equal}

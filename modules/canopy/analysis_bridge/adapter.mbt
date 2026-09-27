@@ -36,3 +36,6 @@ pub fn from_ast_grep_matches(
     )
   })
 }
+
+///|
+pub extend AstGrepMatch with @moonbitlang/core/debug.Debug::{to_repr}

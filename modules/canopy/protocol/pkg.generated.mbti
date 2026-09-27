@@ -23,6 +23,10 @@ pub(all) struct Decoration {
   widget : Bool
 } derive(Eq, @debug.Debug)
 pub fn Decoration::Decoration(from~ : Int, to~ : Int, css_class~ : String, data? : String, widget? : Bool) -> Self
+pub fn Decoration::equal(Self, Self) -> Bool
+pub fn Decoration::not_equal(Self, Self) -> Bool
+pub fn Decoration::to_json(Self) -> Json
+pub fn Decoration::to_repr(Self) -> @debug.Repr
 pub impl ToJson for Decoration
 
 pub(all) struct Diagnostic {
@@ -36,6 +40,10 @@ pub(all) struct Diagnostic {
   fixes : Array[DiagnosticFixSummary]
 } derive(Eq, @debug.Debug)
 pub fn Diagnostic::Diagnostic(from~ : Int, to~ : Int, severity~ : Severity, message~ : String, code? : String, snapshot_id? : Int, diagnostic_id? : Int, fixes? : Array[DiagnosticFixSummary]) -> Self
+pub fn Diagnostic::equal(Self, Self) -> Bool
+pub fn Diagnostic::not_equal(Self, Self) -> Bool
+pub fn Diagnostic::to_json(Self) -> Json
+pub fn Diagnostic::to_repr(Self) -> @debug.Repr
 pub impl ToJson for Diagnostic
 
 pub(all) struct DiagnosticFixSummary {
@@ -44,6 +52,10 @@ pub(all) struct DiagnosticFixSummary {
   applicability : String
 } derive(Eq, @debug.Debug)
 pub fn DiagnosticFixSummary::DiagnosticFixSummary(id~ : Int, title~ : String, applicability~ : String) -> Self
+pub fn DiagnosticFixSummary::equal(Self, Self) -> Bool
+pub fn DiagnosticFixSummary::not_equal(Self, Self) -> Bool
+pub fn DiagnosticFixSummary::to_json(Self) -> Json
+pub fn DiagnosticFixSummary::to_repr(Self) -> @debug.Repr
 pub impl ToJson for DiagnosticFixSummary
 
 pub(all) enum Severity {
@@ -52,6 +64,10 @@ pub(all) enum Severity {
   SevInfo
   SevHint
 } derive(Eq, @debug.Debug)
+pub fn Severity::equal(Self, Self) -> Bool
+pub fn Severity::not_equal(Self, Self) -> Bool
+pub fn Severity::to_json(Self) -> Json
+pub fn Severity::to_repr(Self) -> @debug.Repr
 pub impl ToJson for Severity
 
 pub(all) struct TokenSpan {
@@ -60,6 +76,10 @@ pub(all) struct TokenSpan {
   end : Int
 } derive(Eq, @debug.Debug)
 pub fn TokenSpan::TokenSpan(role~ : String, start~ : Int, end~ : Int) -> Self
+pub fn TokenSpan::equal(Self, Self) -> Bool
+pub fn TokenSpan::not_equal(Self, Self) -> Bool
+pub fn TokenSpan::to_json(Self) -> Json
+pub fn TokenSpan::to_repr(Self) -> @debug.Repr
 pub impl ToJson for TokenSpan
 
 pub(all) enum UserIntent {
@@ -73,6 +93,13 @@ pub(all) enum UserIntent {
   CommitEdit(node_id~ : @dowdiness/canopy/core.NodeId, value~ : String)
   ApplyDiagnosticFix(snapshot_id~ : Int, diagnostic_id~ : Int, fix_id~ : Int)
 } derive(Eq, @debug.Debug)
+pub fn UserIntent::equal(Self, Self) -> Bool
+pub fn UserIntent::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn UserIntent::not_equal(Self, Self) -> Bool
+pub fn UserIntent::output(Self, &Logger) -> Unit
+pub fn UserIntent::to_json(Self) -> Json
+pub fn UserIntent::to_repr(Self) -> @debug.Repr
+pub fn UserIntent::to_string(Self) -> String
 pub impl Show for UserIntent
 pub impl ToJson for UserIntent
 pub impl @json.FromJson for UserIntent
@@ -83,6 +110,10 @@ pub(all) struct ViewAnnotation {
   severity : String
 } derive(Eq, @debug.Debug)
 pub fn ViewAnnotation::ViewAnnotation(kind~ : String, label~ : String, severity? : String) -> Self
+pub fn ViewAnnotation::equal(Self, Self) -> Bool
+pub fn ViewAnnotation::not_equal(Self, Self) -> Bool
+pub fn ViewAnnotation::to_json(Self) -> Json
+pub fn ViewAnnotation::to_repr(Self) -> @debug.Repr
 pub impl ToJson for ViewAnnotation
 
 pub(all) struct ViewNode {
@@ -98,7 +129,11 @@ pub(all) struct ViewNode {
   annotations : Array[ViewAnnotation]
 } derive(Eq, @debug.Debug)
 pub fn ViewNode::ViewNode(id~ : @dowdiness/canopy/core.NodeId, kind_tag~ : String, label~ : String, text? : String, text_range~ : (Int, Int), token_spans? : Array[TokenSpan], editable? : Bool, css_class? : String, children? : Array[Self], annotations? : Array[ViewAnnotation]) -> Self
+pub fn ViewNode::equal(Self, Self) -> Bool
 pub fn ViewNode::node_count(Self) -> Int
+pub fn ViewNode::not_equal(Self, Self) -> Bool
+pub fn ViewNode::to_json(Self) -> Json
+pub fn ViewNode::to_repr(Self) -> @debug.Repr
 pub impl ToJson for ViewNode
 
 pub(all) enum ViewPatch {
@@ -113,6 +148,10 @@ pub(all) enum ViewPatch {
   SelectNode(node_id~ : @dowdiness/canopy/core.NodeId)
   FullTree(root~ : ViewNode?)
 } derive(Eq, @debug.Debug)
+pub fn ViewPatch::equal(Self, Self) -> Bool
+pub fn ViewPatch::not_equal(Self, Self) -> Bool
+pub fn ViewPatch::to_json(Self) -> Json
+pub fn ViewPatch::to_repr(Self) -> @debug.Repr
 pub impl ToJson for ViewPatch
 
 // Type aliases

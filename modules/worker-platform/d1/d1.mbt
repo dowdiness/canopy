@@ -107,3 +107,9 @@ pub async fn Database::batch(
   }
   results.map(rows)
 }
+
+///|
+pub extend DatabaseError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DatabaseError with Eq::{equal, not_equal}

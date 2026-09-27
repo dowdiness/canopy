@@ -246,3 +246,48 @@ pub impl ToJson for ViewPatch with fn to_json(self) {
   }
   Json::object(m)
 }
+
+///|
+pub extend Decoration with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Decoration with Eq::{equal, not_equal}
+
+///|
+pub extend Decoration with ToJson::{to_json}
+
+///|
+pub extend Diagnostic with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Diagnostic with Eq::{equal, not_equal}
+
+///|
+pub extend Diagnostic with ToJson::{to_json}
+
+///|
+pub extend DiagnosticFixSummary with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticFixSummary with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticFixSummary with ToJson::{to_json}
+
+///|
+pub extend Severity with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Severity with Eq::{equal, not_equal}
+
+///|
+pub extend Severity with ToJson::{to_json}
+
+///|
+pub extend ViewPatch with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ViewPatch with Eq::{equal, not_equal}
+
+///|
+pub extend ViewPatch with ToJson::{to_json}

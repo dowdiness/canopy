@@ -119,3 +119,9 @@ fn prop_join_top(a : Confidence[Role]) -> Bool {
 test "lattice law: Conflict is top (absorbing)" {
   @qc.quick_check_fn(prop_join_top)
 }
+
+///|
+pub extend Pair with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Triple with @moonbitlang/core/debug.Debug::{to_repr}

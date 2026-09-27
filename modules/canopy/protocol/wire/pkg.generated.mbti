@@ -59,6 +59,18 @@ pub(all) enum EphemeralNamespace {
   Drag
   Presence
 } derive(Compare, Eq, Hash, @debug.Debug)
+pub fn EphemeralNamespace::compare(Self, Self) -> Int
+pub fn EphemeralNamespace::equal(Self, Self) -> Bool
+pub fn EphemeralNamespace::hash(Self) -> Int
+pub fn EphemeralNamespace::hash_combine(Self, Hasher) -> Unit
+pub fn EphemeralNamespace::not_equal(Self, Self) -> Bool
+pub fn EphemeralNamespace::op_ge(Self, Self) -> Bool
+pub fn EphemeralNamespace::op_gt(Self, Self) -> Bool
+pub fn EphemeralNamespace::op_le(Self, Self) -> Bool
+pub fn EphemeralNamespace::op_lt(Self, Self) -> Bool
+pub fn EphemeralNamespace::output(Self, &Logger) -> Unit
+pub fn EphemeralNamespace::to_repr(Self) -> @debug.Repr
+pub fn EphemeralNamespace::to_string(Self) -> String
 pub impl Show for EphemeralNamespace
 
 pub(all) enum SyncMessage {
@@ -70,6 +82,11 @@ pub(all) enum SyncMessage {
   PeerLeft(String)
   RelayedCrdtOps(sender~ : String, payload~ : Bytes)
 } derive(Eq, @debug.Debug)
+pub fn SyncMessage::equal(Self, Self) -> Bool
+pub fn SyncMessage::not_equal(Self, Self) -> Bool
+pub fn SyncMessage::output(Self, &Logger) -> Unit
+pub fn SyncMessage::to_repr(Self) -> @debug.Repr
+pub fn SyncMessage::to_string(Self) -> String
 pub impl Show for SyncMessage
 
 // Type aliases

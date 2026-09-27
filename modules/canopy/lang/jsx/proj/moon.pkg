@@ -1,13 +1,12 @@
 import {
   "dowdiness/canopy/core",
-  "dowdiness/diagnostic",
   "dowdiness/incr",
   "dowdiness/jsx",
   "dowdiness/jsx/syntax",
   "dowdiness/loom",
   "dowdiness/loom/core" @loomcore,
   "dowdiness/seam",
-  "moonbitlang/core/json",
+  "moonbitlang/core/debug",
 }
 
 import {
@@ -15,4 +14,5 @@ import {
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/core/set",
   "moonbitlang/quickcheck" @qc,
+  "moonbitlang/core/debug",
 } for "wbtest"

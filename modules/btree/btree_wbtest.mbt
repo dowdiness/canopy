@@ -3071,3 +3071,21 @@ fn prop_from_sorted_invariants(case_ : FromSortedCase) -> Bool {
 test "property: from_sorted produces valid btree" {
   @qc.quick_check_fn(prop_from_sorted_invariants)
 }
+
+///|
+pub extend DeleteRangeCase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FromSortedCase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MergeOnlyItem with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MergeOnlyItem with Eq::{equal, not_equal}
+
+///|
+pub extend TItem with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TItem with Eq::{equal, not_equal}

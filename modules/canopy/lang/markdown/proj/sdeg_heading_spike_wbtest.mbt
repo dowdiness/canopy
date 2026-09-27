@@ -640,3 +640,29 @@ test "sdeg phase0: format-like whitespace rewrite preserves heading NodeIds" {
   inspect(a_after.id == a_before.id, content="true")
   inspect(b_after.id == b_before.id, content="true")
 }
+
+///|
+pub extend HeadingIdentityOutcome with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend HeadingIdentityOutcome with Eq::{equal, not_equal}
+
+///|
+pub extend HeadingMatchEvidence with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend HeadingMatchEvidence with Eq::{equal, not_equal}
+
+///|
+pub extend HeadingSemanticConfidence with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend HeadingSemanticConfidence with Eq::{equal, not_equal}
+
+///|
+pub extend HeadingSemanticMatch with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend HeadingSemanticMatch with Eq::{equal, not_equal}

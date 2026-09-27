@@ -83,3 +83,63 @@ pub(all) struct ScopeGraph {
   priv node_scope : Map[@core.NodeId, ScopeId]
   priv node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int]]
 } derive(Debug)
+
+///|
+pub extend Decl with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Decl with Eq::{equal, not_equal}
+
+///|
+pub extend DeclId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeclId with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend DeclId with Eq::{equal, not_equal}
+
+///|
+pub extend DeclId with Hash::{hash, hash_combine}
+
+///|
+pub extend DeclKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeclKind with Eq::{equal, not_equal}
+
+///|
+pub extend Ref with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RefId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RefId with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend RefId with Eq::{equal, not_equal}
+
+///|
+pub extend RefId with Hash::{hash, hash_combine}
+
+///|
+pub extend Resolution with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Scope with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScopeGraph with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScopeId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScopeId with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend ScopeId with Eq::{equal, not_equal}
+
+///|
+pub extend ScopeId with Hash::{hash, hash_combine}

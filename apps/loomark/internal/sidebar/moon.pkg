@@ -4,7 +4,7 @@ import {
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js",
-  "moonbitlang/core/string",
+  "moonbitlang/core/debug",
 }
 
 supported_targets = "js"

@@ -16,6 +16,7 @@ pub(all) struct BTree[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T : BTreeElem] BTree::delete_range(Self[T], Int, Int) -> Unit
 pub fn[T] BTree::each(Self[T], (T) -> Unit) -> Unit
+pub fn[T : Eq] BTree::equal(Self[T], Self[T]) -> Bool
 pub fn[T] BTree::find(Self[T], Int) -> FindResult[T]?
 pub fn[T] BTree::from_sorted(Array[(T, Int)], min_degree? : Int) -> Self[T]
 pub fn[T] BTree::get_at(Self[T], Int) -> T?
@@ -26,9 +27,11 @@ pub fn[T, R] BTree::mutate_for_delete(Self[T], Int, (LeafContext[T]) -> (Splice[
 pub fn[T] BTree::mutate_for_insert(Self[T], Int, (LeafContext[T]) -> Splice[T]) -> Unit
 pub fn[T] BTree::new(min_degree? : Int) -> Self[T]
 pub fn[T : @rle.Spanning + @rle.Mergeable] BTree::normalize_boundary_at(Self[T], Int) -> Unit
+pub fn[T : Eq] BTree::not_equal(Self[T], Self[T]) -> Bool
 pub fn[T] BTree::size(Self[T]) -> Int
 pub fn[T] BTree::span(Self[T]) -> Int
 pub fn[T] BTree::to_array(Self[T]) -> Array[T]
+pub fn[T : @debug.Debug] BTree::to_repr(Self[T]) -> @debug.Repr
 pub fn[T : BTreeElem] BTree::view(Self[T], start? : Int, end? : Int) -> Array[T]
 
 pub(all) enum BTreeNode[T] {
@@ -37,13 +40,21 @@ pub(all) enum BTreeNode[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T] BTreeNode::each(Self[T], (T) -> Unit) -> Unit
 pub fn[T : BTreeElem] BTreeNode::each_slice_in_range(Self[T], Int, Int, (T) -> Unit) -> Unit
+pub fn[T : Eq] BTreeNode::equal(Self[T], Self[T]) -> Bool
 pub fn[T] BTreeNode::height(Self[T]) -> Int
+pub fn[T : Eq] BTreeNode::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] BTreeNode::to_repr(Self[T]) -> @debug.Repr
 pub fn[T] BTreeNode::total(Self[T]) -> Int
 
 pub(all) struct FindResult[T] {
   elem : T
   offset : Int
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq] FindResult::equal(Self[T], Self[T]) -> Bool
+pub fn[T : Eq] FindResult::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] FindResult::output(Self[T], &Logger) -> Unit
+pub fn[T : @debug.Debug] FindResult::to_repr(Self[T]) -> @debug.Repr
+pub fn[T : @debug.Debug] FindResult::to_string(Self[T]) -> String
 pub impl[T : @debug.Debug] Show for FindResult[T]
 
 pub(all) struct LeafContext[T] {
@@ -55,12 +66,14 @@ pub(all) struct LeafContext[T] {
 } derive(@debug.Debug)
 pub fn[T] LeafContext::left_neighbor(Self[T]) -> T?
 pub fn[T] LeafContext::right_neighbor(Self[T]) -> T?
+pub fn[T : @debug.Debug] LeafContext::to_repr(Self[T]) -> @debug.Repr
 
 pub(all) struct Splice[T] {
   start_idx : Int
   end_idx : Int
   new_leaves : Array[(T, Int)]
 } derive(@debug.Debug)
+pub fn[T : @debug.Debug] Splice::to_repr(Self[T]) -> @debug.Repr
 
 // Type aliases
 

@@ -12,6 +12,7 @@ import {
   "dowdiness/event-graph-walker/sync",
   "moonbitlang/core/immut/vector",
   "moonbitlang/core/cmp",
+  "moonbitlang/core/debug",
 }
 
 import {

@@ -24,14 +24,31 @@ pub(all) enum TestExpr {
   Leaf(String)
   Branch(String, Array[TestExpr])
 } derive(Eq, @debug.Debug)
+pub fn TestExpr::children(Self) -> Array[Self]
+pub fn TestExpr::equal(Self, Self) -> Bool
+pub fn TestExpr::kind_tag(Self) -> String
+pub fn TestExpr::label(Self) -> String
+pub fn TestExpr::not_equal(Self, Self) -> Bool
+pub fn TestExpr::output(Self, &Logger) -> Unit
+pub fn TestExpr::placeholder(Self) -> String
+pub fn TestExpr::same_kind(Self, Self) -> Bool
+pub fn TestExpr::to_json(Self) -> Json
+pub fn TestExpr::to_repr(Self) -> @debug.Repr
+pub fn TestExpr::to_string(Self) -> String
+pub fn TestExpr::unparse(Self) -> String
 pub impl @core.Renderable for TestExpr
 pub impl @core.TreeNode for TestExpr
 pub impl Show for TestExpr
 pub impl ToJson for TestExpr
 
 type TestKind derive(Eq, @debug.Debug)
+pub fn TestKind::equal(Self, Self) -> Bool
+pub fn TestKind::not_equal(Self, Self) -> Bool
+pub fn TestKind::to_repr(Self) -> @debug.Repr
 
 type TestToken derive(Eq)
+pub fn TestToken::equal(Self, Self) -> Bool
+pub fn TestToken::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

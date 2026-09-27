@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "example/markdown-editor/main"
+
+// Values
+
+// Errors
+
+// Types and methods
+type Model derive(Eq)
+
+type Msg
+
+// Type aliases
+
+// Traits

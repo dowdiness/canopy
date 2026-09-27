@@ -149,3 +149,30 @@ pub fn[T] SyncEditor::diagnostic_publication_source_revision(
 ) -> @incr.Derived[DiagnosticPublicationSourceRevision] raise Failure {
   self.projection.diagnostic_publication_source_revision()
 }
+
+///|
+pub extend DiagnosticPublicationInputError with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend DiagnosticPublicationInputError with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticPublicationInputError with Show::{output, to_string}
+
+///|
+pub extend DiagnosticPublicationInputSnapshot with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend DiagnosticPublicationInputSnapshot with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticPublicationSourceRevision with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend DiagnosticPublicationSourceRevision with Eq::{equal, not_equal}

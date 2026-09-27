@@ -480,18 +480,18 @@ test "diff: Unbound divergence — scope tracks it, free_vars ignores it" {
 ///|
 test "diff module-end: root def visible" {
   let (proj, _registry, g) = build_oracle("let x = 0\n0")
-  guard @scope.declaration_for_name_at_module_end(g, proj.id(), "x")
+  guard! @scope.declaration_for_name_at_module_end(g, proj.id(), "x")
     is Some(decl)
-  guard decl.kind is @scope.DeclKind::ModuleDef(def_index~)
+  guard! decl.kind is @scope.DeclKind::ModuleDef(def_index~)
   inspect(def_index, content="0")
 }
 
 ///|
 test "diff module-end: later def shadows earlier" {
   let (proj, _registry, g) = build_oracle("let x = 0\nlet x = 1\n0")
-  guard @scope.declaration_for_name_at_module_end(g, proj.id(), "x")
+  guard! @scope.declaration_for_name_at_module_end(g, proj.id(), "x")
     is Some(decl)
-  guard decl.kind is @scope.DeclKind::ModuleDef(def_index~)
+  guard! decl.kind is @scope.DeclKind::ModuleDef(def_index~)
   inspect(def_index, content="1")
 }
 

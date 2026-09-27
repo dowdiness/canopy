@@ -339,3 +339,15 @@ fn add_annotation(
     None => projection.annotations[node_id] = [annotation]
   }
 }
+
+///|
+pub extend SemanticDiagnosticError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SemanticDiagnosticError with Eq::{equal, not_equal}
+
+///|
+pub extend SemanticProjection with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SemanticProjection with ToJson::{to_json}

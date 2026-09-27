@@ -116,7 +116,7 @@ extern "js" fn any_keys_raw(obj : Any) -> FixedArray[String] =
 
 ///|
 pub fn Any::keys(self : Any) -> Array[String] {
-  any_keys_raw(self).view().to_owned()
+  any_keys_raw(self).exact_view().to_owned()
 }
 
 // ── JSON & stringify ────────────────────────────────────────────────────────

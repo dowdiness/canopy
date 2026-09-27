@@ -1,16 +1,16 @@
 ///|
-fn screen_point(x : Double, y : Double) -> ScreenPoint {
-  try! ScreenPoint::from_xy(x~, y~)
+fn screen_point(x : Double, y : Double) -> @canvas-spatial.ScreenPoint {
+  try! @canvas-spatial.ScreenPoint::from_xy(x~, y~)
 }
 
 ///|
-fn world_point(x : Double, y : Double) -> WorldPoint {
-  try! WorldPoint::from_xy(x~, y~)
+fn world_point(x : Double, y : Double) -> @canvas-spatial.WorldPoint {
+  try! @canvas-spatial.WorldPoint::from_xy(x~, y~)
 }
 
 ///|
-fn scale(value : Double) -> Scale {
-  try! Scale::from_double(value~)
+fn scale(value : Double) -> @canvas-spatial.Scale {
+  try! @canvas-spatial.Scale::from_double(value~)
 }
 
 ///|
@@ -18,8 +18,8 @@ fn viewport_for_test(
   origin_x : Double,
   origin_y : Double,
   scale_value : Double,
-) -> Viewport {
-  Viewport::from_scale(
+) -> @canvas-spatial.Viewport {
+  @canvas-spatial.Viewport::from_scale(
     origin=screen_point(origin_x, origin_y),
     scale=scale(scale_value),
   )
@@ -50,16 +50,16 @@ test "finite coordinate constructors expose only validated values" {
 test "coordinate constructors reject non-finite values" {
   for invalid in [0.0 / 0.0, 1.0 / 0.0, -1.0 / 0.0] {
     let screen_result = try {
-      ignore(ScreenPoint::from_xy(x=invalid, y=0.0))
+      ignore(@canvas-spatial.ScreenPoint::from_xy(x=invalid, y=0.0))
       false
     } catch {
-      CoordinateError::NonFinite => true
+      @canvas-spatial.CoordinateError::NonFinite => true
     }
     let world_result = try {
-      ignore(WorldPoint::from_xy(x=0.0, y=invalid))
+      ignore(@canvas-spatial.WorldPoint::from_xy(x=0.0, y=invalid))
       false
     } catch {
-      CoordinateError::NonFinite => true
+      @canvas-spatial.CoordinateError::NonFinite => true
     }
     assert_true(screen_result)
     assert_true(world_result)
@@ -74,10 +74,11 @@ test "scale accepts finite positive values and rejects invalid values" {
   let invalid_values = [0.0, -1.0, 0.0 / 0.0, 1.0 / 0.0, -1.0 / 0.0]
   for value in invalid_values {
     let rejected = try {
-      ignore(Scale::from_double(value~))
+      ignore(@canvas-spatial.Scale::from_double(value~))
       false
     } catch {
-      ScaleError::NonFinite | ScaleError::NonPositive => true
+      @canvas-spatial.ScaleError::NonFinite
+      | @canvas-spatial.ScaleError::NonPositive => true
     }
     assert_true(rejected)
   }
@@ -137,14 +138,14 @@ test "viewport transforms reject arithmetic overflow" {
     ignore(inverse_overflow.screen_to_world(screen_point(1.0e308, 0.0)))
     false
   } catch {
-    CoordinateError::NonFinite => true
+    @canvas-spatial.CoordinateError::NonFinite => true
   }
   let forward_overflow = viewport_for_test(0.0, 0.0, 1.0e308)
   let world_result = try {
     ignore(forward_overflow.world_to_screen(world_point(1.0e308, 0.0)))
     false
   } catch {
-    CoordinateError::NonFinite => true
+    @canvas-spatial.CoordinateError::NonFinite => true
   }
   assert_true(screen_result)
   assert_true(world_result)
@@ -162,14 +163,14 @@ test "anchored scale rejects an overflowing derived origin" {
     )
     false
   } catch {
-    CoordinateError::NonFinite => true
+    @canvas-spatial.CoordinateError::NonFinite => true
   }
   assert_true(result)
 }
 
 ///|
 test "pan snapshot is path independent and rejects origin overflow" {
-  let pan = Pan::start(
+  let pan = @canvas-spatial.Pan::start(
     viewport=viewport_for_test(400.0, -120.0, 2.0),
     pointer=screen_point(20.0, 30.0),
   )
@@ -182,7 +183,7 @@ test "pan snapshot is path independent and rejects origin overflow" {
   assert_close(direct.screen_origin().y(), -65.0)
   assert_eq(repeated, direct)
 
-  let overflowing_pan = Pan::start(
+  let overflowing_pan = @canvas-spatial.Pan::start(
     viewport=viewport_for_test(0.0, 0.0, 1.0),
     pointer=screen_point(-1.0e308, 0.0),
   )
@@ -190,7 +191,7 @@ test "pan snapshot is path independent and rejects origin overflow" {
     ignore(overflowing_pan.viewport_at(screen_point(1.0e308, 0.0)))
     false
   } catch {
-    CoordinateError::NonFinite => true
+    @canvas-spatial.CoordinateError::NonFinite => true
   }
   assert_true(result)
 }
@@ -198,14 +199,20 @@ test "pan snapshot is path independent and rejects origin overflow" {
 ///|
 test "drag snapshot is path independent and preserves source arrays" {
   let positions = [
-    ItemPosition::from_id_and_point(id="first", point=world_point(10.0, 20.0)),
-    ItemPosition::from_id_and_point(id="second", point=world_point(40.0, 55.0)),
+    @canvas-spatial.ItemPosition::from_id_and_point(
+      id="first",
+      point=world_point(10.0, 20.0),
+    ),
+    @canvas-spatial.ItemPosition::from_id_and_point(
+      id="second",
+      point=world_point(40.0, 55.0),
+    ),
   ]
-  let drag = Drag::start(
+  let drag = @canvas-spatial.Drag::start(
     positions=ReadOnlyArray::from_array(positions[:]),
     pointer=world_point(4.0, 8.0),
   )
-  positions[0] = ItemPosition::from_id_and_point(
+  positions[0] = @canvas-spatial.ItemPosition::from_id_and_point(
     id="changed",
     point=world_point(999.0, 999.0),
   )
@@ -222,9 +229,9 @@ test "drag snapshot is path independent and preserves source arrays" {
 
 ///|
 test "drag movement rejects position overflow" {
-  let drag = Drag::start(
+  let drag = @canvas-spatial.Drag::start(
     positions=[
-      ItemPosition::from_id_and_point(
+      @canvas-spatial.ItemPosition::from_id_and_point(
         id="item",
         point=world_point(1.0e308, 0.0),
       ),
@@ -235,7 +242,7 @@ test "drag movement rejects position overflow" {
     ignore(drag.positions_at(world_point(1.0e308, 0.0)))
     false
   } catch {
-    CoordinateError::NonFinite => true
+    @canvas-spatial.CoordinateError::NonFinite => true
   }
   assert_true(result)
 }

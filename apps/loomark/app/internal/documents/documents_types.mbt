@@ -251,3 +251,45 @@ pub struct State {
   priv last_working_copy_version : Int
   priv last_delete_request : Int
 } derive(Eq)
+
+///|
+pub extend AcceptRemote with Eq::{equal, not_equal}
+
+///|
+pub extend ActionError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ActionError with Eq::{equal, not_equal}
+
+///|
+pub extend DeleteOperation with Eq::{equal, not_equal}
+
+///|
+pub extend DeleteStatus with Eq::{equal, not_equal}
+
+///|
+pub extend Key with Eq::{equal, not_equal}
+
+///|
+pub extend Key with Hash::{hash, hash_combine}
+
+///|
+pub extend RemoteState with Eq::{equal, not_equal}
+
+///|
+pub extend ReplicaEdit with Eq::{equal, not_equal}
+
+///|
+pub extend SaveOperation with Eq::{equal, not_equal}
+
+///|
+pub extend SaveStatus with Eq::{equal, not_equal}
+
+///|
+pub extend StartSync with Eq::{equal, not_equal}
+
+///|
+pub extend State with Eq::{equal, not_equal}
+
+///|
+pub extend SyncStart with Eq::{equal, not_equal}

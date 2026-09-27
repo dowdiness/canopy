@@ -2,7 +2,7 @@
 
 ///|
 test "Coordinator types are constructible" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let _ : @incr.Runtime = coord.runtime()
 }
 
@@ -15,7 +15,7 @@ test "Coordinator types are constructible" {
 /// new callback fires instead. Phase 2 will multiplex registered
 /// listeners through a coordinator-owned dispatcher.
 test "Coordinator::new populates on_change; downstream can override" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let rt = coord.runtime()
   let probe = Ref(0)
   rt.set_on_change(fn() { probe.val = probe.val + 1 })
@@ -26,10 +26,10 @@ test "Coordinator::new populates on_change; downstream can override" {
 
 ///|
 test "register_editor returns a fresh EditorId and stores the registration" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let rt = coord.runtime()
   let d = @incr.Derived::Derived(rt, fn() { 42 }, label="probe")
-  let pcell = ProtectedCell::from_derived("probe_label", d)
+  let pcell = @coordinator.ProtectedCell::from_derived("probe_label", d)
   let id = coord.register_editor("agent_x", [pcell.erase()])
   assert_eq(id, EditorId(0))
   let id2 = coord.register_editor("agent_y", [])
@@ -38,10 +38,10 @@ test "register_editor returns a fresh EditorId and stores the registration" {
 
 ///|
 test "read_protected reads through the typed cell" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let rt = coord.runtime()
   let d = @incr.Derived::Derived(rt, fn() { 99 }, label="probe")
-  let pcell = ProtectedCell::from_derived("probe", d)
+  let pcell = @coordinator.ProtectedCell::from_derived("probe", d)
   let id = coord.register_editor("agent", [pcell.erase()])
   match coord.read_protected(id, pcell) {
     Ok(v) => assert_eq(v, 99)
@@ -51,12 +51,12 @@ test "read_protected reads through the typed cell" {
 
 ///|
 test "read_protected rejects a cell not in editor's protected set" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let rt = coord.runtime()
   let d_a = @incr.Derived::Derived(rt, fn() { 1 }, label="a")
   let d_b = @incr.Derived::Derived(rt, fn() { 2 }, label="b")
-  let pa = ProtectedCell::from_derived("a", d_a)
-  let pb = ProtectedCell::from_derived("b", d_b)
+  let pa = @coordinator.ProtectedCell::from_derived("a", d_a)
+  let pb = @coordinator.ProtectedCell::from_derived("b", d_b)
   let id_a = coord.register_editor("a", [pa.erase()])
   match coord.read_protected(id_a, pb) {
     Ok(_) => fail("expected CellNotInProtectedSurface")
@@ -70,11 +70,11 @@ test "read_protected rejects a cell not in editor's protected set" {
 /// after `unregister_dep`, destroy must succeed. Also exercises
 /// idempotency of both register_dep and unregister_dep.
 test "register_dep + unregister_dep round trip — observable via destroy gate" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let rt = coord.runtime()
   let editor_cell = @incr.Derived::Derived(rt, fn() { 1 }, label="ec")
   let ws_cell = @incr.Derived::Derived(rt, fn() { 2 }, label="ws")
-  let pe = ProtectedCell::from_derived("ec", editor_cell)
+  let pe = @coordinator.ProtectedCell::from_derived("ec", editor_cell)
   let id = coord.register_editor("agent", [pe.erase()])
   coord.register_dep(ws_cell.id(), id, editor_cell.id())
   // Idempotent: a second call with the same edge is a no-op (still 1 edge).
@@ -94,10 +94,10 @@ test "register_dep + unregister_dep round trip — observable via destroy gate" 
 
 ///|
 test "destroy_editor refuses while a dep edge points at this editor" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let rt = coord.runtime()
   let d = @incr.Derived::Derived(rt, fn() { 1 }, label="ec")
-  let pe = ProtectedCell::from_derived("ec", d)
+  let pe = @coordinator.ProtectedCell::from_derived("ec", d)
   let id = coord.register_editor("agent", [pe.erase()])
   let ws_cell = @incr.Derived::Derived(rt, fn() { 0 }, label="ws")
   coord.register_dep(ws_cell.id(), id, d.id())
@@ -116,10 +116,10 @@ test "destroy_editor refuses while a dep edge points at this editor" {
 
 ///|
 test "read_protected after destroy returns EditorDestroyed with full context" {
-  let coord = Coordinator::new()
+  let coord = @coordinator.Coordinator::new()
   let rt = coord.runtime()
   let d = @incr.Derived::Derived(rt, fn() { 7 }, label="ec")
-  let pe = ProtectedCell::from_derived("ec", d)
+  let pe = @coordinator.ProtectedCell::from_derived("ec", d)
   let id = coord.register_editor("test_agent", [pe.erase()])
   match coord.destroy_editor(id) {
     Ok(_) => ()

@@ -4,6 +4,7 @@ import {
   "moonbit-community/rabbita/indexed_db",
   "moonbitlang/core/double",
   "moonbitlang/core/json",
+  "moonbitlang/core/debug",
 }
 
 import {

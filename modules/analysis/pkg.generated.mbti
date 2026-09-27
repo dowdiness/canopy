@@ -20,6 +20,7 @@ pub(all) struct PatternMatchFact {
 } derive(@debug.Debug)
 pub fn PatternMatchFact::PatternMatchFact(snapshot~ : SourceSnapshot, from~ : Int, to~ : Int, pattern_id~ : String, captures~ : Map[String, (Int, Int)]) -> Self
 pub fn PatternMatchFact::is_current(Self, SourceSnapshot) -> Bool
+pub fn PatternMatchFact::to_repr(Self) -> @debug.Repr
 
 pub(all) struct SourceSnapshot {
   doc_id : String
@@ -28,7 +29,12 @@ pub(all) struct SourceSnapshot {
   utf16_len : Int
 } derive(Eq, Hash, @debug.Debug)
 pub fn SourceSnapshot::SourceSnapshot(doc_id~ : String, version~ : Int, source~ : String) -> Self
+pub fn SourceSnapshot::equal(Self, Self) -> Bool
+pub fn SourceSnapshot::hash(Self) -> Int
+pub fn SourceSnapshot::hash_combine(Self, Hasher) -> Unit
 pub fn SourceSnapshot::matches(Self, Self) -> Bool
+pub fn SourceSnapshot::not_equal(Self, Self) -> Bool
+pub fn SourceSnapshot::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

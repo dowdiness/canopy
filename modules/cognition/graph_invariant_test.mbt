@@ -13,7 +13,7 @@ priv enum GraphOp {
 
 ///|
 test "graph invariants hold across edit remove and context packing scenario" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   assert_graph_invariants(store, "initial")
 
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
@@ -30,7 +30,7 @@ test "graph invariants hold across edit remove and context packing scenario" {
 
   let _ = store.set_input(FileText("a.mbt"), Text("one changed"))
   inspect(
-    store.is_dirty(CognitionKey::PackedContext("what changed?", 3)),
+    store.is_dirty(@cognition.CognitionKey::PackedContext("what changed?", 3)),
     content="true",
   )
   assert_graph_invariants(store, "after edit a")
@@ -49,7 +49,7 @@ test "graph invariants hold across edit remove and context packing scenario" {
 test "generated graph operation sequences preserve invariants" {
   let sequence_length = 4
   for index in 0..<graph_sequence_count(sequence_length) {
-    let store = CognitionStore::new()
+    let store = @cognition.CognitionStore::new()
     let sequence = graph_sequence_from_index(index, sequence_length)
     apply_graph_sequence(store, sequence, "sequence #\{index}")
   }
@@ -57,7 +57,7 @@ test "generated graph operation sequences preserve invariants" {
 
 ///|
 fn apply_graph_sequence(
-  store : CognitionStore,
+  store : @cognition.CognitionStore,
   sequence : Array[GraphOp],
   label : String,
 ) -> Unit raise {
@@ -72,7 +72,7 @@ fn apply_graph_sequence(
 }
 
 ///|
-fn apply_graph_op(store : CognitionStore, op : GraphOp) -> Unit {
+fn apply_graph_op(store : @cognition.CognitionStore, op : GraphOp) -> Unit {
   match op {
     PutA => {
       let _ = store.set_input(FileText("a.mbt"), Text("content for a"))
@@ -115,7 +115,7 @@ fn apply_graph_op(store : CognitionStore, op : GraphOp) -> Unit {
 
 ///|
 fn assert_graph_invariants(
-  store : CognitionStore,
+  store : @cognition.CognitionStore,
   label : String,
 ) -> Unit raise {
   let edges = store.dependency_edges()
@@ -159,7 +159,7 @@ fn assert_graph_invariants(
 
 ///|
 fn assert_path_absent_from_graph(
-  store : CognitionStore,
+  store : @cognition.CognitionStore,
   path : String,
   label : String,
 ) -> Unit raise {
@@ -171,8 +171,8 @@ fn assert_path_absent_from_graph(
       )
     }
   }
-  let text_key = CognitionKey::FileText(path)
-  let summary_key = CognitionKey::FileSummary(path)
+  let text_key = @cognition.CognitionKey::FileText(path)
+  let summary_key = @cognition.CognitionKey::FileSummary(path)
   if store.get_value(text_key) is Some(_) {
     fail("deleted path \{path} still has FileText value after \{label}")
   }
@@ -196,7 +196,10 @@ fn assert_path_absent_from_graph(
 }
 
 ///|
-fn graph_key_is_live(store : CognitionStore, key : CognitionKey) -> Bool {
+fn graph_key_is_live(
+  store : @cognition.CognitionStore,
+  key : @cognition.CognitionKey,
+) -> Bool {
   match key {
     FileText(path) =>
       store.known_files().contains(path) &&
@@ -218,7 +221,10 @@ fn graph_key_is_live(store : CognitionStore, key : CognitionKey) -> Bool {
 }
 
 ///|
-fn graph_key_mentions_path(key : CognitionKey, path : String) -> Bool {
+fn graph_key_mentions_path(
+  key : @cognition.CognitionKey,
+  path : String,
+) -> Bool {
   match key {
     FileText(candidate) => candidate == path
     FileSummary(candidate) => candidate == path
@@ -231,7 +237,7 @@ fn graph_key_mentions_path(key : CognitionKey, path : String) -> Bool {
 }
 
 ///|
-fn graph_candidate_keys() -> Array[CognitionKey] {
+fn graph_candidate_keys() -> Array[@cognition.CognitionKey] {
   [
     FileText("a.mbt"),
     FileSummary("a.mbt"),
@@ -239,10 +245,10 @@ fn graph_candidate_keys() -> Array[CognitionKey] {
     FileSummary("b.mbt"),
     RepoSummary,
     QueryContext("what changed?"),
-    CognitionKey::PackedContext("what changed?", 1),
-    CognitionKey::PackedContext("what changed?", 3),
-    CognitionKey::BudgetedContext("what changed?", 3, 80),
-    CognitionKey::TruncatedContext("what changed?", 3, 80),
+    @cognition.CognitionKey::PackedContext("what changed?", 1),
+    @cognition.CognitionKey::PackedContext("what changed?", 3),
+    @cognition.CognitionKey::BudgetedContext("what changed?", 3, 80),
+    @cognition.CognitionKey::TruncatedContext("what changed?", 3, 80),
   ]
 }
 

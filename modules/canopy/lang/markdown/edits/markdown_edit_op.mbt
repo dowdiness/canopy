@@ -21,3 +21,9 @@ pub(all) enum MarkdownEditOp {
   MergeWithPrevious(node_id~ : NodeId)
   MoveBlock(source~ : NodeId, target~ : NodeId, position~ : DropPosition)
 } derive(Debug, Eq)
+
+///|
+pub extend MarkdownEditOp with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownEditOp with Eq::{equal, not_equal}

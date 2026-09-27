@@ -91,3 +91,39 @@ pub suberror LlmError {
 pub impl Show for LlmError with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+pub extend EditAction with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EditAction with Eq::{equal, not_equal}
+
+///|
+pub extend EditAction with Show::{output, to_string}
+
+///|
+pub extend EditAction with ToJson::{to_json}
+
+///|
+pub extend GeminiConfig with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LlmError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LlmError with Show::{output, to_string}
+
+///|
+pub extend Message with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Message with Eq::{equal, not_equal}
+
+///|
+pub extend Role with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Role with Eq::{equal, not_equal}
+
+///|
+pub extend Role with Show::{output, to_string}

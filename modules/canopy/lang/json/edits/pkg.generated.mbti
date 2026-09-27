@@ -24,6 +24,11 @@ pub(all) enum JsonEditOp {
   RenameKey(object_id~ : @core.NodeId, key_index~ : Int, new_key~ : String)
   CommitEdit(node_id~ : @core.NodeId, new_value~ : String)
 } derive(Eq, @debug.Debug)
+pub fn JsonEditOp::equal(Self, Self) -> Bool
+pub fn JsonEditOp::not_equal(Self, Self) -> Bool
+pub fn JsonEditOp::output(Self, &Logger) -> Unit
+pub fn JsonEditOp::to_repr(Self) -> @debug.Repr
+pub fn JsonEditOp::to_string(Self) -> String
 pub impl Show for JsonEditOp
 
 pub(all) enum JsonType {
@@ -34,6 +39,9 @@ pub(all) enum JsonType {
   JArray
   JObject
 } derive(Eq, @debug.Debug)
+pub fn JsonType::equal(Self, Self) -> Bool
+pub fn JsonType::not_equal(Self, Self) -> Bool
+pub fn JsonType::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

@@ -21,12 +21,18 @@ pub(all) suberror LayoutError {
   NoPlacement(width~ : Int, height~ : Int)
   CoordinateOverflow
 } derive(Eq, @debug.Debug)
+pub fn LayoutError::equal(Self, Self) -> Bool
+pub fn LayoutError::not_equal(Self, Self) -> Bool
+pub fn LayoutError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct LayoutPlan {
   positions : Array[@canvas-spatial.ItemPosition[@graph_model.NodeId]]
 } derive(Eq, @debug.Debug)
+pub fn LayoutPlan::equal(Self, Self) -> Bool
+pub fn LayoutPlan::not_equal(Self, Self) -> Bool
 pub fn LayoutPlan::to_move_nodes(Self) -> @graph_model.WorkflowAction
+pub fn LayoutPlan::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

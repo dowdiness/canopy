@@ -52,3 +52,21 @@ pub impl Show for SyncStatus with fn output(self, logger) {
 pub impl Show for SyncErrorReason with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+pub extend SyncErrorReason with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyncErrorReason with Eq::{equal, not_equal}
+
+///|
+pub extend SyncErrorReason with Show::{output, to_string}
+
+///|
+pub extend SyncStatus with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyncStatus with Eq::{equal, not_equal}
+
+///|
+pub extend SyncStatus with Show::{output, to_string}

@@ -1,10 +1,10 @@
 ///|
 test "custom provider controls file and repo summaries" {
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, text) { "custom file \{path}: \{text.length()}" },
     repo_summary: fn(items) { "custom repo: " + items.join(" | ") },
   }
-  let store = CognitionStore::new_with_provider(provider)
+  let store = @cognition.CognitionStore::new_with_provider(provider)
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
   let _ = store.compute(FileSummary("a.mbt"))
@@ -25,7 +25,7 @@ test "custom provider controls file and repo summaries" {
 test "provider is called only for recomputed artifacts" {
   let file_calls = Ref(0)
   let repo_calls = Ref(0)
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, text) {
       file_calls.val += 1
       "\{path}: \{text.length()}"
@@ -35,7 +35,7 @@ test "provider is called only for recomputed artifacts" {
       "repo: " + items.join(",")
     },
   }
-  let store = CognitionStore::new_with_provider(provider)
+  let store = @cognition.CognitionStore::new_with_provider(provider)
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.set_input(FileText("b.mbt"), Text("two"))
   let _ = store.compute(FileSummary("a.mbt"))
@@ -56,14 +56,14 @@ test "provider is called only for recomputed artifacts" {
 ///|
 test "repo provider receives copied summary arrays" {
   let captured : Array[Array[String]] = []
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, text) { "\{path}: \{text.length()}" },
     repo_summary: fn(items) {
       captured.push(items)
       "repo: " + items.join(",")
     },
   }
-  let store = CognitionStore::new_with_provider(provider)
+  let store = @cognition.CognitionStore::new_with_provider(provider)
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.compute(RepoSummary)
 
@@ -79,11 +79,11 @@ test "repo provider receives copied summary arrays" {
 ///|
 test "provider output is copied before storage" {
   let provider_payload : Array[String] = ["first"]
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, _text) { "\{path}: " + provider_payload.join(",") },
     repo_summary: fn(items) { "repo: " + items.join(",") },
   }
-  let store = CognitionStore::new_with_provider(provider)
+  let store = @cognition.CognitionStore::new_with_provider(provider)
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.compute(FileSummary("a.mbt"))
 

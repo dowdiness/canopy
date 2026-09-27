@@ -13,6 +13,9 @@ pub fn annotate_symbolic(@markdown.Block) -> FixedArray[Confidence[Role]]
 pub(all) suberror InvalidConfidence {
   BadConfidence(Float)
 } derive(@debug.Debug)
+pub fn InvalidConfidence::output(Self, &Logger) -> Unit
+pub fn InvalidConfidence::to_repr(Self) -> @debug.Repr
+pub fn InvalidConfidence::to_string(Self) -> String
 pub impl Show for InvalidConfidence
 
 // Types and methods
@@ -23,8 +26,13 @@ pub(all) enum Confidence[T] {
   Confirmed(T)
   Conflict
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq] Confidence::equal(Self[T], Self[T]) -> Bool
 pub fn[T] Confidence::guessed(Float, T) -> Self[T] raise InvalidConfidence
 pub fn[T : Eq] Confidence::join(Self[T], Self[T]) -> Self[T]
+pub fn[T : Eq] Confidence::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] Confidence::output(Self[T], &Logger) -> Unit
+pub fn[T : @debug.Debug] Confidence::to_repr(Self[T]) -> @debug.Repr
+pub fn[T : @debug.Debug] Confidence::to_string(Self[T]) -> String
 pub impl[T : @debug.Debug] Show for Confidence[T]
 
 pub(all) enum Role {
@@ -34,6 +42,11 @@ pub(all) enum Role {
   KeyPoints
   Unclassified
 } derive(Eq, @debug.Debug)
+pub fn Role::equal(Self, Self) -> Bool
+pub fn Role::not_equal(Self, Self) -> Bool
+pub fn Role::output(Self, &Logger) -> Unit
+pub fn Role::to_repr(Self) -> @debug.Repr
+pub fn Role::to_string(Self) -> String
 pub impl Show for Role
 
 // Type aliases

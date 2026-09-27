@@ -30,3 +30,18 @@ pub(all) enum JsonEditOp {
 pub impl Show for JsonEditOp with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+pub extend JsonEditOp with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsonEditOp with Eq::{equal, not_equal}
+
+///|
+pub extend JsonEditOp with Show::{output, to_string}
+
+///|
+pub extend JsonType with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend JsonType with Eq::{equal, not_equal}

@@ -25,18 +25,27 @@ pub(all) enum DeliveryResult {
   OperationRejected
   Unavailable
 } derive(Eq, @debug.Debug)
+pub fn DeliveryResult::equal(Self, Self) -> Bool
+pub fn DeliveryResult::not_equal(Self, Self) -> Bool
+pub fn DeliveryResult::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DiscoveryResult {
   Discovered(Array[@source_repository.RemoteEntry])
   AccountChanged
   Unavailable
 } derive(Eq, @debug.Debug)
+pub fn DiscoveryResult::equal(Self, Self) -> Bool
+pub fn DiscoveryResult::not_equal(Self, Self) -> Bool
+pub fn DiscoveryResult::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RemoteResult {
   Found(@source_repository.RemoteDocument)
   AccountChanged
   Unavailable
 } derive(Eq, @debug.Debug)
+pub fn RemoteResult::equal(Self, Self) -> Bool
+pub fn RemoteResult::not_equal(Self, Self) -> Bool
+pub fn RemoteResult::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

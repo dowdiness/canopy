@@ -22,7 +22,10 @@ pub struct InMemoryTransport {
   peer_id : String
   room : InMemoryRoom
 }
+pub fn InMemoryTransport::close(Self) -> Unit
 pub fn InMemoryTransport::new(String, InMemoryRoom) -> Self
+pub fn InMemoryTransport::on_receive(Self, (Bytes) -> Unit) -> Unit
+pub fn InMemoryTransport::send(Self, Bytes) -> Unit
 pub impl SyncTransport for InMemoryTransport
 
 type RecoveryContext
@@ -33,6 +36,11 @@ pub enum SyncErrorReason {
   LocalVersionLimitExceeded(kind~ : @sync.LimitKind, limit~ : Int, actual~ : Int)
   LocalVersionEncodingFailed
 } derive(Eq, @debug.Debug)
+pub fn SyncErrorReason::equal(Self, Self) -> Bool
+pub fn SyncErrorReason::not_equal(Self, Self) -> Bool
+pub fn SyncErrorReason::output(Self, &Logger) -> Unit
+pub fn SyncErrorReason::to_repr(Self) -> @debug.Repr
+pub fn SyncErrorReason::to_string(Self) -> String
 pub impl Show for SyncErrorReason
 
 pub struct SyncHost {
@@ -72,6 +80,11 @@ pub enum SyncStatus {
   Recovering(peer_id~ : String, attempt~ : Int)
   Error(reason~ : SyncErrorReason)
 } derive(Eq, @debug.Debug)
+pub fn SyncStatus::equal(Self, Self) -> Bool
+pub fn SyncStatus::not_equal(Self, Self) -> Bool
+pub fn SyncStatus::output(Self, &Logger) -> Unit
+pub fn SyncStatus::to_repr(Self) -> @debug.Repr
+pub fn SyncStatus::to_string(Self) -> String
 pub impl Show for SyncStatus
 
 // Type aliases

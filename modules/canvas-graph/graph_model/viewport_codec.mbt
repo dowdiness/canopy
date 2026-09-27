@@ -240,3 +240,6 @@ pub impl ToJson for WorkflowAction with fn to_json(self) {
   }
   ToJson::to_json(encoded)
 }
+
+///|
+pub extend WorkflowAction with ToJson::{to_json}

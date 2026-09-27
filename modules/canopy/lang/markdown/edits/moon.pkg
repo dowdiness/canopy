@@ -4,6 +4,7 @@ import {
   "dowdiness/markdown",
   "dowdiness/moji",
   "moonbitlang/core/string",
+  "moonbitlang/core/debug",
 }
 
 import {

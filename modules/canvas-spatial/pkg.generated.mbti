@@ -11,60 +11,87 @@ import {
 pub(all) suberror CoordinateError {
   NonFinite
 } derive(Eq, @debug.Debug)
+pub fn CoordinateError::equal(Self, Self) -> Bool
+pub fn CoordinateError::not_equal(Self, Self) -> Bool
+pub fn CoordinateError::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror ScaleError {
   NonFinite
   NonPositive
 } derive(Eq, @debug.Debug)
+pub fn ScaleError::equal(Self, Self) -> Bool
+pub fn ScaleError::not_equal(Self, Self) -> Bool
+pub fn ScaleError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct Drag[Id] {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn[Id : Eq] Drag::equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] Drag::initial_ids(Self[Id]) -> Array[Id]
+pub fn[Id : Eq] Drag::not_equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] Drag::positions_at(Self[Id], WorldPoint) -> Array[ItemPosition[Id]] raise CoordinateError
 pub fn[Id] Drag::start(positions~ : ReadOnlyArray[ItemPosition[Id]], pointer~ : WorldPoint) -> Self[Id]
+pub fn[Id : @debug.Debug] Drag::to_repr(Self[Id]) -> @debug.Repr
 
 pub struct ItemPosition[Id] {
   id : Id
   point : WorldPoint
 } derive(Eq, @debug.Debug)
+pub fn[Id : Eq] ItemPosition::equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] ItemPosition::from_id_and_point(id~ : Id, point~ : WorldPoint) -> Self[Id]
+pub fn[Id : Eq] ItemPosition::not_equal(Self[Id], Self[Id]) -> Bool
+pub fn[Id : @debug.Debug] ItemPosition::to_repr(Self[Id]) -> @debug.Repr
 
 pub struct Pan {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Pan::equal(Self, Self) -> Bool
+pub fn Pan::not_equal(Self, Self) -> Bool
 pub fn Pan::start(viewport~ : Viewport, pointer~ : ScreenPoint) -> Self
 pub fn Pan::start_pointer(Self) -> ScreenPoint
+pub fn Pan::to_repr(Self) -> @debug.Repr
 pub fn Pan::viewport_at(Self, ScreenPoint) -> Viewport raise CoordinateError
 
 pub struct Scale {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Scale::equal(Self, Self) -> Bool
 pub fn Scale::from_double(value~ : Double) -> Self raise ScaleError
+pub fn Scale::not_equal(Self, Self) -> Bool
 pub fn Scale::to_double(Self) -> Double
+pub fn Scale::to_repr(Self) -> @debug.Repr
 
 pub struct ScreenPoint {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn ScreenPoint::equal(Self, Self) -> Bool
 pub fn ScreenPoint::from_xy(x~ : Double, y~ : Double) -> Self raise CoordinateError
+pub fn ScreenPoint::not_equal(Self, Self) -> Bool
+pub fn ScreenPoint::to_repr(Self) -> @debug.Repr
 pub fn ScreenPoint::x(Self) -> Double
 pub fn ScreenPoint::y(Self) -> Double
 
 pub struct Viewport {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Viewport::equal(Self, Self) -> Bool
 pub fn Viewport::from_scale(origin~ : ScreenPoint, scale~ : Scale) -> Self
+pub fn Viewport::not_equal(Self, Self) -> Bool
 pub fn Viewport::scale(Self) -> Scale
 pub fn Viewport::screen_origin(Self) -> ScreenPoint
 pub fn Viewport::screen_to_world(Self, ScreenPoint) -> WorldPoint raise CoordinateError
+pub fn Viewport::to_repr(Self) -> @debug.Repr
 pub fn Viewport::with_scale_around(Self, anchor~ : ScreenPoint, absolute_scale~ : Scale) -> Self raise CoordinateError
 pub fn Viewport::world_to_screen(Self, WorldPoint) -> ScreenPoint raise CoordinateError
 
 pub struct WorldPoint {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn WorldPoint::equal(Self, Self) -> Bool
 pub fn WorldPoint::from_xy(x~ : Double, y~ : Double) -> Self raise CoordinateError
+pub fn WorldPoint::not_equal(Self, Self) -> Bool
+pub fn WorldPoint::to_repr(Self) -> @debug.Repr
 pub fn WorldPoint::x(Self) -> Double
 pub fn WorldPoint::y(Self) -> Double
 

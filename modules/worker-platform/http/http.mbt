@@ -109,3 +109,9 @@ pub async fn Request::read_text(self : Request, max_bytes~ : Int) -> String {
     Err(error) => raise error
   }
 }
+
+///|
+pub extend BodyError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend BodyError with Eq::{equal, not_equal}

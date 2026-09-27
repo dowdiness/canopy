@@ -431,3 +431,27 @@ pub fn State::settle_account(
     )
   })
 }
+
+///|
+pub extend Effect with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Effect with Eq::{equal, not_equal}
+
+///|
+pub extend ExpiredRetry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ExpiredRetry with Eq::{equal, not_equal}
+
+///|
+pub extend SelectedReplica with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SelectedReplica with Eq::{equal, not_equal}
+
+///|
+pub extend State with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend State with Eq::{equal, not_equal}

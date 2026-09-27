@@ -16,8 +16,8 @@ docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
 - **Downstream branch:** `refactor/indexed-db-managed-store`
 - **Upstream base:** `0a5836a3d303b7390d7067894ba8471cbd4ffcdf` (`rabbita-v0.15.8`)
-- **Pinned commit:** `e62b3d806fe737cf004ca506c3a64ed7fbae6443`
-- **Baseline tag:** `canopy-indexed-db-managed-store-native-fix-20260911`
+- **Pinned commit:** `90b1b3e1e26c7f18924d86694a8021852c43b344`
+- **Pin tag:** `canopy-indexed-db-managed-store-moonbit-0.10.14-20260927`
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The

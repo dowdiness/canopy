@@ -12,14 +12,23 @@ import {
 pub(all) suberror InvalidSession {
   InvalidSession
 } derive(Eq, @debug.Debug)
+pub fn InvalidSession::equal(Self, Self) -> Bool
+pub fn InvalidSession::not_equal(Self, Self) -> Bool
+pub fn InvalidSession::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror LookupBlocked {
   LookupBlocked
 } derive(Eq, @debug.Debug)
+pub fn LookupBlocked::equal(Self, Self) -> Bool
+pub fn LookupBlocked::not_equal(Self, Self) -> Bool
+pub fn LookupBlocked::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror WorkError {
   StaleWork
 } derive(Eq, @debug.Debug)
+pub fn WorkError::equal(Self, Self) -> Bool
+pub fn WorkError::not_equal(Self, Self) -> Bool
+pub fn WorkError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) enum AccountResult {
@@ -32,6 +41,9 @@ pub enum AccountSelection {
   NoAccountSelected
   AccountSelected(@source_repository.AccountId)
 } derive(Eq, @debug.Debug)
+pub fn AccountSelection::equal(Self, Self) -> Bool
+pub fn AccountSelection::not_equal(Self, Self) -> Bool
+pub fn AccountSelection::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Action {
   CreateOperation(OperationAttempt)
@@ -40,6 +52,9 @@ pub(all) enum Action {
   OpenRemote(OpenAttempt)
   CreateRecovery(RecoveryAttempt)
 } derive(Eq, @debug.Debug)
+pub fn Action::equal(Self, Self) -> Bool
+pub fn Action::not_equal(Self, Self) -> Bool
+pub fn Action::to_repr(Self) -> @debug.Repr
 
 pub enum Activity {
   Idle
@@ -47,75 +62,117 @@ pub enum Activity {
   Retryable(Retry)
   Blocked
 } derive(Eq, @debug.Debug)
+pub fn Activity::equal(Self, Self) -> Bool
+pub fn Activity::not_equal(Self, Self) -> Bool
+pub fn Activity::to_repr(Self) -> @debug.Repr
 
 pub struct DeliveryAttempt {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DeliveryAttempt::account(Self) -> @source_repository.AccountId
 pub fn DeliveryAttempt::document_id(Self) -> @source_repository.DocumentId
+pub fn DeliveryAttempt::equal(Self, Self) -> Bool
+pub fn DeliveryAttempt::not_equal(Self, Self) -> Bool
+pub fn DeliveryAttempt::to_repr(Self) -> @debug.Repr
 
 pub struct DiscoveryId(Int) derive(Eq, @debug.Debug)
+pub fn DiscoveryId::equal(Self, Self) -> Bool
+pub fn DiscoveryId::not_equal(Self, Self) -> Bool
+pub fn DiscoveryId::to_repr(Self) -> @debug.Repr
 
 pub struct LogoutAttempt {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn LogoutAttempt::equal(Self, Self) -> Bool
 pub fn LogoutAttempt::name(Self) -> String
+pub fn LogoutAttempt::not_equal(Self, Self) -> Bool
+pub fn LogoutAttempt::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Observation {
   Unknown
   Observed
   Unavailable
 } derive(Eq, @debug.Debug)
+pub fn Observation::equal(Self, Self) -> Bool
+pub fn Observation::not_equal(Self, Self) -> Bool
+pub fn Observation::to_repr(Self) -> @debug.Repr
 
 pub struct OpenAttempt {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn OpenAttempt::account(Self) -> @source_repository.AccountId
 pub fn OpenAttempt::document_id(Self) -> @source_repository.DocumentId
+pub fn OpenAttempt::equal(Self, Self) -> Bool
+pub fn OpenAttempt::not_equal(Self, Self) -> Bool
+pub fn OpenAttempt::to_repr(Self) -> @debug.Repr
 
 pub struct OperationAttempt {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn OperationAttempt::account(Self) -> @source_repository.AccountId
 pub fn OperationAttempt::document_id(Self) -> @source_repository.DocumentId
+pub fn OperationAttempt::equal(Self, Self) -> Bool
+pub fn OperationAttempt::not_equal(Self, Self) -> Bool
+pub fn OperationAttempt::to_repr(Self) -> @debug.Repr
 
 pub struct ReadAttempt {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn ReadAttempt::account(Self) -> @source_repository.AccountId
 pub fn ReadAttempt::document_id(Self) -> @source_repository.DocumentId
+pub fn ReadAttempt::equal(Self, Self) -> Bool
+pub fn ReadAttempt::not_equal(Self, Self) -> Bool
+pub fn ReadAttempt::to_repr(Self) -> @debug.Repr
 
 pub struct RecoveryAttempt {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn RecoveryAttempt::account(Self) -> @source_repository.AccountId
 pub fn RecoveryAttempt::document_id(Self) -> @source_repository.DocumentId
+pub fn RecoveryAttempt::equal(Self, Self) -> Bool
+pub fn RecoveryAttempt::not_equal(Self, Self) -> Bool
+pub fn RecoveryAttempt::to_repr(Self) -> @debug.Repr
 
 pub struct Retry {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Retry::account(Self) -> @source_repository.AccountId
 pub fn Retry::document_id(Self) -> @source_repository.DocumentId
+pub fn Retry::equal(Self, Self) -> Bool
+pub fn Retry::not_equal(Self, Self) -> Bool
+pub fn Retry::to_repr(Self) -> @debug.Repr
 
 pub enum SelectionActivity {
   Idle
   Working
   Retryable(SelectionRetry)
 } derive(Eq, @debug.Debug)
+pub fn SelectionActivity::equal(Self, Self) -> Bool
+pub fn SelectionActivity::not_equal(Self, Self) -> Bool
+pub fn SelectionActivity::to_repr(Self) -> @debug.Repr
 
 pub struct SelectionIntent(Int) derive(Eq, @debug.Debug)
+pub fn SelectionIntent::equal(Self, Self) -> Bool
+pub fn SelectionIntent::not_equal(Self, Self) -> Bool
+pub fn SelectionIntent::to_repr(Self) -> @debug.Repr
 
 pub struct SelectionRetry {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn SelectionRetry::account(Self) -> @source_repository.AccountId
 pub fn SelectionRetry::document_id(Self) -> @source_repository.DocumentId
+pub fn SelectionRetry::equal(Self, Self) -> Bool
+pub fn SelectionRetry::not_equal(Self, Self) -> Bool
+pub fn SelectionRetry::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SelectionStep {
   Wait
   Fetch(OpenAttempt)
   Persist(@source_repository.ReplicaWrite)
 } derive(Eq, @debug.Debug)
+pub fn SelectionStep::equal(Self, Self) -> Bool
+pub fn SelectionStep::not_equal(Self, Self) -> Bool
+pub fn SelectionStep::to_repr(Self) -> @debug.Repr
 
 pub enum Session {
   Resolving(Int)
@@ -125,6 +182,9 @@ pub enum Session {
   LogoutUnconfirmed(LogoutAttempt)
   SessionUnavailable
 } derive(Eq, @debug.Debug)
+pub fn Session::equal(Self, Self) -> Bool
+pub fn Session::not_equal(Self, Self) -> Bool
+pub fn Session::to_repr(Self) -> @debug.Repr
 
 pub struct State {
   // private fields
@@ -145,7 +205,9 @@ pub fn State::delivery_failed(Self, @source_repository.DocumentReplica, Delivery
 pub fn State::delivery_too_large(Self, @source_repository.DocumentReplica, DeliveryAttempt) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
 pub fn State::discovered(Self, @source_repository.AccountId, DiscoveryId, Array[@source_repository.RemoteEntry]?) -> (Self, Bool)
 pub fn State::discovering(Self) -> Bool
+pub fn State::equal(Self, Self) -> Bool
 pub fn State::logged_out(Self, LogoutAttempt, Bool) -> (Self, AccountSelection?) raise WorkError
+pub fn State::not_equal(Self, Self) -> Bool
 pub fn State::observation(Self) -> Observation
 pub fn State::open_failed(Self, OpenAttempt) -> Self raise WorkError
 pub fn State::opened(Self, OpenAttempt, @source_repository.RemoteDocument) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
@@ -168,6 +230,7 @@ pub fn State::select(Self, @source_repository.DocumentId) -> Self
 pub fn State::selection(Self) -> (SelectionIntent, @source_repository.AccountId, @source_repository.DocumentId)?
 pub fn State::selection_activity(Self) -> SelectionActivity
 pub fn State::session(Self) -> Session
+pub fn State::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

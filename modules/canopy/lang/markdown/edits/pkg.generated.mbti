@@ -23,6 +23,9 @@ pub(all) enum MarkdownEditOp {
   MergeWithPrevious(node_id~ : @core.NodeId)
   MoveBlock(source~ : @core.NodeId, target~ : @core.NodeId, position~ : @core.DropPosition)
 } derive(Eq, @debug.Debug)
+pub fn MarkdownEditOp::equal(Self, Self) -> Bool
+pub fn MarkdownEditOp::not_equal(Self, Self) -> Bool
+pub fn MarkdownEditOp::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

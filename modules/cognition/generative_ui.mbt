@@ -586,3 +586,91 @@ fn GenerativeUiLifecycle::is_current_generation(
 ) -> Bool {
   self.generation_id == Some(generation_id)
 }
+
+///|
+pub extend GenerativeUiEvent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiEvent with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiGenerationId with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiGenerationId with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend GenerativeUiGenerationId with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiGenerationId with Hash::{hash, hash_combine}
+
+///|
+pub extend GenerativeUiIgnoreReason with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiIgnoreReason with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiInput with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiInput with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiInputKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiInputKind with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiInputLimit with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiInputLimit with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiPhase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiPhase with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiRejection with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiRejection with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiRevision with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiRevision with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend GenerativeUiRevision with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiRevision with Hash::{hash, hash_combine}
+
+///|
+pub extend GenerativeUiTransition with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiTransition with Eq::{equal, not_equal}

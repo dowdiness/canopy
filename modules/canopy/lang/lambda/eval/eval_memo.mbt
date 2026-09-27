@@ -304,3 +304,12 @@ pub fn inject_eval_annotations(
   }
   @pretty.separate(@pretty.hardline(), annotated)
 }
+
+///|
+pub extend EvalResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EvalResult with Eq::{equal, not_equal}
+
+///|
+pub extend EvalResult with Show::{output, to_string}

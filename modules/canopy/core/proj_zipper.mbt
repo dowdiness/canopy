@@ -243,3 +243,6 @@ fn path_replace_last(path : Array[Int], new_last : Int) -> Array[Int]? {
   a.push(new_last)
   Some(a)
 }
+
+///|
+pub extend Direction with @moonbitlang/core/debug.Debug::{to_repr}

@@ -59,3 +59,6 @@ pub fn facts_to_decorations(
   })
   .collect()
 }
+
+///|
+pub extend MatchListEntry with @moonbitlang/core/debug.Debug::{to_repr}

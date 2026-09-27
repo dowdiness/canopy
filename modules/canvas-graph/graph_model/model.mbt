@@ -1133,3 +1133,180 @@ pub impl Default for CanvasState with fn default() -> CanvasState {
     action_log: [],
   }
 }
+
+///|
+pub extend CanvasNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CanvasNode with Eq::{equal, not_equal}
+
+///|
+pub extend CanvasNode with Show::{output, to_string}
+
+///|
+pub extend CanvasState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CanvasState with Default::{default}
+
+///|
+pub extend CanvasState with Show::{output, to_string}
+
+///|
+pub extend ConnectState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ConnectState with Eq::{equal, not_equal}
+
+///|
+pub extend ConnectState with Show::{output, to_string}
+
+///|
+pub extend Edge with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Edge with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend Edge with Eq::{equal, not_equal}
+
+///|
+pub extend Edge with Show::{output, to_string}
+
+///|
+pub extend Edge with ToJson::{to_json}
+
+///|
+pub extend EdgeId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EdgeId with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend EdgeId with Eq::{equal, not_equal}
+
+///|
+pub extend EdgeId with Show::{output}
+
+///|
+pub extend EdgeId with ToJson::{to_json}
+
+///|
+pub extend GraphOperation with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GraphOperation with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend GraphOperation with Eq::{equal, not_equal}
+
+///|
+pub extend GraphOperation with Show::{output, to_string}
+
+///|
+pub extend GraphOperation with ToJson::{to_json}
+
+///|
+pub extend InteractionState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InteractionState with Eq::{equal, not_equal}
+
+///|
+pub extend InteractionState with Show::{output, to_string}
+
+///|
+pub extend NodeId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NodeId with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend NodeId with Eq::{equal, not_equal}
+
+///|
+pub extend NodeId with Show::{output}
+
+///|
+pub extend NodeId with ToJson::{to_json}
+
+///|
+pub extend NodeKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NodeKind with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend NodeKind with Eq::{equal, not_equal}
+
+///|
+pub extend NodeKind with Show::{output, to_string}
+
+///|
+pub extend NodeKind with ToJson::{to_json}
+
+///|
+pub extend NodeSize with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NodeSize with Eq::{equal, not_equal}
+
+///|
+pub extend NodeSizeError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NodeSizeError with Eq::{equal, not_equal}
+
+///|
+pub extend PortDef with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PortDef with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend PortDef with Eq::{equal, not_equal}
+
+///|
+pub extend PortDef with Show::{output, to_string}
+
+///|
+pub extend PortDef with ToJson::{to_json}
+
+///|
+pub extend PortType with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PortType with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend PortType with Eq::{equal, not_equal}
+
+///|
+pub extend PortType with Show::{output, to_string}
+
+///|
+pub extend PortType with ToJson::{to_json}
+
+///|
+pub extend WorkflowAction with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend WorkflowAction with Eq::{equal, not_equal}
+
+///|
+pub extend WorkflowAction with Show::{output, to_string}
+
+///|
+pub extend WorkflowNodeKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend WorkflowNodeKind with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend WorkflowNodeKind with Eq::{equal, not_equal}
+
+///|
+pub extend WorkflowNodeKind with Show::{output, to_string}
+
+///|
+pub extend WorkflowNodeKind with ToJson::{to_json}

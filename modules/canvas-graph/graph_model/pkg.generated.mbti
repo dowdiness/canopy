@@ -69,6 +69,9 @@ pub(all) suberror NodeSizeError {
   NegativeWidth
   NegativeHeight
 } derive(Eq, @debug.Debug)
+pub fn NodeSizeError::equal(Self, Self) -> Bool
+pub fn NodeSizeError::not_equal(Self, Self) -> Bool
+pub fn NodeSizeError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub(all) struct CanvasDocument {
@@ -76,6 +79,9 @@ pub(all) struct CanvasDocument {
   edges : Array[Edge]
   next_node_id : Int
 } derive(Eq, @debug.Debug)
+pub fn CanvasDocument::equal(Self, Self) -> Bool
+pub fn CanvasDocument::not_equal(Self, Self) -> Bool
+pub fn CanvasDocument::to_repr(Self) -> @debug.Repr
 
 pub(all) struct CanvasNode {
   id : NodeId
@@ -87,9 +93,14 @@ pub(all) struct CanvasNode {
   configured : Bool
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn CanvasNode::equal(Self, Self) -> Bool
 pub fn CanvasNode::from_parts(id~ : NodeId, position~ : @canvas-spatial.WorldPoint, size~ : NodeSize, kind~ : NodeKind, title~ : String, subtitle~ : String, inputs~ : Array[PortDef], outputs~ : Array[PortDef], configured~ : Bool) -> Self
+pub fn CanvasNode::not_equal(Self, Self) -> Bool
+pub fn CanvasNode::output(Self, &Logger) -> Unit
 pub fn CanvasNode::position(Self) -> @canvas-spatial.WorldPoint
 pub fn CanvasNode::size(Self) -> NodeSize
+pub fn CanvasNode::to_repr(Self) -> @debug.Repr
+pub fn CanvasNode::to_string(Self) -> String
 pub fn CanvasNode::with_position(Self, @canvas-spatial.WorldPoint) -> Self
 pub impl Show for CanvasNode
 
@@ -101,6 +112,10 @@ pub(all) struct CanvasState {
   interaction : InteractionState
   action_log : Array[GraphOperation]
 } derive(@debug.Debug)
+pub fn CanvasState::default() -> Self
+pub fn CanvasState::output(Self, &Logger) -> Unit
+pub fn CanvasState::to_repr(Self) -> @debug.Repr
+pub fn CanvasState::to_string(Self) -> String
 pub impl Default for CanvasState
 pub impl Show for CanvasState
 
@@ -110,12 +125,22 @@ pub(all) struct ConnectState {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn ConnectState::cursor(Self) -> @canvas-spatial.WorldPoint
+pub fn ConnectState::equal(Self, Self) -> Bool
 pub fn ConnectState::from_parts(from_node~ : NodeId, from_port~ : String, cursor~ : @canvas-spatial.WorldPoint) -> Self
+pub fn ConnectState::not_equal(Self, Self) -> Bool
+pub fn ConnectState::output(Self, &Logger) -> Unit
+pub fn ConnectState::to_repr(Self) -> @debug.Repr
+pub fn ConnectState::to_string(Self) -> String
 pub impl Show for ConnectState
 
 pub(all) struct DragPreview {
   positions : Array[@canvas-spatial.ItemPosition[NodeId]]
 } derive(Eq, @debug.Debug)
+pub fn DragPreview::equal(Self, Self) -> Bool
+pub fn DragPreview::not_equal(Self, Self) -> Bool
+pub fn DragPreview::output(Self, &Logger) -> Unit
+pub fn DragPreview::to_repr(Self) -> @debug.Repr
+pub fn DragPreview::to_string(Self) -> String
 pub impl Show for DragPreview
 
 pub(all) struct Edge {
@@ -125,10 +150,23 @@ pub(all) struct Edge {
   target : NodeId
   target_port : String
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn Edge::equal(Self, Self) -> Bool
+pub fn Edge::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Edge::not_equal(Self, Self) -> Bool
+pub fn Edge::output(Self, &Logger) -> Unit
+pub fn Edge::to_json(Self) -> Json
+pub fn Edge::to_repr(Self) -> @debug.Repr
+pub fn Edge::to_string(Self) -> String
 pub impl Show for Edge
 
 pub(all) struct EdgeId(String) derive(Eq, @debug.Debug)
+pub fn EdgeId::equal(Self, Self) -> Bool
 pub fn EdgeId::from_edge(NodeId, String, NodeId, String) -> Self
+pub fn EdgeId::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn EdgeId::not_equal(Self, Self) -> Bool
+pub fn EdgeId::output(Self, &Logger) -> Unit
+pub fn EdgeId::to_json(Self) -> Json
+pub fn EdgeId::to_repr(Self) -> @debug.Repr
 pub fn EdgeId::to_string(Self) -> String
 pub impl Show for EdgeId
 pub impl ToJson for EdgeId
@@ -139,6 +177,13 @@ pub struct GraphOperation {
 } derive(Eq, @debug.Debug)
 pub fn GraphOperation::GraphOperation(WorkflowAction) -> Self
 pub fn GraphOperation::action(Self) -> WorkflowAction
+pub fn GraphOperation::equal(Self, Self) -> Bool
+pub fn GraphOperation::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn GraphOperation::not_equal(Self, Self) -> Bool
+pub fn GraphOperation::output(Self, &Logger) -> Unit
+pub fn GraphOperation::to_json(Self) -> Json
+pub fn GraphOperation::to_repr(Self) -> @debug.Repr
+pub fn GraphOperation::to_string(Self) -> String
 pub fn GraphOperation::version(Self) -> Int
 pub impl Show for GraphOperation
 pub impl ToJson for GraphOperation
@@ -153,9 +198,20 @@ pub(all) struct InteractionState {
   pointer_down : Bool
   did_move : Bool
 } derive(Eq, @debug.Debug)
+pub fn InteractionState::equal(Self, Self) -> Bool
+pub fn InteractionState::not_equal(Self, Self) -> Bool
+pub fn InteractionState::output(Self, &Logger) -> Unit
+pub fn InteractionState::to_repr(Self) -> @debug.Repr
+pub fn InteractionState::to_string(Self) -> String
 pub impl Show for InteractionState
 
 pub(all) struct NodeId(String) derive(Eq, @debug.Debug)
+pub fn NodeId::equal(Self, Self) -> Bool
+pub fn NodeId::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn NodeId::not_equal(Self, Self) -> Bool
+pub fn NodeId::output(Self, &Logger) -> Unit
+pub fn NodeId::to_json(Self) -> Json
+pub fn NodeId::to_repr(Self) -> @debug.Repr
 pub fn NodeId::to_string(Self) -> String
 pub impl Show for NodeId
 pub impl ToJson for NodeId
@@ -164,13 +220,23 @@ pub impl @json.FromJson for NodeId
 pub(all) enum NodeKind {
   Workflow(WorkflowNodeKind)
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn NodeKind::equal(Self, Self) -> Bool
+pub fn NodeKind::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn NodeKind::not_equal(Self, Self) -> Bool
+pub fn NodeKind::output(Self, &Logger) -> Unit
+pub fn NodeKind::to_json(Self) -> Json
+pub fn NodeKind::to_repr(Self) -> @debug.Repr
+pub fn NodeKind::to_string(Self) -> String
 pub impl Show for NodeKind
 
 pub struct NodeSize {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn NodeSize::equal(Self, Self) -> Bool
 pub fn NodeSize::from_wh(width~ : Double, height~ : Double) -> Self raise NodeSizeError
 pub fn NodeSize::height(Self) -> Double
+pub fn NodeSize::not_equal(Self, Self) -> Bool
+pub fn NodeSize::to_repr(Self) -> @debug.Repr
 pub fn NodeSize::width(Self) -> Double
 
 pub struct PortDef {
@@ -179,6 +245,13 @@ pub struct PortDef {
   port_type : PortType
   allows_fan_in : Bool
 } derive(Eq, @debug.Debug)
+pub fn PortDef::equal(Self, Self) -> Bool
+pub fn PortDef::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn PortDef::not_equal(Self, Self) -> Bool
+pub fn PortDef::output(Self, &Logger) -> Unit
+pub fn PortDef::to_json(Self) -> Json
+pub fn PortDef::to_repr(Self) -> @debug.Repr
+pub fn PortDef::to_string(Self) -> String
 pub impl Show for PortDef
 pub impl ToJson for PortDef
 pub impl @json.FromJson for PortDef
@@ -191,12 +264,22 @@ pub(all) enum PortType {
   Json
   Any
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn PortType::equal(Self, Self) -> Bool
+pub fn PortType::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn PortType::not_equal(Self, Self) -> Bool
+pub fn PortType::output(Self, &Logger) -> Unit
+pub fn PortType::to_json(Self) -> Json
+pub fn PortType::to_repr(Self) -> @debug.Repr
+pub fn PortType::to_string(Self) -> String
 pub impl Show for PortType
 
 pub(all) struct SelectionState {
   selected : NodeId?
   selected_nodes : Array[NodeId]
 } derive(Eq, @debug.Debug)
+pub fn SelectionState::equal(Self, Self) -> Bool
+pub fn SelectionState::not_equal(Self, Self) -> Bool
+pub fn SelectionState::to_repr(Self) -> @debug.Repr
 
 pub(all) enum WorkflowAction {
   AddNode(CanvasNode)
@@ -209,6 +292,12 @@ pub(all) enum WorkflowAction {
   SelectNodes(Array[NodeId])
   SetViewport(@canvas-spatial.Viewport)
 } derive(Eq, @debug.Debug)
+pub fn WorkflowAction::equal(Self, Self) -> Bool
+pub fn WorkflowAction::not_equal(Self, Self) -> Bool
+pub fn WorkflowAction::output(Self, &Logger) -> Unit
+pub fn WorkflowAction::to_json(Self) -> Json
+pub fn WorkflowAction::to_repr(Self) -> @debug.Repr
+pub fn WorkflowAction::to_string(Self) -> String
 pub impl Show for WorkflowAction
 pub impl ToJson for WorkflowAction
 
@@ -221,6 +310,13 @@ pub(all) enum WorkflowNodeKind {
   Parallel
   Custom(String)
 } derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+pub fn WorkflowNodeKind::equal(Self, Self) -> Bool
+pub fn WorkflowNodeKind::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn WorkflowNodeKind::not_equal(Self, Self) -> Bool
+pub fn WorkflowNodeKind::output(Self, &Logger) -> Unit
+pub fn WorkflowNodeKind::to_json(Self) -> Json
+pub fn WorkflowNodeKind::to_repr(Self) -> @debug.Repr
+pub fn WorkflowNodeKind::to_string(Self) -> String
 pub impl Show for WorkflowNodeKind
 
 // Type aliases

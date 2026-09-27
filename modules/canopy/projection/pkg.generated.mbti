@@ -16,6 +16,7 @@ pub enum InteractiveChildren[T] {
   Loaded(Array[InteractiveTreeNode[T]])
   Elided(Int)
 } derive(@debug.Debug)
+pub fn[T : @debug.Debug] InteractiveChildren::to_repr(Self[T]) -> @debug.Repr
 
 pub struct InteractiveTreeNode[T] {
   id : @dowdiness/canopy/core.NodeId
@@ -29,6 +30,9 @@ pub struct InteractiveTreeNode[T] {
   text_range : @dowdiness/loom/core.Range
 } derive(@debug.Debug)
 pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::from_term_node(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap) -> Self[T]
+pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::output(Self[T], &Logger) -> Unit
+pub fn[T : @debug.Debug] InteractiveTreeNode::to_repr(Self[T]) -> @debug.Repr
+pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::to_string(Self[T]) -> String
 pub impl[T : @dowdiness/loom/core.Renderable] Show for InteractiveTreeNode[T]
 
 pub struct TreeEditorState[T] {

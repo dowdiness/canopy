@@ -150,3 +150,15 @@ pub fn arrange_with_skyline(
     LayoutPlan(positions~)
   }
 }
+
+///|
+pub extend LayoutError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LayoutError with Eq::{equal, not_equal}
+
+///|
+pub extend LayoutPlan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LayoutPlan with Eq::{equal, not_equal}

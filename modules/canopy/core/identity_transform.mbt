@@ -34,3 +34,9 @@ pub(all) enum IdentityTransform {
   /// Raw text / remote / undescribable edit: `reconcile` falls back to LCS.
   Opaque
 } derive(Eq, Debug)
+
+///|
+pub extend IdentityTransform with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend IdentityTransform with Eq::{equal, not_equal}

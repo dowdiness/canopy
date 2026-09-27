@@ -61,6 +61,7 @@ pub(all) struct ReachableFailureAttribution {
   edit_id : String
   summary : String
 } derive(@debug.Debug)
+pub fn ReachableFailureAttribution::to_repr(Self) -> @debug.Repr
 
 pub struct ReachableFailureReview {
   // private fields

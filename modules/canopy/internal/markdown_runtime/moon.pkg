@@ -8,6 +8,7 @@ import {
   "dowdiness/incr",
   "dowdiness/markdown",
   "dowdiness/loom",
+  "moonbitlang/core/debug",
 }
 
 import {

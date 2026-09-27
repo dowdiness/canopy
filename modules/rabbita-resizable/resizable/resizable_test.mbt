@@ -1,15 +1,18 @@
 ///|
-fn test_constraints() -> Constraints {
+fn test_constraints() -> @resizable.Constraints {
   { min_w: 50, max_w: 300, min_h: 40, max_h: 220, }
 }
 
 ///|
-fn test_model() -> Model {
-  Model::new(w=120, h=90, constraints=test_constraints())
+fn test_model() -> @resizable.Model {
+  @resizable.Model::new(w=120, h=90, constraints=test_constraints())
 }
 
 ///|
-fn apply_messages(model : Model, messages : Array[Msg]) -> Model {
+fn apply_messages(
+  model : @resizable.Model,
+  messages : Array[@resizable.Msg],
+) -> @resizable.Model {
   for msg in messages; current = model {
     continue current.update(msg)
   } nobreak {
@@ -18,7 +21,10 @@ fn apply_messages(model : Model, messages : Array[Msg]) -> Model {
 }
 
 ///|
-fn assert_in_bounds(model : Model, constraints : Constraints) -> Unit raise {
+fn assert_in_bounds(
+  model : @resizable.Model,
+  constraints : @resizable.Constraints,
+) -> Unit raise {
   assert_true(model.width() >= constraints.min_w)
   assert_true(model.width() <= constraints.max_w)
   assert_true(model.height() >= constraints.min_h)
@@ -26,7 +32,10 @@ fn assert_in_bounds(model : Model, constraints : Constraints) -> Unit raise {
 }
 
 ///|
-fn assert_same_public_state(left : Model, right : Model) -> Unit raise {
+fn assert_same_public_state(
+  left : @resizable.Model,
+  right : @resizable.Model,
+) -> Unit raise {
   assert_eq(left.width(), right.width())
   assert_eq(left.height(), right.height())
   assert_eq(left.is_resizing(), right.is_resizing())
@@ -47,7 +56,7 @@ fn non_negative(seed : Int) -> Int {
 }
 
 ///|
-fn sample_msg(seed : Int) -> Msg {
+fn sample_msg(seed : Int) -> @resizable.Msg {
   let value = non_negative(seed)
   let x = sample_coord(value)
   let y = sample_coord(value / 701)
@@ -66,7 +75,7 @@ fn sample_msg(seed : Int) -> Msg {
 ///|
 test "Model::new clamps initial size" {
   let constraints = test_constraints()
-  let model = Model::new(w=10, h=1000, constraints~)
+  let model = @resizable.Model::new(w=10, h=1000, constraints~)
   assert_eq(model.width(), constraints.min_w)
   assert_eq(model.height(), constraints.max_h)
   assert_in_bounds(model, constraints)
@@ -78,7 +87,7 @@ test "quickcheck sample sequences preserve clamp invariant" {
   let samples : Array[Array[Int]] = @quickcheck.samples(32)
   for sample in samples {
     let model = apply_messages(
-      Model::new(w=120, h=90, constraints~),
+      @resizable.Model::new(w=120, h=90, constraints~),
       sample.map(sample_msg),
     )
     assert_in_bounds(model, constraints)
@@ -88,7 +97,7 @@ test "quickcheck sample sequences preserve clamp invariant" {
 ///|
 test "clamp invariant after representative message sequences" {
   let constraints = test_constraints()
-  let sequences : Array[Array[Msg]] = [
+  let sequences : Array[Array[@resizable.Msg]] = [
     [],
     [NudgeBy(dw=1000, dh=1000)],
     [NudgeBy(dw=-1000, dh=-1000)],
@@ -112,7 +121,10 @@ test "clamp invariant after representative message sequences" {
     ],
   ]
   for seq in sequences {
-    let model = apply_messages(Model::new(w=120, h=90, constraints~), seq)
+    let model = apply_messages(
+      @resizable.Model::new(w=120, h=90, constraints~),
+      seq,
+    )
     assert_in_bounds(model, constraints)
   }
 }

@@ -30,3 +30,9 @@ pub fn Pan::viewport_at(
   )
   Viewport::from_scale(origin=next_origin, scale=self.initial_viewport.scale())
 }
+
+///|
+pub extend Pan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Pan with Eq::{equal, not_equal}

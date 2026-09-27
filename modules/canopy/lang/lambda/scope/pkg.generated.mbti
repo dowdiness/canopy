@@ -62,24 +62,42 @@ pub(all) struct Decl {
   scope : ScopeId
   kind : DeclKind
 } derive(Eq, @debug.Debug)
+pub fn Decl::equal(Self, Self) -> Bool
+pub fn Decl::not_equal(Self, Self) -> Bool
+pub fn Decl::to_repr(Self) -> @debug.Repr
 
 pub(all) struct DeclId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn DeclId::compare(Self, Self) -> Int
+pub fn DeclId::equal(Self, Self) -> Bool
+pub fn DeclId::hash(Self) -> Int
+pub fn DeclId::hash_combine(Self, Hasher) -> Unit
+pub fn DeclId::not_equal(Self, Self) -> Bool
+pub fn DeclId::op_ge(Self, Self) -> Bool
+pub fn DeclId::op_gt(Self, Self) -> Bool
+pub fn DeclId::op_le(Self, Self) -> Bool
+pub fn DeclId::op_lt(Self, Self) -> Bool
+pub fn DeclId::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DeclKind {
   LamParam(lam_id~ : @dowdiness/canopy/core.NodeId)
   ModuleDef(def_index~ : Int)
 } derive(Eq, @debug.Debug)
+pub fn DeclKind::equal(Self, Self) -> Bool
+pub fn DeclKind::not_equal(Self, Self) -> Bool
+pub fn DeclKind::to_repr(Self) -> @debug.Repr
 
 pub(all) struct FailureDiff {
   newly_reachable : Array[ReachableFailure]
   resolved : Array[ReachableFailure]
 } derive(@debug.Debug)
+pub fn FailureDiff::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ReachableFailure {
   name : String
   location : @dowdiness/loom/core.Range?
   witness : Array[ScopeId]
 } derive(@debug.Debug)
+pub fn ReachableFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Ref {
   id : RefId
@@ -88,13 +106,25 @@ pub(all) struct Ref {
   scope : ScopeId
   resolution : Resolution
 } derive(@debug.Debug)
+pub fn Ref::to_repr(Self) -> @debug.Repr
 
 pub(all) struct RefId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn RefId::compare(Self, Self) -> Int
+pub fn RefId::equal(Self, Self) -> Bool
+pub fn RefId::hash(Self) -> Int
+pub fn RefId::hash_combine(Self, Hasher) -> Unit
+pub fn RefId::not_equal(Self, Self) -> Bool
+pub fn RefId::op_ge(Self, Self) -> Bool
+pub fn RefId::op_gt(Self, Self) -> Bool
+pub fn RefId::op_le(Self, Self) -> Bool
+pub fn RefId::op_lt(Self, Self) -> Bool
+pub fn RefId::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Resolution {
   decl : DeclId?
   visited_scopes : Array[ScopeId]
 } derive(@debug.Debug)
+pub fn Resolution::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Scope {
   id : ScopeId
@@ -103,6 +133,7 @@ pub(all) struct Scope {
   ref_ids : Array[RefId]
   // private fields
 } derive(@debug.Debug)
+pub fn Scope::to_repr(Self) -> @debug.Repr
 
 pub struct ScopeAnnotation {
   binder_id : @dowdiness/canopy/core.NodeId?
@@ -118,8 +149,19 @@ pub(all) struct ScopeGraph {
   module_node_id : @dowdiness/canopy/core.NodeId
   // private fields
 } derive(@debug.Debug)
+pub fn ScopeGraph::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ScopeId(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn ScopeId::compare(Self, Self) -> Int
+pub fn ScopeId::equal(Self, Self) -> Bool
+pub fn ScopeId::hash(Self) -> Int
+pub fn ScopeId::hash_combine(Self, Hasher) -> Unit
+pub fn ScopeId::not_equal(Self, Self) -> Bool
+pub fn ScopeId::op_ge(Self, Self) -> Bool
+pub fn ScopeId::op_gt(Self, Self) -> Bool
+pub fn ScopeId::op_le(Self, Self) -> Bool
+pub fn ScopeId::op_lt(Self, Self) -> Bool
+pub fn ScopeId::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

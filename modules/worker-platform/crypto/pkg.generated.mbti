@@ -12,6 +12,9 @@ pub async fn sha256(String) -> String
 pub(all) suberror CryptoError {
   DigestFailed
 } derive(Eq, @debug.Debug)
+pub fn CryptoError::equal(Self, Self) -> Bool
+pub fn CryptoError::not_equal(Self, Self) -> Bool
+pub fn CryptoError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 

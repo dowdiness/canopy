@@ -2,6 +2,7 @@ import {
   "dowdiness/canopy/core",
   "dowdiness/canopy/lang/lambda/scope",
   "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
 }
 
 import {

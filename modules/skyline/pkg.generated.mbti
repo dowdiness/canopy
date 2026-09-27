@@ -17,12 +17,18 @@ pub(all) suberror PackError {
   NoPlacement(width~ : Int, height~ : Int)
   CoordinateOverflow
 } derive(Eq, @debug.Debug)
+pub fn PackError::equal(Self, Self) -> Bool
+pub fn PackError::not_equal(Self, Self) -> Bool
+pub fn PackError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct PackResult {
   placements : Array[Placement]
   height : Int
 } derive(Eq, @debug.Debug)
+pub fn PackResult::equal(Self, Self) -> Bool
+pub fn PackResult::not_equal(Self, Self) -> Bool
+pub fn PackResult::to_repr(Self) -> @debug.Repr
 
 pub struct Packer {
   // private fields
@@ -31,6 +37,7 @@ pub fn Packer::Packer(width~ : Int, max_height? : Int) -> Self raise PackError
 pub fn Packer::height(Self) -> Int
 pub fn Packer::place(Self, Size) -> Placement raise PackError
 pub fn Packer::place_constrained(Self, Size, ArrayView[Int]) -> Placement raise PackError
+pub fn Packer::to_repr(Self) -> @debug.Repr
 
 pub struct Placement {
   x : Int
@@ -38,12 +45,18 @@ pub struct Placement {
   width : Int
   height : Int
 } derive(Eq, @debug.Debug)
+pub fn Placement::equal(Self, Self) -> Bool
+pub fn Placement::not_equal(Self, Self) -> Bool
+pub fn Placement::to_repr(Self) -> @debug.Repr
 
 pub struct Size {
   width : Int
   height : Int
 } derive(Eq, @debug.Debug)
 pub fn Size::Size(width~ : Int, height~ : Int) -> Self raise PackError
+pub fn Size::equal(Self, Self) -> Bool
+pub fn Size::not_equal(Self, Self) -> Bool
+pub fn Size::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

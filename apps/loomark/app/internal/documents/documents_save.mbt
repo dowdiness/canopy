@@ -204,7 +204,7 @@ fn eligible_maximum(
   maximum_id : Int,
 ) -> (State, Array[Action]) {
   guard documents.records
-    .view()
+    .exact_view()
     .search_by(record => {
       match record.save {
         Waiting(replica) | Saving(_, Some(replica)) =>

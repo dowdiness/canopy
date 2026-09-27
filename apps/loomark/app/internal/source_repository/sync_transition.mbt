@@ -478,3 +478,45 @@ pub fn DocumentReplica::open(self : Self, required : SavedRevision) -> OpenStep 
       )
   }
 }
+
+///|
+pub extend DeletionUnavailable with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeletionUnavailable with Eq::{equal, not_equal}
+
+///|
+pub extend EditPlan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EditPlan with Eq::{equal, not_equal}
+
+///|
+pub extend OpenStep with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OpenStep with Eq::{equal, not_equal}
+
+///|
+pub extend OperationDraft with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OperationDraft with Eq::{equal, not_equal}
+
+///|
+pub extend ReceiptMismatch with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReceiptMismatch with Eq::{equal, not_equal}
+
+///|
+pub extend ReconcilePlan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReconcilePlan with Eq::{equal, not_equal}
+
+///|
+pub extend ReplicaDirective with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReplicaDirective with Eq::{equal, not_equal}

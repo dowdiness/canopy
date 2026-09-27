@@ -112,7 +112,7 @@ fn[Id] rows_presented(
         Some(
           (
             values
-            .view(end=index + 1)
+            .exact_view(end=index + 1)
             .count_if(other => row_base_label(other) == base),
             total,
           ),
@@ -460,3 +460,18 @@ pub fn[Id : Eq + Hash] build(
   )
   { navigation, dialog, }
 }
+
+///|
+pub extend DeletionAvailability with Eq::{equal, not_equal}
+
+///|
+pub extend DeletionScope with Eq::{equal, not_equal}
+
+///|
+pub extend RowStatus with Eq::{equal, not_equal}
+
+///|
+pub extend Seed with Eq::{equal, not_equal}
+
+///|
+pub extend Selection with Eq::{equal, not_equal}

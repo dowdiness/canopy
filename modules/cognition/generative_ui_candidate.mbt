@@ -943,3 +943,158 @@ fn attribute_value(
 fn child_path(path : String, index : Int) -> String {
   "\{path}.children[\{index}]"
 }
+
+///|
+pub extend GenerativeUiAggregation with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiAggregation with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend GenerativeUiAggregation with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiAggregation with Hash::{hash, hash_combine}
+
+///|
+pub extend GenerativeUiBindingCapabilities with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiBindingCapabilities with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiCandidateContext with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiCandidateNode with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiCandidateNode with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiDataBinding with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiDataBinding with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend GenerativeUiDataBinding with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiDataBinding with Hash::{hash, hash_combine}
+
+///|
+pub extend GenerativeUiDiagnostic with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiDiagnostic with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiDiagnosticKind with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiDiagnosticKind with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend GenerativeUiDiagnosticKind with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiDiagnosticKind with Hash::{hash, hash_combine}
+
+///|
+pub extend GenerativeUiField with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiField with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend GenerativeUiField with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiField with Hash::{hash, hash_combine}
+
+///|
+pub extend GenerativeUiFilterOperator with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiFilterOperator with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend GenerativeUiFilterOperator with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiFilterOperator with Hash::{hash, hash_combine}
+
+///|
+pub extend GenerativeUiHostCapabilities with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiHostCapabilities with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiRawAttribute with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiRawAttribute with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiRawNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenerativeUiRawNode with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiSelectionKey with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend GenerativeUiSelectionKey with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend GenerativeUiSelectionKey with Eq::{equal, not_equal}
+
+///|
+pub extend GenerativeUiSelectionKey with Hash::{hash, hash_combine}

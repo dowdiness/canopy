@@ -302,3 +302,12 @@ pub fn[T : TreeNode + Renderable] TreeEditorState::from_projection(
     loaded_nodes,
   }
 }
+
+///|
+pub extend InteractiveChildren with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InteractiveTreeNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InteractiveTreeNode with Show::{output, to_string}

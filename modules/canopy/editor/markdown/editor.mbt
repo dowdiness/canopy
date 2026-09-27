@@ -2099,3 +2099,128 @@ fn ordered_marker_delimiter(marker : @md_markdown.OrderedListMarker) -> String {
     @md_markdown.Paren => ")"
   }
 }
+
+///|
+pub extend MarkdownAdmitReport with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownAdmitReport with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownArchiveLimitDimension with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownArchiveLimitDimension with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownBlockKind with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownBlockKind with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownBlockSelection with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownBlockSelection with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownBlockSnapshot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownBlockSnapshot with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownCommitOrigin with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownCommitOrigin with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownCommitResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownCommitResult with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownCommittedEvidence with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownCommittedEvidence with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownDocumentHistory with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownDocumentSnapshot with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownDocumentSnapshot with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownDocumentUtf16Selection with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownDocumentUtf16Selection with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownDocumentUtf16SelectionError with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownDocumentUtf16SelectionError with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownDocumentVersion with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownDocumentVersion with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownEditRequest with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownEditRequest with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownNodeId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownNodeId with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownPostCommitIssue with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownPostCommitIssue with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownProjectionObservationPhase with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownProjectionObservationPhase with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownProjectionSnapshot with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend MarkdownProjectionSnapshot with Eq::{equal, not_equal}
+
+///|
+pub extend MarkdownTextTransform with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend MarkdownTextTransform with Eq::{equal, not_equal}

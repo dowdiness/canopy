@@ -21,7 +21,7 @@ fn editor_mode(mode : EditorMode) -> @editor.Mode {
 ///|
 fn decode_import(bytes : Bytes) -> String? {
   Some(
-    @utf8.decode(bytes.view(), ignore_bom=true)
+    @utf8.decode(bytes.exact_view(), ignore_bom=true)
     .replace_all(old="\r\n", new="\n")
     .replace_all(old="\r", new="\n"),
   ) catch {

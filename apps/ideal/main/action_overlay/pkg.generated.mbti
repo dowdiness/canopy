@@ -27,6 +27,7 @@ pub(all) enum OverlayError {
   BuildActionFailed(String)
   ApplyActionFailed(String)
 } derive(@debug.Debug)
+pub fn OverlayError::to_repr(Self) -> @debug.Repr
 
 pub(all) enum OverlayMode {
   MainMenu

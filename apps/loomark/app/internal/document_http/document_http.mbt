@@ -313,3 +313,21 @@ pub fn discover(
 ) -> @cmd.Cmd {
   op.request(Discover(account, result => emit(result)))
 }
+
+///|
+pub extend DeliveryResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeliveryResult with Eq::{equal, not_equal}
+
+///|
+pub extend DiscoveryResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiscoveryResult with Eq::{equal, not_equal}
+
+///|
+pub extend RemoteResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RemoteResult with Eq::{equal, not_equal}

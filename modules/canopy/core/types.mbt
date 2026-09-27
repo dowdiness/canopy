@@ -187,3 +187,51 @@ fn drop_position_label(p : DropPosition) -> String {
     Inside => "Inside"
   }
 }
+
+///|
+pub extend DropPosition with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DropPosition with Eq::{equal, not_equal}
+
+///|
+pub extend FocusHint with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FocusHint with Eq::{equal, not_equal}
+
+///|
+pub extend FocusHint with Show::{output, to_string}
+
+///|
+pub extend GenericTreeOp with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GenericTreeOp with Show::{output, to_string}
+
+///|
+pub extend NodeId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NodeId with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend NodeId with Eq::{equal, not_equal}
+
+///|
+pub extend NodeId with Hash::{hash, hash_combine}
+
+///|
+pub extend NodeId with Show::{output, to_string}
+
+///|
+pub extend NodeId with ToJson::{to_json}
+
+///|
+pub extend SpanEdit with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SpanEdit with Eq::{equal, not_equal}
+
+///|
+pub extend SpanEdit with Show::{output, to_string}

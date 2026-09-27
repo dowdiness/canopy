@@ -36,14 +36,14 @@ fn parse_fixture(
 ///|
 fn semantic_diagnostics_fixture(text : String) -> @loomcore.DiagnosticSet raise {
   let (root, source_map) = parse_fixture(text)
-  build_semantic_diagnostics(
+  @semantic.build_semantic_diagnostics(
     lambda_semantic_projection_test_source, text, root, source_map,
   )
 }
 
 ///|
 fn has_annotation(
-  projection : SemanticProjection,
+  projection : @semantic.SemanticProjection,
   node_id : @core.NodeId,
   label : String,
 ) -> Bool {
@@ -56,7 +56,7 @@ fn has_annotation(
 ///|
 test "semantic projection annotates lambda binder and bound use" {
   let (root, source_map) = parse_fixture("(x) => x")
-  let projection = build_semantic_projection(root, source_map)
+  let projection = @semantic.build_semantic_projection(root, source_map)
   assert_true(has_annotation(projection, root.id(), "(x) =>"))
   assert_true(has_annotation(projection, root.children[0].id(), "bound x"))
   inspect(semantic_diagnostics_fixture("(x) => x").length(), content="0")
@@ -74,11 +74,11 @@ test "semantic projection annotates lambda binder and bound use" {
 test "semantic projection reports free variable" {
   let text = "(x) => y"
   let (root, source_map) = parse_fixture(text)
-  let projection = build_semantic_projection(root, source_map)
+  let projection = @semantic.build_semantic_projection(root, source_map)
   let body = root.children[0]
   assert_true(has_annotation(projection, body.id(), "free y"))
   inspect(
-    build_semantic_diagnostics(
+    @semantic.build_semantic_diagnostics(
       lambda_semantic_projection_test_source, text, root, source_map,
     ).length(),
     content="1",
@@ -95,7 +95,7 @@ test "free-variable diagnostic in a module def is scope-sourced" {
   // lambda route), proving `push_scope_failures` reconstructs and resolves the
   // module-def graph rather than the diagnostic still coming from stale env logic.
   let (root, source_map) = parse_fixture("let a = z\na")
-  let diagnostics = build_semantic_diagnostics(
+  let diagnostics = @semantic.build_semantic_diagnostics(
     lambda_semantic_projection_test_source, "let a = z\na", root, source_map,
   )
   inspect(diagnostics.length(), content="1")
@@ -119,7 +119,7 @@ test "free-variable diagnostic in a module def is scope-sourced" {
 /// block-local bindings as free while the env walk bound them.
 fn assert_classifiers_agree(program : String) -> Unit raise {
   let (root, source_map) = parse_fixture(program)
-  let projection = build_semantic_projection(root, source_map)
+  let projection = @semantic.build_semantic_projection(root, source_map)
   let registry : Map[@core.NodeId, @core.ProjNode[@ast.Term]] = Map([])
   @core.collect_registry(root, registry)
   let graph = @lambda_scope.build(registry, source_map)
@@ -200,7 +200,7 @@ test "block classifier non-vacuity: block-local bound, block-free surfaced" {
 ///|
 test "semantic projection respects sequential module bindings" {
   let (root, source_map) = parse_fixture("let x = 1\nlet y = x\nx + y")
-  let projection = build_semantic_projection(root, source_map)
+  let projection = @semantic.build_semantic_projection(root, source_map)
   assert_true(has_annotation(projection, root.children[0].id(), "let x"))
   assert_true(has_annotation(projection, root.children[1].id(), "let y"))
   assert_false(has_annotation(projection, root.id(), "let x"))
@@ -263,7 +263,7 @@ test "semantic diagnostics keep missing witness locations as notes" {
     @lambda_proj.REFERENCE_NAME_ROLE,
     reference_span,
   )
-  let diagnostic = build_semantic_diagnostics(
+  let diagnostic = @semantic.build_semantic_diagnostics(
       lambda_semantic_projection_test_source, text, root, sparse_source_map,
     ).items()[0]
   inspect(diagnostic.labels().length(), content="1")
@@ -288,7 +288,7 @@ test "semantic diagnostic boundary rejects invalid source ranges" {
       range,
     )
     try {
-      let _ = build_semantic_diagnostics(
+      let _ = @semantic.build_semantic_diagnostics(
         lambda_semantic_projection_test_source, validation_source, root, source_map,
       )
       false

@@ -255,3 +255,6 @@ test "candidate projection keeps metadata in one-pass escaped transport" {
 test "property: candidate projection preserves text and reserves synthetic IDs" {
   @qc.quick_check_fn(prop_candidate_projection_preserves_validated_text)
 }
+
+///|
+pub extend ProjectionCandidateCase with @moonbitlang/core/debug.Debug::{to_repr}

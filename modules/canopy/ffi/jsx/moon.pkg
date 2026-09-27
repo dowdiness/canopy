@@ -11,16 +11,16 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/queue",
-  "moonbitlang/core/string",
   "moonbitlang/x/crypto",
 }
 
 import {
-  "dowdiness/diagnostic",
   "moonbitlang/async",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,
+  "moonbitlang/core/debug",
+  "moonbitlang/core/string",
 } for "wbtest"
 
 supported_targets = "js"

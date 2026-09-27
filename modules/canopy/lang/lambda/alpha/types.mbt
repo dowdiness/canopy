@@ -53,3 +53,54 @@ pub(all) enum ReifyPolicy {
   Display
   Source
 } derive(Debug, Eq)
+
+///|
+pub extend AlphaRef with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend AlphaRef with Eq::{equal, not_equal}
+
+///|
+pub extend AlphaTerm with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend AlphaTerm with Eq::{equal, not_equal}
+
+///|
+pub extend Binder with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Binder with Eq::{equal, not_equal}
+
+///|
+pub extend BinderId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend BinderId with Eq::{equal, not_equal}
+
+///|
+pub extend BinderId with Hash::{hash, hash_combine}
+
+///|
+pub extend BinderOrigin with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend BinderOrigin with Eq::{equal, not_equal}
+
+///|
+pub extend FreeName with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FreeName with Eq::{equal, not_equal}
+
+///|
+pub extend FreeOrigin with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FreeOrigin with Eq::{equal, not_equal}
+
+///|
+pub extend ReifyPolicy with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReifyPolicy with Eq::{equal, not_equal}

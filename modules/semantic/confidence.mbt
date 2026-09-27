@@ -88,3 +88,18 @@ pub fn[T : Eq] Confidence::join(
       }
   }
 }
+
+///|
+pub extend Confidence with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Confidence with Eq::{equal, not_equal}
+
+///|
+pub extend Confidence with Show::{output, to_string}
+
+///|
+pub extend InvalidConfidence with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidConfidence with Show::{output, to_string}
