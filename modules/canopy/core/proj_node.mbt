@@ -271,3 +271,21 @@ pub impl[T : ToJson] ToJson for ProjNode[T] with fn to_json(self) {
     "end": self.end,
   }
 }
+
+///|
+pub extend FoldNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend FoldNode with Eq::{equal, not_equal}
+
+///|
+pub extend ProjNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProjNode with Eq::{equal, not_equal}
+
+///|
+pub extend ProjNode with Show::{output, to_string}
+
+///|
+pub extend ProjNode with ToJson::{to_json}

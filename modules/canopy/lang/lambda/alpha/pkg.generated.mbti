@@ -25,16 +25,29 @@ pub fn reify(AlphaTerm, ReifyPolicy) -> @ast.Term
 pub struct AlphaKey {
   // private fields
 } derive(Eq)
+pub fn AlphaKey::equal(Self, Self) -> Bool
+pub fn AlphaKey::hash(Self) -> Int
+pub fn AlphaKey::hash_combine(Self, Hasher) -> Unit
+pub fn AlphaKey::not_equal(Self, Self) -> Bool
 pub impl Hash for AlphaKey
 
 type AlphaKeyRef derive(Eq, Hash)
+pub fn AlphaKeyRef::equal(Self, Self) -> Bool
+pub fn AlphaKeyRef::hash(Self) -> Int
+pub fn AlphaKeyRef::hash_combine(Self, Hasher) -> Unit
+pub fn AlphaKeyRef::not_equal(Self, Self) -> Bool
 
 type AlphaKeyRepr derive(Eq)
+pub fn AlphaKeyRepr::equal(Self, Self) -> Bool
+pub fn AlphaKeyRepr::not_equal(Self, Self) -> Bool
 
 pub(all) enum AlphaRef {
   Bound(BinderId)
   Free(FreeName)
 } derive(Eq, @debug.Debug)
+pub fn AlphaRef::equal(Self, Self) -> Bool
+pub fn AlphaRef::not_equal(Self, Self) -> Bool
+pub fn AlphaRef::to_repr(Self) -> @debug.Repr
 
 pub(all) enum AlphaTerm {
   Int(Int)
@@ -49,35 +62,58 @@ pub(all) enum AlphaTerm {
   Error(String)
   Hole(Int)
 } derive(Eq, @debug.Debug)
+pub fn AlphaTerm::equal(Self, Self) -> Bool
+pub fn AlphaTerm::not_equal(Self, Self) -> Bool
+pub fn AlphaTerm::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Binder {
   id : BinderId
   hint : String
   origin : BinderOrigin
 } derive(Eq, @debug.Debug)
+pub fn Binder::equal(Self, Self) -> Bool
+pub fn Binder::not_equal(Self, Self) -> Bool
+pub fn Binder::to_repr(Self) -> @debug.Repr
 
 pub(all) struct BinderId(Int) derive(Eq, Hash, @debug.Debug)
+pub fn BinderId::equal(Self, Self) -> Bool
+pub fn BinderId::hash(Self) -> Int
+pub fn BinderId::hash_combine(Self, Hasher) -> Unit
+pub fn BinderId::not_equal(Self, Self) -> Bool
+pub fn BinderId::to_repr(Self) -> @debug.Repr
 
 pub(all) enum BinderOrigin {
   SourceDecl(node_id~ : @core.NodeId, hint~ : String)
   Generated(Int)
 } derive(Eq, @debug.Debug)
+pub fn BinderOrigin::equal(Self, Self) -> Bool
+pub fn BinderOrigin::not_equal(Self, Self) -> Bool
+pub fn BinderOrigin::to_repr(Self) -> @debug.Repr
 
 pub(all) struct FreeName {
   name : String
   origin : FreeOrigin
 } derive(Eq, @debug.Debug)
+pub fn FreeName::equal(Self, Self) -> Bool
+pub fn FreeName::not_equal(Self, Self) -> Bool
+pub fn FreeName::to_repr(Self) -> @debug.Repr
 
 pub(all) enum FreeOrigin {
   SourceVar
   SourceUnbound
   GeneratedFree
 } derive(Eq, @debug.Debug)
+pub fn FreeOrigin::equal(Self, Self) -> Bool
+pub fn FreeOrigin::not_equal(Self, Self) -> Bool
+pub fn FreeOrigin::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ReifyPolicy {
   Display
   Source
 } derive(Eq, @debug.Debug)
+pub fn ReifyPolicy::equal(Self, Self) -> Bool
+pub fn ReifyPolicy::not_equal(Self, Self) -> Bool
+pub fn ReifyPolicy::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

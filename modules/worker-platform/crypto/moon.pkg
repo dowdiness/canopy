@@ -2,6 +2,7 @@ import {
   "dowdiness/js_ffi" @js,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/encoding/hex",
+  "moonbitlang/core/debug",
 }
 
 import {

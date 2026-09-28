@@ -134,7 +134,7 @@ pub fn encode_sync_response(
 ///|
 fn payload_bytes(data : Bytes, payload_start : Int) -> Bytes {
   if payload_start < data.length() {
-    data.view(start=payload_start, end=data.length()).to_owned()
+    data.exact_view(start=payload_start, end=data.length()).to_owned()
   } else {
     Bytes::new(0)
   }
@@ -191,7 +191,9 @@ pub fn decode_message_result(
       match sub_type {
         b'\x01' => {
           let reader = Reader::new(
-            data.view(start=payload_start + 1, end=data.length()).to_owned(),
+            data
+            .exact_view(start=payload_start + 1, end=data.length())
+            .to_owned(),
           )
           let peer_id = match read_string_field(reader, "peer_id") {
             Ok(peer_id) => peer_id
@@ -201,7 +203,9 @@ pub fn decode_message_result(
         }
         b'\x02' => {
           let reader = Reader::new(
-            data.view(start=payload_start + 1, end=data.length()).to_owned(),
+            data
+            .exact_view(start=payload_start + 1, end=data.length())
+            .to_owned(),
           )
           let peer_id = match read_string_field(reader, "peer_id") {
             Ok(peer_id) => peer_id
@@ -214,7 +218,7 @@ pub fn decode_message_result(
     }
     b'\x06' => {
       let reader = Reader::new(
-        data.view(start=payload_start, end=data.length()).to_owned(),
+        data.exact_view(start=payload_start, end=data.length()).to_owned(),
       )
       let sender = match read_string_field(reader, "sender") {
         Ok(sender) => sender
@@ -222,7 +226,7 @@ pub fn decode_message_result(
       }
       let remaining_pos = reader.pos
       let remaining_data = data
-        .view(start=payload_start + remaining_pos, end=data.length())
+        .exact_view(start=payload_start + remaining_pos, end=data.length())
         .to_owned()
       Ok(RelayedCrdtOps(sender~, payload=remaining_data))
     }
@@ -253,3 +257,12 @@ pub let sub_join : Byte = b'\x01'
 ///|
 /// Sub-type byte for PeerLeft.
 pub let sub_leave : Byte = b'\x02'
+
+///|
+pub extend SyncMessage with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SyncMessage with Eq::{equal, not_equal}
+
+///|
+pub extend SyncMessage with Show::{output, to_string}

@@ -1,6 +1,6 @@
 ///|
 test "custom ranker controls packed context order and reasons" {
-  let ranker : ContextRanker = {
+  let ranker : @cognition.ContextRanker = {
     score_summary: fn(_query, key) {
       match key {
         FileSummary("src/gamma.mbt") => 1000
@@ -16,8 +16,8 @@ test "custom ranker controls packed context order and reasons" {
       }
     },
   }
-  let store = CognitionStore::new_with_provider_and_ranker(
-    CognitionProvider::mock(),
+  let store = @cognition.CognitionStore::new_with_provider_and_ranker(
+    @cognition.CognitionProvider::mock(),
     ranker,
   )
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))

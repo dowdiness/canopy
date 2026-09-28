@@ -51,7 +51,7 @@ test "TreeEditorState from_projection" {
   let (root, _) = @lambda_proj.parse_to_proj_node(
     projection_lens_test_source, "x + 1",
   )
-  let state = TreeEditorState::from_projection(
+  let state = @projection.TreeEditorState::from_projection(
     Some(root),
     @core.SourceMap::from_ast(root),
   )
@@ -63,7 +63,7 @@ test "InteractiveTreeNode from AstNode" {
   let (root, _) = @lambda_proj.parse_to_proj_node(
     projection_lens_test_source, "(x) => x",
   )
-  let tree = InteractiveTreeNode::from_term_node(
+  let tree = @projection.InteractiveTreeNode::from_term_node(
     root,
     @core.SourceMap::from_ast(root),
   )

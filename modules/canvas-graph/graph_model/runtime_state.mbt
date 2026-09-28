@@ -120,3 +120,24 @@ pub fn state_with_preview_nodes(
     nodes: state.nodes.map(fn(node) { canvas_node_with_preview(node, preview) }),
   }
 }
+
+///|
+pub extend CanvasDocument with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CanvasDocument with Eq::{equal, not_equal}
+
+///|
+pub extend DragPreview with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DragPreview with Eq::{equal, not_equal}
+
+///|
+pub extend DragPreview with Show::{output, to_string}
+
+///|
+pub extend SelectionState with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SelectionState with Eq::{equal, not_equal}

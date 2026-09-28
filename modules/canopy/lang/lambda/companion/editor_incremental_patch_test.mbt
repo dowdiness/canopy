@@ -14,10 +14,10 @@ fn count_nodes(node : @core.ProjNode[@ast.Term]) -> Int {
 
 ///|
 test "SyncEditor: get_resolution returns bound/free info" {
-  let se = new_lambda_editor("agent1").0
+  let se = @companion.new_lambda_editor("agent1").0
   // (x) => (x + y) — x is bound, y is free
   try! se.insert("(x) => x + y")
-  let res = get_lambda_resolution(se)
+  let res = @companion.get_lambda_resolution(se)
   // Pre-order: 0=Lam, 1=Bop, 2=Var(x), 3=Var(y)
   @debug.debug_inspect(res.vars.get(2), content="Some(Bound(depth=1))")
   @debug.debug_inspect(res.vars.get(3), content="Some(Free)")
@@ -25,7 +25,7 @@ test "SyncEditor: get_resolution returns bound/free info" {
 
 ///|
 test "projection memo: registry node count stable after tail edit" {
-  let editor = new_lambda_editor("test").0
+  let editor = @companion.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\nlet z = 0\nz")
   ignore(editor.get_proj_node())
   ignore(editor.get_source_map())
@@ -48,7 +48,7 @@ test "projection memo: registry node count stable after tail edit" {
 
 ///|
 test "projection memo: source_map position queries work after edit" {
-  let editor = new_lambda_editor("test").0
+  let editor = @companion.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\ny")
   ignore(editor.get_source_map()) // warm up
   // Edit: y=2 → y=3
@@ -65,7 +65,7 @@ test "projection memo: source_map position queries work after edit" {
 
 ///|
 test "projection memo: get_node returns correct node after edit" {
-  let editor = new_lambda_editor("test").0
+  let editor = @companion.new_lambda_editor("test").0
   editor.set_text("let x = 1\nlet y = 2\ny")
   let proj = editor.get_proj_node().unwrap()
   // Get node ID of x's init (Int(1)) — child of the first LetDef
@@ -87,7 +87,7 @@ test "projection memo: get_node returns correct node after edit" {
 test "projection memo: expression-only document edit works" {
   // Expression-only: no defs, ProjNode is NOT a Module.
   // Patch path must fall back to full rebuild.
-  let editor = new_lambda_editor("test").0
+  let editor = @companion.new_lambda_editor("test").0
   editor.set_text("42")
   let sm1 = editor.get_source_map()
   inspect(sm1.innermost_node_at(0) is Some(_), content="true")
@@ -104,7 +104,7 @@ test "projection memo: expression-only document edit works" {
 ///|
 test "projection memo: final_expr removal keeps a valid projection" {
   // Remove final expression: "let x = 1\nx" → "let x = 1\n"
-  let editor = new_lambda_editor("test").0
+  let editor = @companion.new_lambda_editor("test").0
   editor.set_text("let x = 1\nx")
   ignore(editor.get_proj_node())
   ignore(editor.get_source_map())
@@ -123,7 +123,7 @@ test "projection memo: no-final-expr module keeps body node registered" {
   // to_proj_node_with_prev_module_id synthesizes a Unit body each time.
   // The generic memo path must keep the synthesized body registered even when
   // only defs change.
-  let editor = new_lambda_editor("test").0
+  let editor = @companion.new_lambda_editor("test").0
   editor.set_text("let x = 0\nlet y = 2\n")
   let proj1 = editor.get_proj_node().unwrap()
   // Body is the last child (synthesized Unit)

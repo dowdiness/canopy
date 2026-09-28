@@ -192,3 +192,9 @@ fn jsx_attr_value_to_json(value : @jsx.JsxAttrValue) -> Json {
     @jsx.JsxAttrValue::Bare => Json::object({ "type": Json::string("bare") })
   }
 }
+
+///|
+pub extend DomPatch with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DomPatch with Eq::{equal, not_equal}

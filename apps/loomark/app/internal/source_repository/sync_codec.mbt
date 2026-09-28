@@ -17,7 +17,7 @@ fn replica_key(account : AccountId, document_id : DocumentId) -> String {
 
 ///|
 fn intern_text(texts : Array[String], text : String) -> Int {
-  match texts.view().search_by(existing => existing == text) {
+  match texts.exact_view().search_by(existing => existing == text) {
     Some(index) => index
     None => {
       let index = texts.length()

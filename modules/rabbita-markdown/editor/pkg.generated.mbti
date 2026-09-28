@@ -26,6 +26,8 @@ pub struct EditorEvent {
 pub struct EditorState {
   // private fields
 } derive(Eq)
+pub fn EditorState::equal(Self, Self) -> Bool
+pub fn EditorState::not_equal(Self, Self) -> Bool
 
 pub struct InputEdit {
   // private fields
@@ -51,6 +53,8 @@ pub(all) enum Mode {
   Preview
   Split
 } derive(Eq)
+pub fn Mode::equal(Self, Self) -> Bool
+pub fn Mode::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

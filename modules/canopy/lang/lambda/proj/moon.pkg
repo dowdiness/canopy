@@ -1,6 +1,5 @@
 import {
   "dowdiness/canopy/core",
-  "dowdiness/diagnostic",
   "dowdiness/incr",
   "dowdiness/lambda" @parser,
   "dowdiness/lambda/ast",

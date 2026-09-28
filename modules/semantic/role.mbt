@@ -15,3 +15,12 @@ pub(all) enum Role {
 pub impl Show for Role with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
+
+///|
+pub extend Role with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Role with Eq::{equal, not_equal}
+
+///|
+pub extend Role with Show::{output, to_string}

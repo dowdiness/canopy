@@ -39,18 +39,27 @@ pub(all) enum DomPatch {
   SetAttrs(Int, Array[@jsx.JsxAttr])
   Release(Int)
 } derive(Eq, @debug.Debug)
+pub fn DomPatch::equal(Self, Self) -> Bool
+pub fn DomPatch::not_equal(Self, Self) -> Bool
+pub fn DomPatch::to_repr(Self) -> @debug.Repr
 
 pub struct DryRunModel {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DryRunModel::apply(Self, Array[DomPatch]) -> Result[Self, String]
 pub fn DryRunModel::empty() -> Self
+pub fn DryRunModel::equal(Self, Self) -> Bool
+pub fn DryRunModel::not_equal(Self, Self) -> Bool
+pub fn DryRunModel::to_repr(Self) -> @debug.Repr
 
 pub enum DryRunNode {
   Element(Int, String, Array[@jsx.JsxAttr], Array[DryRunNode])
   Text(Int, String)
   ExprSpan(Int, String)
 } derive(Eq, @debug.Debug)
+pub fn DryRunNode::equal(Self, Self) -> Bool
+pub fn DryRunNode::not_equal(Self, Self) -> Bool
+pub fn DryRunNode::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

@@ -74,7 +74,10 @@ fn replace_record(
 
 ///|
 fn find_record(records : Array[Record], key : Key) -> Record? {
-  records.view().search_by(record => record.key() == key).map(i => records[i])
+  records
+  .exact_view()
+  .search_by(record => record.key() == key)
+  .map(i => records[i])
 }
 
 ///|

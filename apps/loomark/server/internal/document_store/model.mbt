@@ -106,3 +106,9 @@ fn decode_document(row : Json) -> Document raise StoreError {
   }
   { metadata, text, }
 }
+
+///|
+pub extend StoreError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend StoreError with Eq::{equal, not_equal}

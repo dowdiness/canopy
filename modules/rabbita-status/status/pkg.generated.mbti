@@ -16,6 +16,8 @@ pub(all) enum Tone {
   Error
 } derive(Eq)
 pub fn Tone::attrs(Self) -> @html.Attrs
+pub fn Tone::equal(Self, Self) -> Bool
+pub fn Tone::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

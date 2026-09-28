@@ -1,5 +1,4 @@
 import {
-  "dowdiness/canopy/core",
   "dowdiness/canopy/editor",
   "dowdiness/canopy/internal/markdown_runtime",
   "dowdiness/canopy/lang/markdown/edits" @md_edits,
@@ -9,4 +8,6 @@ import {
 
 import {
   "dowdiness/canopy/protocol",
+  "moonbitlang/core/debug",
+  "dowdiness/canopy/core",
 } for "wbtest"

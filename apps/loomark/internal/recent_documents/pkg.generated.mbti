@@ -20,11 +20,15 @@ pub(all) enum DeletionAvailability {
   Pending
   Failed(DeletionScope)
 } derive(Eq)
+pub fn DeletionAvailability::equal(Self, Self) -> Bool
+pub fn DeletionAvailability::not_equal(Self, Self) -> Bool
 
 pub(all) enum DeletionScope {
   ThisBrowser
   AllDevices
 } derive(Eq)
+pub fn DeletionScope::equal(Self, Self) -> Bool
+pub fn DeletionScope::not_equal(Self, Self) -> Bool
 
 pub enum Intent[Id] {
   Create
@@ -44,11 +48,15 @@ pub(all) enum RowStatus {
   Saved
   Unsaved
 } derive(Eq)
+pub fn RowStatus::equal(Self, Self) -> Bool
+pub fn RowStatus::not_equal(Self, Self) -> Bool
 
 type Seed[Id] derive(Eq)
 pub fn[Id] Seed::Seed(docid~ : Id, source~ : String, selection~ : Selection, deletion~ : DeletionAvailability, status~ : RowStatus) -> Self[Id]
 pub fn[Id] Seed::deletion(Self[Id]) -> DeletionAvailability
 pub fn[Id] Seed::docid(Self[Id]) -> Id
+pub fn[Id : Eq] Seed::equal(Self[Id], Self[Id]) -> Bool
+pub fn[Id : Eq] Seed::not_equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] Seed::selection(Self[Id]) -> Selection
 pub fn[Id] Seed::source(Self[Id]) -> String
 
@@ -57,6 +65,8 @@ pub(all) enum Selection {
   Selectable
   Blocked
 } derive(Eq)
+pub fn Selection::equal(Self, Self) -> Bool
+pub fn Selection::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

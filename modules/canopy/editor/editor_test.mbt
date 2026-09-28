@@ -1,14 +1,16 @@
 ///|
 /// Tests for Editor
 test "create new editor" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   inspect(editor.get_text(), content="")
   inspect(editor.get_cursor(), content="0")
 }
 
 ///|
 test "create editor rejects an empty agent identifier" {
-  let result : Result[Editor, @text.TextError] = Ok(Editor::new("")) catch {
+  let result : Result[@editor.Editor, @text.TextError] = Ok(
+    @editor.Editor::new(""),
+  ) catch {
     error => Err(error)
   }
   inspect(result is Err(@text.TextError::EmptyReplicaId), content="true")
@@ -16,7 +18,7 @@ test "create editor rejects an empty agent identifier" {
 
 ///|
 test "insert at cursor" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Hello")
   inspect(editor.get_text(), content="Hello")
   inspect(editor.get_cursor(), content="5")
@@ -24,7 +26,7 @@ test "insert at cursor" {
 
 ///|
 test "multiple inserts" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Hello")
   try! editor.insert(" ")
   try! editor.insert("World")
@@ -37,7 +39,7 @@ test "multiple inserts" {
 /// codepoint occupies one position, even when JavaScript stores it as two
 /// UTF-16 code units.
 test "non-BMP insert keeps cursor in item-space" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("😀")
   inspect(editor.get_cursor(), content="1")
   try! editor.insert("X")
@@ -47,7 +49,7 @@ test "non-BMP insert keeps cursor in item-space" {
 
 ///|
 test "insert at specific position" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Heo")
   editor.move_cursor(2)
   try! editor.insert("ll")
@@ -56,7 +58,7 @@ test "insert at specific position" {
 
 ///|
 test "move cursor" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Hello")
   editor.move_cursor(0)
   inspect(editor.get_cursor(), content="0")
@@ -71,7 +73,7 @@ test "move cursor" {
 
 ///|
 test "delete at cursor" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Hello")
   editor.move_cursor(1)
   let success = editor.delete()
@@ -81,7 +83,7 @@ test "delete at cursor" {
 
 ///|
 test "backspace" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Hello")
   let success = editor.backspace()
   inspect(success, content="true")
@@ -91,7 +93,7 @@ test "backspace" {
 
 ///|
 test "backspace at start" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("H")
   editor.move_cursor(0)
   let success = editor.backspace()
@@ -101,7 +103,7 @@ test "backspace at start" {
 
 ///|
 test "delete beyond end" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Hi")
   editor.move_cursor(10) // Move beyond end
   let success = editor.delete()
@@ -111,7 +113,7 @@ test "delete beyond end" {
 
 ///|
 test "cursor bounds checking" {
-  let editor = try! Editor::new("alice")
+  let editor = try! @editor.Editor::new("alice")
   try! editor.insert("Hello")
   editor.move_cursor(-5) // Should clamp to 0
   inspect(editor.get_cursor(), content="0")
@@ -121,7 +123,7 @@ test "cursor bounds checking" {
 
 ///|
 test "pending sync clamps cursor after applying ready delete" {
-  let editor = try! Editor::new("receiver")
+  let editor = try! @editor.Editor::new("receiver")
   let initial = try! @text.SyncMessage::from_json_string(
     "{\"schema\":2,\"format\":\"event-graph-walker/text-sync\",\"operations\":[{\"id\":{\"replica_id\":\"remote\",\"sequence\":0},\"parents\":[],\"kind\":\"insert\",\"content\":\"A\",\"origin_left\":null,\"origin_right\":null}],\"heads\":[{\"replica_id\":\"remote\",\"sequence\":0}]}",
   )
@@ -141,8 +143,8 @@ test "pending sync clamps cursor after applying ready delete" {
 ///|
 test "concurrent edits from two editors" {
   // Create two editors
-  let alice = try! Editor::new("alice")
-  let bob = try! Editor::new("bob")
+  let alice = try! @editor.Editor::new("alice")
+  let bob = try! @editor.Editor::new("bob")
 
   // Alice types "Hello"
   try! alice.insert("Hello")
@@ -175,8 +177,8 @@ test "concurrent edits from two editors" {
 ///|
 test "concurrent inserts at same position" {
   // Create two editors with initial text "AC"
-  let alice = try! Editor::new("alice")
-  let bob = try! Editor::new("bob")
+  let alice = try! @editor.Editor::new("alice")
+  let bob = try! @editor.Editor::new("bob")
 
   // Both start with "AC"
   try! alice.insert("A")

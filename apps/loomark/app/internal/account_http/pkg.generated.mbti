@@ -20,17 +20,26 @@ pub fn sign_out(@cmd.Emit[LogoutResult]) -> @cmd.Cmd
 pub struct GoogleAuthorizationUrl {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn GoogleAuthorizationUrl::equal(Self, Self) -> Bool
+pub fn GoogleAuthorizationUrl::not_equal(Self, Self) -> Bool
+pub fn GoogleAuthorizationUrl::to_repr(Self) -> @debug.Repr
 pub fn GoogleAuthorizationUrl::value(Self) -> String
 
 pub(all) enum LoginResult {
   Prepared(GoogleAuthorizationUrl)
   Unavailable
 } derive(Eq, @debug.Debug)
+pub fn LoginResult::equal(Self, Self) -> Bool
+pub fn LoginResult::not_equal(Self, Self) -> Bool
+pub fn LoginResult::to_repr(Self) -> @debug.Repr
 
 pub(all) enum LogoutResult {
   SignedOut
   Unconfirmed
 } derive(Eq, @debug.Debug)
+pub fn LogoutResult::equal(Self, Self) -> Bool
+pub fn LogoutResult::not_equal(Self, Self) -> Bool
+pub fn LogoutResult::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

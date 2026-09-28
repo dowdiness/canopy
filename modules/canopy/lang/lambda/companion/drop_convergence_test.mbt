@@ -40,11 +40,11 @@ fn setup_two_peers(
 ) -> (
   @editor.SyncEditor[@ast.Term],
   @editor.SyncEditor[@ast.Term],
-  LambdaCompanion,
-  LambdaCompanion,
+  @companion.LambdaCompanion,
+  @companion.LambdaCompanion,
 ) raise {
-  let (ed1, comp1) = new_lambda_editor("peer1")
-  let (ed2, comp2) = new_lambda_editor("peer2")
+  let (ed1, comp1) = @companion.new_lambda_editor("peer1")
+  let (ed2, comp2) = @companion.new_lambda_editor("peer2")
   ed1.set_text(seed_text)
   ed2.apply_sync(ed1.export_all())
   (ed1, ed2, comp1, comp2)
@@ -53,7 +53,7 @@ fn setup_two_peers(
 ///|
 fn apply_drop(
   editor : @editor.SyncEditor[@ast.Term],
-  companion : LambdaCompanion,
+  companion : @companion.LambdaCompanion,
   source_idx : Int,
   target_idx : Int,
   position : @core.DropPosition,
@@ -61,7 +61,7 @@ fn apply_drop(
 ) -> Unit raise {
   let source_id = resolve_child_id(editor, source_idx)
   let target_id = resolve_child_id(editor, target_idx)
-  let result = apply_lambda_tree_edit(
+  let result = @companion.apply_lambda_tree_edit(
     editor,
     companion,
     @lambda_edits.TreeEditOp::Drop(
@@ -514,11 +514,11 @@ fn assert_root_def_order(
 
 ///|
 test "R0: LetDef Drop Before moves one binding row through public bridge" {
-  let (editor, companion) = new_lambda_editor("drop-letdef-before")
+  let (editor, companion) = @companion.new_lambda_editor("drop-letdef-before")
   editor.set_text("let a = 1\nlet b = 2\na")
   let source = resolve_child_id(editor, 1)
   let target = resolve_child_id(editor, 0)
-  let result = apply_lambda_tree_edit(
+  let result = @companion.apply_lambda_tree_edit(
     editor,
     companion,
     @lambda_edits.TreeEditOp::Drop(
@@ -534,11 +534,11 @@ test "R0: LetDef Drop Before moves one binding row through public bridge" {
 
 ///|
 test "R0: LetDef Drop After moves one binding row through public bridge" {
-  let (editor, companion) = new_lambda_editor("drop-letdef-after")
+  let (editor, companion) = @companion.new_lambda_editor("drop-letdef-after")
   editor.set_text("let a = 1\nlet b = 2\na")
   let source = resolve_child_id(editor, 0)
   let target = resolve_child_id(editor, 1)
-  let result = apply_lambda_tree_edit(
+  let result = @companion.apply_lambda_tree_edit(
     editor,
     companion,
     @lambda_edits.TreeEditOp::Drop(
@@ -554,11 +554,11 @@ test "R0: LetDef Drop After moves one binding row through public bridge" {
 
 ///|
 test "R0: LetDef Drop Inside moves one binding row through public bridge" {
-  let (editor, companion) = new_lambda_editor("drop-letdef-inside")
+  let (editor, companion) = @companion.new_lambda_editor("drop-letdef-inside")
   editor.set_text("let a = 1\nlet b = 2\na")
   let source = resolve_child_id(editor, 0)
   let target = resolve_child_id(editor, 1)
-  let result = apply_lambda_tree_edit(
+  let result = @companion.apply_lambda_tree_edit(
     editor,
     companion,
     @lambda_edits.TreeEditOp::Drop(
@@ -574,11 +574,11 @@ test "R0: LetDef Drop Inside moves one binding row through public bridge" {
 
 ///|
 test "R0: expression Drop keeps expression-level semantics through public bridge" {
-  let (editor, companion) = new_lambda_editor("drop-expression")
+  let (editor, companion) = @companion.new_lambda_editor("drop-expression")
   editor.set_text("x + 1")
   let source = resolve_child_id(editor, 0)
   let target = resolve_child_id(editor, 1)
-  let result = apply_lambda_tree_edit(
+  let result = @companion.apply_lambda_tree_edit(
     editor,
     companion,
     @lambda_edits.TreeEditOp::Drop(
@@ -594,11 +594,11 @@ test "R0: expression Drop keeps expression-level semantics through public bridge
 
 ///|
 test "R0: mixed LetDef and expression Drop is rejected structurally" {
-  let (editor, companion) = new_lambda_editor("drop-mixed")
+  let (editor, companion) = @companion.new_lambda_editor("drop-mixed")
   editor.set_text("let a = 1\na")
   let source = resolve_child_id(editor, 0)
   let target = resolve_child_id(editor, 1)
-  let result = apply_lambda_tree_edit(
+  let result = @companion.apply_lambda_tree_edit(
     editor,
     companion,
     @lambda_edits.TreeEditOp::Drop(
@@ -621,11 +621,11 @@ test "R0: mixed LetDef and expression Drop is rejected structurally" {
 
 ///|
 test "R0: expression to LetDef Drop is rejected structurally" {
-  let (editor, companion) = new_lambda_editor("drop-mixed-reverse")
+  let (editor, companion) = @companion.new_lambda_editor("drop-mixed-reverse")
   editor.set_text("let a = 1\na")
   let source = resolve_child_id(editor, 1)
   let target = resolve_child_id(editor, 0)
-  let result = apply_lambda_tree_edit(
+  let result = @companion.apply_lambda_tree_edit(
     editor,
     companion,
     @lambda_edits.TreeEditOp::Drop(
@@ -730,7 +730,7 @@ test "R7: three-peer convergence" {
   let (ed1, ed2, comp1, comp2) = setup_two_peers(
     "let a = 1\nlet b = 2\nlet c = 3\na",
   )
-  let (ed3, comp3) = new_lambda_editor("peer3")
+  let (ed3, comp3) = @companion.new_lambda_editor("peer3")
   ed3.apply_sync(ed1.export_all())
   apply_drop(ed1, comp1, 1, 0, @core.DropPosition::Before, 1)
   apply_drop(ed2, comp2, 2, 1, @core.DropPosition::After, 1)

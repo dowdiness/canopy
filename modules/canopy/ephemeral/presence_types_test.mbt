@@ -1,9 +1,9 @@
 ///|
 test "EditModeState roundtrip" {
-  let state : EditModeState = { node_id: "node-42", }
+  let state : @ephemeral.EditModeState = { node_id: "node-42", }
   let ephemeral = state.to_ephemeral()
   @debug.debug_inspect(
-    EditModeState::from_ephemeral(ephemeral),
+    @ephemeral.EditModeState::from_ephemeral(ephemeral),
     content=(
       #|Some({ node_id: "node-42" })
     ),
@@ -13,15 +13,18 @@ test "EditModeState roundtrip" {
 ///|
 test "EditModeState from_ephemeral rejects non-Map" {
   @debug.debug_inspect(
-    EditModeState::from_ephemeral(EphemeralValue::Null),
+    @ephemeral.EditModeState::from_ephemeral(@ephemeral.EphemeralValue::Null),
     content="None",
   )
 }
 
 ///|
 test "DragState roundtrip with target" {
-  let state : DragState = { source_id: "src", target: Some(("tgt", Before)), }
-  let result = DragState::from_ephemeral(state.to_ephemeral())
+  let state : @ephemeral.DragState = {
+    source_id: "src",
+    target: Some(("tgt", Before)),
+  }
+  let result = @ephemeral.DragState::from_ephemeral(state.to_ephemeral())
   @debug.debug_inspect(
     result,
     content=(
@@ -32,8 +35,8 @@ test "DragState roundtrip with target" {
 
 ///|
 test "DragState roundtrip without target" {
-  let state : DragState = { source_id: "src", target: None, }
-  let result = DragState::from_ephemeral(state.to_ephemeral())
+  let state : @ephemeral.DragState = { source_id: "src", target: None, }
+  let result = @ephemeral.DragState::from_ephemeral(state.to_ephemeral())
   @debug.debug_inspect(
     result,
     content=(
@@ -44,13 +47,13 @@ test "DragState roundtrip without target" {
 
 ///|
 test "PeerPresence roundtrip" {
-  let p : PeerPresence = {
+  let p : @ephemeral.PeerPresence = {
     peer_id: "alice",
     display_name: "Alice",
     color: "#ff0000",
     status: Active,
   }
-  let result = PeerPresence::from_ephemeral(p.to_ephemeral())
+  let result = @ephemeral.PeerPresence::from_ephemeral(p.to_ephemeral())
   @debug.debug_inspect(
     result,
     content=(
@@ -68,13 +71,13 @@ test "PeerPresence roundtrip" {
 
 ///|
 test "PeerPresence idle status roundtrip" {
-  let p : PeerPresence = {
+  let p : @ephemeral.PeerPresence = {
     peer_id: "bob",
     display_name: "Bob",
     color: "#0000ff",
     status: Idle,
   }
-  let result = PeerPresence::from_ephemeral(p.to_ephemeral())
+  let result = @ephemeral.PeerPresence::from_ephemeral(p.to_ephemeral())
   match result {
     Some(presence) => inspect(presence.status, content="Idle")
     None => fail("expected Some")

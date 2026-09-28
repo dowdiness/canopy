@@ -13,3 +13,15 @@ pub(all) suberror ScaleError {
   /// The scale is zero or negative.
   NonPositive
 } derive(Eq, Debug)
+
+///|
+pub extend CoordinateError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CoordinateError with Eq::{equal, not_equal}
+
+///|
+pub extend ScaleError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScaleError with Eq::{equal, not_equal}

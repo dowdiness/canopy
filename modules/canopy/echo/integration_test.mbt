@@ -37,15 +37,15 @@ let fixture_posts : Array[String] = [
 
 ///|
 /// Populates a corpus with the 30 fixture posts.
-fn populate_fixtures(corpus : Corpus) -> Unit {
+fn populate_fixtures(corpus : @echo.Corpus) -> Unit {
   for post in fixture_posts {
     let _ = corpus.add_post(post)
   }
 }
 
 ///|
-fn make_fixture_corpus() -> Corpus {
-  let corpus = Corpus::new()
+fn make_fixture_corpus() -> @echo.Corpus {
+  let corpus = @echo.Corpus::new()
   populate_fixtures(corpus)
   corpus
 }
@@ -163,7 +163,7 @@ test "integration - coffee posts cluster across daily life" {
 
 ///|
 test "integration - duplicate posts produce zero IDF vectors" {
-  let corpus = Corpus::new()
+  let corpus = @echo.Corpus::new()
   let id0 = corpus.add_post("全く同じ文章を二回投稿する")
   let _ = corpus.add_post("全く同じ文章を二回投稿する")
   // Standard TF-IDF: IDF = ln(N/df) = ln(1) = 0 for terms in all docs
@@ -173,7 +173,7 @@ test "integration - duplicate posts produce zero IDF vectors" {
 
 ///|
 test "integration - single char post has no similarity" {
-  let corpus = Corpus::new()
+  let corpus = @echo.Corpus::new()
   let id0 = corpus.add_post("あ")
   let _ = corpus.add_post("カレーを作った")
   let results = corpus.query_similar(id0)
@@ -181,15 +181,15 @@ test "integration - single char post has no similarity" {
 }
 
 ///|
-fn make_segment_fixture_corpus() -> Corpus {
-  let corpus = Corpus::new(tokenize=@tokenizer.segment)
+fn make_segment_fixture_corpus() -> @echo.Corpus {
+  let corpus = @echo.Corpus::new(tokenize=@tokenizer.segment)
   populate_fixtures(corpus)
   corpus
 }
 
 ///|
-fn make_blended_fixture_corpus() -> Corpus {
-  let corpus = Corpus::new(tokenize=@tokenizer.blended)
+fn make_blended_fixture_corpus() -> @echo.Corpus {
+  let corpus = @echo.Corpus::new(tokenize=@tokenizer.blended)
   populate_fixtures(corpus)
   corpus
 }

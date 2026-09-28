@@ -165,3 +165,6 @@ pub fn pack_in_order(
   }
   PackResult(placements~, height=packer.height())
 }
+
+///|
+pub extend Packer with @moonbitlang/core/debug.Debug::{to_repr}

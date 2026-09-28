@@ -3,7 +3,6 @@ import {
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/cmd",
   "dowdiness/rabbita_markdown/editor",
-  "dowdiness/text_change",
 }
 
 supported_targets = "js"

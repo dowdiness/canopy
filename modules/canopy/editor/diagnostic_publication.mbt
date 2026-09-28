@@ -412,3 +412,45 @@ fn DiagnosticPublicationState::display(
   others.each(entry => merged.add_all(entry.1))
   merged
 }
+
+///|
+pub extend DiagnosticConfigurationId with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend DiagnosticConfigurationId with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticDependencyId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticDependencyId with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticDependencyId with Hash::{hash, hash_combine}
+
+///|
+pub extend DiagnosticDependencyRevision with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend DiagnosticDependencyRevision with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticProducerGeneration with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend DiagnosticProducerGeneration with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticProducerId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiagnosticProducerId with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticProducerId with Hash::{hash, hash_combine}

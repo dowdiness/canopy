@@ -84,3 +84,21 @@ pub fn Scale::from_double(value~ : Double) -> Scale raise ScaleError {
 pub fn Scale::to_double(self : Scale) -> Double {
   self.value
 }
+
+///|
+pub extend Scale with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Scale with Eq::{equal, not_equal}
+
+///|
+pub extend ScreenPoint with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScreenPoint with Eq::{equal, not_equal}
+
+///|
+pub extend WorldPoint with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend WorldPoint with Eq::{equal, not_equal}

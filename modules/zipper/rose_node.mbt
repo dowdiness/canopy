@@ -80,3 +80,30 @@ pub impl[T : Debug] Show for RoseZipper[T] with fn output(self, logger) {
 pub fn[T] RoseZipper::from_root(tree : RoseNode[T]) -> RoseZipper[T] {
   { focus: tree, path: Default::default(), depth: 0, }
 }
+
+///|
+pub extend RoseCtx with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RoseCtx with Eq::{equal, not_equal}
+
+///|
+pub extend RoseCtx with Show::{output, to_string}
+
+///|
+pub extend RoseNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RoseNode with Eq::{equal, not_equal}
+
+///|
+pub extend RoseNode with Show::{output, to_string}
+
+///|
+pub extend RoseZipper with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RoseZipper with Eq::{equal, not_equal}
+
+///|
+pub extend RoseZipper with Show::{output, to_string}

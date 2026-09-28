@@ -1,6 +1,6 @@
 ///|
 test "FileSummary depends on FileText" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello\nworld"))
   let _ = store.compute(FileSummary("a.mbt"))
   let deps = store.dependencies_of(FileSummary("a.mbt"))
@@ -9,7 +9,7 @@ test "FileSummary depends on FileText" {
 
 ///|
 test "revision clock is incr backed" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   inspect(store.current_revision().to_int(), content="0")
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))
   inspect(store.current_revision().to_int(), content="1")
@@ -17,7 +17,7 @@ test "revision clock is incr backed" {
 
 ///|
 test "dependency edge snapshot is incr backed" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))
   let _ = store.compute(FileSummary("a.mbt"))
   let edges = store.dependency_edges()
@@ -28,7 +28,7 @@ test "dependency edge snapshot is incr backed" {
 
 ///|
 test "set_input only accepts FileText Text pairs" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   inspect(store.set_input(RepoSummary, Summary("bad")), content="false")
   inspect(store.set_input(FileText("a.mbt"), Summary("bad")), content="false")
   inspect(store.get_value(RepoSummary) is None, content="true")
@@ -37,7 +37,7 @@ test "set_input only accepts FileText Text pairs" {
 
 ///|
 test "known_files tracks FileText inputs in sorted order" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("b.mbt"), Text("two"))
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
@@ -46,7 +46,7 @@ test "known_files tracks FileText inputs in sorted order" {
 
 ///|
 test "remove_file unregisters file and recomputes repo without deleted summary" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.set_input(FileText("b.mbt"), Text("two"))
   let _ = store.compute(QueryContext("what changed?"))
@@ -76,7 +76,7 @@ test "remove_file unregisters file and recomputes repo without deleted summary" 
 
 ///|
 test "remove_file cleans deleted file dependency graph after recompute" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.set_input(FileText("b.mbt"), Text("two"))
   let _ = store.compute(QueryContext("what changed?"))
@@ -108,7 +108,7 @@ test "remove_file cleans deleted file dependency graph after recompute" {
 
 ///|
 test "caller path strings are distinct workspace identities" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("foo.mbt"), Text("one"))
   let _ = store.set_input(FileText("./foo.mbt"), Text("two"))
 
@@ -126,7 +126,7 @@ test "caller path strings are distinct workspace identities" {
 
 ///|
 fn dependency_edges_mention_path(
-  edges : Array[Dependency],
+  edges : Array[@cognition.Dependency],
   path : String,
 ) -> Bool {
   for edge in edges {
@@ -139,7 +139,10 @@ fn dependency_edges_mention_path(
 }
 
 ///|
-fn cognition_key_mentions_path(key : CognitionKey, path : String) -> Bool {
+fn cognition_key_mentions_path(
+  key : @cognition.CognitionKey,
+  path : String,
+) -> Bool {
   match key {
     FileText(candidate) => candidate == path
     FileSummary(candidate) => candidate == path
@@ -153,7 +156,7 @@ fn cognition_key_mentions_path(key : CognitionKey, path : String) -> Bool {
 
 ///|
 test "pack_context returns provenance-bearing budgeted items" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("b.mbt"), Text("two"))
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
@@ -174,7 +177,7 @@ test "pack_context returns provenance-bearing budgeted items" {
 
 ///|
 test "pack_context prefers file summaries that match the query" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
   let _ = store.set_input(FileText("src/alpha.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/gamma.mbt"), Text("gamma"))
@@ -191,7 +194,7 @@ test "pack_context prefers file summaries that match the query" {
 
 ///|
 test "pack_context ranks full path matches before filename matches" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("src a"))
   let _ = store.set_input(FileText("test/a.mbt"), Text("test a"))
 
@@ -205,11 +208,11 @@ test "pack_context ranks full path matches before filename matches" {
 
 ///|
 test "pack_context records graph dependencies and invalidates on edits" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.set_input(FileText("b.mbt"), Text("two"))
   let _ = store.pack_context("what changed?", 2)
-  let key = CognitionKey::PackedContext("what changed?", 2)
+  let key = @cognition.CognitionKey::PackedContext("what changed?", 2)
   let deps = store.dependencies_of(key)
 
   inspect(deps.contains(RepoSummary), content="true")
@@ -224,7 +227,7 @@ test "pack_context records graph dependencies and invalidates on edits" {
 
 ///|
 test "pack_context returns immutable item arrays" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
   let items = store.pack_context("what changed?", 1)
@@ -242,13 +245,13 @@ test "pack_context returns immutable item arrays" {
 
 ///|
 test "pack_context with non-positive budget returns no items but stays live" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
   inspect(store.pack_context("what changed?", 0).length(), content="0")
   inspect(
     store
-    .dependencies_of(CognitionKey::PackedContext("what changed?", 0))
+    .dependencies_of(@cognition.CognitionKey::PackedContext("what changed?", 0))
     .contains(RepoSummary),
     content="true",
   )
@@ -256,7 +259,7 @@ test "pack_context with non-positive budget returns no items but stays live" {
 
 ///|
 test "pack_context_with_budget skips oversized items and preserves query ranking" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/alpha.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
   let _ = store.set_input(FileText("src/gamma.mbt"), Text("gamma"))
@@ -270,7 +273,7 @@ test "pack_context_with_budget skips oversized items and preserves query ranking
 
 ///|
 test "pack_context_with_budget includes more items when budget allows" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/alpha.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
 
@@ -284,17 +287,17 @@ test "pack_context_with_budget includes more items when budget allows" {
 
 ///|
 test "pack_context_with_options preserves wrapper behavior" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/alpha.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
 
   let by_items = store.pack_context_with_options(
     "explain beta",
-    ContextPackOptions::new(max_items=2),
+    @cognition.ContextPackOptions::new(max_items=2),
   )
   let by_chars = store.pack_context_with_options(
     "explain beta",
-    ContextPackOptions::new(max_items=3, max_chars=40),
+    @cognition.ContextPackOptions::new(max_items=3, max_chars=40),
   )
 
   inspect(by_items.length(), content="2")
@@ -305,10 +308,10 @@ test "pack_context_with_options preserves wrapper behavior" {
 
 ///|
 test "pack_context_with_options reuses clean cached context" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
-  let options = ContextPackOptions::new(max_items=2)
-  let key = CognitionKey::PackedContext("what changed?", 2)
+  let options = @cognition.ContextPackOptions::new(max_items=2)
+  let key = @cognition.CognitionKey::PackedContext("what changed?", 2)
 
   let first = store.pack_context_with_options("what changed?", options)
   inspect(first.length(), content="2")
@@ -326,16 +329,20 @@ test "pack_context_with_options reuses clean cached context" {
 
 ///|
 test "pack_context_with_options truncates oversized selected items when enabled" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
 
   let skipped = store.pack_context_with_options(
     "explain beta",
-    ContextPackOptions::new(max_items=3, max_chars=10),
+    @cognition.ContextPackOptions::new(max_items=3, max_chars=10),
   )
   let truncated = store.pack_context_with_options(
     "explain beta",
-    ContextPackOptions::new(max_items=3, max_chars=10, truncate_items=true),
+    @cognition.ContextPackOptions::new(
+      max_items=3,
+      max_chars=10,
+      truncate_items=true,
+    ),
   )
 
   inspect(skipped.length(), content="0")
@@ -350,13 +357,13 @@ test "pack_context_with_options truncates oversized selected items when enabled"
 
 ///|
 test "pack_context_with_stats reports selected skipped and payload counts" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/alpha.mbt"), Text("alpha"))
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
 
   let (items, stats) = store.pack_context_with_stats(
     "explain beta",
-    ContextPackOptions::new(max_items=2),
+    @cognition.ContextPackOptions::new(max_items=2),
   )
 
   inspect(items.length(), content="2")
@@ -372,23 +379,23 @@ test "pack_context_with_stats reports selected skipped and payload counts" {
 ///|
 test "pack_context_with_stats reuses computed context items" {
   let reason_calls = Ref::Ref(0)
-  let ranker : ContextRanker = {
+  let ranker : @cognition.ContextRanker = {
     score_summary: fn(_query, _key) { 0 },
     reason_summary: fn(_query, _key) {
       reason_calls.val += 1
       "reason call \{reason_calls.val}"
     },
   }
-  let store = CognitionStore::new_with_provider_and_ranker(
-    CognitionProvider::mock(),
+  let store = @cognition.CognitionStore::new_with_provider_and_ranker(
+    @cognition.CognitionProvider::mock(),
     ranker,
   )
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
-  let key = CognitionKey::PackedContext("what changed?", 2)
+  let key = @cognition.CognitionKey::PackedContext("what changed?", 2)
 
   let (items, stats) = store.pack_context_with_stats(
     "what changed?",
-    ContextPackOptions::new(max_items=2),
+    @cognition.ContextPackOptions::new(max_items=2),
   )
 
   inspect(reason_calls.val, content="1")
@@ -404,12 +411,16 @@ test "pack_context_with_stats reuses computed context items" {
 
 ///|
 test "pack_context_with_stats reports truncation" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
 
   let (items, stats) = store.pack_context_with_stats(
     "explain beta",
-    ContextPackOptions::new(max_items=3, max_chars=10, truncate_items=true),
+    @cognition.ContextPackOptions::new(
+      max_items=3,
+      max_chars=10,
+      truncate_items=true,
+    ),
   )
 
   inspect(items.length(), content="1")
@@ -421,16 +432,20 @@ test "pack_context_with_stats reports truncation" {
 
 ///|
 test "pack_context truncates without splitting unicode characters" {
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, _text) { "\{path}: 😀" },
     repo_summary: fn(items) { items.join("\n") },
   }
-  let store = CognitionStore::new_with_provider(provider)
+  let store = @cognition.CognitionStore::new_with_provider(provider)
   let _ = store.set_input(FileText("emoji.mbt"), Text("ignored"))
 
   let (items, stats) = store.pack_context_with_stats(
     "emoji",
-    ContextPackOptions::new(max_items=2, max_chars=12, truncate_items=true),
+    @cognition.ContextPackOptions::new(
+      max_items=2,
+      max_chars=12,
+      truncate_items=true,
+    ),
   )
 
   inspect(items.length(), content="1")
@@ -441,16 +456,20 @@ test "pack_context truncates without splitting unicode characters" {
 
 ///|
 test "pack_context does not emit empty truncated items" {
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, _text) { "\{path}: data" },
     repo_summary: fn(_items) { "12345" },
   }
-  let store = CognitionStore::new_with_provider(provider)
+  let store = @cognition.CognitionStore::new_with_provider(provider)
   let _ = store.set_input(FileText("a.mbt"), Text("ignored"))
 
   let (items, stats) = store.pack_context_with_stats(
     "what changed?",
-    ContextPackOptions::new(max_items=2, max_chars=5, truncate_items=true),
+    @cognition.ContextPackOptions::new(
+      max_items=2,
+      max_chars=5,
+      truncate_items=true,
+    ),
   )
 
   inspect(items.length(), content="1")
@@ -462,19 +481,19 @@ test "pack_context does not emit empty truncated items" {
 
 ///|
 test "pack_context stats do not infer truncation from ranker reason text" {
-  let ranker : ContextRanker = {
+  let ranker : @cognition.ContextRanker = {
     score_summary: fn(_query, _key) { 0 },
     reason_summary: fn(_query, _key) { "contains ; truncated marker" },
   }
-  let store = CognitionStore::new_with_provider_and_ranker(
-    CognitionProvider::mock(),
+  let store = @cognition.CognitionStore::new_with_provider_and_ranker(
+    @cognition.CognitionProvider::mock(),
     ranker,
   )
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
   let (_items, stats) = store.pack_context_with_stats(
     "what changed?",
-    ContextPackOptions::new(max_items=2),
+    @cognition.ContextPackOptions::new(max_items=2),
   )
 
   inspect(stats.truncated_items, content="0")
@@ -482,7 +501,7 @@ test "pack_context stats do not infer truncation from ranker reason text" {
 
 ///|
 test "pack_context_with_budget with non-positive char budget returns no items but stays live" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
   inspect(
@@ -491,7 +510,9 @@ test "pack_context_with_budget with non-positive char budget returns no items bu
   )
   inspect(
     store
-    .dependencies_of(CognitionKey::BudgetedContext("what changed?", 3, 0))
+    .dependencies_of(
+      @cognition.CognitionKey::BudgetedContext("what changed?", 3, 0),
+    )
     .contains(RepoSummary),
     content="true",
   )
@@ -499,7 +520,7 @@ test "pack_context_with_budget with non-positive char budget returns no items bu
 
 ///|
 test "changing one FileText marks its FileSummary dirty" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))
   let _ = store.compute(FileSummary("a.mbt"))
   let _ = store.set_input(FileText("a.mbt"), Text("hello again"))
@@ -508,7 +529,7 @@ test "changing one FileText marks its FileSummary dirty" {
 
 ///|
 test "RepoSummary becomes dirty when a FileSummary changes" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))
   let _ = store.compute(FileSummary("a.mbt"))
   let _ = store.compute(RepoSummary)
@@ -518,7 +539,7 @@ test "RepoSummary becomes dirty when a FileSummary changes" {
 
 ///|
 test "unrelated FileSummary is not recomputed when another file changes" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.set_input(FileText("b.mbt"), Text("two"))
   let _ = store.compute(FileSummary("a.mbt"))
@@ -544,7 +565,7 @@ test "unrelated FileSummary is not recomputed when another file changes" {
 
 ///|
 test "QueryContext depends on RepoSummary" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))
   let _ = store.compute(FileSummary("a.mbt"))
   let _ = store.compute(RepoSummary)
@@ -555,7 +576,7 @@ test "QueryContext depends on RepoSummary" {
 
 ///|
 test "RepoSummary first build seeds summaries from FileText inputs" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.set_input(FileText("b.mbt"), Text("two\nlines"))
 
@@ -570,7 +591,7 @@ test "RepoSummary first build seeds summaries from FileText inputs" {
 
 ///|
 test "QueryContext first build seeds RepoSummary from FileText inputs" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
 
   let _ = store.compute(QueryContext("what changed?"))
@@ -586,7 +607,7 @@ test "QueryContext first build seeds RepoSummary from FileText inputs" {
 
 ///|
 test "new FileSummary invalidates existing repo context" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.compute(FileSummary("a.mbt"))
   let _ = store.compute(RepoSummary)
@@ -604,7 +625,7 @@ test "new FileSummary invalidates existing repo context" {
 
 ///|
 test "new FileText invalidates query context before RepoSummary exists" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.compute(QueryContext("what changed?"))
 
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
@@ -619,7 +640,7 @@ test "new FileText invalidates query context before RepoSummary exists" {
 
 ///|
 test "dirty traversal skips already dirty subtrees" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.compute(FileSummary("a.mbt"))
   let _ = store.compute(RepoSummary)
@@ -635,7 +656,7 @@ test "dirty traversal skips already dirty subtrees" {
 
 ///|
 test "returned ContextBundle cannot mutate stored value" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("a.mbt"), Text("hello"))
   let _ = store.compute(FileSummary("a.mbt"))
   let _ = store.compute(RepoSummary)
@@ -654,7 +675,7 @@ test "returned ContextBundle cannot mutate stored value" {
 ///|
 test "demo trace shows selective recomputation" {
   inspect(
-    demo_trace().join("\n"),
+    @cognition.demo_trace().join("\n"),
     content=(
       #|dirty after src/a.mbt edit: FileSummary(src/a.mbt), RepoSummary, QueryContext(what changed?)
       #|recomputed: FileSummary(src/a.mbt), RepoSummary, QueryContext(what changed?)

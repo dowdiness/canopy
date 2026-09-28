@@ -37,6 +37,11 @@ pub(all) suberror DiagnosticPublicationInputError {
   DuplicateSource(@diagnostic.SourceId)
   DuplicateDependency(DiagnosticDependencyId)
 } derive(Eq, @debug.Debug)
+pub fn DiagnosticPublicationInputError::equal(Self, Self) -> Bool
+pub fn DiagnosticPublicationInputError::not_equal(Self, Self) -> Bool
+pub fn DiagnosticPublicationInputError::output(Self, &Logger) -> Unit
+pub fn DiagnosticPublicationInputError::to_repr(Self) -> @debug.Repr
+pub fn DiagnosticPublicationInputError::to_string(Self) -> String
 pub impl Show for DiagnosticPublicationInputError
 
 pub(all) suberror TreeEditError {
@@ -60,12 +65,20 @@ pub struct DiagnosticConfigurationId {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DiagnosticConfigurationId::DiagnosticConfigurationId(String) -> Self
+pub fn DiagnosticConfigurationId::equal(Self, Self) -> Bool
+pub fn DiagnosticConfigurationId::not_equal(Self, Self) -> Bool
+pub fn DiagnosticConfigurationId::to_repr(Self) -> @debug.Repr
 pub fn DiagnosticConfigurationId::to_string(Self) -> String
 
 pub struct DiagnosticDependencyId {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
 pub fn DiagnosticDependencyId::DiagnosticDependencyId(String) -> Self
+pub fn DiagnosticDependencyId::equal(Self, Self) -> Bool
+pub fn DiagnosticDependencyId::hash(Self) -> Int
+pub fn DiagnosticDependencyId::hash_combine(Self, Hasher) -> Unit
+pub fn DiagnosticDependencyId::not_equal(Self, Self) -> Bool
+pub fn DiagnosticDependencyId::to_repr(Self) -> @debug.Repr
 pub fn DiagnosticDependencyId::to_string(Self) -> String
 
 pub struct DiagnosticDependencyRevision {
@@ -73,18 +86,29 @@ pub struct DiagnosticDependencyRevision {
 } derive(Eq, @debug.Debug)
 pub fn DiagnosticDependencyRevision::DiagnosticDependencyRevision(DiagnosticDependencyId, String) -> Self
 pub fn DiagnosticDependencyRevision::dependency(Self) -> DiagnosticDependencyId
+pub fn DiagnosticDependencyRevision::equal(Self, Self) -> Bool
 pub fn DiagnosticDependencyRevision::identity(Self) -> String
+pub fn DiagnosticDependencyRevision::not_equal(Self, Self) -> Bool
+pub fn DiagnosticDependencyRevision::to_repr(Self) -> @debug.Repr
 
 pub struct DiagnosticProducerGeneration {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DiagnosticProducerGeneration::DiagnosticProducerGeneration(Int) -> Self
+pub fn DiagnosticProducerGeneration::equal(Self, Self) -> Bool
+pub fn DiagnosticProducerGeneration::not_equal(Self, Self) -> Bool
 pub fn DiagnosticProducerGeneration::to_int(Self) -> Int
+pub fn DiagnosticProducerGeneration::to_repr(Self) -> @debug.Repr
 
 pub struct DiagnosticProducerId {
   // private fields
 } derive(Eq, Hash, @debug.Debug)
 pub fn DiagnosticProducerId::DiagnosticProducerId(String) -> Self
+pub fn DiagnosticProducerId::equal(Self, Self) -> Bool
+pub fn DiagnosticProducerId::hash(Self) -> Int
+pub fn DiagnosticProducerId::hash_combine(Self, Hasher) -> Unit
+pub fn DiagnosticProducerId::not_equal(Self, Self) -> Bool
+pub fn DiagnosticProducerId::to_repr(Self) -> @debug.Repr
 pub fn DiagnosticProducerId::to_string(Self) -> String
 
 pub struct DiagnosticPublicationInputSnapshot {
@@ -93,15 +117,21 @@ pub struct DiagnosticPublicationInputSnapshot {
 pub fn DiagnosticPublicationInputSnapshot::DiagnosticPublicationInputSnapshot(DiagnosticProducerId, DiagnosticProducerGeneration, Array[DiagnosticPublicationSourceRevision], Array[DiagnosticDependencyRevision], DiagnosticConfigurationId) -> Self raise DiagnosticPublicationInputError
 pub fn DiagnosticPublicationInputSnapshot::configuration(Self) -> DiagnosticConfigurationId
 pub fn DiagnosticPublicationInputSnapshot::dependencies(Self) -> Array[DiagnosticDependencyRevision]
+pub fn DiagnosticPublicationInputSnapshot::equal(Self, Self) -> Bool
 pub fn DiagnosticPublicationInputSnapshot::generation(Self) -> DiagnosticProducerGeneration
+pub fn DiagnosticPublicationInputSnapshot::not_equal(Self, Self) -> Bool
 pub fn DiagnosticPublicationInputSnapshot::producer(Self) -> DiagnosticProducerId
 pub fn DiagnosticPublicationInputSnapshot::sources(Self) -> Array[DiagnosticPublicationSourceRevision]
+pub fn DiagnosticPublicationInputSnapshot::to_repr(Self) -> @debug.Repr
 
 pub struct DiagnosticPublicationSourceRevision {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn DiagnosticPublicationSourceRevision::DiagnosticPublicationSourceRevision(@diagnostic.SourceId, @text.Version) -> Self
+pub fn DiagnosticPublicationSourceRevision::equal(Self, Self) -> Bool
+pub fn DiagnosticPublicationSourceRevision::not_equal(Self, Self) -> Bool
 pub fn DiagnosticPublicationSourceRevision::source(Self) -> @diagnostic.SourceId
+pub fn DiagnosticPublicationSourceRevision::to_repr(Self) -> @debug.Repr
 pub fn DiagnosticPublicationSourceRevision::version(Self) -> @text.Version
 
 pub struct Editor {
@@ -121,6 +151,7 @@ pub fn Editor::insert(Self, String) -> Unit raise
 pub fn Editor::insert_at(Self, Int, String) -> Unit raise
 pub fn Editor::move_cursor(Self, Int) -> Unit
 pub fn Editor::new(String) -> Self raise @text.TextError
+pub fn Editor::to_repr(Self) -> @debug.Repr
 
 pub struct LanguageCapabilities[T] {
   // private fields
@@ -134,6 +165,9 @@ pub enum ProjectionObservationPhase {
   CommittedTransitionSettled
   ProjectionMirrorSynchronized
 } derive(Eq, @debug.Debug)
+pub fn ProjectionObservationPhase::equal(Self, Self) -> Bool
+pub fn ProjectionObservationPhase::not_equal(Self, Self) -> Bool
+pub fn ProjectionObservationPhase::to_repr(Self) -> @debug.Repr
 
 pub struct SyncEditor[T] {
   // private fields
@@ -239,6 +273,7 @@ pub fn ViewUpdateState::ViewUpdateState() -> Self
 pub fn[T : Eq] ViewUpdateState::apply_diagnostic_fix(Self, SyncEditor[T], snapshot_id~ : Int, diagnostic_id~ : Int, fix_id~ : Int, timestamp_ms~ : Int) -> Bool raise Failure
 pub fn ViewUpdateState::set_had_errors(Self, Bool) -> Unit
 pub fn ViewUpdateState::set_previous(Self, @protocol.ViewNode?) -> Unit
+pub fn ViewUpdateState::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 pub using @ephemeral {type DragPosition}

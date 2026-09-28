@@ -31,20 +31,33 @@ pub(all) enum DragPosition {
   After
   Inside
 } derive(Eq, @debug.Debug)
+pub fn DragPosition::equal(Self, Self) -> Bool
+pub fn DragPosition::not_equal(Self, Self) -> Bool
+pub fn DragPosition::to_repr(Self) -> @debug.Repr
 
 pub(all) struct DragState {
   source_id : String
   target : (String, DragPosition)?
 } derive(Eq, @debug.Debug)
+pub fn DragState::equal(Self, Self) -> Bool
 pub fn DragState::from_ephemeral(EphemeralValue) -> Self?
+pub fn DragState::not_equal(Self, Self) -> Bool
+pub fn DragState::output(Self, &Logger) -> Unit
 pub fn DragState::to_ephemeral(Self) -> EphemeralValue
+pub fn DragState::to_repr(Self) -> @debug.Repr
+pub fn DragState::to_string(Self) -> String
 pub impl Show for DragState
 
 pub(all) struct EditModeState {
   node_id : String
 } derive(Eq, @debug.Debug)
+pub fn EditModeState::equal(Self, Self) -> Bool
 pub fn EditModeState::from_ephemeral(EphemeralValue) -> Self?
+pub fn EditModeState::not_equal(Self, Self) -> Bool
+pub fn EditModeState::output(Self, &Logger) -> Unit
 pub fn EditModeState::to_ephemeral(Self) -> EphemeralValue
+pub fn EditModeState::to_repr(Self) -> @debug.Repr
+pub fn EditModeState::to_string(Self) -> String
 pub impl Show for EditModeState
 
 pub(all) enum EphemeralEventTrigger {
@@ -52,6 +65,11 @@ pub(all) enum EphemeralEventTrigger {
   Import
   Timeout
 } derive(Eq, @debug.Debug)
+pub fn EphemeralEventTrigger::equal(Self, Self) -> Bool
+pub fn EphemeralEventTrigger::not_equal(Self, Self) -> Bool
+pub fn EphemeralEventTrigger::output(Self, &Logger) -> Unit
+pub fn EphemeralEventTrigger::to_repr(Self) -> @debug.Repr
+pub fn EphemeralEventTrigger::to_string(Self) -> String
 pub impl Show for EphemeralEventTrigger
 
 pub struct EphemeralHub {
@@ -108,6 +126,7 @@ pub(all) struct EphemeralStoreEvent {
 pub fn EphemeralStoreEvent::added(Self) -> Array[String]
 pub fn EphemeralStoreEvent::by(Self) -> EphemeralEventTrigger
 pub fn EphemeralStoreEvent::removed(Self) -> Array[String]
+pub fn EphemeralStoreEvent::to_repr(Self) -> @debug.Repr
 pub fn EphemeralStoreEvent::updated(Self) -> Array[String]
 
 type EphemeralSubscriberEntry
@@ -127,6 +146,11 @@ pub(all) enum EphemeralValue {
   List(Array[EphemeralValue])
   Map(Map[String, EphemeralValue])
 } derive(Eq, @debug.Debug)
+pub fn EphemeralValue::equal(Self, Self) -> Bool
+pub fn EphemeralValue::not_equal(Self, Self) -> Bool
+pub fn EphemeralValue::output(Self, &Logger) -> Unit
+pub fn EphemeralValue::to_repr(Self) -> @debug.Repr
+pub fn EphemeralValue::to_string(Self) -> String
 pub impl Show for EphemeralValue
 
 pub(all) struct PeerCursor {
@@ -136,6 +160,9 @@ pub(all) struct PeerCursor {
   mut color : String
   mut selection : (Int, Int)?
 } derive(@debug.Debug)
+pub fn PeerCursor::output(Self, &Logger) -> Unit
+pub fn PeerCursor::to_repr(Self) -> @debug.Repr
+pub fn PeerCursor::to_string(Self) -> String
 pub impl Show for PeerCursor
 
 pub struct PeerCursorView {
@@ -157,14 +184,24 @@ pub(all) struct PeerPresence {
   color : String
   status : PresenceStatus
 } derive(Eq, @debug.Debug)
+pub fn PeerPresence::equal(Self, Self) -> Bool
 pub fn PeerPresence::from_ephemeral(EphemeralValue) -> Self?
+pub fn PeerPresence::not_equal(Self, Self) -> Bool
+pub fn PeerPresence::output(Self, &Logger) -> Unit
 pub fn PeerPresence::to_ephemeral(Self) -> EphemeralValue
+pub fn PeerPresence::to_repr(Self) -> @debug.Repr
+pub fn PeerPresence::to_string(Self) -> String
 pub impl Show for PeerPresence
 
 pub(all) enum PresenceStatus {
   Active
   Idle
 } derive(Eq, @debug.Debug)
+pub fn PresenceStatus::equal(Self, Self) -> Bool
+pub fn PresenceStatus::not_equal(Self, Self) -> Bool
+pub fn PresenceStatus::output(Self, &Logger) -> Unit
+pub fn PresenceStatus::to_repr(Self) -> @debug.Repr
+pub fn PresenceStatus::to_string(Self) -> String
 pub impl Show for PresenceStatus
 
 // Type aliases

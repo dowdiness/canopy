@@ -351,3 +351,12 @@ test "patch transition handles mixed element text and expression siblings" {
     content="[E(4,div,0,[T(1000000,new),E(1,span,0,[]),X(3,new)])]",
   )
 }
+
+///|
+pub extend PatchTree with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PatchTree with Eq::{equal, not_equal}
+
+///|
+pub extend PatchTreePair with @moonbitlang/core/debug.Debug::{to_repr}

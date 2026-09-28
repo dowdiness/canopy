@@ -62,7 +62,12 @@ pub(all) suberror DomBoundaryError {
   ActionFailed(action~ : DomAction, target~ : DomTarget, detail~ : String)
   UnknownStatus(status~ : Int, action~ : DomAction, target~ : DomTarget, detail~ : String)
 } derive(Eq, @debug.Debug)
+pub fn DomBoundaryError::equal(Self, Self) -> Bool
 pub fn DomBoundaryError::message(Self) -> String
+pub fn DomBoundaryError::not_equal(Self, Self) -> Bool
+pub fn DomBoundaryError::output(Self, &Logger) -> Unit
+pub fn DomBoundaryError::to_repr(Self) -> @debug.Repr
+pub fn DomBoundaryError::to_string(Self) -> String
 pub impl Show for DomBoundaryError
 
 // Types and methods
@@ -86,24 +91,36 @@ pub(all) enum DomAction {
   ListenCustomEvent
   RemoveCustomEventListener
 } derive(Eq, @debug.Debug)
+pub fn DomAction::equal(Self, Self) -> Bool
+pub fn DomAction::not_equal(Self, Self) -> Bool
+pub fn DomAction::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DomTarget {
   Id(String)
   Selector(String)
   EventSubscription
 } derive(Eq, @debug.Debug)
+pub fn DomTarget::equal(Self, Self) -> Bool
+pub fn DomTarget::not_equal(Self, Self) -> Bool
+pub fn DomTarget::to_repr(Self) -> @debug.Repr
 
 pub struct ElementMeasurement {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn ElementMeasurement::equal(Self, Self) -> Bool
+pub fn ElementMeasurement::not_equal(Self, Self) -> Bool
 pub fn ElementMeasurement::offset_height(Self) -> Double
 pub fn ElementMeasurement::offset_width(Self) -> Double
+pub fn ElementMeasurement::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ScrollBehavior {
   Auto
   Instant
   Smooth
 } derive(Eq, @debug.Debug)
+pub fn ScrollBehavior::equal(Self, Self) -> Bool
+pub fn ScrollBehavior::not_equal(Self, Self) -> Bool
+pub fn ScrollBehavior::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ScrollBlock {
   Start
@@ -111,6 +128,9 @@ pub(all) enum ScrollBlock {
   End
   Nearest
 } derive(Eq, @debug.Debug)
+pub fn ScrollBlock::equal(Self, Self) -> Bool
+pub fn ScrollBlock::not_equal(Self, Self) -> Bool
+pub fn ScrollBlock::to_repr(Self) -> @debug.Repr
 
 pub struct TextSelection {
   // private fields
@@ -118,13 +138,19 @@ pub struct TextSelection {
 pub fn TextSelection::TextSelection(Int, Int, TextSelectionDirection) -> Self
 pub fn TextSelection::direction(Self) -> TextSelectionDirection
 pub fn TextSelection::end(Self) -> Int
+pub fn TextSelection::equal(Self, Self) -> Bool
+pub fn TextSelection::not_equal(Self, Self) -> Bool
 pub fn TextSelection::start(Self) -> Int
+pub fn TextSelection::to_repr(Self) -> @debug.Repr
 
 pub(all) enum TextSelectionDirection {
   NoDirection
   Forward
   Backward
 } derive(Eq, @debug.Debug)
+pub fn TextSelectionDirection::equal(Self, Self) -> Bool
+pub fn TextSelectionDirection::not_equal(Self, Self) -> Bool
+pub fn TextSelectionDirection::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

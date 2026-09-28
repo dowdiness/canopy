@@ -3,10 +3,10 @@ import {
   "dowdiness/loomark/app/internal/sync",
   "moonbit-community/rabbita/cmd",
   "moonbitlang/async/http" @async_http,
-  "moonbitlang/async/io",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
   "moonbit-community/rabbita/url",
+  "moonbitlang/core/debug",
 }
 
 supported_targets = "js"

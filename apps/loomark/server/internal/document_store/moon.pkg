@@ -3,6 +3,7 @@ import {
   "dowdiness/worker_platform/d1",
   "dowdiness/worker_platform/crypto",
   "moonbitlang/core/double",
+  "moonbitlang/core/debug",
 }
 
 supported_targets = "js"

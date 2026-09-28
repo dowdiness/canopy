@@ -151,3 +151,21 @@ pub fn prepare_login(emit : @cmd.Emit[LoginResult]) -> @cmd.Cmd {
 pub fn sign_out(emit : @cmd.Emit[LogoutResult]) -> @cmd.Cmd {
   op.request(SignOut(result => emit(result)))
 }
+
+///|
+pub extend GoogleAuthorizationUrl with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend GoogleAuthorizationUrl with Eq::{equal, not_equal}
+
+///|
+pub extend LoginResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LoginResult with Eq::{equal, not_equal}
+
+///|
+pub extend LogoutResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LogoutResult with Eq::{equal, not_equal}

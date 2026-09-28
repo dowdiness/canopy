@@ -36,3 +36,24 @@ pub fn namespace_from_byte(b : Byte) -> EphemeralNamespace? {
 pub fn all_namespaces() -> Array[EphemeralNamespace] {
   [Cursor, EditMode, Drag, Presence]
 }
+
+///|
+pub extend EphemeralNamespace with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EphemeralNamespace with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend EphemeralNamespace with Eq::{equal, not_equal}
+
+///|
+pub extend EphemeralNamespace with Hash::{hash, hash_combine}
+
+///|
+pub extend EphemeralNamespace with Show::{output, to_string}

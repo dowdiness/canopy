@@ -174,3 +174,9 @@ fn remap_pos(pos : Int, edits : Array[@core.SpanEdit]) -> Int {
   }
   pos + final_shift
 }
+
+///|
+pub extend FailureDiff with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReachableFailure with @moonbitlang/core/debug.Debug::{to_repr}

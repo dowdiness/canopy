@@ -12,7 +12,6 @@ import {
   "dowdiness/loom/core" @loom,
   "dowdiness/seam",
   "dowdiness/markdown" @md,
-  "moonbitlang/core/json",
 }
 
 // `cells` field of MarkdownHandle is read in production by
@@ -23,6 +22,10 @@ import {
 // `MarkdownProtectedCells`.
 
 warnings = "-7"
+
+import {
+  "moonbitlang/core/debug",
+} for "wbtest"
 
 options(
   link: {

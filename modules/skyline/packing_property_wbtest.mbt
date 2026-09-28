@@ -79,3 +79,6 @@ test "property: packing is deterministic" {
 test "property: constrained placement stays on allowed x" {
   @qc.quick_check_fn(prop_constrained_uses_allowed_x)
 }
+
+///|
+pub extend PackCase with @moonbitlang/core/debug.Debug::{to_repr}

@@ -104,3 +104,57 @@ pub fn CognitionKey::label(self : CognitionKey) -> String {
       "TruncatedContext(\{query}, \{max_items}, \{max_chars})"
   }
 }
+
+///|
+pub extend CognitionKey with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CognitionKey with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend CognitionKey with Eq::{equal, not_equal}
+
+///|
+pub extend CognitionKey with Hash::{hash, hash_combine}
+
+///|
+pub extend CognitionValue with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CognitionValue with Eq::{equal, not_equal}
+
+///|
+pub extend ContextItem with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ContextItem with Eq::{equal, not_equal}
+
+///|
+pub extend ContextPackOptions with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ContextPackOptions with Eq::{equal, not_equal}
+
+///|
+pub extend ContextPackStats with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ContextPackStats with Eq::{equal, not_equal}
+
+///|
+pub extend Dependency with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Dependency with Eq::{equal, not_equal}
+
+///|
+pub extend Revision with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Revision with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend Revision with Eq::{equal, not_equal}
+
+///|
+pub extend Revision with Hash::{hash, hash_combine}

@@ -34,6 +34,9 @@ pub(all) struct Action {
   group : ActionGroup
   needs_input : Bool
 } derive(Eq, @debug.Debug)
+pub fn Action::equal(Self, Self) -> Bool
+pub fn Action::not_equal(Self, Self) -> Bool
+pub fn Action::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ActionContext {
   node_id : @core.NodeId
@@ -50,6 +53,9 @@ pub(all) enum ActionGroup {
   Binding
   Module
 } derive(Eq, @debug.Debug)
+pub fn ActionGroup::equal(Self, Self) -> Bool
+pub fn ActionGroup::not_equal(Self, Self) -> Bool
+pub fn ActionGroup::to_repr(Self) -> @debug.Repr
 
 pub(all) struct NodeContext {
   is_let_binding : Bool
@@ -57,8 +63,11 @@ pub(all) struct NodeContext {
   binding_def_index : Int?
   module_node_id : @core.NodeId?
 } derive(Eq, @debug.Debug)
+pub fn NodeContext::equal(Self, Self) -> Bool
 pub fn NodeContext::new() -> Self
 pub fn NodeContext::new_binding(binding_node_id~ : @core.NodeId, binding_def_index~ : Int, module_node_id~ : @core.NodeId) -> Self
+pub fn NodeContext::not_equal(Self, Self) -> Bool
+pub fn NodeContext::to_repr(Self) -> @debug.Repr
 
 pub(all) enum TreeEditOp {
   Select(node_id~ : @core.NodeId)
@@ -90,8 +99,11 @@ pub(all) enum TreeEditOp {
   InlineAllUsages(binding_node_id~ : @core.NodeId)
   Rename(node_id~ : @core.NodeId, new_name~ : String)
 } derive(@debug.Debug)
+pub fn TreeEditOp::output(Self, &Logger) -> Unit
 pub fn TreeEditOp::to_generic(Self) -> @core.GenericTreeOp
 pub fn TreeEditOp::to_identity_transform(Self, (@core.NodeId) -> @core.ProjNode[@ast.Term]?) -> @core.IdentityTransform
+pub fn TreeEditOp::to_repr(Self) -> @debug.Repr
+pub fn TreeEditOp::to_string(Self) -> String
 pub impl Show for TreeEditOp
 
 // Type aliases

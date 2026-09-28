@@ -77,3 +77,26 @@ pub impl ToJson for TestExpr with fn to_json(self) {
     Branch(tag, _) => Json::string(tag)
   }
 }
+
+///|
+pub extend TestExpr with @dowdiness/loom/core.Renderable::{
+  kind_tag,
+  label,
+  placeholder,
+  unparse,
+}
+
+///|
+pub extend TestExpr with @dowdiness/loom/core.TreeNode::{children, same_kind}
+
+///|
+pub extend TestExpr with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TestExpr with Eq::{equal, not_equal}
+
+///|
+pub extend TestExpr with Show::{output, to_string}
+
+///|
+pub extend TestExpr with ToJson::{to_json}

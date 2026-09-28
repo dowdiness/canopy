@@ -80,7 +80,7 @@ fn State::find(
   document_id : @source_repository.DocumentId,
 ) -> Int? {
   self.lanes
-  .view()
+  .exact_view()
   .search_by(lane => lane.account == account && lane.document_id == document_id)
 }
 
@@ -317,3 +317,45 @@ pub fn State::complete(
     }
   }
 }
+
+///|
+pub extend Attempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Attempt with Eq::{equal, not_equal}
+
+///|
+pub extend Completion with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Completion with Eq::{equal, not_equal}
+
+///|
+pub extend ExpiredRetry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ExpiredRetry with Eq::{equal, not_equal}
+
+///|
+pub extend Retry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Retry with Eq::{equal, not_equal}
+
+///|
+pub extend StaleAttempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend StaleAttempt with Eq::{equal, not_equal}
+
+///|
+pub extend State with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend State with Eq::{equal, not_equal}
+
+///|
+pub extend Status with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Status with Eq::{equal, not_equal}

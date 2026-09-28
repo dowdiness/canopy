@@ -25,3 +25,12 @@ pub fn SourceSnapshot::matches(
   self.text_hash == other.text_hash &&
   self.utf16_len == other.utf16_len
 }
+
+///|
+pub extend SourceSnapshot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SourceSnapshot with Eq::{equal, not_equal}
+
+///|
+pub extend SourceSnapshot with Hash::{hash, hash_combine}

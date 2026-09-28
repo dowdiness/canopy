@@ -81,7 +81,7 @@ pub struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
 
 ///|
 pub fn Catalog::entries(self : Self) -> ArrayView[CatalogEntry] {
-  self.0.view()
+  self.0.exact_view()
 }
 
 ///|
@@ -197,13 +197,13 @@ fn rebuild_saved_documents(
 
 ///|
 pub fn SavedDocuments::all(self : Self) -> ArrayView[Document] {
-  self.documents.view()
+  self.documents.exact_view()
 }
 
 ///|
 pub fn SavedDocuments::find(self : Self, id : DocumentId) -> Document? {
   self.documents
-  .view()
+  .exact_view()
   .search_by(document => document.id() == id)
   .map(i => self.documents[i])
 }
@@ -223,7 +223,7 @@ pub fn SavedDocuments::catalog(self : Self) -> Catalog {
 
 ///|
 pub fn SavedDocuments::issues(self : Self) -> ArrayView[RepositoryIssue] {
-  self.issues_value.view()
+  self.issues_value.exact_view()
 }
 
 ///|
@@ -236,7 +236,7 @@ pub fn SavedDocuments::replicas_for(
 
 ///|
 pub fn SavedDocuments::replicas(self : Self) -> ArrayView[DocumentReplica] {
-  self.replicas.view()
+  self.replicas.exact_view()
 }
 
 ///|
@@ -246,7 +246,7 @@ fn SavedDocuments::find_replica_index(
   document_id : DocumentId,
 ) -> Int? {
   self.replicas
-  .view()
+  .exact_view()
   .search_by(replica => {
     replica.account == account && replica.document_id == document_id
   })
@@ -281,13 +281,13 @@ pub fn SavedDocuments::apply_replica(
     None => {
       guard !self.observed_replicas(key) else { raise StorageKeyConflict }
       let insertion = replicas
-        .view()
+        .exact_view()
         .search_by(candidate => compare_replicas(replica, candidate) < 0)
         .unwrap_or(replicas.length())
       replicas.insert(insertion, replica)
       let keys = self.observed_replica_keys.copy()
       let key_insertion = keys
-        .view()
+        .exact_view()
         .search_by(existing => key.lexical_compare(existing) < 0)
         .unwrap_or(keys.length())
       keys.insert(key_insertion, key)
@@ -404,3 +404,66 @@ pub fn SavedDocuments::apply(
     }
   }
 }
+
+///|
+pub extend Catalog with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Catalog with Eq::{equal, not_equal}
+
+///|
+pub extend CatalogEntry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CatalogEntry with Eq::{equal, not_equal}
+
+///|
+pub extend Document with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Document with Eq::{equal, not_equal}
+
+///|
+pub extend DocumentError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DocumentError with Eq::{equal, not_equal}
+
+///|
+pub extend DocumentId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DocumentId with Eq::{equal, not_equal}
+
+///|
+pub extend DocumentId with Hash::{hash, hash_combine}
+
+///|
+pub extend EditingDocumentHint with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EditingDocumentHint with Eq::{equal, not_equal}
+
+///|
+pub extend ReplicaApplyError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReplicaApplyError with Eq::{equal, not_equal}
+
+///|
+pub extend RepositoryChange with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RepositoryChange with Eq::{equal, not_equal}
+
+///|
+pub extend RepositoryIssue with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RepositoryIssue with Eq::{equal, not_equal}
+
+///|
+pub extend SavedDocuments with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SavedDocuments with Eq::{equal, not_equal}

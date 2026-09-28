@@ -23,12 +23,14 @@ pub(all) struct AstGrepMatch {
   pattern_id : String
 } derive(@debug.Debug)
 pub fn AstGrepMatch::AstGrepMatch(byte_start~ : Int, byte_end~ : Int, pattern_id~ : String) -> Self
+pub fn AstGrepMatch::to_repr(Self) -> @debug.Repr
 
 pub(all) struct MatchListEntry {
   from : Int
   to : Int
   pattern_id : String
 } derive(@debug.Debug)
+pub fn MatchListEntry::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

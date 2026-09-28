@@ -1419,3 +1419,33 @@ test "quickcheck delete_range generator covers important shapes" {
   inspect(saw_boundary_delete, content="true")
   inspect(saw_out_of_bounds, content="true")
 }
+
+///|
+pub extend ArbitrarySpliceCase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ArbitrarySpliceShape with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ModelOp with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ModelOp with Eq::{equal, not_equal}
+
+///|
+pub extend NormalizeBoundaryCase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NormalizeBoundaryShape with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend NormalizeBoundaryShape with Eq::{equal, not_equal}
+
+///|
+pub extend OpSequenceCase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend QueryCase with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend QueryCase with Eq::{equal, not_equal}

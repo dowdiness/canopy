@@ -136,3 +136,30 @@ pub impl ToJson for ViewNode with fn to_json(self) {
   )
   Json::object(m)
 }
+
+///|
+pub extend TokenSpan with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TokenSpan with Eq::{equal, not_equal}
+
+///|
+pub extend TokenSpan with ToJson::{to_json}
+
+///|
+pub extend ViewAnnotation with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ViewAnnotation with Eq::{equal, not_equal}
+
+///|
+pub extend ViewAnnotation with ToJson::{to_json}
+
+///|
+pub extend ViewNode with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ViewNode with Eq::{equal, not_equal}
+
+///|
+pub extend ViewNode with ToJson::{to_json}

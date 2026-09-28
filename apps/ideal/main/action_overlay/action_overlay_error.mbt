@@ -17,3 +17,6 @@ pub fn format_overlay_error(err : OverlayError) -> String {
     ApplyActionFailed(msg) => "Apply failed: \{msg}"
   }
 }
+
+///|
+pub extend OverlayError with @moonbitlang/core/debug.Debug::{to_repr}

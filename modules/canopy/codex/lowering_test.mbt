@@ -21,11 +21,11 @@ test "codex lowering: update diff deletes first of two adjacent emoji" {
     #|@@ -1 +1 @@
     #|-🧑🧒
     #|+🧒
-  let intents = unified_diff_to_intents(se.get_text(), diff)
+  let intents = @codex.unified_diff_to_intents(se.get_text(), diff)
   // Apply every lowered intent; the document is correct only if all are
   // accepted by EXACT. `apply...` is the left operand so it always runs.
   let all_accepted = intents.fold(init=true, (ok, intent) => {
-    apply_intent_exact(se, intent, 1) && ok
+    @codex.apply_intent_exact(se, intent, 1) && ok
   })
   assert_true(all_accepted)
   assert_eq(se.get_text(), "🧒")
@@ -44,11 +44,11 @@ test "codex lowering: content line starting with dashes is not a file header" {
     #|@@ -1 +1 @@
     #|----
     #|+***
-  let intents = unified_diff_to_intents(se.get_text(), diff)
+  let intents = @codex.unified_diff_to_intents(se.get_text(), diff)
   // Apply every lowered intent; the document is correct only if all are
   // accepted by EXACT. `apply...` is the left operand so it always runs.
   let all_accepted = intents.fold(init=true, (ok, intent) => {
-    apply_intent_exact(se, intent, 1) && ok
+    @codex.apply_intent_exact(se, intent, 1) && ok
   })
   assert_true(all_accepted)
   assert_eq(se.get_text(), "***")
@@ -80,9 +80,9 @@ test "codex lowering: leading context selects the correct old line" {
     #| a
     #|-b
     #|+c
-  let intents = unified_diff_to_intents(se.get_text(), diff)
+  let intents = @codex.unified_diff_to_intents(se.get_text(), diff)
   let all_accepted = intents.fold(init=true, (ok, intent) => {
-    apply_intent_exact(se, intent, 1) && ok
+    @codex.apply_intent_exact(se, intent, 1) && ok
   })
   assert_true(all_accepted)
   assert_eq(se.get_text(), "a\nc")
@@ -97,7 +97,7 @@ test "codex lowering: stale diff is rejected" {
     #|-foo
     #|+fOO
   let raised = try {
-    let _ = unified_diff_to_intents("bar", diff)
+    let _ = @codex.unified_diff_to_intents("bar", diff)
     false
   } catch {
     _ => true
@@ -116,7 +116,7 @@ test "codex lowering: multi-line update is rejected" {
     #|-b
     #|+y
   let raised = try {
-    let _ = unified_diff_to_intents("a\nb", diff)
+    let _ = @codex.unified_diff_to_intents("a\nb", diff)
     false
   } catch {
     _ => true
@@ -135,7 +135,7 @@ test "codex lowering: EOF-newline marker is rejected" {
     #|+bar
     #|\ No newline at end of file
   let raised = try {
-    let _ = unified_diff_to_intents("foo", diff)
+    let _ = @codex.unified_diff_to_intents("foo", diff)
     false
   } catch {
     _ => true
@@ -156,7 +156,7 @@ test "codex lowering: separated delete/insert is rejected" {
     #| c
     #|+x
   let raised = try {
-    let _ = unified_diff_to_intents("a\nb\nc", diff)
+    let _ = @codex.unified_diff_to_intents("a\nb\nc", diff)
     false
   } catch {
     _ => true
@@ -176,7 +176,7 @@ test "codex lowering: edit targeting an absent line is rejected" {
     #|-
     #|+bar
   let raised = try {
-    let _ = unified_diff_to_intents("foo", diff)
+    let _ = @codex.unified_diff_to_intents("foo", diff)
     false
   } catch {
     _ => true

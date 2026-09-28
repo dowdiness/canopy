@@ -20,6 +20,9 @@ pub struct EditorState {
 } derive(Eq)
 
 ///|
+pub extend EditorState with Eq::{equal, not_equal}
+
+///|
 pub struct EditorEvent {
   priv preview : @preview.Event
 }
@@ -36,6 +39,9 @@ pub(all) enum Mode {
   Preview
   Split
 } derive(Eq)
+
+///|
+pub extend Mode with Eq::{equal, not_equal}
 
 ///|
 pub fn MarkdownEditor::activate(

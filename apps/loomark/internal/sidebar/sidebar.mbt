@@ -2876,3 +2876,38 @@ pub fn[C : @html.IsChildren] sidebar_inset(
     children,
   )
 }
+
+///|
+pub extend SidebarCollapsible with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SidebarCollapsible with Eq::{equal, not_equal}
+
+///|
+pub extend SidebarMenuButtonSize with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SidebarMenuButtonSize with Eq::{equal, not_equal}
+
+///|
+pub extend SidebarMenuButtonVariant with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend SidebarMenuButtonVariant with Eq::{equal, not_equal}
+
+///|
+pub extend SidebarSide with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SidebarSide with Eq::{equal, not_equal}
+
+///|
+pub extend SidebarState with Eq::{equal, not_equal}
+
+///|
+pub extend SidebarVariant with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SidebarVariant with Eq::{equal, not_equal}

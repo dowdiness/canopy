@@ -371,3 +371,54 @@ pub fn CustomEventSubscription::dispose(
 ) -> Unit raise DomBoundaryError {
   dispose_subscription(self.handle)
 }
+
+///|
+pub extend DomAction with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DomAction with Eq::{equal, not_equal}
+
+///|
+pub extend DomBoundaryError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DomBoundaryError with Eq::{equal, not_equal}
+
+///|
+pub extend DomBoundaryError with Show::{output, to_string}
+
+///|
+pub extend DomTarget with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DomTarget with Eq::{equal, not_equal}
+
+///|
+pub extend ElementMeasurement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ElementMeasurement with Eq::{equal, not_equal}
+
+///|
+pub extend ScrollBehavior with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScrollBehavior with Eq::{equal, not_equal}
+
+///|
+pub extend ScrollBlock with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ScrollBlock with Eq::{equal, not_equal}
+
+///|
+pub extend TextSelection with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextSelection with Eq::{equal, not_equal}
+
+///|
+pub extend TextSelectionDirection with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TextSelectionDirection with Eq::{equal, not_equal}

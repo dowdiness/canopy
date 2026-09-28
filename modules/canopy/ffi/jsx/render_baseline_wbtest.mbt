@@ -276,3 +276,9 @@ fn prop_baseline_preserves_reachable_lifecycle_invariants(
 test "property: render baseline preserves reachable lifecycle invariants" {
   @qc.quick_check_fn(prop_baseline_preserves_reachable_lifecycle_invariants)
 }
+
+///|
+pub extend BaselineEvent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend BaselineScenario with @moonbitlang/core/debug.Debug::{to_repr}

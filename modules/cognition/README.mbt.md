@@ -17,13 +17,13 @@ The usual flow is:
 ```mbt check
 ///|
 test "README basic context packing" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/alpha.mbt"), Text("let alpha = 1\n"))
   let _ = store.set_input(FileText("src/beta.mbt"), Text("let beta = 2\n"))
 
   let items = store.pack_context_with_options(
     "explain beta",
-    ContextPackOptions::new(max_items=2),
+    @cognition.ContextPackOptions::new(max_items=2),
   )
 
   inspect(items.length(), content="2")
@@ -50,12 +50,16 @@ otherwise exceed the remaining budget.
 ```mbt check
 ///|
 test "README budgeted context packing" {
-  let store = CognitionStore::new()
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/beta.mbt"), Text("let beta = 2\n"))
 
   let (items, stats) = store.pack_context_with_stats(
     "explain beta",
-    ContextPackOptions::new(max_items=3, max_chars=10, truncate_items=true),
+    @cognition.ContextPackOptions::new(
+      max_items=3,
+      max_chars=10,
+      truncate_items=true,
+    ),
   )
 
   inspect(items.length(), content="1")
@@ -85,11 +89,11 @@ artifact lifetime.
 ```mbt check
 ///|
 test "README custom provider and ranker" {
-  let provider : CognitionProvider = {
+  let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, text) { "summary \{path}: \{text.length()}" },
     repo_summary: fn(items) { "repo => " + items.join(" | ") },
   }
-  let ranker : ContextRanker = {
+  let ranker : @cognition.ContextRanker = {
     score_summary: fn(_query, key) {
       match key {
         FileSummary("src/gamma.mbt") => 10
@@ -105,7 +109,9 @@ test "README custom provider and ranker" {
       }
     },
   }
-  let store = CognitionStore::new_with_provider_and_ranker(provider, ranker)
+  let store = @cognition.CognitionStore::new_with_provider_and_ranker(
+    provider, ranker,
+  )
   let _ = store.set_input(FileText("src/beta.mbt"), Text("beta"))
   let _ = store.set_input(FileText("src/gamma.mbt"), Text("gamma"))
 

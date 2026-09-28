@@ -370,3 +370,15 @@ pub fn extract(source : String) -> DocumentLead {
     None => fallback_lead(source)
   }
 }
+
+///|
+pub extend DocumentLead with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DocumentLead with Eq::{equal, not_equal}
+
+///|
+pub extend DocumentLeadForm with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DocumentLeadForm with Eq::{equal, not_equal}

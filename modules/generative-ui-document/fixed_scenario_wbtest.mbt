@@ -38,8 +38,8 @@ test "fixed transcript preserves exact order and named prefixes" {
   inspect(graph_prefix.length(), content="3")
   inspect(persistence_prefix.length(), content="6")
   inspect(complete_prefix.length(), content="23")
-  inspect(graph_prefix.equal(steps.view(end=3)), content="true")
-  inspect(persistence_prefix.equal(steps.view(end=6)), content="true")
+  inspect(graph_prefix.equal(steps.exact_view(end=3)), content="true")
+  inspect(persistence_prefix.equal(steps.exact_view(end=6)), content="true")
   inspect(complete_prefix.equal(steps), content="true")
 }
 
@@ -71,7 +71,7 @@ test "fixed transcript retains exact draft bytes and operation algebra" {
   inspect(expected.terminal_request_count, content="1")
   inspect(expected.inserted_node_ids.join(","), content="node:Q:0,node:Q:1")
   inspect(
-    expected.draft_bytes.view().equal_to_bytes(b"valid\n<unfinished"),
+    expected.draft_bytes.exact_view().equal_to_bytes(b"valid\n<unfinished"),
     content="true",
   )
   inspect(expected.renderer_baseline, content="1")
@@ -104,7 +104,7 @@ fn prop_named_prefix_selects_exact_transcript_view(
     RequestPersistence => 6
     CompleteTranscript => 23
   }
-  scenario.prefix(checkpoint).equal(scenario.steps().view(end~))
+  scenario.prefix(checkpoint).equal(scenario.steps().exact_view(end~))
 }
 
 ///|

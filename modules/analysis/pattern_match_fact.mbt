@@ -25,3 +25,6 @@ pub fn PatternMatchFact::is_current(
 ) -> Bool {
   self.snapshot.matches(current)
 }
+
+///|
+pub extend PatternMatchFact with @moonbitlang/core/debug.Debug::{to_repr}

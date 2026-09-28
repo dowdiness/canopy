@@ -1342,3 +1342,6 @@ test "reconcile: two fresh subtrees allocate ids in sibling order, post-order wi
   inspect(result.children[1].node_id, content="1002")
   inspect(counter.val, content="1003")
 }
+
+///|
+pub extend TestExprPair with @moonbitlang/core/debug.Debug::{to_repr}

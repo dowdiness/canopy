@@ -234,3 +234,18 @@ pub impl @json.FromJson for UserIntent with fn from_json(json, path) {
       )
   }
 }
+
+///|
+pub extend UserIntent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend UserIntent with @moonbitlang/core/json.FromJson::{from_json}
+
+///|
+pub extend UserIntent with Eq::{equal, not_equal}
+
+///|
+pub extend UserIntent with Show::{output, to_string}
+
+///|
+pub extend UserIntent with ToJson::{to_json}

@@ -2,14 +2,14 @@
 
 ///|
 test "Markdown edit application applies once and returns exact source transforms" {
-  let editor = try! new_editor("internal-markdown-runtime")
+  let editor = try! @markdown_runtime.new_editor("internal-markdown-runtime")
   editor.set_text("# Title\n")
   editor.refresh()
   guard editor.get_proj_node() is Some(proj) && proj.children is [heading] else {
     fail("expected one projected heading")
   }
 
-  let result = apply_edit(
+  let result = @markdown_runtime.apply_edit(
     editor,
     @md_edits.MarkdownEditOp::ChangeHeadingLevel(node_id=heading.id(), level=3),
     0,
@@ -27,7 +27,7 @@ test "Markdown edit application applies once and returns exact source transforms
 
 ///|
 test "Markdown edit application returns an empty trace for a no-op" {
-  let editor = try! new_editor("internal-markdown-no-op")
+  let editor = try! @markdown_runtime.new_editor("internal-markdown-no-op")
   editor.set_text("First\n")
   editor.refresh()
   guard editor.get_proj_node() is Some(proj) && proj.children is [paragraph] else {
@@ -35,7 +35,7 @@ test "Markdown edit application returns an empty trace for a no-op" {
   }
 
   match
-    apply_edit(
+    @markdown_runtime.apply_edit(
       editor,
       @md_edits.MarkdownEditOp::MergeWithPrevious(node_id=paragraph.id()),
       0,
@@ -48,13 +48,13 @@ test "Markdown edit application returns an empty trace for a no-op" {
 
 ///|
 test "Markdown edit application preserves typed lowering errors" {
-  let editor = try! new_editor("internal-markdown-error")
+  let editor = try! @markdown_runtime.new_editor("internal-markdown-error")
   editor.set_text("# Present\n")
   editor.refresh()
   let missing = @core.NodeId::from_int(999999)
 
   match
-    apply_edit(
+    @markdown_runtime.apply_edit(
       editor,
       @md_edits.MarkdownEditOp::ChangeHeadingLevel(node_id=missing, level=2),
       0,
@@ -70,7 +70,7 @@ test "Markdown edit application preserves typed lowering errors" {
 
 ///|
 test "Markdown edit application preserves moved identity across renumbering" {
-  let editor = try! new_editor("internal-markdown-move")
+  let editor = try! @markdown_runtime.new_editor("internal-markdown-move")
   editor.set_text("1. A\n2. B\n3. C\n")
   editor.refresh()
   guard editor.get_proj_node() is Some(before) &&
@@ -80,7 +80,7 @@ test "Markdown edit application preserves moved identity across renumbering" {
   }
 
   match
-    apply_edit(
+    @markdown_runtime.apply_edit(
       editor,
       @md_edits.MarkdownEditOp::MoveBlock(
         source=third.id(),

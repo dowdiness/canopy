@@ -249,3 +249,15 @@ pub fn[T] Model::focus_cmd_within(
     Open(menu~, ..) => menu.focus_cmd_within(root_id~)
   }
 }
+
+///|
+pub extend CollisionStrategy with Eq::{equal, not_equal}
+
+///|
+pub extend Model with Eq::{equal, not_equal}
+
+///|
+pub extend Point with Eq::{equal, not_equal}
+
+///|
+pub extend Positioning with Eq::{equal, not_equal}

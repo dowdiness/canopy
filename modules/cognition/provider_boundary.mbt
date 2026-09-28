@@ -411,3 +411,125 @@ pub fn ProviderStatusDescriptor::classification(
 ) -> ProviderStatusClassification {
   self.status.classification()
 }
+
+///|
+pub extend ProviderDependencyFingerprint with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProviderDependencyFingerprint with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend ProviderDependencyFingerprint with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderDependencyFingerprint with Hash::{hash, hash_combine}
+
+///|
+pub extend ProviderError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProviderError with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderOptionProvenance with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProviderOptionProvenance with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderRequestDescriptor with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProviderRequestDescriptor with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderRequestId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProviderRequestId with Compare::{compare, op_ge, op_gt, op_le, op_lt}
+
+///|
+pub extend ProviderRequestId with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderRequestId with Hash::{hash, hash_combine}
+
+///|
+pub extend ProviderRequestStatus with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProviderRequestStatus with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProviderResult with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderResultDescriptor with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProviderResultDescriptor with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderRetryClassification with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProviderRetryClassification with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderSourceSnapshot with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ProviderSourceSnapshot with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderStatusClassification with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProviderStatusClassification with Eq::{equal, not_equal}
+
+///|
+pub extend ProviderStatusDescriptor with @moonbitlang/core/debug.Debug::{
+  to_repr,
+}
+
+///|
+pub extend ProviderStatusDescriptor with Eq::{equal, not_equal}
+
+///|
+pub extend RedactedOptionIdentity with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RedactedOptionIdentity with Compare::{
+  compare,
+  op_ge,
+  op_gt,
+  op_le,
+  op_lt,
+}
+
+///|
+pub extend RedactedOptionIdentity with Eq::{equal, not_equal}
+
+///|
+pub extend RedactedOptionIdentity with Hash::{hash, hash_combine}

@@ -1,5 +1,6 @@
 import {
   "dowdiness/loomark/app/internal/source_repository",
+  "moonbitlang/core/debug",
 }
 
 supported_targets = "js"

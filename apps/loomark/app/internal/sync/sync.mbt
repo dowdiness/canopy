@@ -448,7 +448,7 @@ fn State::retained_remote_entry(
   guard self.catalog is Bound(catalog) else { return None }
   let entries = catalog.entries
   entries
-  .view()
+  .exact_view()
   .search_by(entry => entry.document_id() == document_id)
   .map(index => entries[index])
 }
@@ -501,7 +501,7 @@ fn merge_catalog(
   for candidate in fresh {
     match
       merged
-      .view()
+      .exact_view()
       .search_by(entry => entry.document_id() == candidate.document_id()) {
       Some(index) if candidate.revision().value() >
         merged[index].revision().value() => merged[index] = candidate
@@ -555,12 +555,12 @@ fn opening_observe_catalog(
   fresh.fold(init=opening, (opening, candidate) => {
     match
       merged
-      .view()
+      .exact_view()
       .search_by(entry => entry.document_id() == candidate.document_id()) {
       Some(index) => {
         let retained = merged[index]
         let previous = old
-          .view()
+          .exact_view()
           .search_by(entry => entry.document_id() == candidate.document_id())
           .map(previous => old[previous])
         if previous == Some(retained) {
@@ -875,7 +875,7 @@ fn State::find_network(
   document_id : @source_repository.DocumentId,
 ) -> Int? {
   self.network
-  .view()
+  .exact_view()
   .search_by(task => task.account == account && task.document_id == document_id)
 }
 
@@ -1514,3 +1514,129 @@ pub fn State::recovery_failed(
   }
   self.replace_network(index, RetryPending(Work::Recover(attempt)))
 }
+
+///|
+pub extend AccountSelection with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend AccountSelection with Eq::{equal, not_equal}
+
+///|
+pub extend Action with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Action with Eq::{equal, not_equal}
+
+///|
+pub extend Activity with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Activity with Eq::{equal, not_equal}
+
+///|
+pub extend DeliveryAttempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeliveryAttempt with Eq::{equal, not_equal}
+
+///|
+pub extend DiscoveryId with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DiscoveryId with Eq::{equal, not_equal}
+
+///|
+pub extend InvalidSession with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidSession with Eq::{equal, not_equal}
+
+///|
+pub extend LogoutAttempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LogoutAttempt with Eq::{equal, not_equal}
+
+///|
+pub extend LookupBlocked with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LookupBlocked with Eq::{equal, not_equal}
+
+///|
+pub extend Observation with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Observation with Eq::{equal, not_equal}
+
+///|
+pub extend OpenAttempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OpenAttempt with Eq::{equal, not_equal}
+
+///|
+pub extend OperationAttempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend OperationAttempt with Eq::{equal, not_equal}
+
+///|
+pub extend ReadAttempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ReadAttempt with Eq::{equal, not_equal}
+
+///|
+pub extend RecoveryAttempt with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend RecoveryAttempt with Eq::{equal, not_equal}
+
+///|
+pub extend Retry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Retry with Eq::{equal, not_equal}
+
+///|
+pub extend SelectionActivity with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SelectionActivity with Eq::{equal, not_equal}
+
+///|
+pub extend SelectionIntent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SelectionIntent with Eq::{equal, not_equal}
+
+///|
+pub extend SelectionRetry with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SelectionRetry with Eq::{equal, not_equal}
+
+///|
+pub extend SelectionStep with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend SelectionStep with Eq::{equal, not_equal}
+
+///|
+pub extend Session with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Session with Eq::{equal, not_equal}
+
+///|
+pub extend State with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend State with Eq::{equal, not_equal}
+
+///|
+pub extend WorkError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend WorkError with Eq::{equal, not_equal}

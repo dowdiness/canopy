@@ -25,15 +25,15 @@ fn default_json_project(
 /// Language whose edit port is stubbed; the guard test overrides `project`
 /// with an always-None projection memo.
 fn stub_lang(
-  edit : (String, EditContext[@djson.JsonValue]) -> EditResult raise @core.EditError,
+  edit : (String, @runtime.EditContext[@djson.JsonValue]) -> @runtime.EditResult raise @core.EditError,
   project? : (@loom.Parser[@djson.JsonValue], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[@djson.JsonValue]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[@djson.JsonValue]]],
     @incr.Derived[@core.SourceMap],
     Unit,
   ) = default_json_project,
-) -> Language[@djson.JsonValue, String, Unit] {
-  Language::Language(
+) -> @runtime.Language[@djson.JsonValue, String, Unit] {
+  @runtime.Language::Language(
     parse=(source_id, source, runtime) => {
       @loom.new_parser(source_id, source, @djson.json_grammar, runtime?)
     },
@@ -92,7 +92,7 @@ test "apply_edit no-edit pin: language raise propagates" {
 
 ///|
 test "apply_edit no-edit pin: NoEdit -> doc untouched" {
-  let lang = stub_lang((_op, _ctx) => EditResult::NoEdit)
+  let lang = stub_lang((_op, _ctx) => @runtime.EditResult::NoEdit)
   let (editor, _) = lang.build("noop-test")
   editor.set_text("42")
   match lang.apply_edit(editor, "StubOp", 0) {
@@ -126,7 +126,7 @@ test "apply_edit hint policy: only resolved InvalidTarget taints pending hints" 
     (op, ctx) => {
       match op {
         "seed" =>
-          EditResult::Edits(
+          @runtime.EditResult::Edits(
             [{ start: 1, delete_len: 1, inserted: "3", }],
             @core.FocusHint::RestoreCursor,
             Some(@core.IdentityTransform::Wrap(inner=ctx.proj_node.id())),
@@ -191,7 +191,7 @@ test "apply_edit hint policy: only resolved InvalidTarget taints pending hints" 
 ///|
 test "apply_edit Edits path: applies spans, returns the patch trace, moves cursor" {
   let lang = stub_lang((_op, _ctx) => {
-    EditResult::Edits(
+    @runtime.EditResult::Edits(
       [{ start: 0, delete_len: 1, inserted: "x", }],
       @core.FocusHint::MoveCursor(position=2),
       None,

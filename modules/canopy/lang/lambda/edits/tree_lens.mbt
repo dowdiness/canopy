@@ -184,3 +184,9 @@ fn insert_child_at(
     new_children,
   )
 }
+
+///|
+pub extend TreeEditOp with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend TreeEditOp with Show::{output, to_string}

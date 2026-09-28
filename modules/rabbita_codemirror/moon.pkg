@@ -5,6 +5,7 @@ import {
   "dowdiness/rabbita_codemirror/js" @js_ffi,
   "dowdiness/rabbita_codemirror/addon/theme",
   "dowdiness/rabbita_codemirror/addon/keymap",
+  "moonbitlang/core/debug",
 }
 
 supported_targets = "js"

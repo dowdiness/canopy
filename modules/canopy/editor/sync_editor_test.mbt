@@ -4,13 +4,16 @@
 // and generic parse-on-edit.
 
 ///|
-fn insert_each(se : SyncEditor[@probe.TestExpr], text : String) -> Unit raise {
+fn insert_each(
+  se : @editor.SyncEditor[@probe.TestExpr],
+  text : String,
+) -> Unit raise {
   se.insert(text)
 }
 
 ///|
 fn insert_each_and_record(
-  se : SyncEditor[@probe.TestExpr],
+  se : @editor.SyncEditor[@probe.TestExpr],
   text : String,
   timestamp_ms : Int,
 ) -> Unit raise {

@@ -418,3 +418,9 @@ fn last_preview(phase : Phase) -> RenderedPreview? {
     Unrequested | Preparing => None
   }
 }
+
+///|
+pub extend Input with Eq::{equal, not_equal}
+
+///|
+pub extend State with Eq::{equal, not_equal}

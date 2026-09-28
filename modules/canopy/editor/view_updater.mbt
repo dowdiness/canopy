@@ -504,3 +504,6 @@ fn diff_view_nodes(
     }
   }
 }
+
+///|
+pub extend ViewUpdateState with @moonbitlang/core/debug.Debug::{to_repr}

@@ -1,6 +1,7 @@
 import {
   "dowdiness/loomark/app/internal/source_repository",
   "dowdiness/loomark/app/internal/replica_persistence",
+  "moonbitlang/core/debug",
 }
 
 supported_targets = "js"

@@ -136,3 +136,9 @@ fn[T] LeafCursor::from_cursor(cursor : Cursor[T]) -> LeafCursor[T] {
     offset: cursor.offset,
   }
 }
+
+///|
+pub extend LeafContext with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Splice with @moonbitlang/core/debug.Debug::{to_repr}

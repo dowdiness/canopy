@@ -240,7 +240,7 @@ fn ScenarioStep::event(self : ScenarioStep) -> FakeShellEvent {
 fn ScenarioStep::expectations(
   self : ScenarioStep,
 ) -> ArrayView[ScenarioObservation] {
-  self.expectations.view()
+  self.expectations.exact_view()
 }
 
 ///|
@@ -304,19 +304,19 @@ fn FixedScenario::FixedScenario(
 
 ///|
 fn FixedScenario::invalid_draft_bytes(self : FixedScenario) -> BytesView {
-  self.invalid_draft_bytes.view()
+  self.invalid_draft_bytes.exact_view()
 }
 
 ///|
 fn FixedScenario::request_batch(
   self : FixedScenario,
 ) -> ArrayView[ScenarioOperation] {
-  self.request_batch.view()
+  self.request_batch.exact_view()
 }
 
 ///|
 fn FixedScenario::steps(self : FixedScenario) -> ArrayView[ScenarioStep] {
-  self.steps.view()
+  self.steps.exact_view()
 }
 
 ///|
@@ -325,9 +325,9 @@ fn FixedScenario::prefix(
   checkpoint : ScenarioCheckpoint,
 ) -> ArrayView[ScenarioStep] {
   match checkpoint {
-    GraphOperations => self.steps.view(end=3)
-    RequestPersistence => self.steps.view(end=6)
-    CompleteTranscript => self.steps.view()
+    GraphOperations => self.steps.exact_view(end=3)
+    RequestPersistence => self.steps.exact_view(end=6)
+    CompleteTranscript => self.steps.exact_view()
   }
 }
 

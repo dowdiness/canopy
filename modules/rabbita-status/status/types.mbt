@@ -17,3 +17,6 @@ fn Tone::data_value(self : Tone) -> String {
     Error => "error"
   }
 }
+
+///|
+pub extend Tone with Eq::{equal, not_equal}

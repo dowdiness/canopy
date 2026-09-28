@@ -24,53 +24,97 @@ pub(all) suberror DeletionUnavailable {
   AlreadyDeleting
   AlreadyDeleted
 } derive(Eq, @debug.Debug)
+pub fn DeletionUnavailable::equal(Self, Self) -> Bool
+pub fn DeletionUnavailable::not_equal(Self, Self) -> Bool
+pub fn DeletionUnavailable::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror DocumentError {
   InvalidIdentity
 } derive(Eq, @debug.Debug)
+pub fn DocumentError::equal(Self, Self) -> Bool
+pub fn DocumentError::not_equal(Self, Self) -> Bool
+pub fn DocumentError::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror InvalidAccountId derive(Eq, @debug.Debug)
+pub fn InvalidAccountId::equal(Self, Self) -> Bool
+pub fn InvalidAccountId::not_equal(Self, Self) -> Bool
+pub fn InvalidAccountId::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror InvalidOperationId derive(Eq, @debug.Debug)
+pub fn InvalidOperationId::equal(Self, Self) -> Bool
+pub fn InvalidOperationId::not_equal(Self, Self) -> Bool
+pub fn InvalidOperationId::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror InvalidRecoveryId derive(Eq, @debug.Debug)
+pub fn InvalidRecoveryId::equal(Self, Self) -> Bool
+pub fn InvalidRecoveryId::not_equal(Self, Self) -> Bool
+pub fn InvalidRecoveryId::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror InvalidReplica derive(Eq, @debug.Debug)
+pub fn InvalidReplica::equal(Self, Self) -> Bool
+pub fn InvalidReplica::not_equal(Self, Self) -> Bool
+pub fn InvalidReplica::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror InvalidRevision derive(Eq, @debug.Debug)
+pub fn InvalidRevision::equal(Self, Self) -> Bool
+pub fn InvalidRevision::not_equal(Self, Self) -> Bool
+pub fn InvalidRevision::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror ReceiptMismatch {
   NoPendingOperation
   OperationMismatch
   RevisionMismatch
 } derive(Eq, @debug.Debug)
+pub fn ReceiptMismatch::equal(Self, Self) -> Bool
+pub fn ReceiptMismatch::not_equal(Self, Self) -> Bool
+pub fn ReceiptMismatch::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror ReplicaApplyError {
   StaleReplica
   StorageKeyConflict
   InvalidReplicaWrite
 } derive(Eq, @debug.Debug)
+pub fn ReplicaApplyError::equal(Self, Self) -> Bool
+pub fn ReplicaApplyError::not_equal(Self, Self) -> Bool
+pub fn ReplicaApplyError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub struct AccountId(String) derive(Eq, Hash, @debug.Debug)
+pub fn AccountId::equal(Self, Self) -> Bool
+pub fn AccountId::hash(Self) -> Int
+pub fn AccountId::hash_combine(Self, Hasher) -> Unit
+pub fn AccountId::not_equal(Self, Self) -> Bool
 pub fn AccountId::parse(String) -> Self raise InvalidAccountId
+pub fn AccountId::to_repr(Self) -> @debug.Repr
 pub fn AccountId::value(Self) -> String
 
 pub struct Catalog(Array[CatalogEntry]) derive(Eq, @debug.Debug)
 pub fn Catalog::entries(Self) -> ArrayView[CatalogEntry]
+pub fn Catalog::equal(Self, Self) -> Bool
+pub fn Catalog::not_equal(Self, Self) -> Bool
+pub fn Catalog::to_repr(Self) -> @debug.Repr
 
 type CatalogEntry derive(Eq, @debug.Debug)
 pub fn CatalogEntry::document_id(Self) -> DocumentId
+pub fn CatalogEntry::equal(Self, Self) -> Bool
 pub fn CatalogEntry::name(Self) -> String
+pub fn CatalogEntry::not_equal(Self, Self) -> Bool
+pub fn CatalogEntry::to_repr(Self) -> @debug.Repr
 
 pub(all) enum CreateFailure {
   DocumentIdentityUnavailable
 } derive(Eq, @debug.Debug)
+pub fn CreateFailure::equal(Self, Self) -> Bool
+pub fn CreateFailure::not_equal(Self, Self) -> Bool
+pub fn CreateFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) enum CreateResult {
   Created(DocumentId)
   CreateFailed(CreateFailure)
 } derive(Eq, @debug.Debug)
+pub fn CreateResult::equal(Self, Self) -> Bool
+pub fn CreateResult::not_equal(Self, Self) -> Bool
+pub fn CreateResult::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DeleteFailure {
   InvalidSource
@@ -78,32 +122,52 @@ pub(all) enum DeleteFailure {
   QuotaExceeded
   WriteFailed
 } derive(Eq, @debug.Debug)
+pub fn DeleteFailure::equal(Self, Self) -> Bool
+pub fn DeleteFailure::not_equal(Self, Self) -> Bool
+pub fn DeleteFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DeleteResult {
   Deleted(DocumentId)
   DeleteFailed(DeleteFailure)
 } derive(Eq, @debug.Debug)
+pub fn DeleteResult::equal(Self, Self) -> Bool
+pub fn DeleteResult::not_equal(Self, Self) -> Bool
+pub fn DeleteResult::to_repr(Self) -> @debug.Repr
 
 pub struct DeletingReplica {
   document : Document
   baseline : LiveBaseline
   phase : DeletionPhase
 } derive(Eq, @debug.Debug)
+pub fn DeletingReplica::equal(Self, Self) -> Bool
+pub fn DeletingReplica::not_equal(Self, Self) -> Bool
+pub fn DeletingReplica::to_repr(Self) -> @debug.Repr
 
 pub enum DeletionPhase {
   Ready
   ResolvingSave(PendingOperation)
   Sending(PendingOperation)
 } derive(Eq, @debug.Debug)
+pub fn DeletionPhase::equal(Self, Self) -> Bool
+pub fn DeletionPhase::not_equal(Self, Self) -> Bool
+pub fn DeletionPhase::to_repr(Self) -> @debug.Repr
 
 pub struct Document(DocumentId, String) derive(Eq, @debug.Debug)
 pub fn Document::create(DocumentId, String) -> Self
+pub fn Document::equal(Self, Self) -> Bool
 pub fn Document::id(Self) -> DocumentId
+pub fn Document::not_equal(Self, Self) -> Bool
 pub fn Document::text(Self) -> String
+pub fn Document::to_repr(Self) -> @debug.Repr
 pub fn Document::update(Self, String) -> Self
 
 pub struct DocumentId(String) derive(Eq, Hash, @debug.Debug)
+pub fn DocumentId::equal(Self, Self) -> Bool
+pub fn DocumentId::hash(Self) -> Int
+pub fn DocumentId::hash_combine(Self, Hasher) -> Unit
+pub fn DocumentId::not_equal(Self, Self) -> Bool
 pub fn DocumentId::parse(String) -> Self raise DocumentError
+pub fn DocumentId::to_repr(Self) -> @debug.Repr
 pub fn DocumentId::value(Self) -> String
 
 pub struct DocumentReplica {
@@ -121,11 +185,13 @@ pub fn DocumentReplica::directive(Self) -> ReplicaDirective
 pub fn DocumentReplica::document(Self) -> Document?
 pub fn DocumentReplica::document_id(Self) -> DocumentId
 pub fn DocumentReplica::edit(Self, String) -> EditPlan
+pub fn DocumentReplica::equal(Self, Self) -> Bool
 pub fn DocumentReplica::fork(Self, DocumentId) -> ReplicaWrite raise InvalidRecoveryId
 pub fn DocumentReplica::generation(Self) -> Double
 pub fn DocumentReplica::is_deleted(Self) -> Bool
 pub fn DocumentReplica::is_deleting(Self) -> Bool
 pub fn DocumentReplica::live(Self) -> LiveReplica?
+pub fn DocumentReplica::not_equal(Self, Self) -> Bool
 pub fn DocumentReplica::observed_revision(Self) -> Double
 pub fn DocumentReplica::open(Self, SavedRevision) -> OpenStep
 pub fn DocumentReplica::promote_source(Self) -> ReplicaWrite
@@ -139,20 +205,30 @@ pub fn DocumentReplica::remote_update(Self) -> RemoteUpdate?
 pub fn DocumentReplica::request_deletion(Self) -> ReplicaWrite raise DeletionUnavailable
 pub fn DocumentReplica::rewrite(Self) -> ReplicaWrite
 pub fn DocumentReplica::store(Self) -> ReplicaWrite
+pub fn DocumentReplica::to_repr(Self) -> @debug.Repr
 
 pub enum EditPlan {
   Unchanged
   Unavailable
   Persist(ReplicaWrite)
 } derive(Eq, @debug.Debug)
+pub fn EditPlan::equal(Self, Self) -> Bool
+pub fn EditPlan::not_equal(Self, Self) -> Bool
+pub fn EditPlan::to_repr(Self) -> @debug.Repr
 
 pub struct EditingDocumentHint(DocumentId) derive(Eq, @debug.Debug)
+pub fn EditingDocumentHint::equal(Self, Self) -> Bool
+pub fn EditingDocumentHint::not_equal(Self, Self) -> Bool
 pub fn EditingDocumentHint::remember(Self) -> @cmd.Cmd
+pub fn EditingDocumentHint::to_repr(Self) -> @debug.Repr
 
 pub enum LiveBaseline {
   Unpublished
   Saved(SavedRevision, String)
 } derive(Eq, @debug.Debug)
+pub fn LiveBaseline::equal(Self, Self) -> Bool
+pub fn LiveBaseline::not_equal(Self, Self) -> Bool
+pub fn LiveBaseline::to_repr(Self) -> @debug.Repr
 
 pub enum LivePhase {
   Ready
@@ -160,23 +236,35 @@ pub enum LivePhase {
   Available(RemoteDocument)
   Diverged(RemoteDocument)
 } derive(Eq, @debug.Debug)
+pub fn LivePhase::equal(Self, Self) -> Bool
+pub fn LivePhase::not_equal(Self, Self) -> Bool
+pub fn LivePhase::to_repr(Self) -> @debug.Repr
 
 pub struct LiveReplica {
   document : Document
   baseline : LiveBaseline
   phase : LivePhase
 } derive(Eq, @debug.Debug)
+pub fn LiveReplica::equal(Self, Self) -> Bool
+pub fn LiveReplica::not_equal(Self, Self) -> Bool
 pub fn LiveReplica::relation(Self, String, RemoteKnowledge) -> Relation
+pub fn LiveReplica::to_repr(Self) -> @debug.Repr
 
 pub(all) enum OpenFailure {
   StorageUnavailable
   ReadFailed
 } derive(Eq, @debug.Debug)
+pub fn OpenFailure::equal(Self, Self) -> Bool
+pub fn OpenFailure::not_equal(Self, Self) -> Bool
+pub fn OpenFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) enum OpenResult {
   Ready(SavedDocuments, Document?)
   OpenFailed(OpenFailure)
 } derive(Eq, @debug.Debug)
+pub fn OpenResult::equal(Self, Self) -> Bool
+pub fn OpenResult::not_equal(Self, Self) -> Bool
+pub fn OpenResult::to_repr(Self) -> @debug.Repr
 
 pub(all) enum OpenStep {
   Ready
@@ -184,22 +272,34 @@ pub(all) enum OpenStep {
   AwaitSync
   Unavailable
 } derive(Eq, @debug.Debug)
+pub fn OpenStep::equal(Self, Self) -> Bool
+pub fn OpenStep::not_equal(Self, Self) -> Bool
+pub fn OpenStep::to_repr(Self) -> @debug.Repr
 
 pub struct OperationDraft {
   replica : DocumentReplica
   content : PendingContent
 } derive(Eq, @debug.Debug)
 pub fn OperationDraft::content(Self) -> PendingContent
+pub fn OperationDraft::equal(Self, Self) -> Bool
+pub fn OperationDraft::not_equal(Self, Self) -> Bool
 pub fn OperationDraft::start(Self, OperationId) -> ReplicaWrite
+pub fn OperationDraft::to_repr(Self) -> @debug.Repr
 
 pub struct OperationId(String) derive(Eq, @debug.Debug)
+pub fn OperationId::equal(Self, Self) -> Bool
+pub fn OperationId::not_equal(Self, Self) -> Bool
 pub fn OperationId::parse(String) -> Self raise InvalidOperationId
+pub fn OperationId::to_repr(Self) -> @debug.Repr
 pub fn OperationId::value(Self) -> String
 
 pub(all) enum PendingContent {
   Save(String)
   Delete
 } derive(Eq, @debug.Debug)
+pub fn PendingContent::equal(Self, Self) -> Bool
+pub fn PendingContent::not_equal(Self, Self) -> Bool
+pub fn PendingContent::to_repr(Self) -> @debug.Repr
 
 pub struct PendingOperation {
   operation_id : OperationId
@@ -208,14 +308,23 @@ pub struct PendingOperation {
 } derive(Eq, @debug.Debug)
 pub fn PendingOperation::base_revision(Self) -> Double
 pub fn PendingOperation::content(Self) -> PendingContent
+pub fn PendingOperation::equal(Self, Self) -> Bool
+pub fn PendingOperation::not_equal(Self, Self) -> Bool
 pub fn PendingOperation::operation_id(Self) -> OperationId
+pub fn PendingOperation::to_repr(Self) -> @debug.Repr
 
 pub enum ReconcilePlan {
   Unchanged
   Persist(ReplicaWrite)
 } derive(Eq, @debug.Debug)
+pub fn ReconcilePlan::equal(Self, Self) -> Bool
+pub fn ReconcilePlan::not_equal(Self, Self) -> Bool
+pub fn ReconcilePlan::to_repr(Self) -> @debug.Repr
 
 pub struct RecoveryIdentity(Document) derive(Eq, @debug.Debug)
+pub fn RecoveryIdentity::equal(Self, Self) -> Bool
+pub fn RecoveryIdentity::not_equal(Self, Self) -> Bool
+pub fn RecoveryIdentity::to_repr(Self) -> @debug.Repr
 
 pub(all) enum Relation {
   Current
@@ -226,6 +335,9 @@ pub(all) enum Relation {
   DeletedRemotely
   Unavailable
 } derive(Eq, @debug.Debug)
+pub fn Relation::equal(Self, Self) -> Bool
+pub fn Relation::not_equal(Self, Self) -> Bool
+pub fn Relation::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RemoteDocument {
   Missing
@@ -233,30 +345,45 @@ pub(all) enum RemoteDocument {
   Deleted(SavedRevision)
 } derive(Eq, @debug.Debug)
 pub fn RemoteDocument::entry(Self, DocumentId) -> RemoteEntry?
+pub fn RemoteDocument::equal(Self, Self) -> Bool
+pub fn RemoteDocument::not_equal(Self, Self) -> Bool
 pub fn RemoteDocument::revision(Self) -> Double
+pub fn RemoteDocument::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RemoteEntry {
   Present(DocumentId, SavedRevision, String)
   Deleted(DocumentId, SavedRevision)
 } derive(Eq, @debug.Debug)
 pub fn RemoteEntry::document_id(Self) -> DocumentId
+pub fn RemoteEntry::equal(Self, Self) -> Bool
 pub fn RemoteEntry::head(Self) -> RemoteHead
+pub fn RemoteEntry::not_equal(Self, Self) -> Bool
 pub fn RemoteEntry::revision(Self) -> SavedRevision
+pub fn RemoteEntry::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RemoteHead {
   Present(SavedRevision)
   Deleted(SavedRevision)
 } derive(Eq, @debug.Debug)
+pub fn RemoteHead::equal(Self, Self) -> Bool
+pub fn RemoteHead::not_equal(Self, Self) -> Bool
+pub fn RemoteHead::to_repr(Self) -> @debug.Repr
 
 pub struct RemoteKnowledge(RemoteHead?) derive(Eq, @debug.Debug)
+pub fn RemoteKnowledge::equal(Self, Self) -> Bool
 pub fn RemoteKnowledge::head(Self) -> RemoteHead?
+pub fn RemoteKnowledge::not_equal(Self, Self) -> Bool
+pub fn RemoteKnowledge::to_repr(Self) -> @debug.Repr
 
 pub struct RemoteUpdate {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn RemoteUpdate::accept(Self) -> ReplicaWrite
+pub fn RemoteUpdate::equal(Self, Self) -> Bool
 pub fn RemoteUpdate::head(Self) -> RemoteHead
+pub fn RemoteUpdate::not_equal(Self, Self) -> Bool
 pub fn RemoteUpdate::remote(Self) -> RemoteDocument
+pub fn RemoteUpdate::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ReplicaDirective {
   Synchronized
@@ -265,6 +392,9 @@ pub(all) enum ReplicaDirective {
   UpdateAvailable(RemoteDocument)
   RecoveryRequired
 } derive(Eq, @debug.Debug)
+pub fn ReplicaDirective::equal(Self, Self) -> Bool
+pub fn ReplicaDirective::not_equal(Self, Self) -> Bool
+pub fn ReplicaDirective::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ReplicaFailure {
   InvalidReplica
@@ -272,12 +402,18 @@ pub(all) enum ReplicaFailure {
   QuotaExceeded
   WriteFailed
 } derive(Eq, @debug.Debug)
+pub fn ReplicaFailure::equal(Self, Self) -> Bool
+pub fn ReplicaFailure::not_equal(Self, Self) -> Bool
+pub fn ReplicaFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ReplicaState {
   Live(LiveReplica)
   Deleting(DeletingReplica)
   Tombstone(SavedRevision)
 } derive(Eq, @debug.Debug)
+pub fn ReplicaState::equal(Self, Self) -> Bool
+pub fn ReplicaState::not_equal(Self, Self) -> Bool
+pub fn ReplicaState::to_repr(Self) -> @debug.Repr
 
 pub enum ReplicaWrite {
   Store(DocumentReplica)
@@ -286,13 +422,19 @@ pub enum ReplicaWrite {
   PromoteSource(DocumentReplica)
 } derive(Eq, @debug.Debug)
 pub fn ReplicaWrite::coalesce(Self, Self) -> Self
+pub fn ReplicaWrite::equal(Self, Self) -> Bool
+pub fn ReplicaWrite::not_equal(Self, Self) -> Bool
 pub fn ReplicaWrite::recovery(Self) -> Document?
 pub fn ReplicaWrite::replica(Self) -> DocumentReplica
+pub fn ReplicaWrite::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RepositoryChange {
   Stored(Document)
   Deleted(DocumentId)
 } derive(Eq, @debug.Debug)
+pub fn RepositoryChange::equal(Self, Self) -> Bool
+pub fn RepositoryChange::not_equal(Self, Self) -> Bool
+pub fn RepositoryChange::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
@@ -302,6 +444,9 @@ pub(all) enum RepositoryIssue {
   UnsupportedRecord(String)
   UnsupportedKey(Int)
 } derive(Eq, @debug.Debug)
+pub fn RepositoryIssue::equal(Self, Self) -> Bool
+pub fn RepositoryIssue::not_equal(Self, Self) -> Bool
+pub fn RepositoryIssue::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SaveFailure {
   InvalidSource
@@ -309,11 +454,17 @@ pub(all) enum SaveFailure {
   QuotaExceeded
   WriteFailed
 } derive(Eq, @debug.Debug)
+pub fn SaveFailure::equal(Self, Self) -> Bool
+pub fn SaveFailure::not_equal(Self, Self) -> Bool
+pub fn SaveFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SaveResult {
   Stored(Document)
   SaveFailed(SaveFailure)
 } derive(Eq, @debug.Debug)
+pub fn SaveResult::equal(Self, Self) -> Bool
+pub fn SaveResult::not_equal(Self, Self) -> Bool
+pub fn SaveResult::to_repr(Self) -> @debug.Repr
 
 pub struct SavedDocuments {
   documents : Array[Document]
@@ -330,15 +481,21 @@ pub fn SavedDocuments::apply_replica_write(Self, ReplicaWrite) -> Self raise Rep
 pub fn SavedDocuments::apply_sync_start(Self, DocumentReplica) -> Self?
 pub fn SavedDocuments::catalog(Self) -> Catalog
 pub fn SavedDocuments::editing_document_hint(Self, DocumentId) -> EditingDocumentHint?
+pub fn SavedDocuments::equal(Self, Self) -> Bool
 pub fn SavedDocuments::find(Self, DocumentId) -> Document?
 pub fn SavedDocuments::from_documents(Array[Document]) -> Self?
 pub fn SavedDocuments::issues(Self) -> ArrayView[RepositoryIssue]
+pub fn SavedDocuments::not_equal(Self, Self) -> Bool
 pub fn SavedDocuments::replica(Self, AccountId, DocumentId) -> DocumentReplica?
 pub fn SavedDocuments::replicas(Self) -> ArrayView[DocumentReplica]
 pub fn SavedDocuments::replicas_for(Self, AccountId) -> Array[DocumentReplica]
+pub fn SavedDocuments::to_repr(Self) -> @debug.Repr
 
 pub struct SavedRevision(Double) derive(Eq, @debug.Debug)
+pub fn SavedRevision::equal(Self, Self) -> Bool
+pub fn SavedRevision::not_equal(Self, Self) -> Bool
 pub fn SavedRevision::parse(Double) -> Self raise InvalidRevision
+pub fn SavedRevision::to_repr(Self) -> @debug.Repr
 pub fn SavedRevision::value(Self) -> Double
 
 // Type aliases

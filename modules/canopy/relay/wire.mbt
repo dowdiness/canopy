@@ -41,7 +41,7 @@ fn encode_peer_control(sub_type : Byte, peer_id : String) -> Bytes {
 /// dropped frame.
 fn read_relay_string(data : Bytes, offset : Int) -> (String, Int)? {
   let reader = Reader::new(
-    data.view(start=offset, end=data.length()).to_owned(),
+    data.exact_view(start=offset, end=data.length()).to_owned(),
   )
   let s = read_string(reader) catch { _ => return None }
   Some((s, offset + reader.pos))
@@ -63,7 +63,7 @@ fn wrap_with_sender(
   write_string(buf, sender)
   if payload_offset < data.length() {
     buf.write_bytes(
-      data.view(start=payload_offset, end=data.length()).to_owned(),
+      data.exact_view(start=payload_offset, end=data.length()).to_owned(),
     )
   }
   buf.to_bytes()

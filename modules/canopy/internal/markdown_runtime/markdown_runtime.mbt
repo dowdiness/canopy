@@ -372,3 +372,21 @@ fn is_hidden_sentinel(block : @markdown.Block) -> Bool {
     _ => false
   }
 }
+
+///|
+pub extend PortableCommit with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PortableCommit with Eq::{equal, not_equal}
+
+///|
+pub extend PortableCommitEvidence with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PortableCommitEvidence with Eq::{equal, not_equal}
+
+///|
+pub extend PortableCommitIssue with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PortableCommitIssue with Eq::{equal, not_equal}

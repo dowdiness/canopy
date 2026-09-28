@@ -79,17 +79,26 @@ pub(all) enum SidebarCollapsible {
   SidebarIcon
   SidebarFixed
 } derive(Eq, @debug.Debug)
+pub fn SidebarCollapsible::equal(Self, Self) -> Bool
+pub fn SidebarCollapsible::not_equal(Self, Self) -> Bool
+pub fn SidebarCollapsible::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SidebarMenuButtonSize {
   SidebarMenuSm
   SidebarMenuDefault
   SidebarMenuLg
 } derive(Eq, @debug.Debug)
+pub fn SidebarMenuButtonSize::equal(Self, Self) -> Bool
+pub fn SidebarMenuButtonSize::not_equal(Self, Self) -> Bool
+pub fn SidebarMenuButtonSize::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SidebarMenuButtonVariant {
   SidebarMenuButtonDefault
   SidebarMenuButtonOutline
 } derive(Eq, @debug.Debug)
+pub fn SidebarMenuButtonVariant::equal(Self, Self) -> Bool
+pub fn SidebarMenuButtonVariant::not_equal(Self, Self) -> Bool
+pub fn SidebarMenuButtonVariant::to_repr(Self) -> @debug.Repr
 
 pub enum SidebarMessage {
   ToggleSidebarCollapsed
@@ -124,18 +133,26 @@ pub(all) enum SidebarSide {
   SidebarLeft
   SidebarRight
 } derive(Eq, @debug.Debug)
+pub fn SidebarSide::equal(Self, Self) -> Bool
+pub fn SidebarSide::not_equal(Self, Self) -> Bool
+pub fn SidebarSide::to_repr(Self) -> @debug.Repr
 
 pub struct SidebarState {
   collapsed : Bool
   mobile_open : Bool
   desktop_width : Int?
 } derive(Eq)
+pub fn SidebarState::equal(Self, Self) -> Bool
+pub fn SidebarState::not_equal(Self, Self) -> Bool
 
 pub(all) enum SidebarVariant {
   SidebarDefault
   SidebarFloating
   SidebarInset
 } derive(Eq, @debug.Debug)
+pub fn SidebarVariant::equal(Self, Self) -> Bool
+pub fn SidebarVariant::not_equal(Self, Self) -> Bool
+pub fn SidebarVariant::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

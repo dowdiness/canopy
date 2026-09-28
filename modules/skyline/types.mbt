@@ -107,3 +107,27 @@ fn checked_top(y : Int, height : Int) -> Int raise PackError {
   guard y <= @int.MAX_VALUE - height else { raise CoordinateOverflow }
   y + height
 }
+
+///|
+pub extend PackError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PackError with Eq::{equal, not_equal}
+
+///|
+pub extend PackResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PackResult with Eq::{equal, not_equal}
+
+///|
+pub extend Placement with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Placement with Eq::{equal, not_equal}
+
+///|
+pub extend Size with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Size with Eq::{equal, not_equal}

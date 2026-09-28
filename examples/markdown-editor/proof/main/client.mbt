@@ -106,13 +106,12 @@ fn update(
         @cmd.batch([obsolete, current]),
       )
     }
-    NativeEdit(generation, input) => {
+    NativeEdit(generation, input) =>
       match area.admit(input) {
         None => (model, @cmd.none)
         Some(change) =>
           update(model, Edit(generation, change), emit, first, second)
       }
-    }
     Edit(generation, change) => {
       guard generation == model.generation else { return (model, @cmd.none) }
       if model.reject_next {

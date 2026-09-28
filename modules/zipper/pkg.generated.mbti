@@ -17,6 +17,11 @@ pub(all) struct RoseCtx[T] {
   right : @list.List[RoseNode[T]]
   index : Int
 } derive(Eq, @debug.Debug)
+pub fn[T : Eq] RoseCtx::equal(Self[T], Self[T]) -> Bool
+pub fn[T : Eq] RoseCtx::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] RoseCtx::output(Self[T], &Logger) -> Unit
+pub fn[T : @debug.Debug] RoseCtx::to_repr(Self[T]) -> @debug.Repr
+pub fn[T : @debug.Debug] RoseCtx::to_string(Self[T]) -> String
 pub impl[T : @debug.Debug] Show for RoseCtx[T]
 
 pub(all) struct RoseNode[T] {
@@ -24,7 +29,12 @@ pub(all) struct RoseNode[T] {
   children : Array[RoseNode[T]]
 } derive(Eq, @debug.Debug)
 pub fn[T] RoseNode::RoseNode(data~ : T, children? : Array[Self[T]]) -> Self[T]
+pub fn[T : Eq] RoseNode::equal(Self[T], Self[T]) -> Bool
 pub fn[T, U] RoseNode::map(Self[T], (T) -> U raise?) -> Self[U] raise?
+pub fn[T : Eq] RoseNode::not_equal(Self[T], Self[T]) -> Bool
+pub fn[T : @debug.Debug] RoseNode::output(Self[T], &Logger) -> Unit
+pub fn[T : @debug.Debug] RoseNode::to_repr(Self[T]) -> @debug.Repr
+pub fn[T : @debug.Debug] RoseNode::to_string(Self[T]) -> String
 pub impl[T : @debug.Debug] Show for RoseNode[T]
 
 pub(all) struct RoseZipper[T] {
@@ -34,6 +44,7 @@ pub(all) struct RoseZipper[T] {
 } derive(Eq, @debug.Debug)
 pub fn[T] RoseZipper::child_index(Self[T]) -> Int?
 pub fn[T] RoseZipper::depth(Self[T]) -> Int
+pub fn[T : Eq] RoseZipper::equal(Self[T], Self[T]) -> Bool
 pub fn[T] RoseZipper::focus_at(RoseNode[T], Array[Int]) -> Self[T]?
 pub fn[T] RoseZipper::from_root(RoseNode[T]) -> Self[T]
 pub fn[T] RoseZipper::go_down(Self[T], index? : Int) -> Self[T]?
@@ -43,9 +54,13 @@ pub fn[T] RoseZipper::go_up(Self[T]) -> Self[T]?
 pub fn[T] RoseZipper::is_leaf(Self[T]) -> Bool
 pub fn[T] RoseZipper::is_root(Self[T]) -> Bool
 pub fn[T] RoseZipper::modify(Self[T], (RoseNode[T]) -> RoseNode[T]) -> Self[T]
+pub fn[T : Eq] RoseZipper::not_equal(Self[T], Self[T]) -> Bool
 pub fn[T] RoseZipper::num_children(Self[T]) -> Int
+pub fn[T : @debug.Debug] RoseZipper::output(Self[T], &Logger) -> Unit
 pub fn[T] RoseZipper::replace(Self[T], RoseNode[T]) -> Self[T]
 pub fn[T] RoseZipper::to_path(Self[T]) -> Array[Int]
+pub fn[T : @debug.Debug] RoseZipper::to_repr(Self[T]) -> @debug.Repr
+pub fn[T : @debug.Debug] RoseZipper::to_string(Self[T]) -> String
 pub fn[T] RoseZipper::to_tree(Self[T]) -> RoseNode[T]
 pub impl[T : @debug.Debug] Show for RoseZipper[T]
 

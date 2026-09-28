@@ -8,9 +8,9 @@ test "from_ast_grep_matches converts byte offsets to UTF-16" {
     version=1,
     source~,
   )
-  let facts = from_ast_grep_matches(
+  let facts = @analysis_bridge.from_ast_grep_matches(
     [
-      AstGrepMatch::AstGrepMatch(
+      @analysis_bridge.AstGrepMatch::AstGrepMatch(
         byte_start=3,
         byte_end=9,
         pattern_id="cjk-ident",
@@ -33,8 +33,14 @@ test "from_ast_grep_matches preserves snapshot" {
     version=7,
     source~,
   )
-  let facts = from_ast_grep_matches(
-    [AstGrepMatch::AstGrepMatch(byte_start=0, byte_end=3, pattern_id="lam")],
+  let facts = @analysis_bridge.from_ast_grep_matches(
+    [
+      @analysis_bridge.AstGrepMatch::AstGrepMatch(
+        byte_start=0,
+        byte_end=3,
+        pattern_id="lam",
+      ),
+    ],
     source,
     snap,
   )
@@ -50,6 +56,6 @@ test "from_ast_grep_matches empty input" {
     version=1,
     source~,
   )
-  let facts = from_ast_grep_matches([], source, snap)
+  let facts = @analysis_bridge.from_ast_grep_matches([], source, snap)
   inspect(facts.length(), content="0")
 }

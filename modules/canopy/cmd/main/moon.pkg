@@ -8,7 +8,6 @@ import {
 }
 
 import {
-  "dowdiness/diagnostic",
 } for "wbtest"
 
 pkgtype(kind: "executable")

@@ -1,6 +1,6 @@
 ///|
 test "eval_term: simple module with arithmetic" {
-  let results = eval_term(
+  let results = @eval.eval_term(
     @ast.Term::Module(
       [
         ("x", @ast.Term::Int(5)),
@@ -17,7 +17,7 @@ test "eval_term: simple module with arithmetic" {
 
 ///|
 test "eval_term: unbound variable is Stuck" {
-  let results = eval_term(@ast.Term::Var("missing"))
+  let results = @eval.eval_term(@ast.Term::Var("missing"))
   inspect(results.length(), content="1")
   inspect(
     results[0],
@@ -29,21 +29,21 @@ test "eval_term: unbound variable is Stuck" {
 
 ///|
 test "eval_term: hole is Suppressed" {
-  let results = eval_term(@ast.Term::Hole(0))
+  let results = @eval.eval_term(@ast.Term::Hole(0))
   inspect(results.length(), content="1")
   inspect(results[0], content="Suppressed")
 }
 
 ///|
 test "eval_term: parse error is Suppressed" {
-  let results = eval_term(@ast.Term::Error("bad"))
+  let results = @eval.eval_term(@ast.Term::Error("bad"))
   inspect(results.length(), content="1")
   inspect(results[0], content="Suppressed")
 }
 
 ///|
 test "eval_term: closure renders correctly" {
-  let results = eval_term(
+  let results = @eval.eval_term(
     @ast.Term::Module(
       [("f", @ast.Term::Lam("x", @ast.Term::Var("x")))],
       @ast.Term::Var("f"),
@@ -69,7 +69,7 @@ test "eval_term: divergence is Stuck" {
       @ast.Term::App(@ast.Term::Var("x"), @ast.Term::Var("x")),
     ),
   )
-  let results = eval_term(omega)
+  let results = @eval.eval_term(omega)
   inspect(
     results[0],
     content=(
@@ -80,7 +80,7 @@ test "eval_term: divergence is Stuck" {
 
 ///|
 test "eval_term: first def fails, rest suppressed" {
-  let results = eval_term(
+  let results = @eval.eval_term(
     @ast.Term::Module(
       [
         ("a", @ast.Term::Var("missing")),
@@ -104,6 +104,6 @@ test "eval_term: first def fails, rest suppressed" {
 
 ///|
 test "eval_term: unit value" {
-  let results = eval_term(@ast.Term::Unit)
+  let results = @eval.eval_term(@ast.Term::Unit)
   inspect(results[0], content="Value(\"()\")")
 }

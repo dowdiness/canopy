@@ -4,7 +4,7 @@ test "heading then paragraph → SectionIntro" {
     @md.Block::Heading(1, [@md.Inline::Text("Title")]),
     @md.Block::Paragraph([@md.Inline::Text("Introduction")]),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map[1], content="RuleBased(SectionIntro)")
   inspect(map[0], content="Unknown")
 }
@@ -15,7 +15,7 @@ test "first paragraph → Abstract" {
     @md.Block::Paragraph([@md.Inline::Text("Opening paragraph")]),
     @md.Block::Paragraph([@md.Inline::Text("Second paragraph")]),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map[0], content="RuleBased(Abstract)")
   inspect(map[1], content="Unknown")
 }
@@ -28,7 +28,7 @@ test "paragraph before code block → CodeExplanation" {
     @md.Block::Paragraph([@md.Inline::Text("Here is the code:")]),
     @md.Block::CodeBlock("moonbit", "let x = 1"),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map[1], content="RuleBased(SectionIntro)")
   inspect(map[2], content="RuleBased(CodeExplanation)")
 }
@@ -42,7 +42,7 @@ test "list after heading → KeyPoints" {
       @md.Block::UnorderedListItem([@md.Inline::Text("Safe")]),
     ]),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map[1], content="RuleBased(KeyPoints)")
 }
 
@@ -58,7 +58,7 @@ test "ordered list after heading → KeyPoints" {
       None,
     ),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map[1], content="RuleBased(KeyPoints)")
 }
 
@@ -69,21 +69,21 @@ test "SectionIntro takes priority over CodeExplanation" {
     @md.Block::Paragraph([@md.Inline::Text("After heading and before code")]),
     @md.Block::CodeBlock("", "x = 1"),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map[1], content="RuleBased(SectionIntro)")
 }
 
 ///|
 test "non-Document input → empty array" {
   let block = @md.Block::Paragraph([@md.Inline::Text("just a paragraph")])
-  let map = annotate_symbolic(block)
+  let map = @semantic.annotate_symbolic(block)
   inspect(map.length(), content="0")
 }
 
 ///|
 test "empty document → empty array" {
   let doc = @md.Block::Document([])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map.length(), content="0")
 }
 
@@ -93,7 +93,7 @@ test "heading first, paragraph later → no Abstract" {
     @md.Block::Heading(1, [@md.Inline::Text("Title")]),
     @md.Block::Paragraph([@md.Inline::Text("This is not Abstract")]),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   // Not index 0, so not Abstract. After heading, so SectionIntro.
   inspect(map[1], content="RuleBased(SectionIntro)")
   inspect(map[0], content="Unknown")
@@ -113,7 +113,7 @@ test "mixed document — full annotation" {
     @md.Block::Paragraph([@md.Inline::Text("Code explanation")]),
     @md.Block::CodeBlock("moonbit", "fn main {}"),
   ])
-  let map = annotate_symbolic(doc)
+  let map = @semantic.annotate_symbolic(doc)
   inspect(map[0], content="RuleBased(Abstract)")
   inspect(map[1], content="Unknown")
   inspect(map[2], content="RuleBased(SectionIntro)")

@@ -20,6 +20,9 @@ pub(all) suberror StoreError {
   InvalidMutation
   InvalidStoredData
 } derive(Eq, @debug.Debug)
+pub fn StoreError::equal(Self, Self) -> Bool
+pub fn StoreError::not_equal(Self, Self) -> Bool
+pub fn StoreError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 pub enum CommitResult {

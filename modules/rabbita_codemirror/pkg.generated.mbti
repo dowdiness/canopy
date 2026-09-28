@@ -46,14 +46,20 @@ pub struct ChangeDelta {
   to : Int
   insert : String
 } derive(Eq, @debug.Debug)
+pub fn ChangeDelta::equal(Self, Self) -> Bool
 pub fn ChangeDelta::new(Int, Int, String) -> Self
+pub fn ChangeDelta::not_equal(Self, Self) -> Bool
+pub fn ChangeDelta::to_repr(Self) -> @debug.Repr
 
 pub struct ChangeEvent {
   changes : Array[ChangeDelta]
   doc : String
   source_version : String
 } derive(Eq, @debug.Debug)
+pub fn ChangeEvent::equal(Self, Self) -> Bool
 pub fn ChangeEvent::new(Array[ChangeDelta], String, source_version? : String) -> Self
+pub fn ChangeEvent::not_equal(Self, Self) -> Bool
+pub fn ChangeEvent::to_repr(Self) -> @debug.Repr
 
 pub struct SelRange {
   from : Int

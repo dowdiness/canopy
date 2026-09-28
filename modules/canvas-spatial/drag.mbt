@@ -57,3 +57,15 @@ pub fn[Id] Drag::positions_at(
 pub fn[Id] Drag::initial_ids(self : Drag[Id]) -> Array[Id] {
   self.initial_positions.map(item => item.id)
 }
+
+///|
+pub extend Drag with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Drag with Eq::{equal, not_equal}
+
+///|
+pub extend ItemPosition with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend ItemPosition with Eq::{equal, not_equal}

@@ -178,3 +178,18 @@ fn key_term(
     Hole(index) => (KHole(index), next)
   }
 }
+
+///|
+pub extend AlphaKey with Eq::{equal, not_equal}
+
+///|
+pub extend AlphaKey with Hash::{hash, hash_combine}
+
+///|
+pub extend AlphaKeyRef with Eq::{equal, not_equal}
+
+///|
+pub extend AlphaKeyRef with Hash::{hash, hash_combine}
+
+///|
+pub extend AlphaKeyRepr with Eq::{equal, not_equal}

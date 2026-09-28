@@ -393,3 +393,24 @@ fn EphemeralStore::remove_outdated_at(
     self.subs = filter_ephemeral_subs(self.subs, event)
   }
 }
+
+///|
+pub extend EphemeralEventTrigger with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EphemeralEventTrigger with Eq::{equal, not_equal}
+
+///|
+pub extend EphemeralEventTrigger with Show::{output, to_string}
+
+///|
+pub extend EphemeralStoreEvent with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EphemeralValue with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EphemeralValue with Eq::{equal, not_equal}
+
+///|
+pub extend EphemeralValue with Show::{output, to_string}

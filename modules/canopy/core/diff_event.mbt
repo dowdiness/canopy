@@ -46,3 +46,9 @@ pub fn to_structured_changes(
     }
   })
 }
+
+///|
+pub extend ReconcileTraceEvent with Eq::{equal, not_equal}
+
+///|
+pub extend StructuredChange with Eq::{equal, not_equal}

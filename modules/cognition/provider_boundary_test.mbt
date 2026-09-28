@@ -1,6 +1,6 @@
 ///|
-fn provider_boundary_revision_for_test() -> Revision {
-  let store = CognitionStore::new()
+fn provider_boundary_revision_for_test() -> @cognition.Revision {
+  let store = @cognition.CognitionStore::new()
   let _ = store.set_input(FileText("src/a.mbt"), Text("alpha"))
   store.current_revision()
 }
@@ -8,9 +8,9 @@ fn provider_boundary_revision_for_test() -> Revision {
 ///|
 fn provider_boundary_context_item(
   path : String,
-  revision : Revision,
+  revision : @cognition.Revision,
   payload : String,
-) -> ContextItem {
+) -> @cognition.ContextItem {
   {
     source: FileSummary(path),
     source_revision: revision,
@@ -20,12 +20,12 @@ fn provider_boundary_context_item(
 }
 
 ///|
-fn provider_boundary_options_for_test() -> ProviderOptionProvenance {
-  ProviderOptionProvenance::new(
+fn provider_boundary_options_for_test() -> @cognition.ProviderOptionProvenance {
+  @cognition.ProviderOptionProvenance::new(
     task_kind="summarize",
     provider_id="mock-provider",
     model_id="mock-model",
-    option_identity=RedactedOptionIdentity::new(
+    option_identity=@cognition.RedactedOptionIdentity::new(
       "temperature=<redacted>;max=128",
     ),
   )
@@ -34,21 +34,24 @@ fn provider_boundary_options_for_test() -> ProviderOptionProvenance {
 ///|
 test "provider request descriptor carries pure provenance" {
   let revision = provider_boundary_revision_for_test()
-  let request_id = ProviderRequestId::new("req-1")
-  let fingerprint = ProviderDependencyFingerprint::new("deps:repo,a")
+  let request_id = @cognition.ProviderRequestId::new("req-1")
+  let fingerprint = @cognition.ProviderDependencyFingerprint::new("deps:repo,a")
   let options = provider_boundary_options_for_test()
-  let context : Array[ContextItem] = [
+  let context : Array[@cognition.ContextItem] = [
     provider_boundary_context_item("src/a.mbt", revision, "alpha summary"),
   ]
-  let source_revisions : Array[ProviderSourceSnapshot] = [
-    ProviderSourceSnapshot::new(key=FileSummary("src/a.mbt"), revision~),
+  let source_revisions : Array[@cognition.ProviderSourceSnapshot] = [
+    @cognition.ProviderSourceSnapshot::new(
+      key=FileSummary("src/a.mbt"),
+      revision~,
+    ),
   ]
-  let dependencies : Array[CognitionKey] = [
+  let dependencies : Array[@cognition.CognitionKey] = [
     RepoSummary,
     FileSummary("src/a.mbt"),
   ]
 
-  let request = ProviderRequestDescriptor::new(
+  let request = @cognition.ProviderRequestDescriptor::new(
     id=request_id,
     target=QueryContext("explain alpha"),
     options~,
@@ -60,7 +63,10 @@ test "provider request descriptor carries pure provenance" {
 
   context.push(provider_boundary_context_item("src/b.mbt", revision, "beta"))
   source_revisions.push(
-    ProviderSourceSnapshot::new(key=FileSummary("src/b.mbt"), revision~),
+    @cognition.ProviderSourceSnapshot::new(
+      key=FileSummary("src/b.mbt"),
+      revision~,
+    ),
   )
   dependencies.push(FileSummary("src/b.mbt"))
 
@@ -86,40 +92,51 @@ test "provider request descriptor carries pure provenance" {
 ///|
 test "provider result descriptor copies result payloads and derives status" {
   let revision = provider_boundary_revision_for_test()
-  let request_id = ProviderRequestId::new("req-2")
-  let fingerprint = ProviderDependencyFingerprint::new("deps:context")
+  let request_id = @cognition.ProviderRequestId::new("req-2")
+  let fingerprint = @cognition.ProviderDependencyFingerprint::new(
+    "deps:context",
+  )
   let options = provider_boundary_options_for_test()
-  let payload_items : Array[ContextItem] = [
+  let payload_items : Array[@cognition.ContextItem] = [
     provider_boundary_context_item("src/a.mbt", revision, "alpha summary"),
   ]
-  let source_revisions : Array[ProviderSourceSnapshot] = [
-    ProviderSourceSnapshot::new(key=FileSummary("src/a.mbt"), revision~),
+  let source_revisions : Array[@cognition.ProviderSourceSnapshot] = [
+    @cognition.ProviderSourceSnapshot::new(
+      key=FileSummary("src/a.mbt"),
+      revision~,
+    ),
   ]
 
-  let result = ProviderResultDescriptor::new(
+  let result = @cognition.ProviderResultDescriptor::new(
     request_id~,
     target=PackedContext("explain alpha", 1),
     options~,
     source_revisions~,
     dependency_fingerprint=fingerprint,
-    result=ProviderResult::Succeeded(ContextItems(payload_items)),
+    result=@cognition.ProviderResult::Succeeded(ContextItems(payload_items)),
   )
 
   payload_items.push(
     provider_boundary_context_item("src/b.mbt", revision, "beta"),
   )
   source_revisions.push(
-    ProviderSourceSnapshot::new(key=FileSummary("src/b.mbt"), revision~),
+    @cognition.ProviderSourceSnapshot::new(
+      key=FileSummary("src/b.mbt"),
+      revision~,
+    ),
   )
 
   inspect(result.request_id() == request_id, content="true")
   inspect(result.target() == PackedContext("explain alpha", 1), content="true")
   inspect(result.source_revisions().length(), content="1")
   inspect(result.dependency_fingerprint().to_string(), content="deps:context")
-  inspect(result.status() == ProviderRequestStatus::Succeeded, content="true")
+  inspect(
+    result.status() == @cognition.ProviderRequestStatus::Succeeded,
+    content="true",
+  )
 
   match result.result() {
-    ProviderResult::Succeeded(ContextItems(items)) => {
+    @cognition.ProviderResult::Succeeded(ContextItems(items)) => {
       inspect(items.length(), content="1")
       items.push(
         provider_boundary_context_item("external.mbt", revision, "external"),
@@ -128,7 +145,7 @@ test "provider result descriptor copies result payloads and derives status" {
     _ => fail("expected successful context result")
   }
   match result.result() {
-    ProviderResult::Succeeded(ContextItems(items)) =>
+    @cognition.ProviderResult::Succeeded(ContextItems(items)) =>
       inspect(items.length(), content="1")
     _ => fail("expected successful context result")
   }
@@ -137,79 +154,84 @@ test "provider result descriptor copies result payloads and derives status" {
 ///|
 test "provider errors expose retry classification" {
   inspect(
-    ProviderError::Timeout.retry_classification() ==
-    ProviderRetryClassification::RetryableLater(retry_after_ms=None),
+    @cognition.ProviderError::Timeout.retry_classification() ==
+    @cognition.ProviderRetryClassification::RetryableLater(retry_after_ms=None),
     content="true",
   )
   inspect(
-    ProviderError::RateLimited(retry_after_ms=Some(250)).retry_classification() ==
-    ProviderRetryClassification::RetryableLater(retry_after_ms=Some(250)),
+    @cognition.ProviderError::RateLimited(retry_after_ms=Some(250)).retry_classification() ==
+    @cognition.ProviderRetryClassification::RetryableLater(
+      retry_after_ms=Some(250),
+    ),
     content="true",
   )
   inspect(
-    ProviderError::Network(message="offline").retry_classification() ==
-    ProviderRetryClassification::RetryableLater(retry_after_ms=None),
+    @cognition.ProviderError::Network(message="offline").retry_classification() ==
+    @cognition.ProviderRetryClassification::RetryableLater(retry_after_ms=None),
     content="true",
   )
   inspect(
-    ProviderError::Auth.retry_classification() ==
-    ProviderRetryClassification::TerminalUntilConfigurationChanges,
+    @cognition.ProviderError::Auth.retry_classification() ==
+    @cognition.ProviderRetryClassification::TerminalUntilConfigurationChanges,
     content="true",
   )
   inspect(
-    ProviderError::UnsupportedModel(model_id="mock-missing").retry_classification() ==
-    ProviderRetryClassification::TerminalUntilConfigurationChanges,
+    @cognition.ProviderError::UnsupportedModel(model_id="mock-missing").retry_classification() ==
+    @cognition.ProviderRetryClassification::TerminalUntilConfigurationChanges,
     content="true",
   )
   inspect(
-    ProviderError::ProviderRejected(message="refused").retry_classification() ==
-    ProviderRetryClassification::TerminalForRequest,
+    @cognition.ProviderError::ProviderRejected(message="refused").retry_classification() ==
+    @cognition.ProviderRetryClassification::TerminalForRequest,
     content="true",
   )
   inspect(
-    ProviderError::BudgetExceeded.retry_classification() ==
-    ProviderRetryClassification::TerminalForRequest,
+    @cognition.ProviderError::BudgetExceeded.retry_classification() ==
+    @cognition.ProviderRetryClassification::TerminalForRequest,
     content="true",
   )
   inspect(
-    ProviderError::Cancelled.retry_classification() ==
-    ProviderRetryClassification::CallerInitiated,
+    @cognition.ProviderError::Cancelled.retry_classification() ==
+    @cognition.ProviderRetryClassification::CallerInitiated,
     content="true",
   )
   inspect(
-    ProviderError::StaleCompletion.retry_classification() ==
-    ProviderRetryClassification::GraphConsistency,
+    @cognition.ProviderError::StaleCompletion.retry_classification() ==
+    @cognition.ProviderRetryClassification::GraphConsistency,
     content="true",
   )
 }
 
 ///|
 test "provider status descriptor classifies status without scheduling" {
-  let request_id = ProviderRequestId::new("req-3")
-  let pending = ProviderStatusDescriptor::new(
+  let request_id = @cognition.ProviderRequestId::new("req-3")
+  let pending = @cognition.ProviderStatusDescriptor::new(
     request_id~,
     target=RepoSummary,
-    status=ProviderRequestStatus::Pending,
+    status=@cognition.ProviderRequestStatus::Pending,
   )
-  let failed = ProviderStatusDescriptor::new(
+  let failed = @cognition.ProviderStatusDescriptor::new(
     request_id~,
     target=RepoSummary,
-    status=ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+    status=@cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::StaleCompletion,
+    ),
   )
 
   inspect(
-    ProviderRequestStatus::Planned.classification() ==
-    ProviderStatusClassification::NotStarted,
+    @cognition.ProviderRequestStatus::Planned.classification() ==
+    @cognition.ProviderStatusClassification::NotStarted,
     content="true",
   )
   inspect(
-    pending.classification() == ProviderStatusClassification::InFlight,
+    pending.classification() ==
+    @cognition.ProviderStatusClassification::InFlight,
     content="true",
   )
   inspect(
     failed.classification() ==
-    ProviderStatusClassification::Failed(
-      ProviderRetryClassification::GraphConsistency,
+    @cognition.ProviderStatusClassification::Failed(
+      @cognition.ProviderRetryClassification::GraphConsistency,
     ),
     content="true",
   )
@@ -217,7 +239,9 @@ test "provider status descriptor classifies status without scheduling" {
   inspect(failed.target() == RepoSummary, content="true")
   inspect(
     failed.status() ==
-    ProviderRequestStatus::Failed(ProviderError::StaleCompletion),
+    @cognition.ProviderRequestStatus::Failed(
+      @cognition.ProviderError::StaleCompletion,
+    ),
     content="true",
   )
 }
