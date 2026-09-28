@@ -35,9 +35,9 @@ than duplicating its globs.
 | `release-version-validation` | Path-filtered Ubuntu release-contract syntax and regression tests for version resolution, changelog ranges, and remote target resolution |
 | `test-main` | setup-moonbit registry bootstrap, `./scripts/check-agent-doc-links.sh`, `./scripts/run-moon-module.sh check modules/canopy`, `./scripts/run-moon-module.sh test modules/canopy`, `moon build --release` |
 | `test-submodules` | Matrix over `deps/event-graph-walker`, `deps/loom/loom`, `deps/svg-dsl`, `deps/graphviz` — each runs `./scripts/run-moon-module.sh ci <path>` |
-| `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas` — each runs `./scripts/run-moon-module.sh ci <path>` |
+| `test-examples` | Matrix over `apps/ideal`, `apps/block-editor`, `apps/canvas`, `examples/codemirror` — each runs `./scripts/run-moon-module.sh ci-lenient <path>` from its own module root |
 | `prove` | `moon prove` in `modules/semantic/proof` after installing Why3 1.7.2 + Z3 via opam (cached) |
-| `benchmark` | PR only: `moon bench --release` at the root and in `deps/event-graph-walker` |
+| `benchmark` | PR only: selected Canopy package benchmarks on the PR and base branches, plus the editor-response performance gate when affected |
 | `format-check` | `./scripts/check-agent-doc-links.sh`, `./scripts/check-documentation-lifecycle.sh`, `NEW_MOON_MOD=0 moon fmt`, and a diff check that rejects Canopy-owned formatting changes |
 | `build-js` | setup-moonbit registry bootstrap, `./scripts/build-js.sh`; uploads the generated JS/d.ts/mbti artifacts listed below |
 | `web-build` | Default Waku build plus TypeScript/boundary checks for `apps/web`, then the ProseMirror typecheck |
@@ -84,9 +84,12 @@ Retention: default for the workflow (7 days at time of writing — check
 
 ### `benchmark.yml`
 
-Runs on pull requests. Compares benchmark output against the merge base and
-posts the comparison as a PR comment. Reports are also uploaded as artifacts.
-The comparison covers the root module and `event-graph-walker`.
+Runs on pull requests. Measures selected Canopy packages against the base
+branch; the comparison gate checks that both runs completed, not whether the
+numbers regressed. The PR comment contains the completion status and a link to
+the workflow run's `benchmark-comparison` artifact. That artifact retains the
+full comparison and raw output for 30 days. The editor-response performance
+gate separately enforces its response-time budget.
 
 ### `deploy-cloudflare.yml`
 

@@ -13,6 +13,14 @@ changes use their applicable lightweight contracts. See
 `lefthook.yml` and the
 `hook-*` recipes in `justfile` for the local gate.
 
+For compiler, core, or dependency upgrades, check each affected independent
+MoonBit module from its own root, not only the repository workspace. Use
+`./scripts/run-moon-module.sh ci-lenient <module-dir>` for the example modules
+in the [CI matrix](../CI_CD.md#ciyml); it runs `moon check --deny-warn` with the
+documented vendored-warning exemption followed by release tests. For a
+Canopy-owned warning migration, also run `moon check --deny-warn` from the
+affected module root to detect warnings outside the root workspace check.
+
 Do not run workspace checks after every file edit or run MoonBit tests for
 pure documentation changes. Repeat validation when changes or failures make
 previous evidence stale. Full workspace builds and browser E2E belong to
