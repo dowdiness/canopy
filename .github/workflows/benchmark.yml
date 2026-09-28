@@ -322,6 +322,13 @@ jobs:
           script: |
             const fs = require('fs');
             const comparison = fs.readFileSync('comparison.md', 'utf8');
+            // Keep the PR comment below GitHub's 65,536-character limit. The
+            // complete comparison and raw outputs remain in the run artifact.
+            const reportStart = comparison.indexOf('### Main Module Benchmarks');
+            if (reportStart < 0) throw new Error('Benchmark report summary missing');
+            const summary = comparison.slice(0, reportStart);
+            const reportUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts`;
+            const body = `${summary}Full output: [benchmark-comparison artifact](${reportUrl}) (retained 30 days).`;
 
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -339,14 +346,14 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: botComment.id,
-                body: comparison
+                body
               });
             } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: comparison
+                body
               });
             }
 
