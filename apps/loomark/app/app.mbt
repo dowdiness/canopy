@@ -34,7 +34,11 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
         @sub.on_key_down(key => {
-          if key.key() == "Escape" { emit(EscapePressed) } else { @cmd.none }
+          if key.key() == "Escape" {
+            emit(EscapePressed)
+          } else {
+            @cmd.none
+          }
         }),
         page_restore_subscription(emit(PageRestored)),
         lead_subscriptions(current.page, emit),
@@ -162,7 +166,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let document_remote = model.map(document_remote_state)
   let document_activity = model.map(document_sync_activity)
   let selection = model.map(selection_activity)
-  let account_view = account.view(account_status_section)
+  let account_view = account.view(account => {
+    account_status_section(account, emit)
+  })
   let durability_view = durability.view(durability => {
     local_durability_option_view(durability)
   })
@@ -185,17 +191,22 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     durability_view, replica_persistence_view, document_sync_view, document_remote_view,
     document_activity_view, selection_view, sync_status_view,
   )
-  let sync_attention = model.view(model => {
-    match document_remote_state(model) {
+  let sync_attention = model.map(model => {
+    let persistence = document_replica_persistence(model)
+    let attention = match document_remote_state(model) {
       Some(@documents.RemoteState::UpdateAvailable(action)) =>
         sync_status_button("Open update", AcceptRemote(action), emit)
       Some(@documents.RemoteState::DeletionAvailable(action)) =>
-        sync_status_button("Remove deleted document", AcceptRemote(action), emit)
+        sync_status_button(
+          "Remove deleted document",
+          AcceptRemote(action),
+          emit,
+        )
       Some(@documents.RemoteState::Diverged) => sync_status_label("Conflict")
       Some(@documents.RemoteState::DeletedRemotely) =>
         sync_status_label("Deletion pending")
       _ =>
-        match document_replica_persistence(model) {
+        match persistence {
           Some(@replica_persistence.Status::Retryable(action, _)) =>
             sync_status_button("Retry saving", RetrySaving(action), emit)
           _ =>
@@ -206,6 +217,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
             }
         }
     }
+    (attention, persistence)
   })
   let membership = page.map(document_membership)
   let remote_seeds = remote_documents.map2(membership, remote_document_seeds)
@@ -273,12 +285,18 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
     (sidebar, layout) => {
       let (
-        (page, editor_panels, (sync_status, sync_attention), dialog, recent_navigation),
+        (
+          page,
+          editor_panels,
+          (sync_status, (sync_attention, persistence)),
+          dialog,
+          recent_navigation,
+        ),
         account,
       ) = layout
       view(
         sidebar, page, account, emit, editor_panels, sync_status, sync_attention,
-        dialog, recent_navigation,
+        persistence, dialog, recent_navigation,
       )
     },
   )

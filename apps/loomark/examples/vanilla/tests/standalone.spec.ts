@@ -1023,6 +1023,38 @@ test("an absent account endpoint does not imply signed out or interrupt local ed
   await expect(page.getByRole("button", { name: "Check account connection" })).toHaveCount(1)
 })
 
+test("failed document discovery can be retried without reloading or signing out", async ({ page }) => {
+  let available = false
+  let discoveries = 0
+  await page.route("**/api/account", route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ id: "account-a", name: "Account A" }),
+  }))
+  await page.route("**/api/documents", route => {
+    discoveries += 1
+    return route.fulfill(available ? {
+      contentType: "application/json",
+      body: JSON.stringify({
+        documents: [{
+          id: fixtureDocumentId("recovered"), revision: 1,
+          deleted: false, preview: "Recovered remote",
+        }],
+        next: null,
+      }),
+    } : { status: 503 })
+  })
+  await page.goto("/")
+  await expect.poll(() => discoveries).toBe(1)
+  await page.getByRole("button", { name: "More actions" }).click()
+  const retry = page.locator(".loomark-menu").getByRole("button", { name: "Retry document connection" })
+  await expect(retry).toBeVisible()
+  available = true
+  await retry.click()
+  await expect.poll(() => discoveries).toBe(2)
+  await expect(page.getByRole("complementary", { name: "Documents" })
+    .getByRole("button", { name: "Recovered remote", exact: true })).toBeVisible()
+})
+
 test("Google sign-in waits for committed local text before preparing the redirect", async ({ page }) => {
   await page.route("**/api/account", route => route.fulfill({ status: 401 }))
   const provider = "https://accounts.google.com/o/oauth2/v2/auth?state=departure-test"
@@ -1098,6 +1130,7 @@ historyTest("Back from Google restores editing and refreshes the account from BF
     ;(globalThis as typeof globalThis & { __historyTextArea?: Element })
       .__historyTextArea = element
   })
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect(page).toHaveURL(provider)
   signedIn = true
@@ -1133,6 +1166,7 @@ test("failed departure save unlocks editing and retries persistence before OAuth
   await page.evaluate(installDocumentPutFailure, sourceKey(document.document_id))
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.fill("# Keep this despite failure\n")
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect(page.getByRole("button", { name: "Retry sign-in" })).toBeVisible()
   await expect(editor).toBeEnabled()
@@ -1272,6 +1306,7 @@ test("account refresh holds an OAuth result until signed-out status is confirmed
     body: "<title>Authorization destination</title>",
   }))
   await page.goto("/")
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
@@ -1316,6 +1351,7 @@ test("an old successful OAuth response cannot bypass a newer pending save", asyn
     state.__loomarkDelayedCommitHeld = true
   })
   const editor = page.getByRole("textbox", { name: "Text" })
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect.poll(() => loginRequests).toBe(1)
   // Deliver an edit accepted before the departure lock, but queued behind it.
@@ -1534,6 +1570,35 @@ test("account replica edits persist without creating a Source copy", async ({ pa
     .toBeUndefined()
 })
 
+test("Replica write failure changes the save indicator until retry succeeds", async ({ page }) => {
+  const accountId = "account-a"
+  const document = { document_id: fixtureDocumentId("failed-replica"), text: "# Synced\n" }
+  const key = replicaKey(accountId, document.document_id)
+  await page.route("**/api/account", route => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ id: accountId, name: "Account A" }),
+  }))
+  await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
+  await page.goto("/")
+  await replaceStoreRecords(page, [{ key, value: encodeReadyReplica(accountId, document) }])
+  await page.reload()
+  await page.getByRole("complementary", { name: "Documents" })
+    .getByRole("button", { name: "Synced", exact: true }).click()
+  const text = page.getByRole("textbox", { name: "Text" })
+  const indicator = page.locator(".loomark-save-status")
+  await expect(text).toHaveValue(document.text)
+  await expect(indicator).toHaveAttribute("title", "Saved on this device")
+  await page.evaluate(installDocumentPutFailure, key)
+  await text.fill("# Edited\n")
+  await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible()
+  await expect(indicator).toHaveAttribute("title", "Not saved")
+  await page.evaluate(removeDocumentPutFailure)
+  await page.getByRole("button", { name: "Retry saving", exact: true }).click()
+  await expect.poll(async () => replicaCurrentText(await readStoredDocumentRaw(page, key)))
+    .toBe("# Edited\n")
+  await expect(indicator).toHaveAttribute("title", "Saved on this device")
+})
+
 test("duplicate leads select and delete by Document ID", async ({ page }) => {
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# Same\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# Same\n" }
@@ -1595,7 +1660,7 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
   await page.getByRole("button", { name: "B", exact: true }).click()
   await expect.poll(async () => (await order())[0]).toBe("Imported\ntext")
 
-  await page.getByRole("button", { name: "New document" }).click()
+  await page.locator("#loomark-editor").getByRole("button", { name: "New document" }).click()
   await expect(text).toHaveValue("")
   await text.fill("# New promotion\n")
   await expect.poll(async () => (await order())[0]).toBe("New promotion")
@@ -1744,7 +1809,7 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
 
   const documents = page.getByRole("complementary", { name: "Documents" })
   await page.evaluate(installStoreMutationLog)
-  await page.getByRole("button", { name: "New document" }).click()
+  await page.locator("#loomark-editor").getByRole("button", { name: "New document" }).click()
   await expect.poll(() => readStoredDocuments(page).then(documents => documents.length)).toBe(1)
   expect(await readStoreMutationLog(page)).toEqual([])
   const after = await readStoredDocuments(page)
@@ -2059,7 +2124,7 @@ test("Square-pen New control creates a document", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const text = page.getByRole("textbox", { name: "Text" })
-  const newDocument = page.getByRole("button", { name: "New document" })
+  const newDocument = page.locator("#loomark-editor").getByRole("button", { name: "New document" })
   await text.fill("# Existing\n")
   await expect(newDocument).toBeEnabled()
 
@@ -2708,7 +2773,7 @@ test("exact acknowledged revert avoids a redundant Source write", async ({ page 
     }
   })
 
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.locator("#loomark-editor").getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(2_250)
   expect(await readDocumentPutLog(page)).toEqual([])
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
@@ -3100,7 +3165,7 @@ test("active failure after acknowledged revert restores truthful Saved", async (
   ))).toBe(true)
 
   await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.locator("#loomark-editor").getByRole("button", { name: "New document" })).toBeEnabled()
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
 })
@@ -3366,7 +3431,7 @@ test("1 MiB exact Saved comparison stays within 10 ms", async ({ page }) => {
   const sorted = [...durations].sort((left, right) => left - right)
   expect(sorted[Math.ceil(sorted.length * 0.95) - 1]).toBeLessThanOrEqual(10)
   expect(sorted[sorted.length - 1]).toBeLessThanOrEqual(10)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.locator("#loomark-editor").getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(350)
   expect(await readDocumentPutLog(page)).toEqual([])
 })

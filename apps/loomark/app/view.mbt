@@ -34,7 +34,9 @@ fn mode_tab(
     title=name,
     class="loomark-mode-button",
     attrs=@html.Attrs::build().aria_label(name),
-    style=["width:2.25rem;height:2.25rem;min-height:2.25rem;flex:none;padding:0"],
+    style=[
+      "width:2.25rem;height:2.25rem;min-height:2.25rem;flex:none;padding:0",
+    ],
     icon,
   )
 }
@@ -75,14 +77,18 @@ fn sync_status_button(
 }
 
 ///|
-fn account_status_view(status : AccountStatus) -> @rabbita.Html {
+fn account_status_view(
+  status : AccountStatus,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
   match status {
     Checking => sync_status_label("Checking account", compact="Checking")
     SignedOut => sync_status_label("Signed out")
     SignedIn(name) => sync_status_label(name)
     SigningOut(name) | SignOutUnconfirmed(name) => sync_status_label(name)
     Unavailable => @html.nothing
-    SyncUnavailable => sync_status_label("Sync unavailable")
+    SyncUnavailable =>
+      sync_status_button("Retry document connection", RetryAccount, emit)
   }
 }
 
@@ -98,6 +104,7 @@ fn local_durability_view(durability : LocalDurability) -> @rabbita.Html {
 ///|
 fn save_indicator(
   status : @documents.SaveStatus?,
+  persistence : @replica_persistence.Status?,
   ephemeral_new : Bool,
 ) -> @rabbita.Html {
   if status is None || (status is Some(Clean) && ephemeral_new) {
@@ -105,6 +112,8 @@ fn save_indicator(
   }
   let (label, icon) = match status {
     Some(@documents.SaveStatus::SaveFailed(_)) =>
+      ("Not saved", @view.unsaved_icon("block size-4"))
+    Some(@documents.SaveStatus::Unsaved) if persistence is Some(Retryable(_, _)) =>
       ("Not saved", @view.unsaved_icon("block size-4"))
     Some(@documents.SaveStatus::Unsaved) =>
       ("Saving on this device", @view.saving_icon("block size-4"))
@@ -244,7 +253,10 @@ fn activity_option_view(
 }
 
 ///|
-fn account_status_section(account : AccountStatus) -> @rabbita.Html {
+fn account_status_section(
+  account : AccountStatus,
+  emit : @rabbita.Emit[Msg],
+) -> @rabbita.Html {
   @html.div(
     class=match account {
       SignedIn(_) => "contents max-[820px]:hidden"
@@ -256,8 +268,10 @@ fn account_status_section(account : AccountStatus) -> @rabbita.Html {
       | SyncUnavailable => "contents"
     },
     [
-      account_status_view(account),
-      if account is Unavailable { @html.nothing } else {
+      account_status_view(account, emit),
+      if account is Unavailable {
+        @html.nothing
+      } else {
         @html.span(
           class="text-lm-rule max-[641px]:hidden",
           attrs=@html.Attrs::build().aria_hidden("true"),
@@ -358,7 +372,11 @@ fn mode_bar(
         type_="button",
         class="loomark-icon",
         title="New document",
-        attrs=@html.Attrs::build().aria_label("New document").disabled(!editing.can_activate() || account.departure.editor_disabled()),
+        attrs=@html.Attrs::build()
+          .aria_label("New document")
+          .disabled(
+            !editing.can_activate() || account.departure.editor_disabled(),
+          ),
         on_click=emit(CreateRequested),
         @view.square_pen_icon("block size-4"),
       ),
@@ -366,20 +384,31 @@ fn mode_bar(
         type_="button",
         class="loomark-icon",
         title="More actions",
-        attrs=@html.Attrs::build().aria_label("More actions").aria_expanded(if editing.menu_open { "true" } else { "false" }),
+        attrs=@html.Attrs::build()
+          .aria_label("More actions")
+          .aria_expanded(if editing.menu_open { "true" } else { "false" }),
         on_click=emit(MenuToggled),
         @view.more_icon("block size-4"),
       ),
       if editing.menu_open {
         @html.div(class="loomark-menu", [
           @html.div(class="loomark-menu-status", sync_status),
-          @html.div(class="flex flex-col gap-1 border-b border-lm-rule px-1 pb-2", [
-            @html.span(class="text-xs font-medium text-lm-ink", "Account"),
-            account_controls(account, emit),
-          ]),
-          file_actions("loomark-menu-import", account.departure.editor_disabled(), emit),
+          @html.div(
+            class="flex flex-col gap-1 border-b border-lm-rule px-1 pb-2",
+            [
+              @html.span(class="text-xs font-medium text-lm-ink", "Account"),
+              account_controls(account, emit),
+            ],
+          ),
+          file_actions(
+            "loomark-menu-import",
+            account.departure.editor_disabled(),
+            emit,
+          ),
         ])
-      } else { @html.nothing },
+      } else {
+        @html.nothing
+      },
     ],
   )
 }
@@ -564,6 +593,7 @@ fn view(
   editor_panels : @rabbita.Html,
   sync_status : @rabbita.Html,
   sync_attention : @rabbita.Html,
+  replica_persistence : @replica_persistence.Status?,
   delete_dialog : @rabbita.Html,
   recent_navigation : @rabbita.Html,
 ) -> @rabbita.Html {
@@ -621,31 +651,40 @@ fn view(
                   mode_bar(editing, account, sync_status, emit),
                   account_notice(account),
                   mode_content(editing.mode, editor_panels),
-                  @html.footer(class="loomark-footer flex h-16 shrink-0 items-center justify-between px-3 max-[520px]:px-2", [
-                    @html.div(class="flex min-w-0 items-center gap-2", [
-                      save_indicator(
-                        editing.documents.save_status(editing.activation.key),
-                        editing.documents.is_ephemeral_new(editing.activation.key),
-                      ),
-                      sync_attention,
-                    ]),
-                    @html.div(class="loomark-bottom-actions flex items-center gap-2", [
-                      @rui.tabs_root(
-                        value=mode_name(editing.mode).to_lower(),
-                        style=["width:auto"],
-                        @rui.tabs_list(
-                          orientation=@rui.TabsHorizontal,
-                          variant=@rui.TabsDefault,
-                          aria_label="Editor mode",
-                          [
-                            mode_tab(Text, editing.mode, emit),
-                            mode_tab(Split, editing.mode, emit),
-                            mode_tab(Preview, editing.mode, emit),
-                          ],
+                  @html.footer(
+                    class="loomark-footer flex h-16 shrink-0 items-center justify-between px-3 max-[520px]:px-2",
+                    [
+                      @html.div(class="flex min-w-0 items-center gap-2", [
+                        save_indicator(
+                          editing.documents.save_status(editing.activation.key),
+                          replica_persistence,
+                          editing.documents.is_ephemeral_new(
+                            editing.activation.key,
+                          ),
                         ),
+                        sync_attention,
+                      ]),
+                      @html.div(
+                        class="loomark-bottom-actions flex items-center gap-2",
+                        [
+                          @rui.tabs_root(
+                            value=mode_name(editing.mode).to_lower(),
+                            style=["width:auto"],
+                            @rui.tabs_list(
+                              orientation=@rui.TabsHorizontal,
+                              variant=@rui.TabsDefault,
+                              aria_label="Editor mode",
+                              [
+                                mode_tab(Text, editing.mode, emit),
+                                mode_tab(Split, editing.mode, emit),
+                                mode_tab(Preview, editing.mode, emit),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ]),
-                  ]),
+                    ],
+                  ),
                   match
                     (
                       editing.documents.save_status(editing.activation.key),
