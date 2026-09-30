@@ -1,6 +1,7 @@
 # Zen and focus-mode icon conventions
 
-**Date / source access:** 2026-09-28  
+**Date / source access:** 2026-09-28
+
 **Status:** Historical research — Loomark's Focus mode was subsequently removed.
 The recommendations below describe the design considered at the time, not a
 current product requirement.
