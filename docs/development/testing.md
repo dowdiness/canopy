@@ -286,17 +286,26 @@ owning [Loom package](../../deps/loom/README.md) for its test commands;
 
 ## Ideal Browser E2E
 
-Run functional tests through the repository runner. With no arguments, or with
-options first, it selects the non-performance specs:
+Run functional tests through the repository runner. Its dedicated Playwright
+configuration excludes the performance spec without adding file filters:
 
 ```bash
 bash scripts/test-ideal-web-e2e.sh --workers=1 --retries=0
 bash scripts/test-ideal-web-e2e.sh --grep 'Outline Refresh|Graphviz'
+bash scripts/test-ideal-web-e2e.sh --workers=1 e2e/seed.spec.ts
 ```
 
-Put an explicit spec path first to select a narrower file. Wait for the expected
-outline or SVG content with retrying assertions rather than fixed sleeps; a
-rendered previous example is not proof that the current update has completed.
+An explicit spec path selects the same file before or after options. A path that
+matches no tests fails instead of running the whole suite. Performance specs
+are excluded even when explicitly selected; use the performance command below.
+Wait for expected outline or SVG content with retrying assertions rather than
+fixed sleeps; a previous example is not proof that the update has completed.
+
+Check runner selection without launching browsers:
+
+```bash
+node --test scripts/test-ideal-web-e2e-runner.mjs
+```
 
 Run input-performance measurements separately:
 
