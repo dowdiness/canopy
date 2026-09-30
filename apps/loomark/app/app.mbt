@@ -191,34 +191,37 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     durability_view, replica_persistence_view, document_sync_view, document_remote_view,
     document_activity_view, selection_view, sync_status_view,
   )
-  let sync_attention = model.map(model => {
-    let persistence = document_replica_persistence(model)
-    let attention = match document_remote_state(model) {
-      Some(@documents.RemoteState::UpdateAvailable(action)) =>
-        sync_status_button("Open update", AcceptRemote(action), emit)
-      Some(@documents.RemoteState::DeletionAvailable(action)) =>
-        sync_status_button(
-          "Remove deleted document",
-          AcceptRemote(action),
-          emit,
-        )
-      Some(@documents.RemoteState::Diverged) => sync_status_label("Conflict")
-      Some(@documents.RemoteState::DeletedRemotely) =>
-        sync_status_label("Deletion pending")
-      _ =>
-        match persistence {
-          Some(@replica_persistence.Status::Retryable(action, _)) =>
-            sync_status_button("Retry saving", RetrySaving(action), emit)
-          _ =>
-            match document_sync_activity(model) {
-              Some(@sync.Activity::Retryable(action)) =>
-                sync_status_button("Retry sync", RetrySync(action), emit)
-              _ => @html.nothing
-            }
-        }
-    }
-    (attention, persistence)
-  })
+  let sync_attention = document_remote.map3(
+    replica_persistence,
+    document_activity,
+    (remote, persistence, activity) => {
+      let attention = match remote {
+        Some(@documents.RemoteState::UpdateAvailable(action)) =>
+          sync_status_button("Open update", AcceptRemote(action), emit)
+        Some(@documents.RemoteState::DeletionAvailable(action)) =>
+          sync_status_button(
+            "Remove deleted document",
+            AcceptRemote(action),
+            emit,
+          )
+        Some(@documents.RemoteState::Diverged) => sync_status_label("Conflict")
+        Some(@documents.RemoteState::DeletedRemotely) =>
+          sync_status_label("Deletion pending")
+        _ =>
+          match persistence {
+            Some(@replica_persistence.Status::Retryable(action, _)) =>
+              sync_status_button("Retry saving", RetrySaving(action), emit)
+            _ =>
+              match activity {
+                Some(@sync.Activity::Retryable(action)) =>
+                  sync_status_button("Retry sync", RetrySync(action), emit)
+                _ => @html.nothing
+              }
+          }
+      }
+      (attention, persistence)
+    },
+  )
   let membership = page.map(document_membership)
   let remote_seeds = remote_documents.map2(membership, remote_document_seeds)
   let feature_input = page.map2(remote_seeds, (page, remote) => {
