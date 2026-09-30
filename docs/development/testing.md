@@ -284,6 +284,35 @@ Include malformed-input recovery and incremental parsing cases. Follow the
 owning [Loom package](../../deps/loom/README.md) for its test commands;
 `deps/loom/examples/lambda/` provides parser test examples.
 
+## Ideal Browser E2E
+
+Run functional tests through the repository runner. With no arguments, or with
+options first, it selects the non-performance specs:
+
+```bash
+bash scripts/test-ideal-web-e2e.sh --workers=1 --retries=0
+bash scripts/test-ideal-web-e2e.sh --grep 'Outline Refresh|Graphviz'
+```
+
+Put an explicit spec path first to select a narrower file. Wait for the expected
+outline or SVG content with retrying assertions rather than fixed sleeps; a
+rendered previous example is not proof that the current update has completed.
+
+Run input-performance measurements separately:
+
+```bash
+cd apps/ideal/web
+npm run test:perf
+```
+
+The performance command uses one worker, disables retries, and disables relay
+startup and synchronization. Compare the `[editor-response]` and
+`[editor-response-phase]` output before optimizing. Keep performance budgets
+separate from functional-test timeouts.
+
+Set `CANOPY_SKIP_MOON_BUILD=1` only when the current release JavaScript artifacts
+have already been built. It skips compilation, not application initialization.
+
 ## Benchmarking
 
 Benchmarks are tests too! Run with `--release`:

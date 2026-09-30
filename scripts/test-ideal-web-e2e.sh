@@ -24,8 +24,8 @@ while IFS= read -r spec; do
     DEFAULT_SPECS+=("$spec")
 done < <(find e2e -maxdepth 1 -name '*.spec.ts' ! -name 'editor-response.perf.spec.ts' | sort)
 
-if [ "$#" -eq 0 ]; then
-    set -- "${DEFAULT_SPECS[@]}"
+if [ "$#" -eq 0 ] || [[ "$1" == -* ]]; then
+    set -- "${DEFAULT_SPECS[@]}" "$@"
 fi
 
 CI="${CI:-1}" npx playwright test "$@"

@@ -104,10 +104,7 @@ test.describe('Outline Refresh', () => {
     });
     await page.keyboard.press('Control+a');
     await page.keyboard.type('let f = (x) => x\nf 1', { delay: 10 });
-    // Wait for outline refresh
-    await page.waitForTimeout(300);
-    const text = await getOutlineText(page);
-    expect(text).toContain('module [f]');
+    await expect(page.getByLabel('AST outline')).toContainText('module [f]');
   });
 
   test('outline updates when switching examples rapidly', async ({ page }) => {
@@ -115,10 +112,7 @@ test.describe('Outline Refresh', () => {
     await page.getByRole('button', { name: 'Currying' }).click();
     await page.getByRole('button', { name: 'Conditional' }).click();
     await page.getByRole('button', { name: 'Basics' }).click();
-    // Wait for the last refresh to complete
-    await page.waitForTimeout(500);
-    const text = await getOutlineText(page);
-    expect(text).toContain('module [double, result]');
+    await expect(page.getByLabel('AST outline')).toContainText('module [double, result]');
   });
 });
 
@@ -334,25 +328,20 @@ test.describe('Bottom Panel Tabs', () => {
 
   test('Graphviz tab renders SVG diagram', async ({ page }) => {
     await page.getByRole('tab', { name: 'Graphviz' }).click();
-    // Wait for after_render SVG injection
-    await page.waitForTimeout(500);
-    const hasSvg = await page.locator('#canopy-graphviz-container svg').count();
-    expect(hasSvg).toBeGreaterThan(0);
+    await expect(page.locator('#canopy-graphviz-container svg')).toHaveCount(1);
   });
 
   test('Graphviz SVG updates when switching examples', async ({ page }) => {
     await page.getByRole('tab', { name: 'Graphviz' }).click();
-    await page.waitForTimeout(500);
+    const graph = page.locator('#canopy-graphviz-container svg');
+    await expect(graph).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Currying' }).click();
-    await page.waitForTimeout(500);
-    const svgText1 = await page.locator('#canopy-graphviz-container').innerText();
+    await expect(graph).toContainText('add5');
 
     await page.getByRole('button', { name: 'Conditional' }).click();
-    await page.waitForTimeout(500);
-    const svgText2 = await page.locator('#canopy-graphviz-container').innerText();
-
-    expect(svgText1).not.toEqual(svgText2);
+    await expect(graph).toContainText('choose');
+    await expect(graph).not.toContainText('add5');
   });
 });
 
