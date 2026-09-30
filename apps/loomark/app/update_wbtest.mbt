@@ -59,6 +59,7 @@ fn test_editing() -> EditingState {
     creation: Idle,
     deletion: NoDeletion,
     mode: Text,
+    menu_open: false,
     compact: false,
     preview,
     import_failed: false,
@@ -215,8 +216,8 @@ fn replica_edit(
 
 ///|
 test "compact viewport preserves the fractional breakpoint boundary" {
-  assert_true(compact_viewport(640.0))
-  assert_true(!compact_viewport(640.5))
+  assert_true(compact_viewport(720.0))
+  assert_true(!compact_viewport(720.5))
 }
 
 ///|
@@ -2624,6 +2625,7 @@ test "final active delete falls back to a new document" {
     creation: Idle,
     deletion: NoDeletion,
     mode: Text,
+    menu_open: false,
     compact: false,
     preview,
     import_failed: false,

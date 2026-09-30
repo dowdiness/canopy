@@ -13,9 +13,15 @@ pub fn failure_notice(String, String, @cmd.Cmd) -> @html.Html
 
 pub fn folder_icon(String) -> @html.Html
 
+pub fn more_icon(String) -> @html.Html
+
 pub fn panel_icon(String) -> @html.Html
 
 pub fn preview_mode_icon(String) -> @html.Html
+
+pub fn saved_icon(String) -> @html.Html
+
+pub fn saving_icon(String) -> @html.Html
 
 pub fn split_mode_icon(String) -> @html.Html
 
@@ -24,6 +30,8 @@ pub fn square_pen_icon(String) -> @html.Html
 pub fn text_mode_icon(String) -> @html.Html
 
 pub fn trash_icon(String) -> @html.Html
+
+pub fn unsaved_icon(String) -> @html.Html
 
 pub fn upload_icon(String) -> @html.Html
 

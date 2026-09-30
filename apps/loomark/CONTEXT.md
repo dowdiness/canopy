@@ -54,17 +54,14 @@ _Avoid_: ordinary content, paragraph
 The place for choosing a Loomark document as one continuous, ungrouped list,
 with the most recently changed first within the current page lifetime. A Document text change moves its document
 first immediately, even before Autosave succeeds; reopening restores deterministic lexical Document ID order; recency is never persisted.
-On sufficiently wide screens it starts open as a fixed-width, collapsible pane
-beside the editor; it is not resizable. On narrow screens it starts closed. An
-18rem pane and 64rem breakpoint are prototype starting values, not accepted
-dimensions. One open-or-closed state continues across breakpoint changes for the
-current page lifetime and is not persisted. An icon-only editor-toolbar
-control opens or closes Recent documents and carries an accessible label and
-tooltip. The Recent documents action bar has no visible heading and owns a
-right-aligned, text-only `New` action without a plus icon; the editor toolbar
-does not duplicate the New action. On narrow screens it temporarily fills the
-screen, provides a back-arrow control to close it without selection, and closes
-after selection; selecting a document on a wide screen does not close the pane. Each entry shows the Document lead using its heading, task, quote,
+On wide screens it starts open beside the editor and shifts the editor as it
+opens or closes; on narrow screens it starts closed. The sidebar spans the
+viewport height. The same top-left icon opens and closes it at a fixed position;
+there is no separate × control. One open-or-closed state continues across
+breakpoint changes for the current page lifetime and is not persisted. New
+document uses the existing square-pen icon in the top-right toolbar. On narrow
+screens the sidebar fills the width and makes the editor inert until closed; selecting a document there
+closes it. Each entry shows the Document lead using its heading, task, quote,
 code, list, or Plain content form. Every heading level uses the same form; lists
 retain their bullets or numbering, and fenced and indented code use a restrained
 background and monospaced text without syntax highlighting. The current parser

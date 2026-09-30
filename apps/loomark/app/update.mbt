@@ -2,7 +2,7 @@
 const AUTOSAVE_MAXIMUM_MS : Int = 2000
 
 ///|
-const COMPACT_MAX_WIDTH : Double = 640.0
+const COMPACT_MAX_WIDTH : Double = 720.0
 
 ///|
 fn compact_viewport(width : Double) -> Bool {
@@ -233,6 +233,7 @@ fn update_page(
               creation: Idle,
               deletion: NoDeletion,
               mode: Text,
+              menu_open: false,
               compact,
               preview,
               import_failed: false,
@@ -294,6 +295,7 @@ fn update_page(
                 creation: Idle,
                 deletion: NoDeletion,
                 mode: preparing.mode,
+                menu_open: false,
                 compact: preparing.compact,
                 preview,
                 import_failed: false,
@@ -443,6 +445,10 @@ fn update_page(
       )
       (Editing({ ..editing, preview, }), command)
     }
+    (Editing(editing), MenuToggled) =>
+      (Editing({ ..editing, menu_open: !editing.menu_open, }), @cmd.none)
+    (Editing(editing), EscapePressed) =>
+      (Editing({ ..editing, menu_open: false, }), @cmd.none)
     (Editing(editing), ImportFilesSelected(files)) =>
       match files.get(0) {
         None => (Editing(editing), @cmd.none)
@@ -1242,6 +1248,8 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | EmptyCreateCompleted(_, _)
     | CompositionEnded(_)
     | ModeSelected(_)
+    | MenuToggled
+    | EscapePressed
     | ImportReadCompleted(_)
     | ImportCreateCompleted(_, _)
     | DismissImportFailure

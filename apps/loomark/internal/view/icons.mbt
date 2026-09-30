@@ -34,7 +34,27 @@ pub fn trash_icon(class : String) -> Html {
 ///|
 /// Create the decorative icon used for Text mode.
 pub fn text_mode_icon(class : String) -> Html {
-  icon("i-lucide-align-left", class)
+  icon("i-lucide-pencil", class)
+}
+
+///|
+pub fn more_icon(class : String) -> Html {
+  icon("i-lucide-ellipsis", class)
+}
+
+///|
+pub fn saved_icon(class : String) -> Html {
+  icon("i-lucide-check", class)
+}
+
+///|
+pub fn saving_icon(class : String) -> Html {
+  icon("i-lucide-clock-3", class)
+}
+
+///|
+pub fn unsaved_icon(class : String) -> Html {
+  icon("i-lucide-triangle-alert", class)
 }
 
 ///|

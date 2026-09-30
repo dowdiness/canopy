@@ -324,6 +324,14 @@ pub fn State::text(self : Self, id : Key) -> String? {
 }
 
 ///|
+pub fn State::is_ephemeral_new(self : Self, id : Key) -> Bool {
+  match find_record(self.records, id) {
+    Some(record) => record.persistence is Source(EphemeralNew, _)
+    None => false
+  }
+}
+
+///|
 pub fn State::save_status(self : Self, id : Key) -> SaveStatus? {
   find_record(self.records, id).map(r => {
     match r.persistence {

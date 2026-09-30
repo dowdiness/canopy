@@ -82,6 +82,20 @@ fn account_controls(
   input : AccountControlsInput,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
+  if input.session is SessionUnavailable {
+    return @html.div(class="flex flex-col gap-2", [
+      @html.p(
+        class="m-0 text-xs leading-relaxed text-lm-muted",
+        "Sign-in status is unavailable. You can keep editing documents on this device.",
+      ),
+      @html.button(
+        type_="button",
+        class="min-h-8 self-start cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-ink hover:bg-lm-foundation focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
+        on_click=emit(RetryAccount),
+        "Check account connection",
+      ),
+    ])
+  }
   let (label, disabled, command) = match input.departure {
     SavingBeforeLogin(attempt)
     | PreparingLogin(attempt)

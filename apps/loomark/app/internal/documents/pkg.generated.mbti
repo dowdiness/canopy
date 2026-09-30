@@ -181,6 +181,7 @@ pub fn State::equal(Self, Self) -> Bool
 pub fn State::fallback_document(Self, Key) -> Key?
 pub fn State::hide_accounts(Self) -> Self
 pub fn State::is_composing(Self, Key) -> Bool
+pub fn State::is_ephemeral_new(Self, Key) -> Bool
 pub fn State::known_keys(Self) -> Array[Key]
 pub fn State::not_equal(Self, Self) -> Bool
 pub fn State::open_replica(Self, @source_repository.DocumentReplica) -> RemoteOpen

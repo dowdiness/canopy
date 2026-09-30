@@ -69,6 +69,8 @@ async function resetPendingTimerObservation(page: Page): Promise<void> {
 }
 
 async function openDeleteConfirmation(page: Page, label: string): Promise<void> {
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click()
   const row = page.getByRole("button", { name: label, exact: true }).locator("..")
   await row.getByRole("button", { name: `Delete "${label}"`, exact: true }).click()
 }
@@ -627,6 +629,28 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/account", route => route.fulfill({ status: 401 }))
 })
 
+test("save indicator distinguishes an empty new document from a stored empty document", async ({ page }) => {
+  await page.goto("/")
+  const indicator = page.locator(".loomark-save-status")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("")
+  await expect(page.getByText("No documents yet")).toBeVisible()
+  await expect(indicator).toHaveCount(0)
+
+  await text.fill("# Written here\n")
+  await expect(indicator).toHaveAttribute("title", "Saving on this device")
+  await expect(indicator).toHaveAttribute("title", "Saved on this device")
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+
+  await text.fill("")
+  await expect(indicator).toHaveAttribute("title", "Saving on this device")
+  await expect(indicator).toHaveAttribute("title", "Saved on this device")
+  await expect.poll(async () => (await readStoredDocuments(page))[0]?.text).toBe("")
+  await page.reload()
+  await expect(text).toHaveValue("")
+  await expect(indicator).toHaveAttribute("title", "Saved on this device")
+})
+
 test("Export downloads the current Document text with its Derived name", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -634,7 +658,16 @@ test("Export downloads the current Document text with its Derived name", async (
   await text.fill(source)
 
   const downloadPromise = page.waitForEvent("download")
-  await page.getByRole("button", { name: "Export Markdown" }).click()
+  await page.getByRole("button", { name: "More actions" }).click()
+  const menu = page.locator(".loomark-menu")
+  await expect(menu.getByRole("toolbar", { name: "Example documents" })).toHaveCount(0)
+  await expect(menu.locator('label[title="Import Markdown"] .i-lucide-upload')).toBeVisible()
+  await expect(menu.getByText("Import", { exact: true })).toBeVisible()
+  await expect(menu.locator('label[title="Import Markdown"] input[aria-label="Import Markdown"]')).toHaveCount(1)
+  const exportAction = menu.getByRole("button", { name: "Export Markdown" })
+  await expect(exportAction.locator(".i-lucide-download")).toBeVisible()
+  await expect(menu.getByText("Export", { exact: true })).toBeVisible()
+  await exportAction.click()
   const download = await downloadPromise
 
   expect(download.suggestedFilename()).toBe("Export name.md")
@@ -665,6 +698,14 @@ test("Import creates a new Document without changing the existing Document", asy
     document_id: expect.not.stringMatching(existing.document_id),
     text: normalized,
   })
+})
+
+test("menu Import uses the same Markdown file action as the sidebar", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("button", { name: "More actions" }).click()
+  await page.locator(".loomark-menu").getByLabel("Import Markdown")
+    .setInputFiles("tests/fixtures/import-bom-crlf.bin")
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("Imported\ntext\n")
 })
 
 test("importing the same file twice creates two Documents", async ({ page }) => {
@@ -705,6 +746,9 @@ test("fresh production opens Text mode and preserves its textarea and undo histo
   const splitTab = page.getByRole("tab", { name: "Split" })
   const preview = page.getByRole("region", { name: "Markdown preview" })
 
+  await expect(textTab.locator(".i-lucide-pencil")).toHaveCount(1)
+  await expect(splitTab.locator(".i-lucide-columns-2")).toHaveCount(1)
+  await expect(previewTab.locator(".i-lucide-eye")).toHaveCount(1)
   await expect(text).toBeVisible()
   await expect(text).toBeFocused()
   await expect(text).toHaveValue("")
@@ -765,6 +809,105 @@ test("fresh production opens Text mode and preserves its textarea and undo histo
   expect(workerUrls).toEqual([])
 })
 
+test("quiet editor keeps its source and sidebar toggle in place across views", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto("/")
+  const source = page.getByRole("textbox", { name: "Text" })
+  const content = "# Notes\n\n日本語と emoji 🌿\n\n- [ ] Another line\n"
+  await source.fill(content)
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: content })
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  const before = await toggle.boundingBox()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  expect(await source.evaluate(element => element.getBoundingClientRect().left)).toBeGreaterThan(0)
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  expect(await toggle.boundingBox()).toEqual(before)
+  await expect.poll(() => source.evaluate(element => element.getBoundingClientRect().left)).toBe(0)
+
+  await source.evaluate(element => {
+    const input = element as HTMLTextAreaElement
+    input.focus()
+    input.setSelectionRange(2, 7, "backward")
+    ;(window as typeof window & { __source?: HTMLTextAreaElement }).__source = input
+  })
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("region", { name: "Markdown preview" })).toContainText("日本語と emoji 🌿")
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await page.getByRole("tab", { name: "Text" }).click()
+  expect(await source.evaluate(element => ({
+    same: element === (window as typeof window & { __source?: HTMLTextAreaElement }).__source,
+    start: (element as HTMLTextAreaElement).selectionStart,
+    end: (element as HTMLTextAreaElement).selectionEnd,
+    direction: (element as HTMLTextAreaElement).selectionDirection,
+  }))).toEqual({ same: true, start: 2, end: 7, direction: "backward" })
+  await expect(page.getByRole("button", { name: "Focus mode" })).toHaveCount(0)
+  await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
+  await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(content)
+  await toggle.click()
+  await expect.poll(() => source.evaluate(element => element.getBoundingClientRect().left)).toBe(0)
+
+  const metrics = await source.evaluate(element => ({
+    top: element.getBoundingClientRect().top,
+    paddingTop: getComputedStyle(element).paddingTop,
+    paddingLeft: getComputedStyle(element).paddingLeft,
+  }))
+  expect(metrics).toEqual({ top: 0, paddingTop: "70px", paddingLeft: "340px" })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("separator")).toHaveAttribute("aria-orientation", "horizontal")
+})
+
+test("document scrolls beneath the fixed controls with softened viewport edges", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/")
+  const source = page.getByRole("textbox", { name: "Text" })
+  await source.fill(Array.from({ length: 90 }, (_, i) => `Line ${i + 1}`).join("\n"))
+  const bounds = async (selector: string) => page.locator(selector).evaluate(element => {
+    const { top, bottom } = element.getBoundingClientRect()
+    return { top, bottom }
+  })
+  expect(await bounds("#loomark-text")).toEqual({ top: 0, bottom: 900 })
+  expect(await bounds(".loomark-topbar")).toEqual({ top: 0, bottom: 48 })
+  expect(await bounds(".loomark-footer")).toEqual({ top: 836, bottom: 900 })
+  await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
+    .toBe("70px")
+  expect(await page.locator("#loomark-editor").evaluate(element => (
+    getComputedStyle(element, "::before").backdropFilter
+  ))).toBe("blur(2px)")
+  expect(await source.evaluate(element => getComputedStyle(element).maskImage))
+    .toContain("rgb(0, 0, 0) 52px, rgb(0, 0, 0) calc(100% - 56px)")
+
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect.poll(() => bounds("#loomark-preview-scroll"))
+    .toEqual({ top: 0, bottom: 900 })
+  expect(await page.locator("#loomark-preview-scroll").evaluate(element => getComputedStyle(element).maskImage))
+    .toContain("rgb(0, 0, 0) 52px, rgb(0, 0, 0) calc(100% - 56px)")
+  await expect.poll(() => page.locator("#loomark-preview-scroll .rmd-preview-content")
+    .evaluate(element => getComputedStyle(element).paddingTop)).toBe("70px")
+  const preview = page.locator("#loomark-preview-scroll")
+  await preview.evaluate(element => { element.scrollTop = element.scrollHeight })
+  const lastLine = await bounds("#loomark-preview-scroll .rmd-preview-content > :last-child")
+  expect(lastLine.bottom).toBeLessThan((await bounds(".loomark-footer")).top)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect.poll(() => bounds("#loomark-text")).toEqual({ top: 0, bottom: 422 })
+  await expect.poll(() => bounds("#loomark-preview-scroll")).toEqual({ top: 422, bottom: 844 })
+  await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
+    .toBe("68px")
+  await expect.poll(() => page.locator("#loomark-preview-scroll .rmd-preview-content")
+    .evaluate(element => getComputedStyle(element).paddingTop)).toBe("16px")
+  expect(await source.evaluate(element => getComputedStyle(element).maskImage))
+    .not.toContain("calc(100% - 56px)")
+  expect(await preview.evaluate(element => getComputedStyle(element).maskImage))
+    .not.toContain("rgb(0, 0, 0) 52px")
+})
+
 test("first edit reports quota full without creating a Source", async ({ page }) => {
   await page.addInitScript(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
   await page.goto("/")
@@ -822,6 +965,7 @@ test("Sync atomically starts document sync without replacing its textarea", asyn
       .__syncStartTextArea = area
   })
 
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sync", exact: true }).click()
   await expect.poll(() => readStoredDocumentRaw(page, sourceKey(document.document_id)))
     .toBeUndefined()
@@ -846,14 +990,37 @@ test("account retry remains available in the narrow layout", async ({ page }) =>
     status: available ? 401 : 503,
   }))
   await page.goto("/")
-  const retry = page.getByRole("button", { name: "Retry account" })
+  await page.getByRole("button", { name: "More actions" }).click()
+  const retry = page.getByRole("button", { name: "Check account connection" })
   await expect(retry).toBeInViewport()
+  await expect(page.getByText("Sign-in status is unavailable. You can keep editing documents on this device.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Sign in with Google" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Retry account" })).toHaveCount(0)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Kept while account lookup recovers\n")
   available = true
   await retry.click()
   await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeEnabled()
   await expect(text).toHaveValue("# Kept while account lookup recovers\n")
+})
+
+test("an absent account endpoint does not imply signed out or interrupt local editing", async ({ page }) => {
+  let lookups = 0
+  await page.route("**/api/account", route => {
+    lookups += 1
+    return route.fulfill({ status: 404 })
+  })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Local document\n")
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
+  await page.getByRole("button", { name: "More actions" }).click()
+  await expect(page.getByText("Sign-in status is unavailable. You can keep editing documents on this device.")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Sign in with Google" })).toHaveCount(0)
+  await page.getByRole("button", { name: "Check account connection" }).click()
+  await expect.poll(() => lookups).toBe(2)
+  await expect(text).toHaveValue("# Local document\n")
+  await expect(page.getByRole("button", { name: "Check account connection" })).toHaveCount(1)
 })
 
 test("Google sign-in waits for committed local text before preparing the redirect", async ({ page }) => {
@@ -877,6 +1044,7 @@ test("Google sign-in waits for committed local text before preparing the redirec
   if (!document) throw new Error("baseline Source missing")
   await page.evaluate(installDelayedDocumentCommit, sourceKey(document.document_id))
   await page.getByRole("textbox", { name: "Text" }).fill("# Depart with this text\n")
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
   await expect(page).toHaveURL(provider)
@@ -1020,6 +1188,7 @@ test("returning a failed Replica edit to saved text cannot replay obsolete text 
   await editor.press("ControlOrMeta+A")
   await editor.pressSequentially("A")
   await page.evaluate(removeDocumentPutFailure)
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign out", exact: true }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect(page.getByRole("button", { name: "Retry sign-in" })).toBeVisible()
@@ -1052,6 +1221,7 @@ test("a new sign-in joins the physical OAuth request after a racing edit", async
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const editor = page.getByRole("textbox", { name: "Text" })
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect.poll(() => loginRequests).toBe(1)
   // Deliver an input accepted before the departure lock, but queued behind it.
@@ -1214,6 +1384,7 @@ test("canceling sign-in resumes editing while its physical request stays owned",
   const original = await editor.elementHandle()
   const baseline = await editor.inputValue()
   await editor.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 3))
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect.poll(() => loginRequests).toBe(1)
   await expect(editor).toBeDisabled()
@@ -1268,6 +1439,7 @@ test("canceling sign-in during saving does not cancel persistence or start OAuth
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.press("ControlOrMeta+A")
   await editor.pressSequentially("Still saving")
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect(editor).toBeDisabled()
   await page.getByRole("button", { name: "Cancel sign-in" }).click()
@@ -1306,6 +1478,7 @@ test("canceling a prepared sign-in during account lookup restores editor focus",
     await route.fulfill({ contentType: "text/html", body: "<title>Unexpected redirect</title>" })
   })
   await page.goto("/")
+  await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign in with Google" }).click()
   await expect(page.getByRole("button", { name: "Cancel sign-in" })).toBeVisible()
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
@@ -1815,6 +1988,11 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   await expect(toggle)
     .toHaveAttribute("aria-expanded", "false")
+  const togglePosition = await toggle.evaluate(element => ({
+    x: element.getBoundingClientRect().x,
+    y: element.getBoundingClientRect().y,
+  }))
+  expect(togglePosition).toEqual({ x: 8, y: 5 })
   const sidebar = page.locator("#loomark-document-sidebar")
   const editor = page.locator("#loomark-editor")
   await expect(sidebar)
@@ -1823,13 +2001,17 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   expect(await topBar.evaluate(element => ({
     height: element.getBoundingClientRect().height,
     scrollHeight: element.scrollHeight,
-  }))).toEqual({ height: 44, scrollHeight: 44 })
+  }))).toEqual({ height: 52, scrollHeight: 52 })
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()
   await toggle.focus()
   await page.keyboard.press("Enter")
   await expect(sidebar).toBeVisible()
+  expect(await toggle.evaluate(element => ({
+    x: element.getBoundingClientRect().x,
+    y: element.getBoundingClientRect().y,
+  }))).toEqual(togglePosition)
   await expect(sidebar).toHaveCSS("opacity", "1")
   expect(await editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
   await expect.poll(() => sidebar.evaluate(element => (
@@ -1837,7 +2019,7 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   ))).toBe(true)
   expect(await sidebar.evaluate(element => element.getBoundingClientRect().width))
     .toBe(390)
-  const newDocument = page.getByRole("button", { name: "New document" })
+  const newDocument = sidebar.getByRole("button", { name: "New document" })
   await expect(newDocument).toBeVisible()
   await expect(newDocument.locator(".i-lucide-square-pen")).toBeVisible()
   const sidebarFooter = sidebar.locator('[data-slot="sidebar-footer"]')
@@ -1885,31 +2067,40 @@ test("Square-pen New control creates a document", async ({ page }) => {
   await expect(text).toHaveValue("")
 })
 
-test("Document sidebar slides content while its toggle stays fixed", async ({ page }) => {
+test("Document sidebar spans the viewport and slides the editor while its toggle stays fixed", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   const sidebar = page.locator("#loomark-document-sidebar")
-  const textTab = page.getByRole("tab", { name: "Text" })
-  const openX = await toggle.evaluate(element => element.getBoundingClientRect().x)
-  const openHeaderX = await page.locator("header").evaluate(element => element.getBoundingClientRect().x)
-  const openTextTabX = await textTab.evaluate(element => element.getBoundingClientRect().x)
-  expect(openTextTabX).toBeLessThan(openHeaderX + 32)
-
+  const text = page.getByRole("textbox", { name: "Text" })
+  const closedPosition = await toggle.evaluate(element => ({
+    x: element.getBoundingClientRect().x,
+    y: element.getBoundingClientRect().y,
+  }))
+  expect(closedPosition).toEqual({ x: 12, y: 5 })
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await expect(sidebar).toBeVisible()
+  expect(await sidebar.evaluate(element => ({
+    top: element.getBoundingClientRect().top,
+    bottom: element.getBoundingClientRect().bottom,
+  }))).toEqual({ top: 0, bottom: 900 })
+  const openTextX = await text.evaluate(element => element.getBoundingClientRect().x)
+  expect(openTextX).toBeGreaterThan(0)
   await toggle.click()
   await expect(sidebar).toHaveAttribute("aria-hidden", "true")
-  const closedX = await toggle.evaluate(element => element.getBoundingClientRect().x)
-  const closedHeaderX = await page.locator("header").evaluate(element => element.getBoundingClientRect().x)
-  expect(closedX).toBe(openX)
-  expect(closedHeaderX).toBeLessThan(openHeaderX)
-  expect(await textTab.evaluate(element => element.getBoundingClientRect().x))
-    .toBeGreaterThan(await toggle.evaluate(element => element.getBoundingClientRect().right))
-
+  expect(await toggle.evaluate(element => ({
+    x: element.getBoundingClientRect().x,
+    y: element.getBoundingClientRect().y,
+  }))).toEqual(closedPosition)
+  await expect.poll(() => text.evaluate(element => element.getBoundingClientRect().x)).toBe(0)
   await toggle.click()
   await expect(sidebar).toBeVisible()
-  await expect(sidebar).toHaveJSProperty("inert", false)
-  expect(await toggle.evaluate(element => element.getBoundingClientRect().x)).toBe(openX)
+  expect(await toggle.evaluate(element => ({
+    x: element.getBoundingClientRect().x,
+    y: element.getBoundingClientRect().y,
+  }))).toEqual(closedPosition)
+  await expect.poll(() => text.evaluate(element => element.getBoundingClientRect().x)).toBe(openTextX)
 })
 
 test("Document sidebar respects reduced motion", async ({ page }) => {
@@ -2166,9 +2357,12 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect.poll(() => page.getByRole("textbox", { name: "Text" })
+    .evaluate(element => element.getBoundingClientRect().left)).toBe(0)
 
   const styles = await page.evaluate(() => {
-    const modeBar = document.querySelector('[role="tablist"]')?.closest("header") as HTMLElement
+    const modeBar = document.querySelector(".loomark-topbar") as HTMLElement
     const selectedTab = document.querySelector('[role="tab"][aria-selected="true"]') as HTMLElement
     const text = document.getElementById("loomark-text") as HTMLTextAreaElement
     return {
@@ -2184,16 +2378,17 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   expect(styles.bodyMargin).toBe("0px")
   expect(styles.boxSizing).toBe("border-box")
   expect(styles.modeBarDisplay).toBe("flex")
-  expect(styles.modeBarHeight).toBe("44px")
+  expect(styles.modeBarHeight).toBe("48px")
   expect(styles.selectedBackground).not.toBe("rgba(0, 0, 0, 0)")
   expect(styles.textFont).toContain("ui-monospace")
-  expect(styles.textPaddingLeft).toBeGreaterThanOrEqual(48)
+  expect(styles.textPaddingLeft).toBe(70)
 
   await page.setViewportSize({ width: 640, height: 700 })
   await expect.poll(() => page.locator("#loomark-text").evaluate(element => (
     getComputedStyle(element).paddingLeft
-  ))).toBe("12px")
+  ))).toBe("32px")
 
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await page.getByRole("button", {
     name: "Create Markdown feature tour example document",
   }).click()
@@ -2210,14 +2405,14 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
     Number.parseFloat(getComputedStyle(element).width)
   ))).toBeGreaterThan(400)
   expect(Number.parseFloat(await preview.locator("pre code").first()
-    .evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(17.14, 1)
+    .evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(19.6, 1)
   expect(await preview.locator("p code").first().evaluate(element => ({
     before: getComputedStyle(element, "::before").content,
     after: getComputedStyle(element, "::after").content,
   }))).toEqual({ before: "none", after: "none" })
   await expect.poll(() => preview.locator("p").first().evaluate(element => (
     getComputedStyle(element).fontSize
-  ))).toBe("14px")
+  ))).toBe("16px")
   expect(await preview.locator("p").first().evaluate(element => (
     getComputedStyle(element).marginTop
   ))).toBe("18px")
@@ -2228,7 +2423,7 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   await page.setViewportSize({ width: 1280, height: 700 })
   await expect.poll(() => preview.locator("p").first().evaluate(element => (
     getComputedStyle(element).fontSize
-  ))).toBe("18px")
+  ))).toBe("16px")
 })
 
 test("RUI mode tabs activate with roving keyboard focus", async ({ page }) => {
@@ -2245,29 +2440,32 @@ test("RUI mode tabs activate with roving keyboard focus", async ({ page }) => {
   await textTab.focus()
 
   await page.keyboard.press("ArrowRight")
-  await expect(previewTab).toBeFocused()
-  await expect(previewTab).toHaveAttribute("aria-selected", "true")
+  await expect(splitTab).toBeFocused()
+  await expect(splitTab).toHaveAttribute("aria-selected", "true")
   await expect(editorPanel).toHaveAttribute(
     "aria-labelledby",
-    "loomark-mode-preview",
+    "loomark-mode-split",
   )
   await expect(preview).toBeVisible()
 
   await page.keyboard.press("ArrowRight")
-  await expect(splitTab).toBeFocused()
-  await expect(splitTab).toHaveAttribute("aria-selected", "true")
-  await expect(editorPanel).toHaveAttribute("aria-labelledby", "loomark-mode-split")
-  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  await expect(previewTab).toBeFocused()
+  await expect(previewTab).toHaveAttribute("aria-selected", "true")
+  await expect(editorPanel).toHaveAttribute("aria-labelledby", "loomark-mode-preview")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeHidden()
   await expect(preview).toBeVisible()
 
   await page.keyboard.press("ArrowLeft")
-  await expect(previewTab).toBeFocused()
-  await expect(previewTab).toHaveAttribute("aria-selected", "true")
+  await expect(splitTab).toBeFocused()
+  await expect(splitTab).toHaveAttribute("aria-selected", "true")
 })
 
 test("Split uses RUI keyboard resizing and preserves textarea across orientation", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect.poll(() => page.getByRole("textbox", { name: "Text" })
+    .evaluate(element => element.getBoundingClientRect().left)).toBe(0)
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Stable textarea\n")
@@ -2298,7 +2496,6 @@ test("Split uses RUI keyboard resizing and preserves textarea across orientation
   await expect(resize).toHaveValue("75")
 
   await page.setViewportSize({ width: 640, height: 700 })
-  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect(separator).toHaveAttribute("aria-orientation", "horizontal")
   await expect(resize).toHaveValue("50")
   expect(await page.evaluate(() => (
@@ -2827,6 +3024,7 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Not saved\n")
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
   await text.fill("# Latest text\n")
@@ -2837,6 +3035,7 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   await page.evaluate(removeDocumentPutFailure)
   await page.getByRole("button", { name: "Retry saving" }).click()
   await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Latest text\n")
   await page.reload()
@@ -2865,7 +3064,8 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
 
   await text.fill("# Untitled\n")
   await expect(page.getByRole("alert")).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "New document" })).toBeEnabled()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
+  await expect(page.locator("#loomark-editor").getByRole("button", { name: "New document" })).toBeEnabled()
   await page.waitForTimeout(300)
   const callsAfterRevert = await page.evaluate(() => (
     (globalThis as typeof globalThis & {

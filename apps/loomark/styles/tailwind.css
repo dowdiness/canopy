@@ -13,9 +13,9 @@
 @source not "../internal/view/*test.mbt";
 
 @theme {
-  --color-lm-foundation: oklch(0.97 0.003 255);
-  --color-lm-surface: oklch(0.995 0.001 255);
-  --color-lm-paper: oklch(0.995 0.001 255);
+  --color-lm-foundation: #fdfdfb;
+  --color-lm-surface: #fffefc;
+  --color-lm-paper: #fffefc;
   --color-lm-ink: oklch(0.24 0.018 265);
   --color-lm-muted: oklch(0.5 0.02 265);
   --color-lm-rule: oklch(0.87 0.004 255);
@@ -100,6 +100,131 @@
 
 .loomark-prose :where(:last-child) {
   margin-bottom: 0;
+}
+
+.loomark-source {
+  padding: 70px max(28px, calc((100% - 760px) / 2)) 80px;
+  line-height: 1.85;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-lm-rule) transparent;
+}
+
+#loomark-text, #loomark-preview-scroll {
+  mask-image: linear-gradient(to bottom, transparent, black 52px, black calc(100% - 56px), transparent);
+}
+
+#loomark-preview-scroll .rmd-preview-content {
+  width: 100%;
+  max-width: none;
+  padding: 70px max(28px, calc((100% - 720px) / 2)) 80px;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+#loomark-preview-scroll .loomark-prose :where(h1) {
+  font-size: 26px;
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+
+#loomark-editor-panels:has(.loomark-divider:not([hidden])) {
+  padding-inline: 28px;
+}
+
+#loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source,
+#loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content {
+  padding-inline: 32px;
+}
+
+.loomark-divider [data-slot="resizable-handle-line"] {
+  background: var(--color-lm-rule) !important;
+}
+
+.loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 20; }
+#loomark-editor::before, #loomark-editor::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  z-index: 10;
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+}
+#loomark-editor::before {
+  top: 0;
+  height: 56px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-lm-paper) 70%, transparent), transparent);
+  mask-image: linear-gradient(to bottom, black, transparent);
+}
+#loomark-editor::after {
+  bottom: 0;
+  height: 72px;
+  background: linear-gradient(to top, var(--color-lm-paper), transparent);
+  mask-image: linear-gradient(to top, black, transparent);
+}
+.loomark-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--color-lm-muted);
+  cursor: pointer;
+}
+.loomark-icon:hover, .loomark-sidebar-trigger:hover { background: var(--color-lm-accent-soft); color: var(--color-lm-accent); }
+.loomark-icon:focus-visible, .loomark-sidebar-trigger:focus-visible, .loomark-mode-button:focus-visible {
+  outline: 2px solid var(--color-lm-accent);
+  outline-offset: 2px;
+}
+.loomark-mode-button[data-state="active"], .loomark-mode-button[aria-selected="true"] {
+  background: var(--color-lm-accent-soft) !important;
+  color: var(--color-lm-accent) !important;
+}
+.loomark-menu {
+  position: absolute;
+  right: 24px;
+  top: 45px;
+  z-index: 60;
+  display: flex;
+  width: 250px;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--color-lm-rule);
+  border-radius: 8px;
+  background: var(--color-lm-paper);
+  box-shadow: 0 10px 30px oklch(0.24 0.018 265 / 0.07);
+  font-size: 12px;
+}
+.loomark-menu-status > div { flex-wrap: wrap; justify-content: flex-start; }
+.loomark-save-status { color: var(--color-lm-accent); font-size: 11px; }
+.loomark-save-status[title="Not saved"] { color: var(--color-lm-danger); }
+.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: 5px !important; background: var(--color-lm-paper); }
+.loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
+.loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
+.loomark-footer ~ [role="alert"] { position: relative; z-index: 20; }
+.loomark-footer ~ [role="alert"]:last-child { margin-bottom: 64px; }
+
+@media (max-width: 720px) {
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 68px 24px 16px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px 80px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text {
+    mask-image: linear-gradient(to bottom, transparent, black 52px);
+  }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
+    mask-image: linear-gradient(to bottom, black calc(100% - 56px), transparent);
+  }
+}
+@media (max-width: 800px) {
+  .loomark-source { padding-inline: 32px; }
+  #loomark-preview-scroll .rmd-preview-content { padding-inline: 32px; }
+}
+@media (max-width: 520px) {
+  .loomark-source { padding: 68px 24px 80px; }
+  #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px 80px; }
+  .loomark-menu { right: 12px; top: 49px; }
 }
 
 .loomark-delete-action {

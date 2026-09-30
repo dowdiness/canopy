@@ -60,6 +60,7 @@ priv struct EditingState {
   creation : DocumentCreation
   deletion : DocumentDeletion
   mode : EditorMode
+  menu_open : Bool
   compact : Bool
   preview : @editor.EditorState
   import_failed : Bool
@@ -161,6 +162,8 @@ priv enum Msg {
   CompositionStarted(Int)
   CompositionEnded(Int)
   ModeSelected(EditorMode)
+  MenuToggled
+  EscapePressed
   ImportFilesSelected(FixedArray[@browser.File])
   ImportReadCompleted(Result[Bytes, Error])
   ImportCreateCompleted(String, @source_repository.CreateResult)

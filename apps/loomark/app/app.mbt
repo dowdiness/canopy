@@ -33,6 +33,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       @sub.batch([
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
+        @sub.on_key_down(key => {
+          if key.key() == "Escape" { emit(EscapePressed) } else { @cmd.none }
+        }),
         page_restore_subscription(emit(PageRestored)),
         lead_subscriptions(current.page, emit),
       ])
@@ -99,7 +102,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 scope~,
                 with_handle=true,
                 aria_label="Resize editor and preview",
-                class="bg-lm-rule data-[orientation=vertical]:!h-auto data-[orientation=vertical]:self-stretch focus-within:bg-lm-accent",
+                class="loomark-divider",
                 attrs=@html.Attrs::build().hidden(!split),
                 style=if split { [] } else { ["display:none"] },
               ),
@@ -159,9 +162,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let document_remote = model.map(document_remote_state)
   let document_activity = model.map(document_sync_activity)
   let selection = model.map(selection_activity)
-  let account_view = account.view(account => {
-    account_status_section(account, emit)
-  })
+  let account_view = account.view(account_status_section)
   let durability_view = durability.view(durability => {
     local_durability_option_view(durability)
   })
@@ -184,6 +185,28 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     durability_view, replica_persistence_view, document_sync_view, document_remote_view,
     document_activity_view, selection_view, sync_status_view,
   )
+  let sync_attention = model.view(model => {
+    match document_remote_state(model) {
+      Some(@documents.RemoteState::UpdateAvailable(action)) =>
+        sync_status_button("Open update", AcceptRemote(action), emit)
+      Some(@documents.RemoteState::DeletionAvailable(action)) =>
+        sync_status_button("Remove deleted document", AcceptRemote(action), emit)
+      Some(@documents.RemoteState::Diverged) => sync_status_label("Conflict")
+      Some(@documents.RemoteState::DeletedRemotely) =>
+        sync_status_label("Deletion pending")
+      _ =>
+        match document_replica_persistence(model) {
+          Some(@replica_persistence.Status::Retryable(action, _)) =>
+            sync_status_button("Retry saving", RetrySaving(action), emit)
+          _ =>
+            match document_sync_activity(model) {
+              Some(@sync.Activity::Retryable(action)) =>
+                sync_status_button("Retry sync", RetrySync(action), emit)
+              _ => @html.nothing
+            }
+        }
+    }
+  })
   let membership = page.map(document_membership)
   let remote_seeds = remote_documents.map2(membership, remote_document_seeds)
   let feature_input = page.map2(remote_seeds, (page, remote) => {
@@ -230,28 +253,32 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     close_after_action=sidebar_state.collapse(),
   )
   let account_input = model.map(account_controls_input)
+  let status_views = sync_status.map2(sync_attention, (status, attention) => {
+    (status, attention)
+  })
   let layout_input = page
     .map5(
       selected_panels,
-      sync_status,
+      status_views,
       recent_feature.dialog(),
       recent_feature.navigation(),
-      (page, editor_panels, sync_status, dialog, recent_navigation) => {
-        (page, editor_panels, sync_status, dialog, recent_navigation)
+      (page, editor_panels, statuses, dialog, recent_navigation) => {
+        (page, editor_panels, statuses, dialog, recent_navigation)
       },
     )
     .map2(account_input, (layout, account) => (layout, account))
   @sidebar.sidebar_provider_with_state(
     state=sidebar_state,
     input=layout_input,
-    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[641px]:[--rui-sidebar-width:100vw]",
+    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
     (sidebar, layout) => {
       let (
-        (page, editor_panels, sync_status, dialog, recent_navigation),
+        (page, editor_panels, (sync_status, sync_attention), dialog, recent_navigation),
         account,
       ) = layout
       view(
-        sidebar, page, account, emit, editor_panels, sync_status, dialog, recent_navigation,
+        sidebar, page, account, emit, editor_panels, sync_status, sync_attention,
+        dialog, recent_navigation,
       )
     },
   )
