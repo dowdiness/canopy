@@ -694,6 +694,10 @@ test("fresh production opens Text mode and preserves its textarea and undo histo
 
   await page.goto("/")
   await page.waitForLoadState("networkidle")
+  await expect(page.getByRole("textbox", { name: "Text" }))
+    .toHaveAttribute("autocomplete", "off")
+  await expect(page.getByRole("textbox", { name: "Text" }))
+    .toHaveAttribute("autocorrect", "off")
 
   const text = page.getByRole("textbox", { name: "Text" })
   const textTab = page.getByRole("tab", { name: "Text" })
