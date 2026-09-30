@@ -85,8 +85,15 @@ async function signIn(
   return response.json() as Promise<{ id: string; name: string }>
 }
 
+async function openActions(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: "More actions" })
+  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click()
+}
+
 async function expectSynced(page: Page): Promise<void> {
-  await expect(page.getByRole("status")).toContainText("Synced", { timeout: 20_000 })
+  await openActions(page)
+  await expect(page.locator(".loomark-menu-status").getByRole("status"))
+    .toContainText("Synced", { timeout: 20_000 })
 }
 
 async function nextRender(page: Page): Promise<void> {
@@ -112,7 +119,8 @@ async function createSynced(page: Page, account: string, text: string): Promise<
   const editor = page.getByRole("textbox", { name: "Text" })
   await expect(editor).toBeVisible()
   await editor.fill(text)
-  await page.getByRole("button", { name: "Sync", exact: true }).click()
+  await openActions(page)
+  await page.locator(".loomark-menu-status").getByRole("button", { name: "Sync", exact: true }).click()
   await expectSynced(page)
   const response = await page.request.get(`${ORIGIN}/api/documents`, {
     headers: { "X-Loomark-Account": account },
@@ -160,11 +168,13 @@ test("durable operation survives a lost response, browser close, and Worker rest
   await page.goto("/")
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.fill(exact)
-  await expect(page.getByRole("button", { name: "Sync", exact: true })).toBeVisible()
+  await openActions(page)
+  const sync = page.locator(".loomark-menu-status").getByRole("button", { name: "Sync", exact: true })
+  await expect(sync).toBeVisible()
   expect((await page.request.post(`${ORIGIN}/__e2e__/lose-next-mutation-response`)).status())
     .toBe(204)
-  await page.getByRole("button", { name: "Sync", exact: true }).click()
-  await expect(page.getByRole("button", { name: "Retry sync" })).toBeVisible()
+  await sync.click()
+  await expect(page.locator(".loomark-footer").getByRole("button", { name: "Retry sync" })).toBeVisible()
   const committed = await page.request.get(`${ORIGIN}/api/documents`, {
     headers: { "X-Loomark-Account": ACCOUNT },
   })
@@ -273,7 +283,7 @@ test("divergent browser edits preserve the local branch and expose the remote br
       .__conflictTextArea = element as HTMLTextAreaElement
   })
   await phoneEditor.fill(phoneText)
-  await expect(phonePage.getByRole("button", { name: "Retry sync" })).toBeVisible()
+  await expect(phonePage.locator(".loomark-footer").getByRole("button", { name: "Retry sync" })).toBeVisible()
   await phoneEditor.press("End")
   await phoneEditor.pressSequentially("x")
   await phoneEditor.dispatchEvent("compositionstart", { data: "" })
@@ -295,7 +305,7 @@ test("divergent browser edits preserve the local branch and expose the remote br
   await expectSynced(pcPage)
 
   await phone.setOffline(false)
-  await phonePage.getByRole("button", { name: "Retry sync" }).click()
+  await phonePage.locator(".loomark-footer").getByRole("button", { name: "Retry sync" }).click()
   await expect(phoneEditor).toHaveValue(composingText)
   await expect(phonePage.getByRole("button", { name: "PC branch", exact: true }))
     .toBeVisible({ timeout: 20_000 })
@@ -351,10 +361,11 @@ test("switching accounts hides retained replicas and isolates guessed identities
   })
   expect(guessedMutation.status()).toBe(409)
 
-  await page.getByRole("button", { name: "New document" }).click()
+  await page.locator("#loomark-editor").getByRole("button", { name: "New document" }).click()
   await expect(editor).toHaveValue("")
   await editor.fill("# Private B\n")
-  await page.getByRole("button", { name: "Sync", exact: true }).click()
+  await openActions(page)
+  await page.locator(".loomark-menu-status").getByRole("button", { name: "Sync", exact: true }).click()
   await expectSynced(page)
 
   const original = await signIn(context, "accountA")
