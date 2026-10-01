@@ -174,9 +174,10 @@ _Avoid_: fallback document, recovered text
 
 **Unsaved document**:
 A Loomark document whose latest text has not reached browser storage. Loomark
-keeps it in memory, marks it in Recent documents, and retries at the next edit
-or return to the app without interrupting other work or prompting when the
-browser tab closes.
+keeps it in memory and marks it in Recent documents. Failed saves expose an
+explicit Retry action; returning to the app does not guarantee a retry. Current
+text remains available to Export without waiting for a successful save. Loomark
+does not prompt when the browser tab closes.
 _Avoid_: conflicted document, invalid document
 
 **Browser storage**:
