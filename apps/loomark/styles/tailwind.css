@@ -228,6 +228,8 @@
   white-space: nowrap;
 }
 .loomark-save-status[title="Not saved"] { color: var(--color-lm-danger); }
+.loomark-save-status > [aria-hidden="true"] { flex-shrink: 0; }
+.loomark-save-caption { min-width: 0; white-space: normal; }
 .loomark-sync-attention { font-size: 12px; }
 .loomark-sync-attention > span { display: block; }
 .loomark-sync-attention > button { max-width: 100%; white-space: normal; }
@@ -343,5 +345,23 @@
   .loomark-new-document:active:not(:disabled),
   .loomark-new-document:active:not(:disabled) .i-lucide-square-pen {
     transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  /* Preserve mask ink explicitly using the user's system palette. */
+  #loomark-root [class*="i-lucide-"] {
+    forced-color-adjust: none;
+    color: CanvasText;
+    background-color: currentColor;
+  }
+
+  #loomark-root button [class*="i-lucide-"] { color: ButtonText; }
+  #loomark-root .loomark-mode-button[aria-selected="true"] [class*="i-lucide-"] { color: HighlightText; }
+
+  .loomark-mode-button[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: Highlight !important;
+    color: HighlightText !important;
   }
 }

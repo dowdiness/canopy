@@ -1385,6 +1385,73 @@ test("quiet editor keeps its source and sidebar toggle in place across views", a
   await expect(page.getByRole("separator")).toHaveAttribute("aria-orientation", "horizontal")
 })
 
+test("forced colors keep writing controls and the selected mode distinguishable", async ({ page }) => {
+  await page.emulateMedia({ forcedColors: "active" })
+  await page.setViewportSize({ width: 320, height: 360 })
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("Contrast check")
+  await expect(page.getByRole("status", { name: "Saved on this device", exact: true })).toBeVisible()
+  for (const mode of ["Text", "Split", "Preview"]) {
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+    const icons = await page.locator('#loomark-editor [class*="i-lucide-"]:visible').evaluateAll(elements => (
+      elements.map(element => {
+        const style = getComputedStyle(element)
+        return { painted: style.backgroundColor === style.color, mask: style.maskImage !== "none" }
+      })
+    ))
+    expect(icons.length).toBeGreaterThanOrEqual(6)
+    expect(icons.every(icon => icon.painted && icon.mask)).toBe(true)
+    await expect.poll(() => page.locator('.loomark-mode-button[aria-selected="true"]').evaluate(element => (
+      getComputedStyle(element).backgroundColor !== getComputedStyle(
+        document.querySelector('.loomark-mode-button[aria-selected="false"]')!,
+      ).backgroundColor
+    ))).toBe(true)
+  }
+  const more = page.getByRole("button", { name: "More actions" })
+  await more.focus()
+  await more.press("Enter")
+  const exportAction = page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" })
+  await exportAction.focus()
+  await expect(exportAction).toHaveCSS("outline-width", "2px")
+  await page.keyboard.press("Escape")
+  await expect(more).toBeFocused()
+})
+
+test("increased text spacing preserves status icons and native caret navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 360 })
+  await page.goto("/")
+  await page.addStyleTag({ content: "* { line-height:1.5 !important; letter-spacing:.12em !important; word-spacing:.16em !important; } p { margin-bottom:2em !important; }" })
+  const editor = page.getByRole("textbox", { name: "Text" })
+  const text = Array.from({ length: 100 }, (_, i) => `Line ${i}`).join("\n")
+  await editor.fill(text)
+  const status = page.getByRole("status", { name: "Saved on this device", exact: true })
+  await expect(status).toBeVisible()
+  const layout = await status.evaluate(element => {
+    const rect = element.getBoundingClientRect()
+    const icon = element.querySelector('[aria-hidden="true"]')!.getBoundingClientRect()
+    const caption = element.querySelector(".loomark-save-caption")!.getBoundingClientRect()
+    return { iconWidth: icon.width, contained: caption.right <= rect.right && caption.top >= rect.top && caption.bottom <= rect.bottom }
+  })
+  expect(layout.iconWidth).toBe(16)
+  expect(layout.contained).toBe(true)
+  for (const mode of ["Text", "Split"]) {
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+    if (mode === "Split") await expect.poll(() => editor.evaluate(element => element.getBoundingClientRect().bottom)).toBe(180)
+    for (const key of ["Control+End", "PageUp", "Control+Home", "PageDown", "Shift+PageDown", "Control+Shift+End"]) {
+      await editor.press(key)
+      await expect.poll(() => editor.evaluate(element => {
+        const area = element as HTMLTextAreaElement, rect = area.getBoundingClientRect(), style = getComputedStyle(area)
+        const endpoint = area.selectionDirection === "backward" ? area.selectionStart : area.selectionEnd
+        // Short lines remain unwrapped with these spacing overrides.
+        const line = area.value.slice(0, endpoint).split("\n").length - 1
+        const y = rect.top + Number.parseFloat(style.paddingTop) + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
+        return document.elementFromPoint(rect.left + Number.parseFloat(style.paddingLeft) + 8, y) === area
+      })).toBe(true)
+      await expect(editor).toHaveValue(text)
+    }
+  }
+})
+
 for (const mode of ["Text", "Split"] as const) {
   test(`current native writing line stays visible outside chrome in ${mode}`, async ({ page }) => {
     for (const { width, height, failure, minimumSplit = false } of [
