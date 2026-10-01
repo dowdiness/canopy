@@ -102,8 +102,18 @@
   margin-bottom: 0;
 }
 
+.loomark-source-frame {
+  /* Native caret scrolling uses the textarea viewport, not its document padding. */
+  padding-block: 56px 64px;
+}
+
+#loomark-editor:has(> .loomark-footer ~ [role="alert"]) .loomark-source-frame {
+  /* These notices already reserve the footer space in normal flow. */
+  padding-bottom: 0;
+}
+
 .loomark-source {
-  padding: 70px max(28px, calc((100% - 760px) / 2)) 80px;
+  padding: 14px max(28px, calc((100% - 760px) / 2)) 16px;
   line-height: 1.85;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -115,7 +125,7 @@
   opacity: 1;
 }
 
-#loomark-text, #loomark-preview-scroll {
+#loomark-preview-scroll {
   mask-image: linear-gradient(to bottom, transparent, black 52px, black calc(100% - 56px), transparent);
 }
 
@@ -163,7 +173,7 @@
 }
 #loomark-editor::after {
   bottom: 0;
-  height: 72px;
+  height: 64px;
   background: linear-gradient(to top, var(--color-lm-paper), transparent);
   mask-image: linear-gradient(to top, black, transparent);
 }
@@ -237,11 +247,9 @@
 
 @media (max-width: 720px) {
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 68px 24px 16px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame { padding-bottom: 0; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 12px 24px 16px; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px 80px; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text {
-    mask-image: linear-gradient(to bottom, transparent, black 52px);
-  }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
     mask-image: linear-gradient(to bottom, black calc(100% - 56px), transparent);
   }
@@ -251,7 +259,7 @@
   #loomark-preview-scroll .rmd-preview-content { padding-inline: 32px; }
 }
 @media (max-width: 520px) {
-  .loomark-source { padding: 68px 24px 80px; }
+  .loomark-source { padding: 12px 24px 16px; }
   #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px 80px; }
   .loomark-menu { right: 12px; top: 49px; }
 }

@@ -1379,13 +1379,59 @@ test("quiet editor keeps its source and sidebar toggle in place across views", a
     paddingTop: getComputedStyle(element).paddingTop,
     paddingLeft: getComputedStyle(element).paddingLeft,
   }))
-  expect(metrics).toEqual({ top: 0, paddingTop: "70px", paddingLeft: "340px" })
+  expect(metrics).toEqual({ top: 56, paddingTop: "14px", paddingLeft: "340px" })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(page.getByRole("separator")).toHaveAttribute("aria-orientation", "horizontal")
 })
 
-test("document scrolls beneath the fixed controls with softened viewport edges", async ({ page }) => {
+for (const mode of ["Text", "Split"] as const) {
+  test(`current native writing line stays visible outside chrome in ${mode}`, async ({ page }) => {
+    for (const { width, height, failure } of [
+      { width: 1280, height: 900, failure: false },
+      { width: 390, height: 844, failure: false },
+      { width: 320, height: 640, failure: false },
+      { width: 320, height: 360, failure: false },
+      { width: 320, height: 360, failure: true },
+    ]) {
+      await page.setViewportSize({ width, height })
+      await page.goto("/")
+      const editor = page.getByRole("textbox", { name: "Text" })
+      const toggle = page.getByRole("button", { name: "Toggle documents" })
+      if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click()
+      await page.getByRole("tab", { name: mode, exact: true }).click()
+      expect(await editor.evaluate(element => element.getBoundingClientRect().top
+        + Number.parseFloat(getComputedStyle(element).paddingTop))).toBe(width <= 520 ? 68 : 70)
+      if (failure) await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+      await editor.fill("# Long writing\n\n" + "Short line.\n".repeat(80))
+      if (failure) await expect(page.getByRole("alert")).toBeVisible()
+      await editor.press("Control+End")
+      await editor.pressSequentially("Current line")
+      const visible = await editor.evaluate(element => {
+        const area = element as HTMLTextAreaElement
+        const style = getComputedStyle(area), rect = area.getBoundingClientRect()
+        // Every fixture line fits without wrapping. Check the actual selected line,
+        // not scrollHeight or the amount of padding after the document.
+        const line = area.value.slice(0, area.selectionStart).split("\n").length - 1
+        const y = rect.top + Number.parseFloat(style.paddingTop)
+          + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
+        const x = rect.left + Number.parseFloat(style.paddingLeft) + 8
+        const footer = document.querySelector(".loomark-footer")!.getBoundingClientRect()
+        const header = document.querySelector(".loomark-topbar")!.getBoundingClientRect()
+        return {
+          atEnd: area.selectionStart === area.value.length,
+          lineOutsideChrome: y > header.bottom && y < footer.top,
+          lineInsideInput: y > rect.top && y < rect.bottom,
+          unobscured: document.elementFromPoint(x, y) === area,
+          mask: style.maskImage,
+        }
+      })
+      expect(visible).toEqual({ atEnd: true, lineOutsideChrome: true, lineInsideInput: true, unobscured: true, mask: "none" })
+    }
+  })
+}
+
+test("Text stays outside fixed controls while Preview keeps softened viewport edges", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/")
   const source = page.getByRole("textbox", { name: "Text" })
@@ -1394,16 +1440,15 @@ test("document scrolls beneath the fixed controls with softened viewport edges",
     const { top, bottom } = element.getBoundingClientRect()
     return { top, bottom }
   })
-  expect(await bounds("#loomark-text")).toEqual({ top: 0, bottom: 900 })
+  expect(await bounds("#loomark-text")).toEqual({ top: 56, bottom: 836 })
   expect(await bounds(".loomark-topbar")).toEqual({ top: 0, bottom: 48 })
   expect(await bounds(".loomark-footer")).toEqual({ top: 836, bottom: 900 })
   await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
-    .toBe("70px")
+    .toBe("14px")
   expect(await page.locator("#loomark-editor").evaluate(element => (
     getComputedStyle(element, "::before").backdropFilter
   ))).toBe("blur(2px)")
-  expect(await source.evaluate(element => getComputedStyle(element).maskImage))
-    .toContain("rgb(0, 0, 0) 52px, rgb(0, 0, 0) calc(100% - 56px)")
+  expect(await source.evaluate(element => getComputedStyle(element).maskImage)).toBe("none")
 
   await page.getByRole("tab", { name: "Preview" }).click()
   await expect.poll(() => bounds("#loomark-preview-scroll"))
@@ -1420,10 +1465,10 @@ test("document scrolls beneath the fixed controls with softened viewport edges",
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("button", { name: "Toggle documents" }).click()
   await page.getByRole("tab", { name: "Split" }).click()
-  await expect.poll(() => bounds("#loomark-text")).toEqual({ top: 0, bottom: 422 })
+  await expect.poll(() => bounds("#loomark-text")).toEqual({ top: 56, bottom: 422 })
   await expect.poll(() => bounds("#loomark-preview-scroll")).toEqual({ top: 422, bottom: 844 })
   await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
-    .toBe("68px")
+    .toBe("12px")
   await expect.poll(() => page.locator("#loomark-preview-scroll .rmd-preview-content")
     .evaluate(element => getComputedStyle(element).paddingTop)).toBe("16px")
   expect(await source.evaluate(element => getComputedStyle(element).maskImage))

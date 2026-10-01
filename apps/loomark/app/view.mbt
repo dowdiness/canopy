@@ -442,7 +442,7 @@ fn text_area_view(
   read_only? : Bool,
 ) -> @rabbita.Html {
   @html.div(
-    class="h-full min-h-0 w-full min-w-0",
+    class="loomark-source-frame h-full min-h-0 w-full min-w-0",
     Map([
       (
         "activation-\{activation.generation}",

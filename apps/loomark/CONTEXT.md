@@ -119,6 +119,9 @@ _Avoid_: layout, workspace
 
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
+The native editable viewport stays outside the fixed controls, including in
+Split. Its text is not faded at the viewport edges, so native caret scrolling
+keeps the current writing line readable. Preview retains its softened edges.
 _Avoid_: source mode, raw mode
 
 **Preview**:
