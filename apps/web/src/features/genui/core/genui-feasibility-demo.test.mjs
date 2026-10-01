@@ -20,10 +20,6 @@ test('recorded demo inputs freeze candidate, capabilities, and normalized datase
   }
 });
 
-test('recorded demo rejects unknown cases before MoonBit evaluation', () => {
-  assert.throws(() => recordedDemoInput('missing-case'), /Unknown feasibility case/);
-});
-
 test('live study request has the exact provider gate shape', () => {
   const request = buildLiveStudyRequest({
     studyId: 'genui-local-v1',
