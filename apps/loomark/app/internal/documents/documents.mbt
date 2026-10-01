@@ -121,17 +121,26 @@ pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Action]) {
       guard find_record(self.records, id) is Some(record) else {
         return (self, [])
       }
-      guard !delete_is_active(record.delete_phase()) else { return (self, []) }
-      match record.save {
-        Waiting(_) | Saving(_, Some(_)) => {
-          let (record, decisions) = mark_eligible(self.saved, record)
-          (
-            { ..self, records: replace_record(self.records, id, _ => record), },
-            decisions,
-          )
-        }
-        Saved | Saving(_, None) | Failed(_) => (self, [])
+      let (updated, decisions) = flush_visibility(self.saved, record)
+      if updated == record {
+        (self, decisions)
+      } else {
+        (
+          { ..self, records: replace_record(self.records, id, _ => updated), },
+          decisions,
+        )
       }
+    }
+    VisibilityFlushAll => {
+      let actions : Array[Action] = []
+      let records = self.records.map(record => {
+        let (record, effects) = flush_visibility(self.saved, record)
+        for effect in effects {
+          actions.push(effect)
+        }
+        record
+      })
+      ({ ..self, records, }, actions)
     }
   }
 }

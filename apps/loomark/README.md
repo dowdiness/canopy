@@ -35,7 +35,9 @@ See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-sta
 
 Text input updates the Document text immediately. Autosave makes latest text
 eligible after 250 ms quiet, when one non-restarting 2,000 ms maximum-wait timer
-becomes processable, or when the page becomes hidden. The maximum is application
+becomes processable, or when the page becomes hidden. Hiding makes pending text
+eligible across all documents, including a document just left; it does not
+retry failed saves or commit an ongoing composition. The maximum is application
 policy rather than a wall-clock acknowledgment guarantee. IME composition
 defers persistence until its committed result.
 

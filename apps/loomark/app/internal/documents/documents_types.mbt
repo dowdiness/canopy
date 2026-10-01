@@ -187,6 +187,7 @@ pub(all) enum Msg {
   FeedbackReceived(Feedback)
   RetrySave(Key)
   VisibilityFlush(Key)
+  VisibilityFlushAll
   ApplyPendingEdit(Key, Int)
   DeleteConfirmed(Key)
   RetryDelete(Key)

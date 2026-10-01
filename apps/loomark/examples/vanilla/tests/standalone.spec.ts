@@ -3231,6 +3231,32 @@ test("large input during an active save coalesces to the latest text", async ({ 
     .toEqual([`${largeText}a`, finalText])
 })
 
+test("hidden visibility saves an inactive document while save timers are held", async ({ page }) => {
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
+  await openStoredDocuments(page, [documentA, documentB])
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(documentA.text)
+  // Hold only autosave deadlines; freezing all browser timers also freezes activation.
+  await page.evaluate(() => {
+    const schedule = window.setTimeout.bind(window)
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => (
+      schedule(handler, timeout === 250 || timeout === 2_000 ? 60_000 : timeout, ...args)
+    )) as typeof window.setTimeout
+  })
+  await text.pressSequentially("x")
+  await expect(text).toHaveValue("# A\nx")
+  await page.getByRole("button", { name: "B", exact: true }).click()
+  await expect(text).toHaveValue(documentB.text)
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true })
+    document.dispatchEvent(new Event("visibilitychange"))
+  })
+  await expectStoredDocument(page, { ...documentA, text: "# A\nx" })
+  await expect(text).toHaveValue(documentB.text)
+  await expectStoredDocument(page, documentB)
+})
+
 test("hidden visibility makes pending text eligible before quiet", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)

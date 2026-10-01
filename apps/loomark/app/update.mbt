@@ -1457,10 +1457,10 @@ fn reduce(
       )
     VisibilityChanged(true) =>
       match model.page {
-        Editing(editing) =>
+        Editing(_) =>
           update_documents(
             model,
-            @documents.Msg::VisibilityFlush(editing.activation.key),
+            @documents.Msg::VisibilityFlushAll,
             emit,
             editor,
           )
