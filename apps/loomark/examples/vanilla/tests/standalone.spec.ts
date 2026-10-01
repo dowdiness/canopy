@@ -1028,6 +1028,96 @@ test("Export downloads the current Document text with its Derived name", async (
   expect(downloaded).toBe(source)
 })
 
+async function downloadCurrentMarkdown(page: Page): Promise<{ filename: string; text: string }> {
+  await page.getByRole("button", { name: "More actions" }).click()
+  const pending = page.waitForEvent("download")
+  await page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" }).click()
+  const download = await pending
+  const stream = await download.createReadStream()
+  stream.setEncoding("utf8")
+  let text = ""
+  for await (const chunk of stream) text += chunk
+  return { filename: download.suggestedFilename(), text }
+}
+
+for (const persistence of ["failed", "held"] as const) {
+  test(`Export rescues latest selection replacement while local save is ${persistence}`, async ({ page }) => {
+    await page.goto("/")
+    const editor = page.getByRole("textbox", { name: "Text" })
+    const original = "# Rescue\n\nOriginal paragraph\n"
+    await editor.fill(original)
+    await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(original)
+    const stored = await readStoredDocument(page)
+    if (!stored) throw new Error("saved baseline missing")
+    if (persistence === "failed") {
+      await page.evaluate(installDocumentPutFailure, sourceKey(stored.document_id))
+    } else {
+      await page.evaluate(installDelayedDocumentCommit, sourceKey(stored.document_id))
+      await page.evaluate(() => {
+        ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+          .__loomarkDelayedCommitHeld = true
+      })
+    }
+    await editor.evaluate(element => {
+      const area = element as HTMLTextAreaElement
+      area.focus()
+      const start = area.value.indexOf("Original")
+      area.setSelectionRange(start, start + "Original".length)
+    })
+    await page.keyboard.insertText("最新の本文")
+    await editor.press("Control+End")
+    await editor.pressSequentially("Last edit")
+    const latest = "# Rescue\n\n最新の本文 paragraph\nLast edit"
+    await expect(editor).toHaveValue(latest)
+    const status = page.locator(".loomark-save-status")
+    await expect(status).toHaveAccessibleName(persistence === "failed" ? "Not saved" : "Saving on this device")
+    if (persistence === "held") {
+      await expect.poll(() => page.evaluate(() => (
+        globalThis as typeof globalThis & { __loomarkDelayedCommitActive?: boolean }
+      ).__loomarkDelayedCommitActive)).toBe(true)
+    }
+    try {
+      expect(await downloadCurrentMarkdown(page)).toEqual({ filename: "Rescue.md", text: latest })
+      await expect(editor).toHaveValue(latest)
+      await expect(status).not.toHaveAccessibleName("Saved on this device")
+      if (persistence === "failed") {
+        await expect(page.getByRole("alert")).toBeVisible()
+        expect((await readStoredDocument(page))?.text).toBe(original)
+      } else {
+        expect(await page.evaluate(() => (
+          globalThis as typeof globalThis & { __loomarkDelayedCommitCompletions?: number }
+        ).__loomarkDelayedCommitCompletions)).toBe(0)
+      }
+    } finally {
+      // Release the test transaction only after rescue assertions; export must not depend on it.
+      if (persistence === "held") await page.evaluate(() => {
+        ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+          .__loomarkDelayedCommitHeld = false
+      })
+    }
+  })
+}
+
+test("a loaded offline editor saves and exports locally before reconnecting", async ({ page, context }) => {
+  await page.goto("/")
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.fill("# Offline\n")
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("# Offline\n")
+  const latest = "# Offline\nWritten without a network connection."
+  await context.setOffline(true)
+  try {
+    await editor.press("Control+End")
+    await editor.pressSequentially("Written without a network connection.")
+    await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Saved on this device")
+    await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(latest)
+    expect(await downloadCurrentMarkdown(page)).toEqual({ filename: "Offline.md", text: latest })
+  } finally {
+    await context.setOffline(false)
+  }
+  await page.reload()
+  await expect(editor).toHaveValue(latest)
+})
+
 test("Import creates a new Document without changing the existing Document", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -1524,6 +1614,32 @@ test("Google sign-in waits for committed local text before preparing the redirec
 const historyTest = test.extend({
   channel: "chromium",
   launchOptions: { ignoreDefaultArgs: ["--disable-back-forward-cache"] },
+})
+
+historyTest("ordinary Back and Forward preserve locally saved writing across repeated visits", async ({ page }) => {
+  const away = "https://loomark-history.test/away"
+  await page.route("https://loomark-history.test/**", route => route.fulfill({
+    contentType: "text/html", body: "<title>Local history fixture</title><p>Another page</p>",
+  }))
+  await page.goto("/")
+  const editor = page.getByRole("textbox", { name: "Text" })
+  const source = "# Return here\nKeep this writing."
+  await editor.fill(source)
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source)
+  await page.goto(away)
+  for (let visit = 0; visit < 2; visit++) {
+    await page.goBack({ waitUntil: "commit" })
+    await expect(editor).toHaveValue(source)
+    await expect(editor).toBeEditable()
+    await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Saved on this device")
+    await page.goForward({ waitUntil: "commit" })
+    await expect(page).toHaveURL(away)
+  }
+  await page.goBack({ waitUntil: "commit" })
+  await expect(editor).toHaveValue(source)
+  await editor.press("Control+End")
+  await editor.pressSequentially(" Continued.")
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source + " Continued.")
 })
 
 historyTest("Back from Google restores editing and refreshes the account from BFCache", async ({ page }) => {
