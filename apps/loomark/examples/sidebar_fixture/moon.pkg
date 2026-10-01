@@ -1,0 +1,9 @@
+import {
+  "dowdiness/loomark/internal/sidebar",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html",
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "executable")

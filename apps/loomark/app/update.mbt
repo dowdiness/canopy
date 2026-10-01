@@ -120,7 +120,7 @@ fn activate_surface(
     editor_mode(mode),
     emit.map(event => PreviewEvent(event)),
   )
-  (preview, @cmd.batch([command, focus_element(editor_focus_id(mode))]))
+  (preview, @cmd.batch([command, focus_after_render(editor_focus_id(mode))]))
 }
 
 ///|
@@ -466,7 +466,7 @@ fn update_page(
       (
         Editing({ ..editing, menu_open: false, }),
         if editing.menu_open {
-          focus_element("loomark-more-actions")
+          focus_after_render("loomark-more-actions")
         } else {
           @cmd.none
         },
@@ -666,7 +666,7 @@ fn update_page(
         DeleteConfirmation(target) =>
           (
             Editing({ ..editing, deletion: NoDeletion, }),
-            focus_element("loomark-delete-\{target.lifecycle_key()}"),
+            focus_after_render("loomark-delete-\{target.lifecycle_key()}"),
           )
         NoDeletion => (Editing(editing), @cmd.none)
       }
@@ -1377,7 +1377,7 @@ fn reduce(
         // Cancel only this intent; pending storage and HTTP keep their owners.
         { ..model, departure, },
         match model.page {
-          Editing(editing) => focus_element(editor_focus_id(editing.mode))
+          Editing(editing) => focus_after_render(editor_focus_id(editing.mode))
           _ => @cmd.none
         },
       )

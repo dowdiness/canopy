@@ -40,6 +40,7 @@ grep -q '<link rel="stylesheet" href="./styles.css"' "$LOOMARK_ROOT/dist/index.h
 for forbidden_name in \
   capability-worker \
   projection-worker \
+  loomark-sidebar-fixture \
   loomark-driver-target \
   loomark-event-target \
   mount_dev_host \
@@ -73,3 +74,14 @@ cd "$LOOMARK_ROOT/examples/vanilla"
 npm ci
 npm run typecheck
 PLAYWRIGHT_HTML_OPEN=never npm test -- "$@"
+
+# Exercise the copied Sidebar's mobile branch in an isolated test entry.
+# Its output is separate from the production dist checked above.
+SIDEBAR_DIST="$LOOMARK_ROOT/.sidebar-e2e-dist"
+(
+  cd "$LOOMARK_ROOT"
+  "$WARREN" build --browser-entry examples/sidebar_fixture --server-entry "" --dist "$SIDEBAR_DIST"
+)
+LOOMARK_STANDALONE_DIST="$SIDEBAR_DIST" \
+  LOOMARK_PLAYWRIGHT_CONFIG=playwright.sidebar.config.ts \
+  PLAYWRIGHT_HTML_OPEN=never npm test
