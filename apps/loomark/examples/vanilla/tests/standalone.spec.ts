@@ -3104,6 +3104,112 @@ test("Preview prepares after its status paints and refreshes typed Markdown", as
   await expect(page.getByRole("heading", { name: "Preview heading" })).toHaveCount(0)
 })
 
+test("imported active-looking Markdown stays inert and exports losslessly", async ({ page }) => {
+  await page.goto("/")
+  const origin = new URL(page.url()).origin
+  const blockedRequests: string[] = []
+  await page.context().route("**/*", route => {
+    if (new URL(route.request().url()).origin === origin) return route.continue()
+    blockedRequests.push(route.request().url())
+    return route.abort()
+  })
+  await page.evaluate(() => { (globalThis as typeof globalThis & { __unsafeNote?: number }).__unsafeNote = 0 })
+  const source = [
+    "# Safe imported material", "",
+    '<script>globalThis.__unsafeNote=1</script>', "",
+    '<img src="https://blocked-notes.test/pixel" onerror="globalThis.__unsafeNote=2">', "",
+    '<svg onload="globalThis.__unsafeNote=3"></svg>', "",
+    '<iframe srcdoc="<script>parent.__unsafeNote=4</script>"></iframe>', "",
+    '[mixed](JaVaScRiPt:globalThis.__unsafeNote=5)', "",
+    '[entity](jav&#x61;script:globalThis.__unsafeNote=6)', "",
+    '[control](java&#x09;script:globalThis.__unsafeNote=7)', "",
+    '[data](data:text/html,unsafe-note)', "",
+    '[other](vbscript:unsafe-note)', "",
+    '![image](data:image/svg+xml,unsafe-note)', "",
+    '```html', '<img src="https://blocked-notes.test/code" onerror="globalThis.__unsafeNote=8">', '```', "",
+  ].join("\n")
+  await page.getByRole("button", { name: "More actions" }).click()
+  await page.locator(".loomark-menu").getByLabel("Import Markdown").setInputFiles({
+    name: "safe-material.md", mimeType: "text/markdown", buffer: Buffer.from(source),
+  })
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await expect(editor).toHaveValue(source)
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await expect(preview.getByRole("heading", { name: "Safe imported material" })).toBeVisible()
+  await expect(preview.locator("script,img,svg,iframe,[onerror],[onload]")).toHaveCount(0)
+  await expect(preview.locator("a")).toHaveCount(0)
+  await expect(preview.locator("[data-loomark-preview-url-rejected]")).toHaveCount(6)
+  await expect(preview).toContainText('<script>globalThis.__unsafeNote=1</script>')
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __unsafeNote?: number }).__unsafeNote)).toBe(0)
+  expect(blockedRequests).toEqual([])
+  expect((await downloadCurrentMarkdown(page)).text).toBe(source)
+  await expect(page.getByRole("status", { name: "Saved on this device", exact: true })).toBeVisible()
+  await page.reload()
+  await expect(editor).toHaveValue(source)
+})
+
+test("Preview links preserve unsaved writing when activated by keyboard", async ({ page }) => {
+  await page.goto("/")
+  const originalUrl = page.url(), external = "https://safe-preview.test/read"
+  const source = `# Link notes\n\n[HTTPS](${external})\n\n[Section](#section)\n`
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.fill(source)
+  await expect(page.getByRole("status", { name: "Saved on this device", exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await expect(page.getByRole("link", { name: "HTTPS", exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Split", exact: true }).click()
+  await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+  await editor.press("Control+End")
+  await editor.pressSequentially("Unsaved latest writing")
+  await expect(page.getByRole("alert")).toBeVisible()
+  const latest = source + "Unsaved latest writing"
+  // Both destinations are fulfilled locally; no external server or user data is used.
+  await page.context().route(external, route => route.fulfill({ contentType: "text/html", body: "Safe link fixture" }))
+  await page.context().route(originalUrl, route => route.fulfill({ contentType: "text/html", body: "Fragment fixture" }))
+  for (const [name, destination] of [["HTTPS", external], ["Section", originalUrl + "#section"]]) {
+    const link = page.getByRole("link", { name, exact: true })
+    await expect(link).toHaveAttribute("target", "_blank")
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer")
+    const pending = page.waitForEvent("popup")
+    await link.focus()
+    await link.press("Enter")
+    const popup = await pending
+    await expect(popup).toHaveURL(destination)
+    await popup.waitForLoadState("domcontentloaded")
+    expect(await popup.evaluate(() => window.opener === null)).toBe(true)
+    await popup.close()
+    await expect(page).toHaveURL(originalUrl)
+    await expect(editor).toHaveValue(latest)
+  }
+  expect((await downloadCurrentMarkdown(page)).text).toBe(latest)
+})
+
+test("long and malformed Markdown stays contained and code remains keyboard scrollable", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 360 })
+  await page.goto("/")
+  const source = `# Readable material\n\n[broken](\n\n<https://safe-preview.test/${"a".repeat(1024)}>\n\n\`\`\`text\n${"code_".repeat(400)}\n\`\`\`\n\nEnd of note\n`
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.fill(source)
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await expect(preview.getByRole("heading", { name: "Readable material" })).toBeVisible()
+  await expect(preview).toContainText("[broken](")
+  expect(await preview.evaluate(element => ({ width: element.clientWidth, scrollWidth: element.scrollWidth, bodyWidth: document.body.scrollWidth })))
+    .toEqual({ width: 320, scrollWidth: 320, bodyWidth: 320 })
+  const code = preview.locator("pre").filter({ has: page.locator('code[data-loomark-code-info="text"]') })
+  await preview.getByRole("link").focus()
+  await page.keyboard.press("Tab")
+  await expect(code).toBeFocused()
+  await code.press("ArrowRight")
+  await expect.poll(() => code.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+  await code.press("Tab")
+  await expect(code).not.toBeFocused()
+  await page.getByRole("tab", { name: "Text", exact: true }).click()
+  await expect(editor).toHaveValue(source)
+  expect((await downloadCurrentMarkdown(page)).text).toBe(source)
+})
+
 test("Preview keeps incomplete Markdown literal without parser chrome", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
