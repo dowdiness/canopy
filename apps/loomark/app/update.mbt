@@ -270,7 +270,7 @@ fn update_page(
         match result {
           CreateFailed(failure) =>
             (
-              Recovery(creation_open_failure(failure), preparing.compact),
+              NewPreparationFailed(preparing, creation_open_failure(failure)),
               @cmd.none,
             )
           Created(document_id) => {
@@ -548,6 +548,14 @@ fn update_page(
         PreparingNew({ ..preparing, compact: compact_viewport(width), }),
         @cmd.none,
       )
+    (NewPreparationFailed(preparing, failure), ViewportChanged(width)) =>
+      (
+        NewPreparationFailed(
+          { ..preparing, compact: compact_viewport(width), },
+          failure,
+        ),
+        @cmd.none,
+      )
     (Recovery(failure, _), ViewportChanged(width)) =>
       (Recovery(failure, compact_viewport(width)), @cmd.none)
     (Editing(editing), ViewportChanged(width)) => {
@@ -650,7 +658,8 @@ fn update_page(
 fn Page::saved_documents(self : Self) -> @source_repository.SavedDocuments? {
   match self {
     Editing(editing) => Some(editing.documents.snapshot())
-    PreparingNew(preparing) => Some(preparing.documents.snapshot())
+    PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+      Some(preparing.documents.snapshot())
     Loading(_) | Recovery(_, _) => None
   }
 }
@@ -659,7 +668,8 @@ fn Page::saved_documents(self : Self) -> @source_repository.SavedDocuments? {
 fn Page::documents_state(self : Self) -> @documents.State? {
   match self {
     Editing(editing) => Some(editing.documents)
-    PreparingNew(preparing) => Some(preparing.documents)
+    PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+      Some(preparing.documents)
     Loading(_) | Recovery(_, _) => None
   }
 }
@@ -694,6 +704,12 @@ fn Page::begin_fork(
       }
       Some(PreparingNew({ ..preparing, documents, }))
     }
+    NewPreparationFailed(preparing, failure) => {
+      let documents = preparing.documents.begin_fork(write) catch {
+        _ => return None
+      }
+      Some(NewPreparationFailed({ ..preparing, documents, }, failure))
+    }
     Loading(_) | Recovery(_, _) => None
   }
 }
@@ -714,6 +730,14 @@ fn Page::project_account(
         ..preparing,
         documents: preparing.documents.project_account(account),
       })
+    NewPreparationFailed(preparing, failure) =>
+      NewPreparationFailed(
+        {
+          ..preparing,
+          documents: preparing.documents.project_account(account),
+        },
+        failure,
+      )
     Loading(_) | Recovery(_, _) => self
   }
 }
@@ -728,6 +752,11 @@ fn Page::hide_accounts(self : Self) -> Self {
         ..preparing,
         documents: preparing.documents.hide_accounts(),
       })
+    NewPreparationFailed(preparing, failure) =>
+      NewPreparationFailed(
+        { ..preparing, documents: preparing.documents.hide_accounts(), },
+        failure,
+      )
     Loading(_) | Recovery(_, _) => self
   }
 }
@@ -1559,6 +1588,7 @@ fn reduce(
         Editing(editing) => Some(editing.activation.key)
         Loading(_)
         | PreparingNew(_)
+        | NewPreparationFailed(_, _)
         | Recovery(_, _) => None
       }
       let feedback = @documents.Feedback::from_replica_completion(
@@ -1856,6 +1886,14 @@ fn reduce_page_documents(
     PreparingNew(preparing) => {
       let (documents, actions) = preparing.documents.reduce(event)
       (PreparingNew({ ..preparing, documents, }), actions, @cmd.none)
+    }
+    NewPreparationFailed(preparing, failure) => {
+      let (documents, actions) = preparing.documents.reduce(event)
+      (
+        NewPreparationFailed({ ..preparing, documents, }, failure),
+        actions,
+        @cmd.none,
+      )
     }
     Loading(_) | Recovery(_, _) => (model, [], @cmd.none)
   }

@@ -2,6 +2,7 @@
 priv enum Page {
   Loading(Bool)
   PreparingNew(PreparingNewState)
+  NewPreparationFailed(PreparingNewState, @source_repository.OpenFailure)
   Editing(EditingState)
   Recovery(@source_repository.OpenFailure, Bool)
 } derive(Eq)

@@ -2751,6 +2751,194 @@ test "final active delete falls back to a new document" {
 }
 
 ///|
+test "failed New preparation keeps hidden replica writes addressable" {
+  let account = sync_test_account("account")
+  let source = documents_test_document("one", "one")
+  let replica = @source_repository.DocumentReplica(
+    account,
+    documents_test_document("two", "two"),
+  )
+  let saved = @source_repository.SavedDocuments::from_documents([source])
+    .unwrap()
+    .apply_replica(replica)
+  let initial = { ..test_editing(), documents: @documents.State::State(saved), }
+  guard replica.edit("two newer") is @source_repository.EditPlan::Persist(write) else {
+    fail("write")
+  }
+  let (replication, effect) = @replication.State().submit(write)
+  guard effect is Some(@replication.Persist(attempt)) else {
+    fail("active writer")
+  }
+  let (documents, decisions) = initial.documents.reduce(
+    @documents.Msg::DeleteConfirmed(source_key("one")),
+  )
+  guard decisions is [@documents.Action::DeleteSource(deletion)] else {
+    fail("delete source")
+  }
+  let (preparing, _) = test_root_update(
+    {
+      ..test_model(Editing({ ..initial, documents, }), @sync.State()),
+      replication,
+    },
+    DocumentsLifecycle(
+      @documents.Feedback::DeleteCompleted(
+        deletion,
+        Deleted(document_id("one")),
+      ),
+    ),
+  )
+  guard preparing.page is PreparingNew(preparing_page) else {
+    fail("new document in progress")
+  }
+  let (failed, _) = test_root_update(
+    preparing,
+    EmptyCreateCompleted(
+      preparing_page.request_id,
+      CreateFailed(
+        @source_repository.CreateFailure::DocumentIdentityUnavailable,
+      ),
+    ),
+  )
+  guard failed.page is NewPreparationFailed(retained, StorageUnavailable) else {
+    fail("loaded failure must retain documents")
+  }
+  assert_true(
+    retained.documents.snapshot().replica(account, replica.document_id())
+    is Some(_),
+  )
+  let (settled, _) = test_root_update(
+    failed,
+    Sync(ReplicaWriteCompleted(attempt, Ok(()))),
+  )
+  assert_eq(
+    settled.page
+    .saved_documents()
+    .unwrap()
+    .replica(account, replica.document_id())
+    .unwrap()
+    .document()
+    .unwrap()
+    .text(),
+    "two newer",
+  )
+  assert_true(
+    settled.replication.status(account, replica.document_id())
+    is @replica_persistence.Status::Current,
+  )
+}
+
+///|
+test "old-account receipt commits while New preparation has failed" {
+  let account_a = sync_test_account("account-a")
+  let account_b = sync_test_account("account-b")
+  let (_, replica) = pending_sync_snapshot(account_a)
+  let saved = @source_repository.SavedDocuments::from_documents([
+      documents_test_document("source", "source"),
+    ])
+    .unwrap()
+    .apply_replica(replica)
+  let source = source_key("source")
+  let initial = {
+    ..test_editing(),
+    activation: { key: source, generation: 0, },
+    documents: @documents.State::State(saved),
+  }
+  guard current_sync(account_a).advance(replica)
+    is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
+    fail("old-account delivery")
+  }
+  let (documents, decisions) = initial.documents.reduce(
+    @documents.Msg::DeleteConfirmed(source),
+  )
+  guard decisions is [@documents.Action::DeleteSource(deletion)] else {
+    fail("source deletion")
+  }
+  let (preparing, _) = test_root_update(
+    test_model(Editing({ ..initial, documents, }), sync),
+    DocumentsLifecycle(
+      @documents.Feedback::DeleteCompleted(
+        deletion,
+        @source_repository.Deleted(document_id("source")),
+      ),
+    ),
+  )
+  guard preparing.page is PreparingNew(preparing_page) else {
+    fail("new document preparation")
+  }
+  let (failed, _) = test_root_update(
+    preparing,
+    EmptyCreateCompleted(
+      preparing_page.request_id,
+      @source_repository.CreateFailed(
+        @source_repository.CreateFailure::DocumentIdentityUnavailable,
+      ),
+    ),
+  )
+  guard failed.page is NewPreparationFailed(_, StorageUnavailable) else {
+    fail("loaded failure")
+  }
+  let (checking, lookup) = failed.sync().begin_lookup()
+  let (switched, _) = test_root_update(
+    failed.with_sync(checking),
+    Sync(AccountResolved(lookup, @sync.Resolved(account_b, "B"))),
+  )
+  guard switched.sync().session() is @sync.Session::Current(current, _) else {
+    fail("switched account")
+  }
+  assert_eq(current, account_b)
+  let revision = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid revision")
+  }
+  let write = replica.acknowledge(sync_operation_id(), revision) catch {
+    _ => abort("matching operation")
+  }
+  let (_, attempt) = @replica_persistence.State().submit(write)
+  let attempt = attempt.unwrap()
+  let (storing, _) = test_root_update(
+    switched,
+    Sync(DeliveryCompleted(delivery, @replication.Acknowledged(revision))),
+  )
+  assert_true(
+    storing.replication.status(account_a, replica.document_id())
+    is @replica_persistence.Status::Persisting,
+  )
+  assert_true(
+    storing.page
+    .saved_documents()
+    .unwrap()
+    .replica(account_a, replica.document_id()) ==
+    Some(replica),
+  )
+  let (committed, _) = test_root_update(
+    storing,
+    Sync(ReplicaWriteCompleted(attempt, Ok(()))),
+  )
+  guard committed.page is NewPreparationFailed(_, StorageUnavailable) else {
+    fail("keep loaded failure")
+  }
+  let durable = committed.page
+    .saved_documents()
+    .unwrap()
+    .replica(account_a, replica.document_id())
+    .unwrap()
+  assert_true(
+    durable.directive() is @source_repository.ReplicaDirective::Synchronized,
+  )
+  assert_true(
+    committed.replication.status(account_a, replica.document_id())
+    is @replica_persistence.Status::Current,
+  )
+  assert_true(committed.sync() == storing.sync())
+  assert_true(
+    committed.page
+    .saved_documents()
+    .unwrap()
+    .replica(account_b, replica.document_id())
+    is None,
+  )
+}
+
+///|
 test "active pending deletion prevents document switch" {
   let initial = test_editing()
   let (documents, _) = initial.documents.reduce(

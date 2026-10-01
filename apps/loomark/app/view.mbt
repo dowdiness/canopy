@@ -610,7 +610,7 @@ fn view(
             class="grid min-h-dvh place-items-center text-lm-muted [&_p]:m-0",
             [@html.p("Loading document")],
           )
-        Recovery(failure, _) => {
+        Recovery(failure, _) | NewPreparationFailed(_, failure) => {
           let message = match failure {
             @source_repository.OpenFailure::StorageUnavailable =>
               "Browser storage is unavailable."

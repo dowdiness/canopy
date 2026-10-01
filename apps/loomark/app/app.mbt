@@ -5,7 +5,8 @@ const LEAD_DELAY_MS : Int = 250
 fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
   let pending = match model {
     Editing(editing) => editing.documents.pending_edits()
-    PreparingNew(preparing) => preparing.documents.pending_edits()
+    PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+      preparing.documents.pending_edits()
     Loading(_) | Recovery(_, _) => []
   }
   @sub.batch(
@@ -57,7 +58,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
           mode: editing.mode,
           preview: editing.preview,
         })
-      Loading(_) | PreparingNew(_) | Recovery(_, _) => None
+      Loading(_)
+      | PreparingNew(_)
+      | NewPreparationFailed(_, _)
+      | Recovery(_, _) => None
     }
   })
 
@@ -143,7 +147,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let compact = page.map(page => {
     match page {
       Loading(compact) => compact
-      PreparingNew(preparing) => preparing.compact
+      PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+        preparing.compact
       Editing(editing) => editing.compact
       Recovery(_, compact) => compact
     }
@@ -227,7 +232,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let feature_input = page.map2(remote_seeds, (page, remote) => {
     match page {
       Editing(editing) => recent_document_seeds(editing, remote)
-      Loading(_) | PreparingNew(_) | Recovery(_, _) => @vector.Vector([])
+      Loading(_)
+      | PreparingNew(_)
+      | NewPreparationFailed(_, _)
+      | Recovery(_, _) => @vector.Vector([])
     }
   })
   let feature_delete_target = page.map(page => {
@@ -237,7 +245,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
           DeleteConfirmation(id) => Some(id)
           NoDeletion => None
         }
-      Loading(_) | PreparingNew(_) | Recovery(_, _) => None
+      Loading(_)
+      | PreparingNew(_)
+      | NewPreparationFailed(_, _)
+      | Recovery(_, _) => None
     }
   })
   let sidebar_state = @sidebar.SidebarProviderState::SidebarProviderState(
