@@ -15,6 +15,9 @@ Loomark document when the user first changes its text; leaving it untouched does
 not add it to Recent documents.
 Before the first change, More actions explains that writing starts saving on
 this device; it does not describe the untouched New document as already saved.
+The native Text area shows a "Start writing…" hint while the New document is
+untouched. This is presentation, never Document text. A saved empty document
+does not show the hint.
 _Avoid_: blank record, draft
 
 **Editing Document**:

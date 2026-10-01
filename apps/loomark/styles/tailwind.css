@@ -110,6 +110,11 @@
   scrollbar-color: var(--color-lm-rule) transparent;
 }
 
+.loomark-source::placeholder {
+  color: var(--color-lm-muted);
+  opacity: 1;
+}
+
 #loomark-text, #loomark-preview-scroll {
   mask-image: linear-gradient(to bottom, transparent, black 52px, black calc(100% - 56px), transparent);
 }

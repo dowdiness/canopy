@@ -442,6 +442,7 @@ fn text_area_view(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
   activation : Activation,
+  placeholder? : String,
   disabled? : Bool,
   read_only? : Bool,
 ) -> @rabbita.Html {
@@ -463,6 +464,7 @@ fn text_area_view(
           disabled?,
           read_only?,
           rows=24,
+          placeholder?,
           autofocus=true,
           class="loomark-source m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent font-lm-mono text-base text-lm-ink caret-lm-accent outline-0 [tab-size:2]",
         ),

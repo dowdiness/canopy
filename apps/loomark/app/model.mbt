@@ -79,6 +79,7 @@ priv enum EditorMode {
 ///|
 priv struct EditorPanelsInput {
   activation : Activation
+  placeholder : String?
   disabled : Bool
   read_only : Bool
   mode : EditorMode

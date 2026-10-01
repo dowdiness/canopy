@@ -52,6 +52,12 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       Editing(editing) =>
         Some({
           activation: editing.activation,
+          placeholder: if local_durability(editing, editing.activation.key)
+            is Some(NotStarted) {
+            Some("Start writing…")
+          } else {
+            None
+          },
           disabled: editing.creation is Creating(_) ||
           model.departure.editor_disabled(),
           read_only: editing.deletion_blocks_document_changes(),
@@ -102,6 +108,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   emit,
                   editor,
                   input.activation,
+                  placeholder?=input.placeholder,
                   disabled=input.disabled,
                   read_only=input.read_only,
                 ),

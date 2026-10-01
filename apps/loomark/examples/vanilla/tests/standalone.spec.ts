@@ -257,6 +257,51 @@ test("sign-in preparation visibly disables creation and Import until cancelled",
   await expect(text).toHaveValue("# Keep writing after cancellation\n")
 })
 
+test("first-write hint stays outside document text and preserves native editing", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  for (const width of [1280, 390, 320, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(text).toHaveAttribute("placeholder", "Start writing…")
+    await expect(text).toHaveAccessibleName("Text")
+    await expect(text).toHaveValue("")
+  }
+  expect(await readStoredDocuments(page)).toEqual([])
+  await text.evaluate(element => {
+    ;(window as typeof window & { firstWriteArea?: Element }).firstWriteArea = element
+  })
+  await text.focus()
+  await text.pressSequentially("First words")
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents[0]?.text)).toBe("First words")
+  expect(await text.evaluate(element => element === (
+    window as typeof window & { firstWriteArea?: Element }
+  ).firstWriteArea)).toBe(true)
+  await expect(text).not.toHaveAttribute("placeholder", "Start writing…")
+  // Native typing may create several undo groups; every group must remain undoable.
+  for (let remaining = 11; remaining > 0 && await text.inputValue() !== ""; remaining--) {
+    await text.press("Control+Z")
+  }
+  await expect(text).toHaveValue("")
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents[0]?.text)).toBe("")
+  await expect(text).not.toHaveAttribute("placeholder", "Start writing…")
+  await page.reload()
+  await expect(text).toHaveValue("")
+  await expect(text).not.toHaveAttribute("placeholder", "Start writing…")
+
+  await page.getByRole("button", { name: "New document", exact: true }).first().click()
+  await expect(text).toHaveAttribute("placeholder", "Start writing…")
+  await page.getByRole("button", { name: "More actions" }).click()
+  const downloadPromise = page.waitForEvent("download")
+  await page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" }).click()
+  const download = await downloadPromise
+  const stream = await download.createReadStream()
+  stream.setEncoding("utf8")
+  let downloaded = ""
+  for await (const chunk of stream) downloaded += chunk
+  expect(downloaded).toBe("")
+  expect(await readStoredDocuments(page)).toHaveLength(1)
+})
+
 test("New document explains when local saving begins", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
