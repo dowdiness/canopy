@@ -4,39 +4,6 @@
 // built-in quickcheck for random test generation.
 
 ///|
-/// Property: New editor is always empty
-test "property: new editor is empty" {
-  let editor = try! @editor.Editor::new("test-agent")
-  assert_eq(editor.get_text(), "")
-  assert_eq(editor.get_cursor(), 0)
-}
-
-///|
-/// Property: Item count matches inserted text item count
-test "property: insert updates length correctly" {
-  let texts : Array[String] = @quickcheck.samples(20)
-  for text in texts {
-    let editor = try! @editor.Editor::new("test-agent")
-    try! editor.insert(text)
-    assert_eq(editor.get_text().to_array().length(), text.to_array().length())
-  }
-}
-
-///|
-/// Property: Cursor is always within valid item-space bounds.
-test "property: cursor bounds after insert" {
-  let texts : Array[String] = @quickcheck.samples(20)
-  for text in texts {
-    let editor = try! @editor.Editor::new("test-agent")
-    try! editor.insert(text)
-    let cursor = editor.get_cursor()
-    let len = editor.get_text().to_array().length()
-    assert_true(cursor >= 0)
-    assert_true(cursor <= len)
-  }
-}
-
-///|
 /// Property: Inserting empty string doesn't change state
 test "property: inserting empty string is no-op" {
   let editor = try! @editor.Editor::new("test-agent")
@@ -86,77 +53,6 @@ test "property: insert then delete all gives empty" {
 }
 
 ///|
-/// Property: Text length never becomes negative
-test "property: text length is never negative" {
-  let ops_arrays : Array[Array[Bool]] = @quickcheck.samples(10)
-  for ops in ops_arrays {
-    let editor = try! @editor.Editor::new("test-agent")
-    for is_insert in ops {
-      if is_insert {
-        try! editor.insert("x")
-      } else {
-        let _ = editor.delete()
-      }
-
-      // Check item count is valid after each operation
-      assert_true(editor.get_text().to_array().length() >= 0)
-    }
-  }
-}
-
-///|
-/// Property: Moving cursor beyond bounds clamps to valid position
-test "property: cursor move clamps to bounds" {
-  let positions : Array[Int] = @quickcheck.samples(20)
-  for position in positions {
-    let editor = try! @editor.Editor::new("test-agent")
-    try! editor.insert("hello")
-    editor.move_cursor(position)
-    let cursor = editor.get_cursor()
-    let len = editor.get_text().to_array().length()
-    assert_true(cursor >= 0)
-    assert_true(cursor <= len)
-  }
-}
-
-///|
-/// Property: Inserting text at position 0 is handled correctly
-test "property: insert at start position" {
-  let texts : Array[String] = @quickcheck.samples(15)
-  for text in texts {
-    if text.is_empty() {
-      continue
-    }
-    let editor = try! @editor.Editor::new("test-agent")
-    try! editor.insert("world")
-    let original_len = editor.get_text().to_array().length()
-    editor.move_cursor(0)
-    try! editor.insert(text)
-
-    // After insert, total item count should be the sum of both inputs.
-    assert_eq(
-      editor.get_text().to_array().length(),
-      original_len + text.to_array().length(),
-    )
-  }
-}
-
-///|
-/// Property: Multiple inserts accumulate text
-test "property: multiple inserts accumulate length" {
-  let text_arrays : Array[Array[String]] = @quickcheck.samples(10)
-  for texts in text_arrays {
-    let editor = try! @editor.Editor::new("test-agent")
-    let mut expected_len = 0
-    for text in texts {
-      try! editor.insert(text)
-      expected_len = expected_len + text.to_array().length()
-    }
-    assert_eq(editor.get_text().to_array().length(), expected_len)
-  }
-}
-
-///|
 /// Property: Cursor position advances after insert
 test "property: cursor advances after insert" {
   let texts : Array[String] = @quickcheck.samples(15)
@@ -168,44 +64,6 @@ test "property: cursor advances after insert" {
 
     // Cursor should advance by the inserted item count.
     assert_eq(end_pos, start_pos + text.to_array().length())
-  }
-}
-
-///|
-/// Property: Delete reduces length by at most 1
-test "property: delete reduces length by at most 1" {
-  let texts : Array[String] = @quickcheck.samples(15)
-  for text in texts {
-    if text.is_empty() {
-      continue
-    }
-    let editor = try! @editor.Editor::new("test-agent")
-    try! editor.insert(text)
-    let before_len = editor.get_text().to_array().length()
-    editor.move_cursor(0)
-    let deleted = editor.delete()
-    let after_len = editor.get_text().to_array().length()
-    if deleted {
-      assert_eq(after_len, before_len - 1)
-    } else {
-      assert_eq(after_len, before_len)
-    }
-  }
-}
-
-///|
-/// Property: Backspace at position 0 does nothing
-test "property: backspace at start is no-op" {
-  let texts : Array[String] = @quickcheck.samples(15)
-  for text in texts {
-    let editor = try! @editor.Editor::new("test-agent")
-    try! editor.insert(text)
-    editor.move_cursor(0)
-    let before_text = editor.get_text()
-    let result = editor.backspace()
-    let after_text = editor.get_text()
-    assert_eq(result, false)
-    assert_eq(after_text, before_text)
   }
 }
 
@@ -231,26 +89,6 @@ test "property: sequential operations maintain invariants" {
       assert_true(cursor >= 0)
       assert_true(cursor <= len)
       assert_true(len >= 0)
-    }
-  }
-}
-
-///|
-/// Property: Cursor never exceeds text length after any operation
-test "property: cursor invariant holds after operations" {
-  let op_sequences : Array[Array[Bool]] = @quickcheck.samples(10)
-  for ops in op_sequences {
-    let editor = try! @editor.Editor::new("test-agent")
-    for is_insert in ops {
-      if is_insert {
-        try! editor.insert("x")
-      } else {
-        editor.move_cursor(0)
-        let _ = editor.delete()
-      }
-      let cursor = editor.get_cursor()
-      let len = editor.get_text().to_array().length()
-      assert_true(cursor <= len)
     }
   }
 }

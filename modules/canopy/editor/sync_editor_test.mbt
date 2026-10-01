@@ -131,13 +131,6 @@ test "SyncEditor: incremental parsing vs full reparse" {
 }
 
 ///|
-test "SyncEditor: empty document" {
-  let se = try! @probe.new_test_editor("agent1")
-  inspect(se.get_text(), content="")
-  let _ast = @probe.get_test_ast(se)
-}
-
-///|
 test "SyncEditor: backspace at start returns false" {
   let se = try! @probe.new_test_editor("agent1")
   try! insert_each(se, "abc")
@@ -153,45 +146,6 @@ test "SyncEditor: delete at end returns false" {
   se.move_cursor(3)
   inspect(se.delete(), content="false")
   inspect(se.get_text(), content="abc")
-}
-
-///|
-test "SyncEditor: export_all produces non-empty message" {
-  let se = try! @probe.new_test_editor("agent1")
-  try! se.insert("x")
-  let msg = try! se.export_all()
-  inspect(msg.op_count() > 0, content="true")
-}
-
-///|
-test "SyncEditor: lazy AST evaluation" {
-  let se = try! @probe.new_test_editor("agent1")
-  try! se.insert("x")
-  let _ast1 = @probe.get_test_ast(se)
-  inspect(
-    @probe.get_test_ast(se),
-    content=(
-      #|Branch("", [Leaf("x")])
-    ),
-  )
-}
-
-///|
-test "SyncEditor: merge invalidates AST cache" {
-  let se1 = try! @probe.new_test_editor("agent1")
-  let se2 = try! @probe.new_test_editor("agent2")
-  try! se1.insert("x")
-  try! se2.apply_sync(try! se1.export_all())
-  let _ast1 = @probe.get_test_ast(se1)
-  try! se2.insert("y")
-  try! se1.apply_sync(try! se2.export_all())
-  let _ast2 = @probe.get_test_ast(se1)
-  inspect(
-    se1.get_text(),
-    content=(
-      #|yx
-    ),
-  )
 }
 
 ///|

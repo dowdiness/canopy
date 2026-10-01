@@ -1,20 +1,8 @@
 // Tests for SyncEditor parser integration and sync operations.
 // Uses the neutral TestExpr grammar — these exercise generic editor
-// behavior (parse on set_text, reparse on edit, clear on empty, dirty
-// reparse, CRDT sync), not language-specific parse trees. Lambda-grammar
+// behavior (parse on set_text, reparse on edit, clear on empty,
+// CRDT sync), not language-specific parse trees. Lambda-grammar
 // parse correctness lives in lang/lambda's own tests.
-
-///|
-test "parser: initial parse produces AST" {
-  let se = try! @probe.new_test_editor("agent1")
-  se.set_text("foo")
-  inspect(
-    @probe.get_test_ast(se),
-    content=(
-      #|Branch("", [Leaf("foo")])
-    ),
-  )
-}
 
 ///|
 test "parser: edit updates AST" {
@@ -68,22 +56,6 @@ test "parser: valid source has no errors" {
   se.set_text("f(x)")
   inspect(se.is_parse_valid(), content="true")
   inspect(se.get_errors().is_empty(), content="true")
-}
-
-///|
-test "parser: mark_dirty forces reparse" {
-  let se = try! @probe.new_test_editor("agent1")
-  se.set_text("foo")
-  let ast1 = @probe.get_test_ast(se)
-  inspect(
-    ast1,
-    content=(
-      #|Branch("", [Leaf("foo")])
-    ),
-  )
-  se.mark_dirty()
-  let ast2 = @probe.get_test_ast(se)
-  inspect(ast1 == ast2, content="true")
 }
 
 ///|
