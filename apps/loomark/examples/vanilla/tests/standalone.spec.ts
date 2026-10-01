@@ -302,6 +302,46 @@ test("first-write hint stays outside document text and preserves native editing"
   expect(await readStoredDocuments(page)).toHaveLength(1)
 })
 
+test("visible save caption waits for durable acknowledgement without moving the editor", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const status = page.locator(".loomark-save-status")
+  await expect(text).toBeVisible()
+  await expect(status).toHaveCount(0)
+  await text.pressSequentially("Draft")
+  await expect(status).toHaveAccessibleName("Saved on this device")
+  await expect(status).toHaveText("Saved on this device")
+  const storedDocument = await readStoredDocument(page)
+  if (!storedDocument) throw new Error("saved document missing")
+  await page.evaluate(installDelayedDocumentCommit, sourceKey(storedDocument.document_id))
+  await page.evaluate(() => {
+    ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+      .__loomarkDelayedCommitHeld = true
+  })
+  const before = await text.boundingBox()
+  await text.pressSequentially(" revised")
+  await expect(status).toHaveText("Saving on this device")
+  await expect(status).toHaveAccessibleName("Saving on this device")
+  expect(await text.boundingBox()).toEqual(before)
+  await page.evaluate(() => {
+    ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+      .__loomarkDelayedCommitHeld = false
+  })
+  await expect(status).toHaveText("Saved on this device")
+  expect(await text.boundingBox()).toEqual(before)
+  // Inspect the writing workspace, with navigation closed before compact reflow.
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(status.locator(".loomark-save-caption")).toBeVisible()
+    await expect.poll(() => status.evaluate(element => {
+      const right = element.getBoundingClientRect().right
+      const modesLeft = document.querySelector(".loomark-bottom-actions")!.getBoundingClientRect().left
+      return right + 8 <= modesLeft && document.body.scrollWidth <= innerWidth
+    })).toBe(true)
+  }
+})
+
 test("New document explains when local saving begins", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -1989,8 +2029,33 @@ test("Replica write failure changes the save indicator until retry succeeds", as
   await text.fill("# Edited\n")
   await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible()
   await expect(indicator).toHaveAttribute("title", "Not saved")
+  const retry = page.locator(".loomark-footer").getByRole("button", { name: "Retry saving", exact: true })
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(indicator).toHaveAccessibleName("Not saved")
+    if (width <= 641) {
+      await expect(indicator.locator(".loomark-save-caption")).toBeHidden()
+    } else {
+      await expect(indicator.locator(".loomark-save-caption")).toBeVisible()
+    }
+    await expect.poll(async () => {
+      const action = await retry.boundingBox()
+      const modes = await page.locator(".loomark-bottom-actions").boundingBox()
+      return action !== null && modes !== null && action.x + action.width + 8 <= modes.x
+    }).toBe(true)
+    const bounds = await retry.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.height).toBeGreaterThanOrEqual(width <= 641 ? 44 : 32)
+    await retry.focus()
+    await expect(retry).toBeFocused()
+    expect(await retry.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      return element.contains(element.ownerDocument.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+    })).toBe(true)
+  }
   await page.evaluate(removeDocumentPutFailure)
-  await page.getByRole("button", { name: "Retry saving", exact: true }).click()
+  await retry.click()
   await expect.poll(async () => replicaCurrentText(await readStoredDocumentRaw(page, key)))
     .toBe("# Edited\n")
   await expect(indicator).toHaveAttribute("title", "Saved on this device")

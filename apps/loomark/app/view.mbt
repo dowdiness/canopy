@@ -104,27 +104,22 @@ fn local_durability_view(durability : LocalDurability) -> @rabbita.Html {
 
 ///|
 fn save_indicator(
-  status : @documents.SaveStatus?,
+  durability : LocalDurability?,
   persistence : @replica_persistence.Status?,
-  ephemeral_new : Bool,
 ) -> @rabbita.Html {
-  if status is None || (status is Some(Clean) && ephemeral_new) {
-    return @html.nothing
-  }
-  let (label, icon) = match status {
-    Some(@documents.SaveStatus::SaveFailed(_)) =>
+  let (label, icon) = match durability {
+    None | Some(NotStarted) => return @html.nothing
+    Some(NotStored) => ("Not saved", @view.unsaved_icon("block size-4"))
+    Some(Saving) if persistence is Some(Retryable(_, _)) =>
       ("Not saved", @view.unsaved_icon("block size-4"))
-    Some(@documents.SaveStatus::Unsaved) if persistence is Some(Retryable(_, _)) =>
-      ("Not saved", @view.unsaved_icon("block size-4"))
-    Some(@documents.SaveStatus::Unsaved) =>
-      ("Saving on this device", @view.saving_icon("block size-4"))
-    _ => ("Saved on this device", @view.saved_icon("block size-4"))
+    Some(Saving) => ("Saving on this device", @view.saving_icon("block size-4"))
+    Some(Stored) => ("Saved on this device", @view.saved_icon("block size-4"))
   }
   @html.span(
-    class="loomark-save-status inline-flex size-9 items-center justify-center",
+    class="loomark-save-status inline-flex h-9 shrink-0 items-center",
     title=label,
     attrs=@html.Attrs::build().role("status").aria_label(label),
-    icon,
+    [icon, @html.span(class="loomark-save-caption", label)],
   )
 }
 
@@ -657,20 +652,23 @@ fn view(
                   account_notice(account),
                   mode_content(editing.mode, editor_panels),
                   @html.footer(
-                    class="loomark-footer flex h-16 shrink-0 items-center justify-between px-3 max-[520px]:px-2",
+                    class="loomark-footer flex h-16 shrink-0 items-center justify-between gap-2 px-3 max-[520px]:px-2",
                     [
-                      @html.div(class="flex min-w-0 items-center gap-2", [
-                        save_indicator(
-                          editing.documents.save_status(editing.activation.key),
-                          replica_persistence,
-                          editing.documents.is_ephemeral_new(
-                            editing.activation.key,
-                          ),
-                        ),
-                        sync_attention,
-                      ]),
                       @html.div(
-                        class="loomark-bottom-actions flex items-center gap-2",
+                        class="loomark-footer-status flex min-w-0 flex-1 items-center gap-2",
+                        [
+                          save_indicator(
+                            local_durability(editing, editing.activation.key),
+                            replica_persistence,
+                          ),
+                          @html.div(
+                            class="loomark-sync-attention min-w-0",
+                            sync_attention,
+                          ),
+                        ],
+                      ),
+                      @html.div(
+                        class="loomark-bottom-actions flex shrink-0 items-center gap-2",
                         [
                           @rui.tabs_root(
                             value=mode_name(editing.mode).to_lower(),

@@ -159,9 +159,14 @@ or carries over to another document.
 _Avoid_: fallback document, recovered text
 
 **Saved text**:
-The most recent Document text successfully written to browser storage. It may
-be older than the current Document text.
-_Avoid_: edit history, backup
+  The most recent Document text successfully written to browser storage. It may
+  be older than the current Document text.
+  The editor footer names local durability beside its status icon: "Saving on
+  this device", "Saved on this device", or "Not saved". Untouched New has no
+  success indicator. On compact screens, an attention action or message takes
+  priority over the caption; the icon retains the complete accessible name.
+  This is a browser-storage status, not a sync or publication confirmation.
+  _Avoid_: edit history, backup
 
 **Unsaved document**:
 A Loomark document whose latest text has not reached browser storage. Loomark

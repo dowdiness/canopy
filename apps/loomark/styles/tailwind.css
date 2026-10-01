@@ -209,8 +209,26 @@
 }
 .loomark-menu > * { flex-shrink: 0; }
 .loomark-menu-status > div { flex-wrap: wrap; justify-content: flex-start; }
-.loomark-save-status { color: var(--color-lm-accent); font-size: 11px; }
+.loomark-save-status {
+  width: 168px;
+  gap: 6px;
+  padding-inline: 8px;
+  color: var(--color-lm-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .loomark-save-status[title="Not saved"] { color: var(--color-lm-danger); }
+.loomark-sync-attention { font-size: 12px; }
+.loomark-sync-attention > span { display: block; }
+.loomark-sync-attention > button { max-width: 100%; white-space: normal; }
+@media (max-width: 641px) {
+  .loomark-footer-status:has(.loomark-sync-attention > *) .loomark-save-caption { display: none; }
+  .loomark-footer-status:has(.loomark-sync-attention > *) .loomark-save-status {
+    width: 36px;
+    padding-inline: 0;
+    justify-content: center;
+  }
+}
 .loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: 5px !important; background: var(--color-lm-paper); }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
 .loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
