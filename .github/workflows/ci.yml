@@ -114,6 +114,7 @@ jobs:
               - '.github/workflows/ci.yml'
               - 'scripts/build-js.sh'
               - 'scripts/test-ideal-web-e2e.sh'
+              - 'scripts/test-ideal-web-e2e-runner.mjs'
               - 'scripts/test-demo-react-e2e.sh'
             run_canvas_e2e:
               - 'apps/canvas/**'
@@ -796,6 +797,9 @@ jobs:
       - name: Install web dependencies
         working-directory: apps/ideal/web
         run: npm ci
+
+      - name: Verify Ideal E2E runner selection
+        run: node --test scripts/test-ideal-web-e2e-runner.mjs
 
       - name: Run Ideal editor Playwright suite
         run: ./scripts/test-ideal-web-e2e.sh

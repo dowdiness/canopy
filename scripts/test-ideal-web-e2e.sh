@@ -19,13 +19,4 @@ if [ ! -d node_modules ]; then
     npm ci
 fi
 
-DEFAULT_SPECS=()
-while IFS= read -r spec; do
-    DEFAULT_SPECS+=("$spec")
-done < <(find e2e -maxdepth 1 -name '*.spec.ts' ! -name 'editor-response.perf.spec.ts' | sort)
-
-if [ "$#" -eq 0 ]; then
-    set -- "${DEFAULT_SPECS[@]}"
-fi
-
-CI="${CI:-1}" npx playwright test "$@"
+CI="${CI:-1}" npx playwright test --config=playwright.functional.config.ts "$@"
