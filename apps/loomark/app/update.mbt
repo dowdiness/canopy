@@ -1555,48 +1555,17 @@ fn reduce(
       guard transition is Some((replication, completion)) else {
         return (model, @cmd.none)
       }
-      let active_write = attempt.write()
-      let (completed, feedback_result, next, current) = match completion {
-        @replica_persistence.Completion::Current(write) =>
-          (write, Ok(()), None, true)
-        Superseded(write, next) => (write, Ok(()), Some(next), false)
-        Retryable(retained, _, failure) => (retained, Err(failure), None, false)
-        Failed(write, failure) => (write, Err(failure), None, false)
+      let mounted = match model.page {
+        Editing(editing) => Some(editing.activation.key)
+        Loading(_)
+        | PreparingNew(_)
+        | Recovery(_, _) => None
       }
-      let replica = completed.replica()
-      let feedback = if active_write
-        is @source_repository.ReplicaWrite::PromoteSource(_) {
-        Some(
-          @documents.Feedback::PromotionCompleted(completed, feedback_result),
-        )
-      } else {
-        match feedback_result {
-          Ok(_) =>
-            Some(
-              if current {
-                @documents.Feedback::ReplicaSettled(
-                  completed,
-                  match model.page {
-                    Editing(editing) => Some(editing.activation.key)
-                    Loading(_) | PreparingNew(_) | Recovery(_, _) => None
-                  },
-                )
-              } else {
-                @documents.Feedback::ReplicaAdvanced(completed)
-              },
-            )
-          Err(failure) =>
-            if completed is @source_repository.ReplicaWrite::Remove(_) ||
-              completed.replica().is_deleting() ||
-              completed.replica().is_deleted() {
-              Some(
-                @documents.Feedback::ReplicaDeletionFailed(completed, failure),
-              )
-            } else {
-              None
-            }
-        }
-      }
+      let feedback = @documents.Feedback::from_replica_completion(
+        attempt.write(),
+        completion,
+        mounted,
+      )
       let (page, page_actions, page_command) = match feedback {
         Some(feedback) =>
           reduce_page_documents(
@@ -1607,32 +1576,27 @@ fn reduce(
           )
         None => (model.page, [], @cmd.none)
       }
-      let next_command = next
-        .map(attempt => persist_replica(saved, attempt, emit))
-        .unwrap_or(@cmd.none)
       let (model, page_actions_command) = apply_document_actions(
         { ..model, page, replication, },
         page_actions,
         emit,
       )
-      let (model, sync_command) = if current {
-        match model.page.saved_documents() {
-          Some(saved) =>
-            match saved.replica(replica.account(), replica.document_id()) {
-              Some(durable) => settle_replica(model, durable, emit)
-              None => (model, @cmd.none)
-            }
-          None => (model, @cmd.none)
+      let (model, continuation) = match completion {
+        @replica_persistence.Completion::Current(write) => {
+          let replica = write.replica()
+          match model.page.saved_documents() {
+            Some(saved) =>
+              match saved.replica(replica.account(), replica.document_id()) {
+                Some(durable) => settle_replica(model, durable, emit)
+                None => (model, @cmd.none)
+              }
+            None => (model, @cmd.none)
+          }
         }
-      } else {
-        (model, @cmd.none)
+        Superseded(_, next) => (model, persist_replica(saved, next, emit))
+        Retryable(_, _, _) | Failed(_, _) => (model, @cmd.none)
       }
-      (
-        model,
-        @cmd.batch([
-          page_command, page_actions_command, next_command, sync_command,
-        ]),
-      )
+      (model, @cmd.batch([page_command, page_actions_command, continuation]))
     }
     Sync(OperationPrepared(attempt, result)) =>
       match result {

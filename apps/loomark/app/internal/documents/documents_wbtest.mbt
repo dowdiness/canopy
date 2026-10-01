@@ -74,6 +74,77 @@ test "source and account identities cannot collide" {
 }
 
 ///|
+test "replica completion classifies promotion independently of a newer write" {
+  let replica = @source_repository.DocumentReplica(
+    account_id("account"),
+    documents_test_document("one", "one"),
+  )
+  let promotion = replica.promote_source()
+  let (lane, active) = @replica_persistence.State().submit(promotion)
+  guard active is Some(active) else { fail("active promotion") }
+  let (lane, next) = lane.submit(replica.store())
+  guard next is None else { fail("newer write must wait") }
+  let (_, completion) = lane.complete(active, Ok(()))
+  guard completion is @replica_persistence.Completion::Superseded(_, _) else {
+    fail("superseded promotion")
+  }
+  guard Feedback::from_replica_completion(
+      promotion,
+      completion,
+      Some(source_key("one")),
+    )
+    is Some(PromotionCompleted(write, Ok(_))) &&
+    write == promotion else {
+    fail("promotion must rekey even when superseded")
+  }
+}
+
+///|
+test "replica completion distinguishes current, superseded, and deletion failure" {
+  let replica = @source_repository.DocumentReplica(
+    account_id("account"),
+    documents_test_document("one", "one"),
+  )
+  let write = replica.store()
+  let mounted = Key::replica(replica.account(), replica.document_id())
+  guard Feedback::from_replica_completion(
+      write,
+      @replica_persistence.Completion::Current(write),
+      Some(mounted),
+    )
+    is Some(ReplicaSettled(_, Some(key))) &&
+    key == mounted else {
+    fail("current completion must carry mounted identity")
+  }
+  let (lane, active) = @replica_persistence.State().submit(write)
+  guard active is Some(active) else { fail("active write") }
+  let (lane, next) = lane.submit(replica.rewrite())
+  guard next is None else { fail("newer write must wait") }
+  let (_, completion) = lane.complete(active, Ok(()))
+  guard Feedback::from_replica_completion(write, completion, Some(mounted))
+    is Some(ReplicaAdvanced(_)) else {
+    fail("superseded success cannot settle current working copy")
+  }
+  let deletion = replica.request_deletion()
+  guard Feedback::from_replica_completion(
+      deletion,
+      @replica_persistence.Completion::Failed(deletion, StorageUnavailable),
+      Some(mounted),
+    )
+    is Some(ReplicaDeletionFailed(_, StorageUnavailable)) else {
+    fail("deletion failure must be shown")
+  }
+  guard Feedback::from_replica_completion(
+      write,
+      @replica_persistence.Completion::Failed(write, StorageUnavailable),
+      Some(mounted),
+    )
+    is None else {
+    fail("ordinary write failure stays with the persistence lane")
+  }
+}
+
+///|
 test "same document id remains isolated across source and accounts" {
   let id = document_id("shared")
   let account_a = account_id("account-a")

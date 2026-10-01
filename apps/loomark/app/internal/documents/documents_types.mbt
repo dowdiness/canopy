@@ -141,6 +141,43 @@ pub(all) enum Feedback {
 }
 
 ///|
+/// Translate a settled persistence lane into document lifecycle feedback.
+/// An ordinary failed write remains retryable in the lane, not in Documents.
+pub fn Feedback::from_replica_completion(
+  active : @source_repository.ReplicaWrite,
+  completion : @replica_persistence.Completion,
+  mounted : Key?,
+) -> Feedback? {
+  let (write, result, current) = match completion {
+    @replica_persistence.Completion::Current(write) => (write, Ok(()), true)
+    Superseded(write, _) => (write, Ok(()), false)
+    Retryable(write, _, failure) | Failed(write, failure) =>
+      (write, Err(failure), false)
+  }
+  if active is @source_repository.ReplicaWrite::PromoteSource(_) {
+    return Some(PromotionCompleted(write, result))
+  }
+  match result {
+    Ok(_) =>
+      Some(
+        if current {
+          ReplicaSettled(write, mounted)
+        } else {
+          ReplicaAdvanced(write)
+        },
+      )
+    Err(failure) =>
+      if write is @source_repository.ReplicaWrite::Remove(_) ||
+        write.replica().is_deleting() ||
+        write.replica().is_deleted() {
+        Some(ReplicaDeletionFailed(write, failure))
+      } else {
+        None
+      }
+  }
+}
+
+///|
 pub(all) enum Msg {
   New(@source_repository.DocumentId)
   Imported(@source_repository.DocumentId, String)
