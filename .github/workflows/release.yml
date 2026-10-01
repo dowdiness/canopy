@@ -36,7 +36,7 @@ jobs:
           tool: just@1.58.0
 
       - name: Install Nushell
-        uses: hustcer/setup-nu@f3fd65374ffc4d60974c0dd2f7263c6c5c285f81
+        uses: hustcer/setup-nu@9215c80adb545a85c419d5085b76eb6d082f49e7
         with:
           version: "0.114.1"
 
