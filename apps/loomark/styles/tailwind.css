@@ -247,6 +247,9 @@
 
 @media (max-width: 720px) {
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }
+  /* Override RUI inline sizes to retain a writing line when notices reduce height. */
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text-pane { min-height: 112px !important; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) [data-side="second"] { flex-shrink: 1 !important; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame { padding-bottom: 0; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 12px 24px 16px; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px 80px; }

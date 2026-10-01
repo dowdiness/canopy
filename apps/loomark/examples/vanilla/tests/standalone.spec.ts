@@ -1387,12 +1387,13 @@ test("quiet editor keeps its source and sidebar toggle in place across views", a
 
 for (const mode of ["Text", "Split"] as const) {
   test(`current native writing line stays visible outside chrome in ${mode}`, async ({ page }) => {
-    for (const { width, height, failure } of [
+    for (const { width, height, failure, minimumSplit = false } of [
       { width: 1280, height: 900, failure: false },
       { width: 390, height: 844, failure: false },
       { width: 320, height: 640, failure: false },
       { width: 320, height: 360, failure: false },
       { width: 320, height: 360, failure: true },
+      { width: 320, height: 360, failure: true, minimumSplit: true },
     ]) {
       await page.setViewportSize({ width, height })
       await page.goto("/")
@@ -1402,11 +1403,15 @@ for (const mode of ["Text", "Split"] as const) {
       await page.getByRole("tab", { name: mode, exact: true }).click()
       expect(await editor.evaluate(element => element.getBoundingClientRect().top
         + Number.parseFloat(getComputedStyle(element).paddingTop))).toBe(width <= 520 ? 68 : 70)
+      if (mode === "Split" && minimumSplit) {
+        await page.getByRole("slider", { name: "Resize editor and preview" }).fill("25")
+      }
       if (failure) await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
       await editor.fill("# Long writing\n\n" + "Short line.\n".repeat(80))
       if (failure) await expect(page.getByRole("alert")).toBeVisible()
       await editor.press("Control+End")
       await editor.pressSequentially("Current line")
+      if (failure) await expect(page.getByRole("alert")).toBeVisible()
       const visible = await editor.evaluate(element => {
         const area = element as HTMLTextAreaElement
         const style = getComputedStyle(area), rect = area.getBoundingClientRect()
@@ -1427,6 +1432,18 @@ for (const mode of ["Text", "Split"] as const) {
         }
       })
       expect(visible).toEqual({ atEnd: true, lineOutsideChrome: true, lineInsideInput: true, unobscured: true, mask: "none" })
+      if (mode === "Split" && minimumSplit) {
+        const panes = await page.locator("#loomark-editor-panels").evaluate(group => {
+          const text = group.querySelector<HTMLElement>("#loomark-text-pane")!
+          const preview = group.querySelector<HTMLElement>('[data-side="second"]')!
+          return {
+            writingHeight: text.getBoundingClientRect().height,
+            previewContained: preview.getBoundingClientRect().bottom <= group.getBoundingClientRect().bottom + 1,
+          }
+        })
+        expect(panes.writingHeight).toBeGreaterThanOrEqual(112)
+        expect(panes.previewContained).toBe(true)
+      }
     }
   })
 }
