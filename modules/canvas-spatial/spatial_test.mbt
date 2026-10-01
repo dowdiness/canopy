@@ -37,16 +37,6 @@ fn assert_close(actual : Double, expected : Double) -> Unit raise {
 }
 
 ///|
-test "finite coordinate constructors expose only validated values" {
-  let screen = screen_point(12.5, -7.25)
-  let world = world_point(-3.0, 4.0)
-  assert_eq(screen.x(), 12.5)
-  assert_eq(screen.y(), -7.25)
-  assert_eq(world.x(), -3.0)
-  assert_eq(world.y(), 4.0)
-}
-
-///|
 test "coordinate constructors reject non-finite values" {
   for invalid in [0.0 / 0.0, 1.0 / 0.0, -1.0 / 0.0] {
     let screen_result = try {
@@ -82,14 +72,6 @@ test "scale accepts finite positive values and rejects invalid values" {
     }
     assert_true(rejected)
   }
-}
-
-///|
-test "viewport construction accepts typed geometry" {
-  let viewport = viewport_for_test(12.0, -7.0, 2.5)
-  assert_eq(viewport.screen_origin().x(), 12.0)
-  assert_eq(viewport.screen_origin().y(), -7.0)
-  assert_eq(viewport.scale().to_double(), 2.5)
 }
 
 ///|

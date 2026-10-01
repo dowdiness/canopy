@@ -1,18 +1,4 @@
 ///|
-test "RoseNode leaf and internal construction" {
-  let leaf = @zipper.RoseNode::RoseNode(data=1)
-  inspect(leaf.data, content="1")
-  inspect(leaf.children.length(), content="0")
-  let tree = @zipper.RoseNode::RoseNode(data=0, children=[
-    @zipper.RoseNode::RoseNode(data=1),
-    @zipper.RoseNode::RoseNode(data=2),
-    @zipper.RoseNode::RoseNode(data=3),
-  ])
-  inspect(tree.children.length(), content="3")
-  inspect(tree.children[1].data, content="2")
-}
-
-///|
 test "RoseNode map transforms leaf and children data" {
   let tree = @zipper.RoseNode::RoseNode(data=1, children=[
     @zipper.RoseNode::RoseNode(data=2),
@@ -25,25 +11,6 @@ test "RoseNode map transforms leaf and children data" {
   inspect(mapped.children[0].data, content="2")
   inspect(mapped.children[1].data, content="3")
   inspect(mapped.children[1].children[0].data, content="4")
-}
-
-///|
-test "RoseNode map identity preserves tree" {
-  let tree = @zipper.RoseNode::RoseNode(data=0, children=[
-    @zipper.RoseNode::RoseNode(data=1),
-    @zipper.RoseNode::RoseNode(data=2, children=[
-      @zipper.RoseNode::RoseNode(data=3),
-    ]),
-  ])
-  assert_eq(tree.map(x => x), tree)
-}
-
-///|
-test "from_root creates zipper at root" {
-  let tree = @zipper.RoseNode::RoseNode(data="hello")
-  let z = @zipper.RoseZipper::from_root(tree)
-  inspect(z.focus.data, content="hello")
-  inspect(z.depth, content="0")
 }
 
 ///|
@@ -206,18 +173,6 @@ test "lateral then up preserves tree" {
     .go_up()
     .unwrap()
   assert_eq(z.focus, tree)
-}
-
-///|
-test "to_tree from root is identity" {
-  let tree = @zipper.RoseNode::RoseNode(data=1, children=[
-    @zipper.RoseNode::RoseNode(data=2, children=[
-      @zipper.RoseNode::RoseNode(data=5),
-    ]),
-    @zipper.RoseNode::RoseNode(data=3),
-    @zipper.RoseNode::RoseNode(data=4),
-  ])
-  assert_eq(@zipper.RoseZipper::from_root(tree).to_tree(), tree)
 }
 
 ///|

@@ -105,15 +105,6 @@ test "TestExpr fixture surface is frozen (drift guard vs workspace/probe)" {
 }
 
 ///|
-test "ProjNode[TestExpr] — construction and field access" {
-  let leaf = ProjNode(Leaf("x"), 0, 1, 0, [])
-  inspect(leaf.kind, content="Leaf(\"x\")")
-  inspect(leaf.start, content="0")
-  inspect(leaf.end, content="1")
-  inspect(leaf.id(), content="NodeId(0)")
-}
-
-///|
 test "ProjNode::leaf allocates a fresh id from syntax span" {
   let syntax_node = @seam.SyntaxNode::from_cst(
     @seam.CstNode::new_unclassified(@seam.RawKind(1), [

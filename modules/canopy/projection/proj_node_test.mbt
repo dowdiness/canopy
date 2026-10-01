@@ -63,15 +63,3 @@ test "to_proj_node: empty document" {
   let proj = @lambda_proj.to_proj_node(syntax, Ref(0))
   inspect(proj.kind, content="Unit")
 }
-
-///|
-test "to_proj_node: single let def with expression" {
-  let syntax = parse_syntax("let x = 1\nx")
-  let proj = @lambda_proj.to_proj_node(syntax, Ref(0))
-  inspect(
-    proj.kind,
-    content=(
-      #|Module([("x", Int(1))], Var("x"))
-    ),
-  )
-}

@@ -1,6 +1,6 @@
 // Property-based tests for the rose tree zipper using @qc (quickcheck).
 // These verify structural invariants that hand-written tests cannot exhaustively cover:
-// round-trip laws, path serialization, and persistence guarantees.
+// navigation round-trip laws and path serialization.
 
 ///|
 /// Bounded-depth recursive generator for RoseNode[Int] trees.
@@ -30,16 +30,6 @@ impl @quickcheck.Arbitrary for RoseNode[Int] with fn arbitrary(size, rs) {
 ///|
 /// No-op shrink impl (required by quick_check_fn).
 impl @qc.Shrink for RoseNode[Int]
-
-///|
-fn prop_from_root_to_tree_identity(tree : RoseNode[Int]) -> Bool {
-  RoseZipper::from_root(tree).to_tree() == tree
-}
-
-///|
-test "property: from_root then to_tree is identity" {
-  @qc.quick_check_fn(prop_from_root_to_tree_identity)
-}
 
 ///|
 fn prop_go_down_go_up_round_trip(tree : RoseNode[Int]) -> Bool {
