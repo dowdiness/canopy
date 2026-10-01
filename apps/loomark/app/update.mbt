@@ -10,6 +10,17 @@ fn compact_viewport(width : Double) -> Bool {
 }
 
 ///|
+const EDITOR_TEXT_ID : String = "loomark-text"
+
+///|
+fn editor_focus_id(mode : EditorMode) -> String {
+  match mode {
+    Text | Split => EDITOR_TEXT_ID
+    Preview => mode_dom_id(Preview)
+  }
+}
+
+///|
 fn editor_mode(mode : EditorMode) -> @editor.Mode {
   match mode {
     Text => @editor.Text
@@ -109,10 +120,7 @@ fn activate_surface(
     editor_mode(mode),
     emit.map(event => PreviewEvent(event)),
   )
-  (
-    preview,
-    @cmd.batch([command, @cmd.custom_cmd(kind=AfterRender, _ => focus_editor())]),
-  )
+  (preview, @cmd.batch([command, focus_element(editor_focus_id(mode))]))
 }
 
 ///|
@@ -458,7 +466,7 @@ fn update_page(
       (
         Editing({ ..editing, menu_open: false, }),
         if editing.menu_open {
-          @cmd.custom_cmd(kind=AfterRender, _ => focus_more_actions())
+          focus_element("loomark-more-actions")
         } else {
           @cmd.none
         },
@@ -658,9 +666,7 @@ fn update_page(
         DeleteConfirmation(target) =>
           (
             Editing({ ..editing, deletion: NoDeletion, }),
-            @cmd.custom_cmd(kind=AfterRender, _ => {
-              focus_delete_action(target.lifecycle_key())
-            }),
+            focus_element("loomark-delete-\{target.lifecycle_key()}"),
           )
         NoDeletion => (Editing(editing), @cmd.none)
       }
@@ -1370,7 +1376,10 @@ fn reduce(
       (
         // Cancel only this intent; pending storage and HTTP keep their owners.
         { ..model, departure, },
-        @cmd.custom_cmd(kind=AfterRender, _ => focus_editor()),
+        match model.page {
+          Editing(editing) => focus_element(editor_focus_id(editing.mode))
+          _ => @cmd.none
+        },
       )
     }
     LoginPrepared(attempt, result) =>
