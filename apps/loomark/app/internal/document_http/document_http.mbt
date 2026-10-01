@@ -1,14 +1,4 @@
 ///|
-pub(all) enum DeliveryResult {
-  Acknowledged(@source_repository.SavedRevision)
-  RevisionConflict
-  AccountChanged
-  DocumentTooLarge
-  OperationRejected
-  Unavailable
-} derive(Eq, Debug)
-
-///|
 pub(all) enum RemoteResult {
   Found(@source_repository.RemoteDocument)
   AccountChanged
@@ -28,7 +18,7 @@ extenum @cmd.Extension += {
     @source_repository.AccountId,
     @source_repository.DocumentId,
     @source_repository.PendingOperation,
-    (DeliveryResult) -> @cmd.Cmd
+    (@replication.DeliveryResult) -> @cmd.Cmd
   )
   Get(
     @source_repository.AccountId,
@@ -237,7 +227,7 @@ async fn request(
   account : @source_repository.AccountId,
   document_id : @source_repository.DocumentId,
   operation : @source_repository.PendingOperation,
-) -> DeliveryResult noraise {
+) -> @replication.DeliveryResult noraise {
   try {
     let url = origin + "/api/documents/" + document_id.value()
     let body = operation_json(operation)
@@ -249,22 +239,22 @@ async fn request(
     match response.status() {
       200 =>
         match receipt(response.body(), document_id, operation) {
-          Some(revision) => Acknowledged(revision)
-          None => Unavailable
+          Some(revision) => @replication.Acknowledged(revision)
+          None => @replication.Unavailable
         }
-      401 => AccountChanged
+      401 => @replication.AccountChanged
       409 =>
         match error_code(response.body()) {
-          Some("account_changed") => AccountChanged
-          Some("revision_conflict") => RevisionConflict
-          _ => Unavailable
+          Some("account_changed") => @replication.AccountChanged
+          Some("revision_conflict") => @replication.RevisionConflict
+          _ => @replication.Unavailable
         }
-      413 => DocumentTooLarge
-      422 => OperationRejected
-      _ => Unavailable
+      413 => @replication.DocumentTooLarge
+      422 => @replication.OperationRejected
+      _ => @replication.Unavailable
     }
   } catch {
-    _ => Unavailable
+    _ => @replication.Unavailable
   } noraise {
     result => result
   }
@@ -292,7 +282,7 @@ pub fn deliver(
   account : @source_repository.AccountId,
   document_id : @source_repository.DocumentId,
   operation : @source_repository.PendingOperation,
-  emit : @cmd.Emit[DeliveryResult],
+  emit : @cmd.Emit[@replication.DeliveryResult],
 ) -> @cmd.Cmd {
   op.request(Deliver(account, document_id, operation, result => emit(result)))
 }
@@ -313,12 +303,6 @@ pub fn discover(
 ) -> @cmd.Cmd {
   op.request(Discover(account, result => emit(result)))
 }
-
-///|
-pub extend DeliveryResult with @moonbitlang/core/debug.Debug::{to_repr}
-
-///|
-pub extend DeliveryResult with Eq::{equal, not_equal}
 
 ///|
 pub extend DiscoveryResult with @moonbitlang/core/debug.Debug::{to_repr}

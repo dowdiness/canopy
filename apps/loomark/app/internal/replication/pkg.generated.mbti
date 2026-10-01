@@ -19,6 +19,18 @@ pub fn ExpiredRetry::not_equal(Self, Self) -> Bool
 pub fn ExpiredRetry::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+pub(all) enum DeliveryResult {
+  Acknowledged(@source_repository.SavedRevision)
+  RevisionConflict
+  AccountChanged
+  DocumentTooLarge
+  OperationRejected
+  Unavailable
+} derive(Eq, @debug.Debug)
+pub fn DeliveryResult::equal(Self, Self) -> Bool
+pub fn DeliveryResult::not_equal(Self, Self) -> Bool
+pub fn DeliveryResult::to_repr(Self) -> @debug.Repr
+
 pub(all) enum Effect {
   Persist(@replica_persistence.Attempt)
   Network(@sync.Action)
@@ -45,6 +57,7 @@ pub fn State::cancel_selection(Self) -> Self
 pub fn State::complete(Self, @replica_persistence.Attempt, Result[Unit, @source_repository.ReplicaFailure]) -> (Self, @replica_persistence.Completion) raise @replica_persistence.StaleAttempt
 pub fn State::editing_base(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
 pub fn State::equal(Self, Self) -> Bool
+pub fn State::finish_delivery(Self, @source_repository.SavedDocuments, @sync.DeliveryAttempt, DeliveryResult) -> (Self, Effect?) raise @sync.WorkError
 pub fn State::head(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
 pub fn State::not_equal(Self, Self) -> Bool
 pub fn State::opened(Self, @source_repository.SavedDocuments, @sync.OpenAttempt, @source_repository.RemoteDocument) -> (Self, Effect?) raise @sync.WorkError

@@ -219,7 +219,7 @@ async test "HTTP requests complete pagination and reject interrupted bodies" {
   assert_eq(entries[1].document_id().value(), second_id)
   assert_eq(
     request("https://delivery.test", account, document_id(), pending_save()),
-    DeliveryResult::Unavailable,
+    @replication.DeliveryResult::Unavailable,
   )
   assert_eq(
     request_discovery("https://interrupted.test", account),

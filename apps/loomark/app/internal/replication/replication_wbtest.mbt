@@ -700,6 +700,191 @@ test "delivery receipt follows the newest queued edit without early network work
 }
 
 ///|
+test "delivery outcomes share the causal replica lane without equating their effects" {
+  let durable = sending_replica()
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+  guard test_protocol(durable.account()).advance(durable)
+    is (delivering, Some(@sync.Action::Deliver(delivery, operation))) else {
+    fail("delivery")
+  }
+  guard durable.edit("newer") is @source_repository.EditPlan::Persist(newer) else {
+    fail("newer edit")
+  }
+  let (busy, effect) = State(protocol=delivering).submit(newer)
+  guard effect is Some(Persist(active)) else { fail("newer write") }
+
+  let revision = @source_repository.SavedRevision::parse(2.0)
+  let (receipt, effect) = busy.finish_delivery(
+    saved,
+    delivery,
+    Acknowledged(revision),
+  )
+  assert_eq(effect, None)
+  guard receipt.complete(active, Ok(()))
+    is (receipt, @replica_persistence.Superseded(_, next)) else {
+    fail("receipt must wait for newer local text")
+  }
+  guard receipt.complete(next, Ok(()))
+    is (_, @replica_persistence.Completion::Current(write)) &&
+    write.replica().baseline_revision() == 2.0 &&
+    write.replica().document().unwrap().text() == "newer" else {
+    fail("receipt and newer text commit together")
+  }
+
+  let (conflicted, effect) = busy.finish_delivery(
+    saved,
+    delivery,
+    RevisionConflict,
+  )
+  assert_eq(effect, None)
+  guard conflicted.complete(active, Ok(()))
+    is (conflicted, @replica_persistence.Completion::Current(write)) else {
+    fail("newer edit commits")
+  }
+  guard conflicted.settle_replica(write.replica()).1
+    is Some(Network(@sync.GetRemote(_))) else {
+    fail("conflict fetch begins only after local commit")
+  }
+
+  let (uncertain, effect) = State(protocol=delivering).finish_delivery(
+    saved,
+    delivery,
+    Unavailable,
+  )
+  assert_eq(effect, None)
+  guard uncertain.protocol().activity(durable)
+    is @sync.Activity::Retryable(retry) else {
+    fail("uncertain response remains retryable")
+  }
+  guard uncertain.retry_sync(saved, retry)
+    is (_, Network(@sync.Deliver(_, resent))) &&
+    resent.operation_id() == operation.operation_id() else {
+    fail("retry must resend the same operation")
+  }
+}
+
+///|
+test "stale delivery result cannot trigger a second transition" {
+  let durable = sending_replica()
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+  guard test_protocol(durable.account()).advance(durable)
+    is (delivering, Some(@sync.Action::Deliver(delivery, _))) else {
+    fail("delivery")
+  }
+  let (state, _) = State(protocol=delivering).finish_delivery(
+    saved,
+    delivery,
+    RevisionConflict,
+  )
+  let stale = try state.finish_delivery(saved, delivery, AccountChanged) catch {
+    @sync.WorkError::StaleWork => true
+  } noraise {
+    _ => false
+  }
+  assert_true(stale)
+}
+
+///|
+test "413 blocks unchanged payload but 422 retires it without blocking" {
+  let durable = sending_replica()
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+  guard test_protocol(durable.account()).advance(durable)
+    is (delivering, Some(@sync.Action::Deliver(delivery, _))) else {
+    fail("delivery")
+  }
+  let (blocked, effect) = State(protocol=delivering).finish_delivery(
+    saved,
+    delivery,
+    DocumentTooLarge,
+  )
+  guard effect is Some(Persist(write)) else {
+    fail("retire oversized operation")
+  }
+  assert_true(
+    blocked.protocol().activity(write.write().replica())
+    is @sync.Activity::Blocked,
+  )
+
+  let (rejected, effect) = State(protocol=delivering).finish_delivery(
+    saved,
+    delivery,
+    OperationRejected,
+  )
+  guard effect is Some(Persist(write)) else { fail("retire invalid operation") }
+  assert_true(
+    !(rejected.protocol().activity(write.write().replica())
+    is @sync.Activity::Blocked),
+  )
+}
+
+///|
+test "413 retires an oversized operation without blocking newer text" {
+  let durable = sending_replica()
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+  guard test_protocol(durable.account()).advance(durable)
+    is (delivering, Some(@sync.Action::Deliver(delivery, _))) else {
+    fail("delivery")
+  }
+  guard durable.edit("smaller") is @source_repository.EditPlan::Persist(newer) else {
+    fail("newer text")
+  }
+  let (busy, effect) = State(protocol=delivering).submit(newer)
+  guard effect is Some(Persist(active)) else { fail("write newer text") }
+  let (retired, effect) = busy.finish_delivery(
+    saved,
+    delivery,
+    DocumentTooLarge,
+  )
+  assert_eq(effect, None)
+  guard retired.complete(active, Ok(()))
+    is (retired, @replica_persistence.Superseded(_, next)) else {
+    fail("retirement follows newer text")
+  }
+  guard retired.complete(next, Ok(()))
+    is (retired, @replica_persistence.Completion::Current(write)) else {
+    fail("retire operation")
+  }
+  assert_true(
+    !(retired.protocol().activity(write.replica()) is @sync.Activity::Blocked),
+  )
+  assert_eq(write.replica().document().unwrap().text(), "smaller")
+}
+
+///|
+test "account change preserves retry identity without starting another request" {
+  let durable = sending_replica()
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(durable)
+  guard test_protocol(durable.account()).advance(durable)
+    is (delivering, Some(@sync.Action::Deliver(delivery, operation))) else {
+    fail("delivery")
+  }
+  let (changed, effect) = State(protocol=delivering).finish_delivery(
+    saved,
+    delivery,
+    AccountChanged,
+  )
+  assert_eq(effect, None)
+  guard changed.protocol().activity(durable) is @sync.Activity::Retryable(retry) else {
+    fail("account change is retryable")
+  }
+  guard changed.retry_sync(saved, retry)
+    is (_, Network(@sync.Deliver(_, resent))) &&
+    resent.operation_id() == operation.operation_id() else {
+    fail("same operation after account resolution")
+  }
+}
+
+///|
 test "remote refresh remains pending until its replica write commits" {
   let durable = received_replica()
   let saved = @source_repository.SavedDocuments::from_documents([])

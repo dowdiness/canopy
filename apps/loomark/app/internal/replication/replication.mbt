@@ -6,6 +6,18 @@ pub(all) enum Effect {
 } derive(Eq, Debug)
 
 ///|
+/// A classified delivery response; transport decoding is owned by the HTTP
+/// adapter, while the transition and causal ordering belong here.
+pub(all) enum DeliveryResult {
+  Acknowledged(@source_repository.SavedRevision)
+  RevisionConflict
+  AccountChanged
+  DocumentTooLarge
+  OperationRejected
+  Unavailable
+} derive(Eq, Debug)
+
+///|
 pub(all) suberror ExpiredRetry {
   ExpiredRetry
 } derive(Eq, Debug)
@@ -236,6 +248,48 @@ pub fn State::acknowledge_delivery(
 }
 
 ///|
+/// Consume one delivery outcome against the causal Replica head. No remote
+/// work may bypass pending durability; uncertain delivery retains its ID until
+/// a later retry, while a conflict may read immediately only on a current lane.
+pub fn State::finish_delivery(
+  self : Self,
+  saved : @source_repository.SavedDocuments,
+  attempt : @sync.DeliveryAttempt,
+  result : DeliveryResult,
+) -> (Self, Effect?) raise @sync.WorkError {
+  guard saved.replica(attempt.account(), attempt.document_id()) is Some(durable) else {
+    raise @sync.WorkError::StaleWork
+  }
+  match result {
+    Acknowledged(revision) =>
+      self.acknowledge_delivery(durable, attempt, revision)
+    RevisionConflict => {
+      let base = self.persistence.protocol_base(durable)
+      let protocol = self.protocol.revision_conflict(base, attempt)
+      { ..self, protocol, }.settle_replica(durable)
+    }
+    DocumentTooLarge | OperationRejected => {
+      let base = self.persistence.protocol_base(durable)
+      let (protocol, write) = match result {
+        DocumentTooLarge => self.protocol.delivery_too_large(base, attempt)
+        OperationRejected => self.protocol.operation_rejected(base, attempt)
+        _ => abort("definitive rejection")
+      }
+      let self = { ..self, protocol, }
+      match write {
+        Some(write) => self.submit(write)
+        None => (self, None)
+      }
+    }
+    AccountChanged | Unavailable => {
+      let base = self.persistence.protocol_base(durable)
+      let protocol = self.protocol.delivery_failed(base, attempt)
+      ({ ..self, protocol, }, None)
+    }
+  }
+}
+
+///|
 /// Reconcile an accepted remote read against the newest causal Replica head.
 /// A resulting write must commit before advancement; without a write, only the
 /// current account and persistence lane may advance. Work errors stay with the caller.
@@ -437,6 +491,12 @@ pub extend Effect with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend Effect with Eq::{equal, not_equal}
+
+///|
+pub extend DeliveryResult with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeliveryResult with Eq::{equal, not_equal}
 
 ///|
 pub extend ExpiredRetry with @moonbitlang/core/debug.Debug::{to_repr}

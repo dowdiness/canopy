@@ -309,7 +309,7 @@ test "delivery receipt enters the replica writer before becoming durable" {
     Sync(
       DeliveryCompleted(
         delivery,
-        @document_http.DeliveryResult::Acknowledged(revision),
+        @replication.DeliveryResult::Acknowledged(revision),
       ),
     ),
   )
@@ -335,6 +335,84 @@ test "delivery receipt enters the replica writer before becoming durable" {
     .directive()
     is @source_repository.ReplicaDirective::Synchronized,
   )
+}
+
+///|
+test "lost delivery response waits for newer local commit before retry" {
+  let account = sync_test_account("account")
+  let (saved, replica) = pending_sync_snapshot(account)
+  let key = @documents.Key::replica(account, replica.document_id())
+  let page = Editing({
+    ..test_editing(),
+    activation: { key, generation: 0, },
+    documents: @documents.State::State(saved).project_account(account),
+  })
+  guard current_sync(account).advance(replica)
+    is (sync, Some(@sync.Action::Deliver(delivery, operation))) else {
+    fail("delivery")
+  }
+  assert_true(operation.operation_id() == sync_operation_id())
+  let model = test_model(page, sync)
+  let (edited, _) = test_root_update(
+    model,
+    TextChanged(0, @text_change.TextChange::ReplaceAll("newer")),
+  )
+  guard replica.edit("newer") is @source_repository.EditPlan::Persist(write) else {
+    fail("newer local write")
+  }
+  let (_, attempt) = @replica_persistence.State().submit(write)
+  let attempt = attempt.unwrap()
+  let (writing, _) = make_replica_eligible(edited, key)
+  assert_true(
+    writing.replication.status(account, replica.document_id())
+    is @replica_persistence.Status::Persisting,
+  )
+  let (uncertain, _) = test_root_update(
+    writing,
+    Sync(DeliveryCompleted(delivery, @replication.Unavailable)),
+  )
+  assert_true(
+    uncertain.replication.status(account, replica.document_id())
+    is @replica_persistence.Status::Persisting,
+  )
+  assert_true(
+    uncertain.page
+    .saved_documents()
+    .unwrap()
+    .replica(account, replica.document_id()) ==
+    Some(replica),
+  )
+  guard uncertain.page is Editing(editing) else { fail("editing") }
+  assert_eq(editing.documents.text(key), Some("newer"))
+  assert_true(
+    uncertain.sync().activity(replica) is @sync.Activity::Retryable(_),
+  )
+
+  let (committed, _) = test_root_update(
+    uncertain,
+    Sync(ReplicaWriteCompleted(attempt, Ok(()))),
+  )
+  let durable = committed.page
+    .saved_documents()
+    .unwrap()
+    .replica(account, replica.document_id())
+    .unwrap()
+  assert_eq(durable.document().map(document => document.text()), Some("newer"))
+  assert_true(
+    committed.replication.status(account, replica.document_id())
+    is @replica_persistence.Status::Current,
+  )
+  assert_true(committed.sync().activity(durable) is @sync.Activity::Working)
+  let (stale, _) = test_root_update(
+    committed,
+    Sync(DeliveryCompleted(delivery, @replication.Unavailable)),
+  )
+  assert_true(stale == committed)
+  let (duplicate, _) = test_root_update(
+    committed,
+    Sync(ReplicaWriteCompleted(attempt, Ok(()))),
+  )
+  assert_true(duplicate == committed)
 }
 
 ///|
@@ -366,7 +444,7 @@ test "account resolution retries a failed receipt replica" {
     Sync(
       DeliveryCompleted(
         delivery,
-        @document_http.DeliveryResult::Acknowledged(revision),
+        @replication.DeliveryResult::Acknowledged(revision),
       ),
     ),
   )
@@ -761,10 +839,7 @@ test "account switch defers a conflict fetch until its account is current" {
   let (deferred, _) = test_root_update(
     test_model(page, sync),
     Sync(
-      DeliveryCompleted(
-        delivery,
-        @document_http.DeliveryResult::RevisionConflict,
-      ),
+      DeliveryCompleted(delivery, @replication.DeliveryResult::RevisionConflict),
     ),
   )
   let expected = sync.revision_conflict(replica, delivery)
@@ -782,6 +857,36 @@ test "account switch defers a conflict fetch until its account is current" {
   let expected = expected.begin_discovery().0
   assert_true(action is Some(@sync.Action::GetRemote(_)))
   assert_true(current.sync() == expected)
+}
+
+///|
+test "account-change delivery rechecks identity only once for a current attempt" {
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid account")
+  }
+  let (saved, replica) = pending_sync_snapshot(account)
+  let page = Editing({
+    ..test_editing(),
+    activation: {
+      key: @documents.Key::replica(account, document_id("one")),
+      generation: 0,
+    },
+    documents: @documents.State::State(saved).project_account(account),
+  })
+  guard current_sync(account).advance(replica)
+    is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
+    fail("delivery")
+  }
+  let (resolving, _) = test_root_update(
+    test_model(page, sync),
+    Sync(DeliveryCompleted(delivery, @replication.AccountChanged)),
+  )
+  assert_true(resolving.sync().session() is @sync.Resolving(_))
+  let (unchanged, _) = test_root_update(
+    resolving,
+    Sync(DeliveryCompleted(delivery, @replication.AccountChanged)),
+  )
+  assert_true(unchanged.sync() == resolving.sync())
 }
 
 ///|
@@ -817,10 +922,7 @@ test "revision conflict waits for recovery identity before atomic persistence" {
   let (fetching_model, _) = test_root_update(
     test_model(page, sync),
     Sync(
-      DeliveryCompleted(
-        delivery,
-        @document_http.DeliveryResult::RevisionConflict,
-      ),
+      DeliveryCompleted(delivery, @replication.DeliveryResult::RevisionConflict),
     ),
   )
   assert_true(fetching_model.sync() == fetching)
@@ -1016,10 +1118,7 @@ test "failed conflict recovery identity leaves durable recovery work retryable" 
   let (fetching, _) = test_root_update(
     test_model(page, sync),
     Sync(
-      DeliveryCompleted(
-        delivery,
-        @document_http.DeliveryResult::RevisionConflict,
-      ),
+      DeliveryCompleted(delivery, @replication.DeliveryResult::RevisionConflict),
     ),
   )
   assert_true(fetching.sync() == driven)

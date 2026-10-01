@@ -211,7 +211,7 @@ priv enum SyncMsg {
     Result[Unit, @source_repository.ReplicaFailure]
   )
   OperationPrepared(@sync.OperationAttempt, @source_repository.OperationId?)
-  DeliveryCompleted(@sync.DeliveryAttempt, @document_http.DeliveryResult)
+  DeliveryCompleted(@sync.DeliveryAttempt, @replication.DeliveryResult)
   RemoteCompleted(@sync.ReadAttempt, @document_http.RemoteResult)
   OpenCompleted(@sync.OpenAttempt, @document_http.RemoteResult)
   RecoveryCreated(@sync.RecoveryAttempt, @source_repository.CreateResult)

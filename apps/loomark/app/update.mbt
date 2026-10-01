@@ -1666,69 +1666,31 @@ fn reduce(
       }
     Sync(DeliveryCompleted(attempt, result)) => {
       let account = attempt.account()
-      let document_id = attempt.document_id()
-      guard model.page.saved_documents() is Some(saved) &&
-        saved.replica(account, document_id) is Some(durable) else {
+      guard model.page.saved_documents() is Some(saved) else {
         return (model, @cmd.none)
       }
-      match result {
-        @document_http.DeliveryResult::Acknowledged(revision) => {
-          let transition = Some(
-            model.replication.acknowledge_delivery(durable, attempt, revision),
-          ) catch {
-            // A delayed response cannot complete a different durable operation.
-            _ => None
-          }
-          guard transition is Some((replication, effect)) else {
-            return (model, @cmd.none)
-          }
-          let model = { ..model, replication, }
-          (
-            model,
-            effect
-            .map(value => run_replication_effect(saved, value, emit))
-            .unwrap_or(@cmd.none),
-          )
-        }
-        RevisionConflict => {
-          let base = model.replication.protocol_base(durable)
-          let sync = model.sync().revision_conflict(base, attempt) catch {
-              _ => return (model, @cmd.none)
-            }
-          settle_replica(model.with_sync(sync), durable, emit)
-        }
-        DocumentTooLarge => {
-          let base = model.replication.protocol_base(durable)
-          let transition = Some(model.sync().delivery_too_large(base, attempt)) catch {
-            _ => None
-          }
-          guard transition is Some((sync, attempt)) else {
-            return (model, @cmd.none)
-          }
-          submit_sync_replica(model, sync, attempt, emit)
-        }
-        OperationRejected => {
-          let base = model.replication.protocol_base(durable)
-          let transition = Some(model.sync().operation_rejected(base, attempt)) catch {
-            _ => None
-          }
-          guard transition is Some((sync, attempt)) else {
-            return (model, @cmd.none)
-          }
-          submit_sync_replica(model, sync, attempt, emit)
-        }
-        AccountChanged | Unavailable => {
-          let base = model.replication.protocol_base(durable)
-          let sync = model.sync().delivery_failed(base, attempt) catch {
-              _ => return (model, @cmd.none)
-            }
-          if result is AccountChanged {
-            let (sync, command) = resolve_changed_account(sync, account, emit)
-            (model.with_sync(sync), command)
-          } else {
-            (model.with_sync(sync), @cmd.none)
-          }
-        }
+      let transition = Some(
+        model.replication.finish_delivery(saved, attempt, result),
+      ) catch {
+        // A delayed response cannot complete a different durable operation.
+        _ => None
+      }
+      guard transition is Some((replication, effect)) else {
+        return (model, @cmd.none)
+      }
+      let model = { ..model, replication, }
+      let command = effect
+        .map(value => run_replication_effect(saved, value, emit))
+        .unwrap_or(@cmd.none)
+      if result is @replication.DeliveryResult::AccountChanged {
+        let (sync, lookup) = resolve_changed_account(
+          model.sync(),
+          account,
+          emit,
+        )
+        (model.with_sync(sync), lookup)
+      } else {
+        (model, command)
       }
     }
     Sync(OpenCompleted(attempt, result)) => {
