@@ -1,26 +1,45 @@
 ///|
 /// Run after rendering so activation has mounted and initialized its textarea.
 /// Preview keeps keyboard users at the selected mode control instead.
-extern "js" fn focus_editor() =
-  #| () => {
-  #|   const root = document.getElementById('loomark-root');
-  #|   const editor = root?.querySelector('textarea');
-  #|   if (!editor || editor.disabled || editor.closest('[inert]')) return;
-  #|   const target = editor.getClientRects().length
-  #|     ? editor
-  #|     : root.querySelector('[role="tab"][aria-selected="true"]');
-  #|   target?.focus({ preventScroll: true });
-  #| }
+fn focus_editor() -> Unit {
+  guard @dom.document().get_element_by_id("loomark-root").to_option()
+    is Some(root) else {
+    return
+  }
+  guard root.query_selector("textarea") is Some(editor) else { return }
+  guard !editor.has_attribute("disabled") && editor.closest("[inert]") is None else {
+    return
+  }
+  let target = if editor.get_client_rects().length() > 0 {
+    Some(editor)
+  } else {
+    root.query_selector("[role=\"tab\"][aria-selected=\"true\"]")
+  }
+  if target is Some(element) && element.to_html_element() is Some(element) {
+    element.focus_with_options(prevent_scroll=true)
+  }
+}
 
 ///|
-extern "js" fn focus_more_actions() =
-  #| () => document.getElementById('loomark-more-actions')?.focus({ preventScroll: true })
+fn focus_more_actions() -> Unit {
+  if @dom.document().get_element_by_id("loomark-more-actions").to_option()
+    is Some(element) &&
+    element.to_html_element() is Some(element) {
+    element.focus_with_options(prevent_scroll=true)
+  }
+}
 
 ///|
-extern "js" fn focus_delete_action(lifecycle_key : String) =
-  #| key => {
-  #|   const target = document.getElementById('loomark-delete-' + key);
-  #|   if (target?.getClientRects().length && !target.closest('[inert]')) {
-  #|     target.focus({ preventScroll: true });
-  #|   }
-  #| }
+fn focus_delete_action(lifecycle_key : String) -> Unit {
+  guard @dom.document()
+    .get_element_by_id("loomark-delete-" + lifecycle_key)
+    .to_option()
+    is Some(target) else {
+    return
+  }
+  if target.get_client_rects().length() > 0 &&
+    target.closest("[inert]") is None &&
+    target.to_html_element() is Some(element) {
+    element.focus_with_options(prevent_scroll=true)
+  }
+}
