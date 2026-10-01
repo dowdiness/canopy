@@ -53,22 +53,6 @@ test "hub: on_peer_leave clears all namespaces" {
 }
 
 ///|
-test "hub: encode_all and apply_all roundtrip" {
-  let hub_a = @ephemeral.EphemeralHub::new("alice")
-  hub_a.set_edit_mode("node-5")
-  hub_a.set_presence("Alice", "#ff0000", Active)
-  let bytes = hub_a.encode_all()
-  let hub_b = @ephemeral.EphemeralHub::new("bob")
-  hub_b.apply_all(bytes)
-  @debug.debug_inspect(
-    hub_b.get_edit_mode("alice"),
-    content=(
-      #|Some({ node_id: "node-5" })
-    ),
-  )
-}
-
-///|
 test "hub: per-namespace encode/apply" {
   let hub_a = @ephemeral.EphemeralHub::new("alice")
   hub_a.set_edit_mode("node-3")

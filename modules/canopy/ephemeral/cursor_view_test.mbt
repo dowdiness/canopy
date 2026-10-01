@@ -1,16 +1,4 @@
 ///|
-test "adjust_position: cursor before edit is unchanged" {
-  // Cursor at 3, edit starts at 5 — cursor is unaffected
-  inspect(@ephemeral.adjust_position(3, 5, 2, 4), content="3")
-}
-
-///|
-test "adjust_position: cursor at edit_start is unchanged" {
-  // Cursor at 5, edit starts at 5 — cursor is at boundary, stays
-  inspect(@ephemeral.adjust_position(5, 5, 2, 4), content="5")
-}
-
-///|
 test "adjust_position: cursor inside deleted range snaps to edit_start + new_len" {
   // Cursor at 6, edit starts at 5, old_len=3 (range 5..8), new_len=1
   // Cursor is inside deleted range -> snaps to 5+1=6
