@@ -77,6 +77,9 @@ other decoded character. Filename, extension, and media type are not admission
 or identity inputs. Each accepted import creates and activates a fresh document
 and starts its normal New-document save immediately; failure keeps the imported
 text available through the existing Retry path.
+If an import finishes during text composition, it is saved and added to
+Documents without replacing the current
+editor. Open it from Documents when ready; no later automatic switch is queued.
 
 Export downloads the Editing Document's current in-memory text without waiting
 for Autosave. The browser receives `<Derived name>.md`, or `untitled.md` when no

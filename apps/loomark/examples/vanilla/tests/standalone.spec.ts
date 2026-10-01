@@ -984,6 +984,67 @@ test("importing the same file twice creates two Documents", async ({ page }) => 
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
 })
 
+test("delayed imports preserve composition and remain available after later navigation", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Document A\n")
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+  await page.evaluate(() => {
+    const original = Blob.prototype.arrayBuffer
+    const scope = window as typeof window & { releaseImports?: (() => void)[] }
+    scope.releaseImports = []
+    Blob.prototype.arrayBuffer = async function () {
+      const bytes = await original.call(this)
+      await new Promise<void>(resolve => scope.releaseImports!.push(resolve))
+      return bytes
+    }
+  })
+  for (const name of ["Imported B", "Imported C"]) {
+    await page.getByLabel("Import Markdown").setInputFiles({
+      name: `${name}.md`, mimeType: "text/markdown", buffer: Buffer.from(`# ${name}\n`),
+    })
+  }
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { releaseImports?: (() => void)[] }
+  ).releaseImports?.length)).toBe(2)
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    ;(window as typeof window & { composingArea?: HTMLTextAreaElement }).composingArea = area
+    area.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
+    area.value = "# Composing A\n"
+    area.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, data: area.value, inputType: "insertCompositionText",
+    }))
+  })
+  // Resolve in reverse order: each import survives; neither may replace the composing textarea.
+  await page.evaluate(() => {
+    const releases = (window as typeof window & { releaseImports: (() => void)[] }).releaseImports
+    for (const release of releases.reverse()) release()
+  })
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(3)
+  await expect(text).toHaveValue("# Composing A\n")
+  expect(await text.evaluate(element => element === (
+    window as typeof window & { composingArea?: HTMLTextAreaElement }
+  ).composingArea)).toBe(true)
+  await text.evaluate(element => element.dispatchEvent(new CompositionEvent("compositionend", {
+    bubbles: true, data: "# Composing A\n",
+  })))
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents.map(document => document.text).sort()))
+    .toEqual(["# Composing A\n", "# Imported B\n", "# Imported C\n"])
+  await expect(text).toHaveValue("# Composing A\n")
+  await openDeleteConfirmation(page, "Composing A")
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click()
+  await expect(text).toHaveValue("# Composing A\n")
+  await page.getByRole("button", { name: "New document", exact: true }).first().click()
+  await expect(text).toHaveValue("")
+  for (const name of ["Imported B", "Imported C", "Composing A"]) {
+    await page.getByRole("button", { name, exact: true }).click()
+    await expect(text).toHaveValue(`# ${name}\n`)
+  }
+  await page.reload()
+  await expect(text).toHaveValue("# Composing A\n")
+})
+
 test("dismissing an import error restores the current writing destination", async ({ page }) => {
   await page.goto("/")
   const text = page.locator("#loomark-text")

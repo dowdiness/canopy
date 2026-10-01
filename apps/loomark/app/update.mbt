@@ -532,18 +532,24 @@ fn update_page(
         @documents.Msg::Imported(document_id, text),
         actions,
       )
-      match
-        activation_target(next.documents, @documents.Key::source(document_id)) {
-        None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
-        Some(target) => {
-          let ready = {
-            ..next,
-            creation: Idle,
-            deletion: NoDeletion,
-            import_failed: false,
+      // Keep successful imports without replacing the composing textarea.
+      // No delayed activation is queued: the user can open it from Documents.
+      if next.documents.is_composing(next.activation.key) {
+        (Editing({ ..next, import_failed: false, }), @cmd.none)
+      } else {
+        match
+          activation_target(next.documents, @documents.Key::source(document_id)) {
+          None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
+          Some(target) => {
+            let ready = {
+              ..next,
+              creation: Idle,
+              deletion: NoDeletion,
+              import_failed: false,
+            }
+            let (next, surface) = ready.activate(target, emit, editor)
+            (Editing(next), surface)
           }
-          let (next, surface) = ready.activate(target, emit, editor)
-          (Editing(next), surface)
         }
       }
     }
