@@ -13,6 +13,8 @@ _Avoid_: file, buffer, session
 The temporary empty editor opened in the current Editor mode. It becomes a
 Loomark document when the user first changes its text; leaving it untouched does
 not add it to Recent documents.
+Before the first change, More actions explains that writing starts saving on
+this device; it does not describe the untouched New document as already saved.
 _Avoid_: blank record, draft
 
 **Editing Document**:
@@ -100,6 +102,9 @@ Choosing another Loomark document without waiting for the current document to
 finish saving. The current document remains visible until its IME input has
 ended and the latest selected target is ready, then that target appears once
 with a fresh browser undo history.
+After activation, keyboard focus moves to the visible TextArea, or to the
+selected Editor-mode control in Preview. Transient More actions content closes.
+Closing More actions with Escape restores focus to its trigger.
 _Avoid_: save-and-open, handoff
 
 **Editor mode**:
@@ -235,7 +240,8 @@ _Avoid_: archive, trash, soft delete
 Approval to delete one saved or unsaved Loomark document, identified by the
 bounded, duplicate-disambiguated label used for its Recent documents entry,
 not a second rendering of the lead. An accepted delete request opens
-confirmation without a separate IME-waiting state. Cancellation leaves
+confirmation and closes More actions without a separate IME-waiting state.
+Cancellation restores focus to the requesting control and leaves
 the document unchanged. Acceptance closes confirmation and supersedes the
 target's pending Autosave without interrupting another document's Autosave.
 See the [deletion decision](../../docs/decisions/2026-08-31-loomark-document-deletion.md)

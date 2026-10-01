@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Locator, type Page } from "@playwright/test"
 
 const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
@@ -8,6 +8,248 @@ const EDITING_DOCUMENT_KEY = "editing-document"
 const SOURCE_KEY_PREFIX = "source/v1/"
 const REPLICA_KEY_PREFIX = "replica/"
 const CATALOG_KEY = "catalog/v1"
+
+test("document activation lets keyboard users continue writing immediately", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# First document\n")
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: "# First document\n" })
+  const create = page.getByRole("button", { name: "New document", exact: true }).first()
+  await create.focus()
+  await create.press("Enter")
+  await expect(text).toHaveValue("")
+  await expect(text).toBeFocused()
+  await page.keyboard.type("# Second document\n")
+  await expect(text).toHaveValue("# Second document\n")
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
+  const first = page.getByRole("button", { name: "First document", exact: true })
+  await first.focus()
+  await first.press("Enter")
+  await expect(text).toHaveValue("# First document\n")
+  await expect(text).toBeFocused()
+  await page.keyboard.press("Control+End")
+  await page.keyboard.type("Continued")
+  await expect(text).toHaveValue("# First document\nContinued")
+})
+
+test("responsive reflow preserves native text selection and undo", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await text.fill("# Writing\n\n日本語 and English\n")
+  await text.press("Control+End")
+  await text.pressSequentially("continued")
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    area.setSelectionRange(2, 7, "backward")
+    ;(window as typeof window & { __continuityArea?: HTMLTextAreaElement }).__continuityArea = area
+  })
+  for (const width of [390, 1280, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(text).toHaveValue("# Writing\n\n日本語 and English\ncontinued")
+    expect(await text.evaluate(element => ({
+      same: element === (window as typeof window & { __continuityArea?: HTMLTextAreaElement }).__continuityArea,
+      start: (element as HTMLTextAreaElement).selectionStart,
+      end: (element as HTMLTextAreaElement).selectionEnd,
+      direction: (element as HTMLTextAreaElement).selectionDirection,
+    }))).toEqual({ same: true, start: 2, end: 7, direction: "backward" })
+  }
+  await text.focus()
+  await page.keyboard.press("Control+Z")
+  await expect(text).toHaveValue("# Writing\n\n日本語 and English\n")
+})
+
+test("Escape from More actions returns keyboard focus to its trigger", async ({ page }) => {
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  const more = page.getByRole("button", { name: "More actions", exact: true })
+  await more.focus()
+  await more.press("Enter")
+  await expect(more).toHaveAttribute("aria-expanded", "true")
+  const exportAction = page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" })
+  await exportAction.focus()
+  await page.keyboard.press("Escape")
+  await expect(more).toHaveAttribute("aria-expanded", "false")
+  await expect(more).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(exportAction).toBeVisible()
+})
+
+test("compact document activation closes navigation and Preview retains a keyboard destination", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Mobile document\n")
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: "# Mobile document\n" })
+  await page.getByRole("button", { name: "New document", exact: true }).press("Enter")
+  await expect(text).toHaveValue("")
+  await expect(text).toBeFocused()
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await toggle.click()
+  await page.getByRole("button", { name: "Mobile document", exact: true }).press("Enter")
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await expect(text).toBeFocused()
+  await expect(text).toHaveValue("# Mobile document\n")
+
+  const preview = page.getByRole("tab", { name: "Preview", exact: true })
+  await preview.click()
+  await page.getByRole("button", { name: "New document", exact: true }).press("Enter")
+  await expect(preview).toBeFocused()
+  await expect(preview).toHaveAttribute("aria-selected", "true")
+  await expect(text).toBeHidden()
+  await preview.press("ArrowLeft")
+  await expect(page.getByRole("tab", { name: "Split", exact: true })).toBeFocused()
+  await expect(text).toBeVisible()
+  await expect(text).toHaveValue("")
+})
+
+test("keyboard focus remains visible on sidebar and delete confirmation controls", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("# Focus review\n")
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await toggle.focus()
+  // Enter keyboard modality before inspecting the actual rendered focus ring.
+  await page.keyboard.press("Shift")
+  const visibleOutline = async (control: Locator) => control.evaluate(element => {
+    const style = getComputedStyle(element)
+    return element.matches(":focus-visible") && style.outlineStyle !== "none" && parseFloat(style.outlineWidth) >= 2
+  })
+  expect(await visibleOutline(toggle)).toBe(true)
+  const remove = page.getByRole("button", { name: 'Delete "Focus review"', exact: true })
+  await remove.focus()
+  expect(await visibleOutline(remove)).toBe(true)
+  await page.keyboard.press("Enter")
+  const dialog = page.getByRole("alertdialog")
+  const cancel = dialog.getByRole("button", { name: "Cancel", exact: true })
+  await expect(cancel).toBeFocused()
+  expect(await visibleOutline(cancel)).toBe(true)
+  await page.keyboard.press("Tab")
+  const confirm = dialog.getByRole("button", { name: "Delete document", exact: true })
+  await expect(confirm).toBeFocused()
+  expect(await visibleOutline(confirm)).toBe(true)
+  await page.keyboard.press("Shift+Tab")
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press("Escape")
+  await expect(remove).toBeFocused()
+})
+
+test("deletion closes More actions and Escape returns to the deletion trigger", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("# Keep this document\n")
+  const more = page.getByRole("button", { name: "More actions" })
+  await more.click()
+  const remove = page.getByRole("button", { name: 'Delete "Keep this document"', exact: true })
+  await remove.focus()
+  await page.keyboard.press("Enter")
+  const dialog = page.getByRole("alertdialog")
+  await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused()
+  await expect(more).toHaveAttribute("aria-expanded", "false")
+  await page.keyboard.press("Escape")
+  await expect(dialog).toHaveCount(0)
+  await expect(remove).toBeFocused()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Keep this document\n")
+})
+
+test("More actions remains reachable above the mode controls in short viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 568, height: 240 })
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  const more = page.getByRole("button", { name: "More actions" })
+  await more.focus()
+  await page.keyboard.press("Enter")
+  await expect(more).toHaveAttribute("aria-expanded", "true")
+  const menu = page.locator(".loomark-menu")
+  const exportAction = menu.getByRole("button", { name: "Export Markdown" })
+  // Reach the action through the real Tab order, which must scroll the panel.
+  for (let i = 0; i < 5 && !(await exportAction.evaluate(e => e === document.activeElement)); i++) {
+    await page.keyboard.press("Tab")
+  }
+  await expect(exportAction).toBeFocused()
+  expect(await exportAction.evaluate(element => {
+    const box = element.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+    return box.top >= 0 && box.bottom <= innerHeight && (hit === element || element.contains(hit))
+  })).toBe(true)
+  const download = page.waitForEvent("download")
+  await page.keyboard.press("Enter")
+  expect((await download).suggestedFilename()).toBe("untitled.md")
+  await page.keyboard.press("Escape")
+  await expect(more).toBeFocused()
+})
+
+test("large native clipboard paste preserves exact text through Undo, reload, and Export", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text", exact: true })
+  const source = "# Paste continuity\n\n" + "日本語と English. Keep the writing flowing.\n".repeat(4000)
+  await expect(text).toBeVisible()
+  await page.evaluate(value => navigator.clipboard.writeText(value), source)
+  await text.press("Control+V")
+  await expect(text).toHaveValue(source)
+  await text.press("Control+Z")
+  await expect(text).toHaveValue("")
+  await text.press("Control+Shift+Z")
+  await expect(text).toHaveValue(source)
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source)
+  await page.reload()
+  await expect(text).toHaveValue(source)
+  await page.getByRole("button", { name: "More actions" }).click()
+  const downloadPromise = page.waitForEvent("download")
+  await page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" }).click()
+  const stream = await (await downloadPromise).createReadStream()
+  stream.setEncoding("utf8")
+  let downloaded = ""
+  for await (const chunk of stream) downloaded += chunk
+  expect(downloaded).toBe(source)
+})
+
+test("sign-in preparation visibly disables creation and Import until cancelled", async ({ page }) => {
+  let finishPreparation: (() => void) | undefined
+  await page.route("**/api/auth/sign-in/social", async route => {
+    await new Promise<void>(resolve => { finishPreparation = resolve })
+    await route.fulfill({ status: 503 })
+  })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text", exact: true })
+  await text.fill("# Keep writing after cancellation\n")
+  const create = page.locator("header").getByRole("button", { name: "New document", exact: true })
+  await expect(create).toHaveCSS("opacity", "1")
+  await page.getByRole("button", { name: "More actions" }).click()
+  const importLabel = page.locator('label[for="loomark-menu-import"]')
+  await expect(importLabel).toHaveCSS("opacity", "1")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(text).toBeDisabled()
+  await expect(create).toBeDisabled()
+  await expect(create).toHaveCSS("opacity", "0.5")
+  await expect(importLabel.locator("input")).toBeDisabled()
+  await expect(importLabel).toHaveCSS("opacity", "0.5")
+  await page.getByRole("button", { name: "Cancel sign-in" }).click()
+  await expect(text).toBeEnabled()
+  await expect(text).toBeFocused()
+  await expect(create).toHaveCSS("opacity", "1")
+  await expect(importLabel).toHaveCSS("opacity", "1")
+  await expect(importLabel.locator("input")).toBeEnabled()
+  finishPreparation?.()
+  await expect(text).toHaveValue("# Keep writing after cancellation\n")
+})
+
+test("New document explains when local saving begins", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("")
+  await page.getByRole("button", { name: "More actions" }).click()
+  const menu = page.locator(".loomark-menu")
+  await expect(menu).not.toContainText("Saved on this device")
+  await expect(menu).toContainText("Write to save on this device")
+  expect(await readStoredDocuments(page)).toEqual([])
+  await text.fill("# First words\n")
+  await expect(menu).toContainText("Saved on this device")
+  await expect(menu).not.toContainText("Write to save on this device")
+  await text.fill("")
+  await expect.poll(async () => (await readStoredDocuments(page))[0]?.text).toBe("")
+  await expect(menu).toContainText("Saved on this device")
+})
 
 type StoredDocument = {
   document_id: string
@@ -919,6 +1161,9 @@ test("first edit reports quota full without creating a Source", async ({ page })
   await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
   await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
   expect(await readStoredDocuments(page)).toEqual([])
+  await page.getByRole("button", { name: "More actions" }).click()
+  await expect(page.locator(".loomark-menu")).toContainText("Not saved")
+  await expect(page.locator(".loomark-menu")).not.toContainText("Write to save")
 })
 
 test("opening and saving persist only authoritative Source records", async ({ page }) => {

@@ -103,11 +103,15 @@ fn activate_surface(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (@editor.EditorState, @rabbita.Cmd) {
-  editor.activate(
+  let (preview, command) = editor.activate(
     activation.generation,
     text,
     editor_mode(mode),
     emit.map(event => PreviewEvent(event)),
+  )
+  (
+    preview,
+    @cmd.batch([command, @cmd.custom_cmd(kind=AfterRender, _ => focus_editor())]),
   )
 }
 
@@ -134,7 +138,10 @@ fn EditingState::activate(
     Some(hint) => hint.remember()
     None => @cmd.none
   }
-  ({ ..self, activation, preview, }, @cmd.batch([surface, remember]))
+  (
+    { ..self, activation, preview, menu_open: false, },
+    @cmd.batch([surface, remember]),
+  )
 }
 
 ///|
@@ -448,7 +455,14 @@ fn update_page(
     (Editing(editing), MenuToggled) =>
       (Editing({ ..editing, menu_open: !editing.menu_open, }), @cmd.none)
     (Editing(editing), EscapePressed) =>
-      (Editing({ ..editing, menu_open: false, }), @cmd.none)
+      (
+        Editing({ ..editing, menu_open: false, }),
+        if editing.menu_open {
+          @cmd.custom_cmd(kind=AfterRender, _ => focus_more_actions())
+        } else {
+          @cmd.none
+        },
+      )
     (Editing(editing), ImportFilesSelected(files)) =>
       match files.get(0) {
         None => (Editing(editing), @cmd.none)
@@ -629,7 +643,11 @@ fn update_page(
           | Some(DeleteFailed(_))
           | Some(DeletePersistenceFailed(_)) =>
             (
-              Editing({ ..editing, deletion: DeleteConfirmation(document_id), }),
+              Editing({
+                ..editing,
+                deletion: DeleteConfirmation(document_id),
+                menu_open: false,
+              }),
               @cmd.none,
             )
           _ => (Editing(editing), @cmd.none)
@@ -637,8 +655,13 @@ fn update_page(
       }
     (Editing(editing), DeleteCancelled) =>
       match editing.deletion {
-        DeleteConfirmation(_) =>
-          (Editing({ ..editing, deletion: NoDeletion, }), @cmd.none)
+        DeleteConfirmation(target) =>
+          (
+            Editing({ ..editing, deletion: NoDeletion, }),
+            @cmd.custom_cmd(kind=AfterRender, _ => {
+              focus_delete_action(target.lifecycle_key())
+            }),
+          )
         NoDeletion => (Editing(editing), @cmd.none)
       }
     (Editing(editing), DismissDeleteFailure(document_id)) => {
@@ -1347,9 +1370,7 @@ fn reduce(
       (
         // Cancel only this intent; pending storage and HTTP keep their owners.
         { ..model, departure, },
-        @cmd.custom_cmd(kind=AfterRender, _ => {
-          restore_focus_after_login_cancel()
-        }),
+        @cmd.custom_cmd(kind=AfterRender, _ => focus_editor()),
       )
     }
     LoginPrepared(attempt, result) =>

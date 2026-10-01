@@ -141,7 +141,7 @@
   background: var(--color-lm-rule) !important;
 }
 
-.loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 20; }
+.loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 30; }
 #loomark-editor::before, #loomark-editor::after {
   content: "";
   position: absolute;
@@ -172,9 +172,12 @@
   color: var(--color-lm-muted);
   cursor: pointer;
 }
-.loomark-icon:hover, .loomark-sidebar-trigger:hover { background: var(--color-lm-accent-soft); color: var(--color-lm-accent); }
-.loomark-icon:focus-visible, .loomark-sidebar-trigger:focus-visible, .loomark-mode-button:focus-visible {
-  outline: 2px solid var(--color-lm-accent);
+.loomark-icon:hover:not(:disabled), .loomark-sidebar-trigger:hover { background: var(--color-lm-accent-soft); color: var(--color-lm-accent); }
+.loomark-icon:disabled { opacity: 0.5; cursor: default; }
+#loomark-root label:has(> input[type="file"]:disabled) { opacity: 0.5; pointer-events: none; }
+#loomark-root button:focus-visible {
+  /* RUI controls reset outline inline; keyboard focus must remain visible. */
+  outline: 2px solid var(--color-lm-accent) !important;
   outline-offset: 2px;
 }
 .loomark-mode-button[data-state="active"], .loomark-mode-button[aria-selected="true"] {
@@ -188,6 +191,8 @@
   z-index: 60;
   display: flex;
   width: 250px;
+  max-height: calc(100dvh - 61px);
+  overflow-y: auto;
   flex-direction: column;
   gap: 6px;
   padding: 10px;
@@ -197,6 +202,7 @@
   box-shadow: 0 10px 30px oklch(0.24 0.018 265 / 0.07);
   font-size: 12px;
 }
+.loomark-menu > * { flex-shrink: 0; }
 .loomark-menu-status > div { flex-wrap: wrap; justify-content: flex-start; }
 .loomark-save-status { color: var(--color-lm-accent); font-size: 11px; }
 .loomark-save-status[title="Not saved"] { color: var(--color-lm-danger); }

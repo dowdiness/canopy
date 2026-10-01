@@ -95,6 +95,7 @@ fn account_status_view(
 ///|
 fn local_durability_view(durability : LocalDurability) -> @rabbita.Html {
   match durability {
+    NotStarted => sync_status_label("Write to save on this device")
     Saving => sync_status_label("Saving on this device", compact="Saving")
     Stored => sync_status_label("Saved on this device", compact="Saved")
     NotStored => sync_status_label("Not saved")
@@ -385,13 +386,15 @@ fn mode_bar(
         class="loomark-icon",
         title="More actions",
         attrs=@html.Attrs::build()
+          .id("loomark-more-actions")
           .aria_label("More actions")
+          .aria_controls("loomark-more-actions-content")
           .aria_expanded(if editing.menu_open { "true" } else { "false" }),
         on_click=emit(MenuToggled),
         @view.more_icon("block size-4"),
       ),
       if editing.menu_open {
-        @html.div(class="loomark-menu", [
+        @html.div(id="loomark-more-actions-content", class="loomark-menu", [
           @html.div(class="loomark-menu-status", sync_status),
           @html.div(
             class="flex flex-col gap-1 border-b border-lm-rule px-1 pb-2",
