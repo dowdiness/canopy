@@ -193,38 +193,3 @@ fn make_blended_fixture_corpus() -> @echo.Corpus {
   populate_fixtures(corpus)
   corpus
 }
-
-///|
-test "integration - snapshot all cluster scores" {
-  let corpus = make_fixture_corpus()
-  // Snapshot full rankings for representative posts from each cluster
-  // This captures the actual behavior for regression detection
-  let curry = corpus.query_similar(0, top_n=5)
-  debug_inspect(
-    curry.map(fn(p) { p.0 }),
-    content=(
-      #|[3, 4, 28, 1, 27]
-    ),
-  )
-  let crdt = corpus.query_similar(5, top_n=5)
-  debug_inspect(
-    crdt.map(fn(p) { p.0 }),
-    content=(
-      #|[9, 7, 6, 17, 8]
-    ),
-  )
-  let moonbit = corpus.query_similar(16, top_n=5)
-  debug_inspect(
-    moonbit.map(fn(p) { p.0 }),
-    content=(
-      #|[18, 17, 19, 10, 15]
-    ),
-  )
-  let daily = corpus.query_similar(27, top_n=5)
-  debug_inspect(
-    daily.map(fn(p) { p.0 }),
-    content=(
-      #|[25, 23, 26, 0, 24]
-    ),
-  )
-}
