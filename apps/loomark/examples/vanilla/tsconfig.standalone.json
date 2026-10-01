@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "allowJs": false
   },
-  "include": ["playwright.standalone.config.ts", "tests/standalone.spec.ts"]
+  "include": ["playwright.standalone.config.ts", "tests/standalone.spec.ts", "playwright.sidebar.config.ts", "tests/sidebar.spec.ts"]
 }

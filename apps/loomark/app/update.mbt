@@ -10,6 +10,17 @@ fn compact_viewport(width : Double) -> Bool {
 }
 
 ///|
+const EDITOR_TEXT_ID : String = "loomark-text"
+
+///|
+fn editor_focus_id(mode : EditorMode) -> String {
+  match mode {
+    Text | Split => EDITOR_TEXT_ID
+    Preview => mode_dom_id(Preview)
+  }
+}
+
+///|
 fn editor_mode(mode : EditorMode) -> @editor.Mode {
   match mode {
     Text => @editor.Text
@@ -103,12 +114,13 @@ fn activate_surface(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (@editor.EditorState, @rabbita.Cmd) {
-  editor.activate(
+  let (preview, command) = editor.activate(
     activation.generation,
     text,
     editor_mode(mode),
     emit.map(event => PreviewEvent(event)),
   )
+  (preview, @cmd.batch([command, focus_after_render(editor_focus_id(mode))]))
 }
 
 ///|
@@ -134,7 +146,10 @@ fn EditingState::activate(
     Some(hint) => hint.remember()
     None => @cmd.none
   }
-  ({ ..self, activation, preview, }, @cmd.batch([surface, remember]))
+  (
+    { ..self, activation, preview, menu_open: false, },
+    @cmd.batch([surface, remember]),
+  )
 }
 
 ///|
@@ -448,7 +463,14 @@ fn update_page(
     (Editing(editing), MenuToggled) =>
       (Editing({ ..editing, menu_open: !editing.menu_open, }), @cmd.none)
     (Editing(editing), EscapePressed) =>
-      (Editing({ ..editing, menu_open: false, }), @cmd.none)
+      (
+        Editing({ ..editing, menu_open: false, }),
+        if editing.menu_open {
+          focus_after_render("loomark-more-actions")
+        } else {
+          @cmd.none
+        },
+      )
     (Editing(editing), ImportFilesSelected(files)) =>
       match files.get(0) {
         None => (Editing(editing), @cmd.none)
@@ -510,23 +532,32 @@ fn update_page(
         @documents.Msg::Imported(document_id, text),
         actions,
       )
-      match
-        activation_target(next.documents, @documents.Key::source(document_id)) {
-        None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
-        Some(target) => {
-          let ready = {
-            ..next,
-            creation: Idle,
-            deletion: NoDeletion,
-            import_failed: false,
+      // Keep successful imports without replacing the composing textarea.
+      // No delayed activation is queued: the user can open it from Documents.
+      if next.documents.is_composing(next.activation.key) {
+        (Editing({ ..next, import_failed: false, }), @cmd.none)
+      } else {
+        match
+          activation_target(next.documents, @documents.Key::source(document_id)) {
+          None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
+          Some(target) => {
+            let ready = {
+              ..next,
+              creation: Idle,
+              deletion: NoDeletion,
+              import_failed: false,
+            }
+            let (next, surface) = ready.activate(target, emit, editor)
+            (Editing(next), surface)
           }
-          let (next, surface) = ready.activate(target, emit, editor)
-          (Editing(next), surface)
         }
       }
     }
     (Editing(editing), DismissImportFailure) =>
-      (Editing({ ..editing, import_failed: false, }), @cmd.none)
+      (
+        Editing({ ..editing, import_failed: false, }),
+        focus_after_render(editor_focus_id(editing.mode)),
+      )
     (Editing(editing), ExportRequested) => {
       let (filename, text) = export_payload(editing)
       (Editing(editing), @browser.download(filename, text))
@@ -629,7 +660,11 @@ fn update_page(
           | Some(DeleteFailed(_))
           | Some(DeletePersistenceFailed(_)) =>
             (
-              Editing({ ..editing, deletion: DeleteConfirmation(document_id), }),
+              Editing({
+                ..editing,
+                deletion: DeleteConfirmation(document_id),
+                menu_open: false,
+              }),
               @cmd.none,
             )
           _ => (Editing(editing), @cmd.none)
@@ -637,8 +672,11 @@ fn update_page(
       }
     (Editing(editing), DeleteCancelled) =>
       match editing.deletion {
-        DeleteConfirmation(_) =>
-          (Editing({ ..editing, deletion: NoDeletion, }), @cmd.none)
+        DeleteConfirmation(target) =>
+          (
+            Editing({ ..editing, deletion: NoDeletion, }),
+            focus_after_render("loomark-delete-\{target.lifecycle_key()}"),
+          )
         NoDeletion => (Editing(editing), @cmd.none)
       }
     (Editing(editing), DismissDeleteFailure(document_id)) => {
@@ -1347,9 +1385,10 @@ fn reduce(
       (
         // Cancel only this intent; pending storage and HTTP keep their owners.
         { ..model, departure, },
-        @cmd.custom_cmd(kind=AfterRender, _ => {
-          restore_focus_after_login_cancel()
-        }),
+        match model.page {
+          Editing(editing) => focus_after_render(editor_focus_id(editing.mode))
+          _ => @cmd.none
+        },
       )
     }
     LoginPrepared(attempt, result) =>
@@ -1418,10 +1457,10 @@ fn reduce(
       )
     VisibilityChanged(true) =>
       match model.page {
-        Editing(editing) =>
+        Editing(_) =>
           update_documents(
             model,
-            @documents.Msg::VisibilityFlush(editing.activation.key),
+            @documents.Msg::VisibilityFlushAll,
             emit,
             editor,
           )
@@ -1429,13 +1468,21 @@ fn reduce(
       }
     RetrySave =>
       match model.page {
-        Editing(editing) =>
-          update_documents(
+        Editing(editing) => {
+          let (model, command) = update_documents(
             model,
             @documents.Msg::RetrySave(editing.activation.key),
             emit,
             editor,
           )
+          (
+            model,
+            @cmd.batch([
+              command,
+              focus_after_render(editor_focus_id(editing.mode)),
+            ]),
+          )
+        }
         _ => (model, @cmd.none)
       }
     RetryAccount => begin_account_lookup(model, emit)

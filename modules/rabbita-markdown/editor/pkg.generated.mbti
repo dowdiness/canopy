@@ -40,7 +40,7 @@ pub fn MarkdownEditor::MarkdownEditor(String) -> Self
 pub fn MarkdownEditor::accepted(Self, EditorState, Int, String, @text_change.TextChange, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
 pub fn MarkdownEditor::activate(Self, Int, String, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
 pub fn MarkdownEditor::admit(Self, InputEdit) -> @text_change.TextChange?
-pub fn MarkdownEditor::input_view(Self, String, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd, disabled? : Bool, read_only? : Bool, rows? : Int, autofocus? : Bool, class? : String) -> @html.Html
+pub fn MarkdownEditor::input_view(Self, String, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd, disabled? : Bool, read_only? : Bool, rows? : Int, autofocus? : Bool, class? : String, placeholder? : String) -> @html.Html
 pub fn MarkdownEditor::mode_changed(Self, EditorState, Int, String, Mode, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
 pub fn MarkdownEditor::preview_view(Self, EditorState, id? : String) -> @html.Html
 pub fn MarkdownEditor::restore(Self, String) -> @cmd.Cmd

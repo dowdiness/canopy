@@ -13,6 +13,11 @@ _Avoid_: file, buffer, session
 The temporary empty editor opened in the current Editor mode. It becomes a
 Loomark document when the user first changes its text; leaving it untouched does
 not add it to Recent documents.
+Before the first change, More actions explains that writing starts saving on
+this device; it does not describe the untouched New document as already saved.
+The native Text area shows a "Start writing…" hint while the New document is
+untouched. This is presentation, never Document text. A saved empty document
+does not show the hint.
 _Avoid_: blank record, draft
 
 **Editing Document**:
@@ -100,6 +105,9 @@ Choosing another Loomark document without waiting for the current document to
 finish saving. The current document remains visible until its IME input has
 ended and the latest selected target is ready, then that target appears once
 with a fresh browser undo history.
+After activation, keyboard focus moves to the visible TextArea, or to the
+selected Editor-mode control in Preview. Transient More actions content closes.
+Closing More actions with Escape restores focus to its trigger.
 _Avoid_: save-and-open, handoff
 
 **Editor mode**:
@@ -111,6 +119,10 @@ _Avoid_: layout, workspace
 
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
+The native editable viewport stays outside the fixed controls, including in
+Split. Its text is not faded at the viewport edges, so native caret scrolling
+keeps the current writing line readable. Compact Split retains a minimum usable
+writing pane when notices reduce the available height. Preview retains its softened edges.
 _Avoid_: source mode, raw mode
 
 **Preview**:
@@ -151,15 +163,21 @@ or carries over to another document.
 _Avoid_: fallback document, recovered text
 
 **Saved text**:
-The most recent Document text successfully written to browser storage. It may
-be older than the current Document text.
-_Avoid_: edit history, backup
+  The most recent Document text successfully written to browser storage. It may
+  be older than the current Document text.
+  The editor footer names local durability beside its status icon: "Saving on
+  this device", "Saved on this device", or "Not saved". Untouched New has no
+  success indicator. On compact screens, an attention action or message takes
+  priority over the caption; the icon retains the complete accessible name.
+  This is a browser-storage status, not a sync or publication confirmation.
+  _Avoid_: edit history, backup
 
 **Unsaved document**:
 A Loomark document whose latest text has not reached browser storage. Loomark
-keeps it in memory, marks it in Recent documents, and retries at the next edit
-or return to the app without interrupting other work or prompting when the
-browser tab closes.
+keeps it in memory and marks it in Recent documents. Failed saves expose an
+explicit Retry action; returning to the app does not guarantee a retry. Current
+text remains available to Export without waiting for a successful save. Loomark
+does not prompt when the browser tab closes.
 _Avoid_: conflicted document, invalid document
 
 **Browser storage**:
@@ -235,7 +253,8 @@ _Avoid_: archive, trash, soft delete
 Approval to delete one saved or unsaved Loomark document, identified by the
 bounded, duplicate-disambiguated label used for its Recent documents entry,
 not a second rendering of the lead. An accepted delete request opens
-confirmation without a separate IME-waiting state. Cancellation leaves
+confirmation and closes More actions without a separate IME-waiting state.
+Cancellation restores focus to the requesting control and leaves
 the document unchanged. Acceptance closes confirmation and supersedes the
 target's pending Autosave without interrupting another document's Autosave.
 See the [deletion decision](../../docs/decisions/2026-08-31-loomark-document-deletion.md)

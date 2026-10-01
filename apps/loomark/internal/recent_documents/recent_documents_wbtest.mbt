@@ -22,10 +22,10 @@ test "rendered duplicate bounded labels match confirmation labels" {
     seeds.map(seed => { seed, lead: @document_lead.extract(seed.source), }),
   ).to_array()
   let first = @rabbita_testing.server_side_render(() => {
-    render_row("one", presented[0], @cmd.Emit(_ => @cmd.none), @cmd.none)
+    render_row("one", "one", presented[0], @cmd.Emit(_ => @cmd.none), @cmd.none)
   })
   let second = @rabbita_testing.server_side_render(() => {
-    render_row("two", presented[1], @cmd.Emit(_ => @cmd.none), @cmd.none)
+    render_row("two", "two", presented[1], @cmd.Emit(_ => @cmd.none), @cmd.none)
   })
   assert_true(first.contains("(1 of 2)"))
   assert_true(second.contains("(2 of 2)"))
@@ -109,7 +109,13 @@ test "delete controls reflect availability in SSR" {
         @vector.Vector([{ seed, lead: @document_lead.extract(source), }]),
       ).to_array()[0]
     let rendered = @rabbita_testing.server_side_render(() => {
-      render_row("document", presented, @cmd.Emit(_ => @cmd.none), @cmd.none)
+      render_row(
+        "document",
+        "document",
+        presented,
+        @cmd.Emit(_ => @cmd.none),
+        @cmd.none,
+      )
     })
     assert_true(rendered.contains("Delete &quot;Document&quot;"))
     if enabled {

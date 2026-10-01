@@ -102,15 +102,30 @@
   margin-bottom: 0;
 }
 
+.loomark-source-frame {
+  /* Native caret scrolling uses the textarea viewport, not its document padding. */
+  padding-block: 56px 64px;
+}
+
+#loomark-editor:has(> .loomark-footer ~ [role="alert"]) .loomark-source-frame {
+  /* These notices already reserve the footer space in normal flow. */
+  padding-bottom: 0;
+}
+
 .loomark-source {
-  padding: 70px max(28px, calc((100% - 760px) / 2)) 80px;
+  padding: 14px max(28px, calc((100% - 760px) / 2)) 16px;
   line-height: 1.85;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--color-lm-rule) transparent;
 }
 
-#loomark-text, #loomark-preview-scroll {
+.loomark-source::placeholder {
+  color: var(--color-lm-muted);
+  opacity: 1;
+}
+
+#loomark-preview-scroll {
   mask-image: linear-gradient(to bottom, transparent, black 52px, black calc(100% - 56px), transparent);
 }
 
@@ -141,7 +156,7 @@
   background: var(--color-lm-rule) !important;
 }
 
-.loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 20; }
+.loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 30; }
 #loomark-editor::before, #loomark-editor::after {
   content: "";
   position: absolute;
@@ -158,7 +173,7 @@
 }
 #loomark-editor::after {
   bottom: 0;
-  height: 72px;
+  height: 64px;
   background: linear-gradient(to top, var(--color-lm-paper), transparent);
   mask-image: linear-gradient(to top, black, transparent);
 }
@@ -172,9 +187,12 @@
   color: var(--color-lm-muted);
   cursor: pointer;
 }
-.loomark-icon:hover, .loomark-sidebar-trigger:hover { background: var(--color-lm-accent-soft); color: var(--color-lm-accent); }
-.loomark-icon:focus-visible, .loomark-sidebar-trigger:focus-visible, .loomark-mode-button:focus-visible {
-  outline: 2px solid var(--color-lm-accent);
+.loomark-icon:hover:not(:disabled), .loomark-sidebar-trigger:hover { background: var(--color-lm-accent-soft); color: var(--color-lm-accent); }
+.loomark-icon:disabled { opacity: 0.5; cursor: default; }
+#loomark-root label:has(> input[type="file"]:disabled) { opacity: 0.5; pointer-events: none; }
+#loomark-root button:focus-visible {
+  /* RUI controls reset outline inline; keyboard focus must remain visible. */
+  outline: 2px solid var(--color-lm-accent) !important;
   outline-offset: 2px;
 }
 .loomark-mode-button[data-state="active"], .loomark-mode-button[aria-selected="true"] {
@@ -188,6 +206,8 @@
   z-index: 60;
   display: flex;
   width: 250px;
+  max-height: calc(100dvh - 61px);
+  overflow-y: auto;
   flex-direction: column;
   gap: 6px;
   padding: 10px;
@@ -197,9 +217,30 @@
   box-shadow: 0 10px 30px oklch(0.24 0.018 265 / 0.07);
   font-size: 12px;
 }
+.loomark-menu > * { flex-shrink: 0; }
 .loomark-menu-status > div { flex-wrap: wrap; justify-content: flex-start; }
-.loomark-save-status { color: var(--color-lm-accent); font-size: 11px; }
+.loomark-save-status {
+  width: 168px;
+  gap: 6px;
+  padding-inline: 8px;
+  color: var(--color-lm-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .loomark-save-status[title="Not saved"] { color: var(--color-lm-danger); }
+.loomark-save-status > [aria-hidden="true"] { flex-shrink: 0; }
+.loomark-save-caption { min-width: 0; white-space: normal; }
+.loomark-sync-attention { font-size: 12px; }
+.loomark-sync-attention > span { display: block; }
+.loomark-sync-attention > button { max-width: 100%; white-space: normal; }
+@media (max-width: 641px) {
+  .loomark-footer-status:has(.loomark-sync-attention > *) .loomark-save-caption { display: none; }
+  .loomark-footer-status:has(.loomark-sync-attention > *) .loomark-save-status {
+    width: 36px;
+    padding-inline: 0;
+    justify-content: center;
+  }
+}
 .loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: 5px !important; background: var(--color-lm-paper); }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
 .loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
@@ -208,11 +249,12 @@
 
 @media (max-width: 720px) {
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 68px 24px 16px; }
+  /* Override RUI inline sizes to retain a writing line when notices reduce height. */
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text-pane { min-height: 112px !important; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) [data-side="second"] { flex-shrink: 1 !important; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame { padding-bottom: 0; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 12px 24px 16px; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px 80px; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text {
-    mask-image: linear-gradient(to bottom, transparent, black 52px);
-  }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
     mask-image: linear-gradient(to bottom, black calc(100% - 56px), transparent);
   }
@@ -222,7 +264,7 @@
   #loomark-preview-scroll .rmd-preview-content { padding-inline: 32px; }
 }
 @media (max-width: 520px) {
-  .loomark-source { padding: 68px 24px 80px; }
+  .loomark-source { padding: 12px 24px 16px; }
   #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px 80px; }
   .loomark-menu { right: 12px; top: 49px; }
 }
@@ -303,5 +345,23 @@
   .loomark-new-document:active:not(:disabled),
   .loomark-new-document:active:not(:disabled) .i-lucide-square-pen {
     transform: none;
+  }
+}
+
+@media (forced-colors: active) {
+  /* Preserve mask ink explicitly using the user's system palette. */
+  #loomark-root [class*="i-lucide-"] {
+    forced-color-adjust: none;
+    color: CanvasText;
+    background-color: currentColor;
+  }
+
+  #loomark-root button [class*="i-lucide-"] { color: ButtonText; }
+  #loomark-root .loomark-mode-button[aria-selected="true"] [class*="i-lucide-"] { color: HighlightText; }
+
+  .loomark-mode-button[aria-selected="true"] {
+    forced-color-adjust: none;
+    background: Highlight !important;
+    color: HighlightText !important;
   }
 }

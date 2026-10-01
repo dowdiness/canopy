@@ -159,6 +159,7 @@ pub fn MarkdownEditor::view(
 ///|
 /// Render the input inside a host-provided pane. Keep this node mounted across
 /// mode changes; a host may key its parent by document generation.
+/// An optional native placeholder is a hint, never accepted document text.
 pub fn MarkdownEditor::input_view(
   self : MarkdownEditor,
   label : String,
@@ -169,6 +170,7 @@ pub fn MarkdownEditor::input_view(
   rows? : Int = 20,
   autofocus? : Bool = false,
   class? : String = "rmd-editor-input",
+  placeholder? : String,
 ) -> @rabbita.Html {
   @html.textarea(
     rows~,
@@ -176,6 +178,7 @@ pub fn MarkdownEditor::input_view(
     disabled?,
     read_only?,
     class~,
+    placeholder?,
     attrs=self.area.attach(
       @html.Attrs::build()
       .aria_label(label)

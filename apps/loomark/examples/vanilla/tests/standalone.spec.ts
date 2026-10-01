@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Locator, type Page } from "@playwright/test"
 
 const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
@@ -8,6 +8,356 @@ const EDITING_DOCUMENT_KEY = "editing-document"
 const SOURCE_KEY_PREFIX = "source/v1/"
 const REPLICA_KEY_PREFIX = "replica/"
 const CATALOG_KEY = "catalog/v1"
+
+test("document activation lets keyboard users continue writing immediately", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# First document\n")
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: "# First document\n" })
+  const create = page.getByRole("button", { name: "New document", exact: true }).first()
+  await create.focus()
+  await create.press("Enter")
+  await expect(text).toHaveValue("")
+  await expect(text).toBeFocused()
+  await page.keyboard.type("# Second document\n")
+  await expect(text).toHaveValue("# Second document\n")
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
+  const first = page.getByRole("button", { name: "First document", exact: true })
+  await first.focus()
+  await first.press("Enter")
+  await expect(text).toHaveValue("# First document\n")
+  await expect(text).toBeFocused()
+  await page.keyboard.press("Control+End")
+  await page.keyboard.type("Continued")
+  await expect(text).toHaveValue("# First document\nContinued")
+})
+
+test("responsive reflow preserves native text selection and undo", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await text.fill("# Writing\n\n日本語 and English\n")
+  await text.press("Control+End")
+  await text.pressSequentially("continued")
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    area.setSelectionRange(2, 7, "backward")
+    ;(window as typeof window & { __continuityArea?: HTMLTextAreaElement }).__continuityArea = area
+  })
+  for (const width of [390, 1280, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(text).toHaveValue("# Writing\n\n日本語 and English\ncontinued")
+    expect(await text.evaluate(element => ({
+      same: element === (window as typeof window & { __continuityArea?: HTMLTextAreaElement }).__continuityArea,
+      start: (element as HTMLTextAreaElement).selectionStart,
+      end: (element as HTMLTextAreaElement).selectionEnd,
+      direction: (element as HTMLTextAreaElement).selectionDirection,
+    }))).toEqual({ same: true, start: 2, end: 7, direction: "backward" })
+  }
+  await text.focus()
+  await page.keyboard.press("Control+Z")
+  await expect(text).toHaveValue("# Writing\n\n日本語 and English\n")
+})
+
+test("Escape from More actions returns keyboard focus to its trigger", async ({ page }) => {
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  const more = page.getByRole("button", { name: "More actions", exact: true })
+  await more.focus()
+  await more.press("Enter")
+  await expect(more).toHaveAttribute("aria-expanded", "true")
+  const exportAction = page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" })
+  await exportAction.focus()
+  await page.keyboard.press("Escape")
+  await expect(more).toHaveAttribute("aria-expanded", "false")
+  await expect(more).toBeFocused()
+  await page.keyboard.press("Enter")
+  await expect(exportAction).toBeVisible()
+})
+
+test("compact document activation closes navigation and Preview retains a keyboard destination", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Mobile document\n")
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: "# Mobile document\n" })
+  await page.getByRole("button", { name: "New document", exact: true }).press("Enter")
+  await expect(text).toHaveValue("")
+  await expect(text).toBeFocused()
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await toggle.click()
+  await page.getByRole("button", { name: "Mobile document", exact: true }).press("Enter")
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await expect(text).toBeFocused()
+  await expect(text).toHaveValue("# Mobile document\n")
+
+  const preview = page.getByRole("tab", { name: "Preview", exact: true })
+  await preview.click()
+  await page.getByRole("button", { name: "New document", exact: true }).press("Enter")
+  await expect(preview).toBeFocused()
+  await expect(preview).toHaveAttribute("aria-selected", "true")
+  await expect(text).toBeHidden()
+  await preview.press("ArrowLeft")
+  await expect(page.getByRole("tab", { name: "Split", exact: true })).toBeFocused()
+  await expect(text).toBeVisible()
+  await expect(text).toHaveValue("")
+})
+
+test("compact sidebar preserves keyboard traversal and toggle recovery", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Keyboard navigation\n")
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await toggle.click()
+  const sidebar = page.locator("#loomark-document-sidebar")
+  await expect(sidebar).toHaveAttribute("aria-hidden", "false")
+  const controls = sidebar.locator('button:visible:not([disabled]):not([tabindex="-1"]), a[href]:visible:not([tabindex="-1"]), input:visible:not([disabled]):not([tabindex="-1"])')
+  await expect.poll(() => controls.count()).toBeGreaterThan(1)
+  await expect(controls.first()).toBeFocused()
+  await page.keyboard.press("Tab")
+  await expect(controls.nth(1)).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(controls.first()).toBeFocused()
+  await toggle.focus()
+  await page.keyboard.press("Enter")
+  await expect(sidebar).toHaveAttribute("aria-hidden", "true")
+  await expect(toggle).toBeFocused()
+  await expect(text).toHaveValue("# Keyboard navigation\n")
+})
+
+test("keyboard focus remains visible on sidebar and delete confirmation controls", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("# Focus review\n")
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await toggle.focus()
+  // Enter keyboard modality before inspecting the actual rendered focus ring.
+  await page.keyboard.press("Shift")
+  const visibleOutline = async (control: Locator) => control.evaluate(element => {
+    const style = getComputedStyle(element)
+    return element.matches(":focus-visible") && style.outlineStyle !== "none" && parseFloat(style.outlineWidth) >= 2
+  })
+  expect(await visibleOutline(toggle)).toBe(true)
+  const remove = page.getByRole("button", { name: 'Delete "Focus review"', exact: true })
+  await remove.focus()
+  expect(await visibleOutline(remove)).toBe(true)
+  await page.keyboard.press("Enter")
+  const dialog = page.getByRole("alertdialog")
+  const cancel = dialog.getByRole("button", { name: "Cancel", exact: true })
+  await expect(cancel).toBeFocused()
+  expect(await visibleOutline(cancel)).toBe(true)
+  await page.keyboard.press("Tab")
+  const confirm = dialog.getByRole("button", { name: "Delete document", exact: true })
+  await expect(confirm).toBeFocused()
+  expect(await visibleOutline(confirm)).toBe(true)
+  await page.keyboard.press("Shift+Tab")
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press("Escape")
+  await expect(remove).toBeFocused()
+})
+
+test("deletion closes More actions and Escape returns to the deletion trigger", async ({ page }) => {
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("# Keep this document\n")
+  const more = page.getByRole("button", { name: "More actions" })
+  await more.click()
+  const remove = page.getByRole("button", { name: 'Delete "Keep this document"', exact: true })
+  await remove.focus()
+  await page.keyboard.press("Enter")
+  const dialog = page.getByRole("alertdialog")
+  await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeFocused()
+  await expect(more).toHaveAttribute("aria-expanded", "false")
+  await page.keyboard.press("Escape")
+  await expect(dialog).toHaveCount(0)
+  await expect(remove).toBeFocused()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Keep this document\n")
+})
+
+test("More actions remains reachable above the mode controls in short viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 568, height: 240 })
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  const more = page.getByRole("button", { name: "More actions" })
+  await more.focus()
+  await page.keyboard.press("Enter")
+  await expect(more).toHaveAttribute("aria-expanded", "true")
+  const menu = page.locator(".loomark-menu")
+  const exportAction = menu.getByRole("button", { name: "Export Markdown" })
+  // Reach the action through the real Tab order, which must scroll the panel.
+  for (let i = 0; i < 5 && !(await exportAction.evaluate(e => e === document.activeElement)); i++) {
+    await page.keyboard.press("Tab")
+  }
+  await expect(exportAction).toBeFocused()
+  expect(await exportAction.evaluate(element => {
+    const box = element.getBoundingClientRect()
+    const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+    return box.top >= 0 && box.bottom <= innerHeight && (hit === element || element.contains(hit))
+  })).toBe(true)
+  const download = page.waitForEvent("download")
+  await page.keyboard.press("Enter")
+  expect((await download).suggestedFilename()).toBe("untitled.md")
+  await page.keyboard.press("Escape")
+  await expect(more).toBeFocused()
+})
+
+test("large native clipboard paste preserves exact text through Undo, reload, and Export", async ({ page }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text", exact: true })
+  const source = "# Paste continuity\n\n" + "日本語と English. Keep the writing flowing.\n".repeat(4000)
+  await expect(text).toBeVisible()
+  await page.evaluate(value => navigator.clipboard.writeText(value), source)
+  await text.press("Control+V")
+  await expect(text).toHaveValue(source)
+  await text.press("Control+Z")
+  await expect(text).toHaveValue("")
+  await text.press("Control+Shift+Z")
+  await expect(text).toHaveValue(source)
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source)
+  await page.reload()
+  await expect(text).toHaveValue(source)
+  await page.getByRole("button", { name: "More actions" }).click()
+  const downloadPromise = page.waitForEvent("download")
+  await page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" }).click()
+  const stream = await (await downloadPromise).createReadStream()
+  stream.setEncoding("utf8")
+  let downloaded = ""
+  for await (const chunk of stream) downloaded += chunk
+  expect(downloaded).toBe(source)
+})
+
+test("sign-in preparation visibly disables creation and Import until cancelled", async ({ page }) => {
+  let finishPreparation: (() => void) | undefined
+  await page.route("**/api/auth/sign-in/social", async route => {
+    await new Promise<void>(resolve => { finishPreparation = resolve })
+    await route.fulfill({ status: 503 })
+  })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text", exact: true })
+  await text.fill("# Keep writing after cancellation\n")
+  const create = page.locator("header").getByRole("button", { name: "New document", exact: true })
+  await expect(create).toHaveCSS("opacity", "1")
+  await page.getByRole("button", { name: "More actions" }).click()
+  const importLabel = page.locator('label[for="loomark-menu-import"]')
+  await expect(importLabel).toHaveCSS("opacity", "1")
+  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await expect(text).toBeDisabled()
+  await expect(create).toBeDisabled()
+  await expect(create).toHaveCSS("opacity", "0.5")
+  await expect(importLabel.locator("input")).toBeDisabled()
+  await expect(importLabel).toHaveCSS("opacity", "0.5")
+  await page.getByRole("button", { name: "Cancel sign-in" }).click()
+  await expect(text).toBeEnabled()
+  await expect(text).toBeFocused()
+  await expect(create).toHaveCSS("opacity", "1")
+  await expect(importLabel).toHaveCSS("opacity", "1")
+  await expect(importLabel.locator("input")).toBeEnabled()
+  finishPreparation?.()
+  await expect(text).toHaveValue("# Keep writing after cancellation\n")
+})
+
+test("first-write hint stays outside document text and preserves native editing", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  for (const width of [1280, 390, 320, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(text).toHaveAttribute("placeholder", "Start writing…")
+    await expect(text).toHaveAccessibleName("Text")
+    await expect(text).toHaveValue("")
+  }
+  expect(await readStoredDocuments(page)).toEqual([])
+  await text.evaluate(element => {
+    ;(window as typeof window & { firstWriteArea?: Element }).firstWriteArea = element
+  })
+  await text.focus()
+  await text.pressSequentially("First words")
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents[0]?.text)).toBe("First words")
+  expect(await text.evaluate(element => element === (
+    window as typeof window & { firstWriteArea?: Element }
+  ).firstWriteArea)).toBe(true)
+  await expect(text).not.toHaveAttribute("placeholder", "Start writing…")
+  // Native typing may create several undo groups; every group must remain undoable.
+  for (let remaining = 11; remaining > 0 && await text.inputValue() !== ""; remaining--) {
+    await text.press("Control+Z")
+  }
+  await expect(text).toHaveValue("")
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents[0]?.text)).toBe("")
+  await expect(text).not.toHaveAttribute("placeholder", "Start writing…")
+  await page.reload()
+  await expect(text).toHaveValue("")
+  await expect(text).not.toHaveAttribute("placeholder", "Start writing…")
+
+  await page.getByRole("button", { name: "New document", exact: true }).first().click()
+  await expect(text).toHaveAttribute("placeholder", "Start writing…")
+  await page.getByRole("button", { name: "More actions" }).click()
+  const downloadPromise = page.waitForEvent("download")
+  await page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" }).click()
+  const download = await downloadPromise
+  const stream = await download.createReadStream()
+  stream.setEncoding("utf8")
+  let downloaded = ""
+  for await (const chunk of stream) downloaded += chunk
+  expect(downloaded).toBe("")
+  expect(await readStoredDocuments(page)).toHaveLength(1)
+})
+
+test("visible save caption waits for durable acknowledgement without moving the editor", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const status = page.locator(".loomark-save-status")
+  await expect(text).toBeVisible()
+  await expect(status).toHaveCount(0)
+  await text.pressSequentially("Draft")
+  await expect(status).toHaveAccessibleName("Saved on this device")
+  await expect(status).toHaveText("Saved on this device")
+  const storedDocument = await readStoredDocument(page)
+  if (!storedDocument) throw new Error("saved document missing")
+  await page.evaluate(installDelayedDocumentCommit, sourceKey(storedDocument.document_id))
+  await page.evaluate(() => {
+    ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+      .__loomarkDelayedCommitHeld = true
+  })
+  const before = await text.boundingBox()
+  await text.pressSequentially(" revised")
+  await expect(status).toHaveText("Saving on this device")
+  await expect(status).toHaveAccessibleName("Saving on this device")
+  expect(await text.boundingBox()).toEqual(before)
+  await page.evaluate(() => {
+    ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+      .__loomarkDelayedCommitHeld = false
+  })
+  await expect(status).toHaveText("Saved on this device")
+  expect(await text.boundingBox()).toEqual(before)
+  // Inspect the writing workspace, with navigation closed before compact reflow.
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(status.locator(".loomark-save-caption")).toBeVisible()
+    await expect.poll(() => status.evaluate(element => {
+      const right = element.getBoundingClientRect().right
+      const modesLeft = document.querySelector(".loomark-bottom-actions")!.getBoundingClientRect().left
+      return right + 8 <= modesLeft && document.body.scrollWidth <= innerWidth
+    })).toBe(true)
+  }
+})
+
+test("New document explains when local saving begins", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue("")
+  await page.getByRole("button", { name: "More actions" }).click()
+  const menu = page.locator(".loomark-menu")
+  await expect(menu).not.toContainText("Saved on this device")
+  await expect(menu).toContainText("Write to save on this device")
+  expect(await readStoredDocuments(page)).toEqual([])
+  await text.fill("# First words\n")
+  await expect(menu).toContainText("Saved on this device")
+  await expect(menu).not.toContainText("Write to save on this device")
+  await text.fill("")
+  await expect.poll(async () => (await readStoredDocuments(page))[0]?.text).toBe("")
+  await expect(menu).toContainText("Saved on this device")
+})
 
 type StoredDocument = {
   document_id: string
@@ -678,6 +1028,96 @@ test("Export downloads the current Document text with its Derived name", async (
   expect(downloaded).toBe(source)
 })
 
+async function downloadCurrentMarkdown(page: Page): Promise<{ filename: string; text: string }> {
+  await page.getByRole("button", { name: "More actions" }).click()
+  const pending = page.waitForEvent("download")
+  await page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" }).click()
+  const download = await pending
+  const stream = await download.createReadStream()
+  stream.setEncoding("utf8")
+  let text = ""
+  for await (const chunk of stream) text += chunk
+  return { filename: download.suggestedFilename(), text }
+}
+
+for (const persistence of ["failed", "held"] as const) {
+  test(`Export rescues latest selection replacement while local save is ${persistence}`, async ({ page }) => {
+    await page.goto("/")
+    const editor = page.getByRole("textbox", { name: "Text" })
+    const original = "# Rescue\n\nOriginal paragraph\n"
+    await editor.fill(original)
+    await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(original)
+    const stored = await readStoredDocument(page)
+    if (!stored) throw new Error("saved baseline missing")
+    if (persistence === "failed") {
+      await page.evaluate(installDocumentPutFailure, sourceKey(stored.document_id))
+    } else {
+      await page.evaluate(installDelayedDocumentCommit, sourceKey(stored.document_id))
+      await page.evaluate(() => {
+        ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+          .__loomarkDelayedCommitHeld = true
+      })
+    }
+    await editor.evaluate(element => {
+      const area = element as HTMLTextAreaElement
+      area.focus()
+      const start = area.value.indexOf("Original")
+      area.setSelectionRange(start, start + "Original".length)
+    })
+    await page.keyboard.insertText("最新の本文")
+    await editor.press("Control+End")
+    await editor.pressSequentially("Last edit")
+    const latest = "# Rescue\n\n最新の本文 paragraph\nLast edit"
+    await expect(editor).toHaveValue(latest)
+    const status = page.locator(".loomark-save-status")
+    await expect(status).toHaveAccessibleName(persistence === "failed" ? "Not saved" : "Saving on this device")
+    if (persistence === "held") {
+      await expect.poll(() => page.evaluate(() => (
+        globalThis as typeof globalThis & { __loomarkDelayedCommitActive?: boolean }
+      ).__loomarkDelayedCommitActive)).toBe(true)
+    }
+    try {
+      expect(await downloadCurrentMarkdown(page)).toEqual({ filename: "Rescue.md", text: latest })
+      await expect(editor).toHaveValue(latest)
+      await expect(status).not.toHaveAccessibleName("Saved on this device")
+      if (persistence === "failed") {
+        await expect(page.getByRole("alert")).toBeVisible()
+        expect((await readStoredDocument(page))?.text).toBe(original)
+      } else {
+        expect(await page.evaluate(() => (
+          globalThis as typeof globalThis & { __loomarkDelayedCommitCompletions?: number }
+        ).__loomarkDelayedCommitCompletions)).toBe(0)
+      }
+    } finally {
+      // Release the test transaction only after rescue assertions; export must not depend on it.
+      if (persistence === "held") await page.evaluate(() => {
+        ;(globalThis as typeof globalThis & { __loomarkDelayedCommitHeld?: boolean })
+          .__loomarkDelayedCommitHeld = false
+      })
+    }
+  })
+}
+
+test("a loaded offline editor saves and exports locally before reconnecting", async ({ page, context }) => {
+  await page.goto("/")
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.fill("# Offline\n")
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("# Offline\n")
+  const latest = "# Offline\nWritten without a network connection."
+  await context.setOffline(true)
+  try {
+    await editor.press("Control+End")
+    await editor.pressSequentially("Written without a network connection.")
+    await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Saved on this device")
+    await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(latest)
+    expect(await downloadCurrentMarkdown(page)).toEqual({ filename: "Offline.md", text: latest })
+  } finally {
+    await context.setOffline(false)
+  }
+  await page.reload()
+  await expect(editor).toHaveValue(latest)
+})
+
 test("Import creates a new Document without changing the existing Document", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -717,6 +1157,90 @@ test("importing the same file twice creates two Documents", async ({ page }) => 
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
   await file.setInputFiles(selected)
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
+})
+
+test("delayed imports preserve composition and remain available after later navigation", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("# Document A\n")
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+  await page.evaluate(() => {
+    const original = Blob.prototype.arrayBuffer
+    const scope = window as typeof window & { releaseImports?: (() => void)[] }
+    scope.releaseImports = []
+    Blob.prototype.arrayBuffer = async function () {
+      const bytes = await original.call(this)
+      await new Promise<void>(resolve => scope.releaseImports!.push(resolve))
+      return bytes
+    }
+  })
+  for (const name of ["Imported B", "Imported C"]) {
+    await page.getByLabel("Import Markdown").setInputFiles({
+      name: `${name}.md`, mimeType: "text/markdown", buffer: Buffer.from(`# ${name}\n`),
+    })
+  }
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { releaseImports?: (() => void)[] }
+  ).releaseImports?.length)).toBe(2)
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    ;(window as typeof window & { composingArea?: HTMLTextAreaElement }).composingArea = area
+    area.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
+    area.value = "# Composing A\n"
+    area.dispatchEvent(new InputEvent("input", {
+      bubbles: true, composed: true, data: area.value, inputType: "insertCompositionText",
+    }))
+  })
+  // Resolve in reverse order: each import survives; neither may replace the composing textarea.
+  await page.evaluate(() => {
+    const releases = (window as typeof window & { releaseImports: (() => void)[] }).releaseImports
+    for (const release of releases.reverse()) release()
+  })
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(3)
+  await expect(text).toHaveValue("# Composing A\n")
+  expect(await text.evaluate(element => element === (
+    window as typeof window & { composingArea?: HTMLTextAreaElement }
+  ).composingArea)).toBe(true)
+  await text.evaluate(element => element.dispatchEvent(new CompositionEvent("compositionend", {
+    bubbles: true, data: "# Composing A\n",
+  })))
+  await expect.poll(() => readStoredDocuments(page).then(documents => documents.map(document => document.text).sort()))
+    .toEqual(["# Composing A\n", "# Imported B\n", "# Imported C\n"])
+  await expect(text).toHaveValue("# Composing A\n")
+  await openDeleteConfirmation(page, "Composing A")
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click()
+  await expect(text).toHaveValue("# Composing A\n")
+  await page.getByRole("button", { name: "New document", exact: true }).first().click()
+  await expect(text).toHaveValue("")
+  for (const name of ["Imported B", "Imported C", "Composing A"]) {
+    await page.getByRole("button", { name, exact: true }).click()
+    await expect(text).toHaveValue(`# ${name}\n`)
+  }
+  await page.reload()
+  await expect(text).toHaveValue("# Composing A\n")
+})
+
+test("dismissing an import error restores the current writing destination", async ({ page }) => {
+  await page.goto("/")
+  const text = page.locator("#loomark-text")
+  await text.fill("# Keep my writing\n")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(2, 6, "backward"))
+  for (const mode of ["Text", "Split", "Preview"] as const) {
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+    await page.getByLabel("Import Markdown")
+      .setInputFiles("tests/fixtures/import-malformed-utf8.md")
+    const dismiss = page.getByRole("alert").getByRole("button", { name: "Dismiss" })
+    await dismiss.focus()
+    await dismiss.press("Enter")
+    await expect(page.getByRole("alert")).toHaveCount(0)
+    await expect(mode === "Preview" ? page.getByRole("tab", { name: mode, exact: true }) : text)
+      .toBeFocused()
+    await expect(text).toHaveValue("# Keep my writing\n")
+    expect(await text.evaluate(element => {
+      const area = element as HTMLTextAreaElement
+      return [area.selectionStart, area.selectionEnd, area.selectionDirection]
+    })).toEqual([2, 6, "backward"])
+  }
 })
 
 test("Import rejects malformed UTF-8 without creating a Source", async ({ page }) => {
@@ -855,13 +1379,143 @@ test("quiet editor keeps its source and sidebar toggle in place across views", a
     paddingTop: getComputedStyle(element).paddingTop,
     paddingLeft: getComputedStyle(element).paddingLeft,
   }))
-  expect(metrics).toEqual({ top: 0, paddingTop: "70px", paddingLeft: "340px" })
+  expect(metrics).toEqual({ top: 56, paddingTop: "14px", paddingLeft: "340px" })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(page.getByRole("separator")).toHaveAttribute("aria-orientation", "horizontal")
 })
 
-test("document scrolls beneath the fixed controls with softened viewport edges", async ({ page }) => {
+test("forced colors keep writing controls and the selected mode distinguishable", async ({ page }) => {
+  await page.emulateMedia({ forcedColors: "active" })
+  await page.setViewportSize({ width: 320, height: 360 })
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("Contrast check")
+  await expect(page.getByRole("status", { name: "Saved on this device", exact: true })).toBeVisible()
+  for (const mode of ["Text", "Split", "Preview"]) {
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+    const icons = await page.locator('#loomark-editor [class*="i-lucide-"]:visible').evaluateAll(elements => (
+      elements.map(element => {
+        const style = getComputedStyle(element)
+        return { painted: style.backgroundColor === style.color, mask: style.maskImage !== "none" }
+      })
+    ))
+    expect(icons.length).toBeGreaterThanOrEqual(6)
+    expect(icons.every(icon => icon.painted && icon.mask)).toBe(true)
+    await expect.poll(() => page.locator('.loomark-mode-button[aria-selected="true"]').evaluate(element => (
+      getComputedStyle(element).backgroundColor !== getComputedStyle(
+        document.querySelector('.loomark-mode-button[aria-selected="false"]')!,
+      ).backgroundColor
+    ))).toBe(true)
+  }
+  const more = page.getByRole("button", { name: "More actions" })
+  await more.focus()
+  await more.press("Enter")
+  const exportAction = page.locator(".loomark-menu").getByRole("button", { name: "Export Markdown" })
+  await exportAction.focus()
+  await expect(exportAction).toHaveCSS("outline-width", "2px")
+  await page.keyboard.press("Escape")
+  await expect(more).toBeFocused()
+})
+
+test("increased text spacing preserves status icons and native caret navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 360 })
+  await page.goto("/")
+  await page.addStyleTag({ content: "* { line-height:1.5 !important; letter-spacing:.12em !important; word-spacing:.16em !important; } p { margin-bottom:2em !important; }" })
+  const editor = page.getByRole("textbox", { name: "Text" })
+  const text = Array.from({ length: 100 }, (_, i) => `Line ${i}`).join("\n")
+  await editor.fill(text)
+  const status = page.getByRole("status", { name: "Saved on this device", exact: true })
+  await expect(status).toBeVisible()
+  const layout = await status.evaluate(element => {
+    const rect = element.getBoundingClientRect()
+    const icon = element.querySelector('[aria-hidden="true"]')!.getBoundingClientRect()
+    const caption = element.querySelector(".loomark-save-caption")!.getBoundingClientRect()
+    return { iconWidth: icon.width, contained: caption.right <= rect.right && caption.top >= rect.top && caption.bottom <= rect.bottom }
+  })
+  expect(layout.iconWidth).toBe(16)
+  expect(layout.contained).toBe(true)
+  for (const mode of ["Text", "Split"]) {
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+    if (mode === "Split") await expect.poll(() => editor.evaluate(element => element.getBoundingClientRect().bottom)).toBe(180)
+    for (const key of ["Control+End", "PageUp", "Control+Home", "PageDown", "Shift+PageDown", "Control+Shift+End"]) {
+      await editor.press(key)
+      await expect.poll(() => editor.evaluate(element => {
+        const area = element as HTMLTextAreaElement, rect = area.getBoundingClientRect(), style = getComputedStyle(area)
+        const endpoint = area.selectionDirection === "backward" ? area.selectionStart : area.selectionEnd
+        // Short lines remain unwrapped with these spacing overrides.
+        const line = area.value.slice(0, endpoint).split("\n").length - 1
+        const y = rect.top + Number.parseFloat(style.paddingTop) + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
+        return document.elementFromPoint(rect.left + Number.parseFloat(style.paddingLeft) + 8, y) === area
+      })).toBe(true)
+      await expect(editor).toHaveValue(text)
+    }
+  }
+})
+
+for (const mode of ["Text", "Split"] as const) {
+  test(`current native writing line stays visible outside chrome in ${mode}`, async ({ page }) => {
+    for (const { width, height, failure, minimumSplit = false } of [
+      { width: 1280, height: 900, failure: false },
+      { width: 390, height: 844, failure: false },
+      { width: 320, height: 640, failure: false },
+      { width: 320, height: 360, failure: false },
+      { width: 320, height: 360, failure: true },
+      { width: 320, height: 360, failure: true, minimumSplit: true },
+    ]) {
+      await page.setViewportSize({ width, height })
+      await page.goto("/")
+      const editor = page.getByRole("textbox", { name: "Text" })
+      const toggle = page.getByRole("button", { name: "Toggle documents" })
+      if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click()
+      await page.getByRole("tab", { name: mode, exact: true }).click()
+      expect(await editor.evaluate(element => element.getBoundingClientRect().top
+        + Number.parseFloat(getComputedStyle(element).paddingTop))).toBe(width <= 520 ? 68 : 70)
+      if (mode === "Split" && minimumSplit) {
+        await page.getByRole("slider", { name: "Resize editor and preview" }).fill("25")
+      }
+      if (failure) await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+      await editor.fill("# Long writing\n\n" + "Short line.\n".repeat(80))
+      if (failure) await expect(page.getByRole("alert")).toBeVisible()
+      await editor.press("Control+End")
+      await editor.pressSequentially("Current line")
+      if (failure) await expect(page.getByRole("alert")).toBeVisible()
+      const visible = await editor.evaluate(element => {
+        const area = element as HTMLTextAreaElement
+        const style = getComputedStyle(area), rect = area.getBoundingClientRect()
+        // Every fixture line fits without wrapping. Check the actual selected line,
+        // not scrollHeight or the amount of padding after the document.
+        const line = area.value.slice(0, area.selectionStart).split("\n").length - 1
+        const y = rect.top + Number.parseFloat(style.paddingTop)
+          + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
+        const x = rect.left + Number.parseFloat(style.paddingLeft) + 8
+        const footer = document.querySelector(".loomark-footer")!.getBoundingClientRect()
+        const header = document.querySelector(".loomark-topbar")!.getBoundingClientRect()
+        return {
+          atEnd: area.selectionStart === area.value.length,
+          lineOutsideChrome: y > header.bottom && y < footer.top,
+          lineInsideInput: y > rect.top && y < rect.bottom,
+          unobscured: document.elementFromPoint(x, y) === area,
+          mask: style.maskImage,
+        }
+      })
+      expect(visible).toEqual({ atEnd: true, lineOutsideChrome: true, lineInsideInput: true, unobscured: true, mask: "none" })
+      if (mode === "Split" && minimumSplit) {
+        const panes = await page.locator("#loomark-editor-panels").evaluate(group => {
+          const text = group.querySelector<HTMLElement>("#loomark-text-pane")!
+          const preview = group.querySelector<HTMLElement>('[data-side="second"]')!
+          return {
+            writingHeight: text.getBoundingClientRect().height,
+            previewContained: preview.getBoundingClientRect().bottom <= group.getBoundingClientRect().bottom + 1,
+          }
+        })
+        expect(panes.writingHeight).toBeGreaterThanOrEqual(112)
+        expect(panes.previewContained).toBe(true)
+      }
+    }
+  })
+}
+
+test("Text stays outside fixed controls while Preview keeps softened viewport edges", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/")
   const source = page.getByRole("textbox", { name: "Text" })
@@ -870,16 +1524,15 @@ test("document scrolls beneath the fixed controls with softened viewport edges",
     const { top, bottom } = element.getBoundingClientRect()
     return { top, bottom }
   })
-  expect(await bounds("#loomark-text")).toEqual({ top: 0, bottom: 900 })
+  expect(await bounds("#loomark-text")).toEqual({ top: 56, bottom: 836 })
   expect(await bounds(".loomark-topbar")).toEqual({ top: 0, bottom: 48 })
   expect(await bounds(".loomark-footer")).toEqual({ top: 836, bottom: 900 })
   await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
-    .toBe("70px")
+    .toBe("14px")
   expect(await page.locator("#loomark-editor").evaluate(element => (
     getComputedStyle(element, "::before").backdropFilter
   ))).toBe("blur(2px)")
-  expect(await source.evaluate(element => getComputedStyle(element).maskImage))
-    .toContain("rgb(0, 0, 0) 52px, rgb(0, 0, 0) calc(100% - 56px)")
+  expect(await source.evaluate(element => getComputedStyle(element).maskImage)).toBe("none")
 
   await page.getByRole("tab", { name: "Preview" }).click()
   await expect.poll(() => bounds("#loomark-preview-scroll"))
@@ -896,10 +1549,10 @@ test("document scrolls beneath the fixed controls with softened viewport edges",
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("button", { name: "Toggle documents" }).click()
   await page.getByRole("tab", { name: "Split" }).click()
-  await expect.poll(() => bounds("#loomark-text")).toEqual({ top: 0, bottom: 422 })
+  await expect.poll(() => bounds("#loomark-text")).toEqual({ top: 56, bottom: 422 })
   await expect.poll(() => bounds("#loomark-preview-scroll")).toEqual({ top: 422, bottom: 844 })
   await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
-    .toBe("68px")
+    .toBe("12px")
   await expect.poll(() => page.locator("#loomark-preview-scroll .rmd-preview-content")
     .evaluate(element => getComputedStyle(element).paddingTop)).toBe("16px")
   expect(await source.evaluate(element => getComputedStyle(element).maskImage))
@@ -919,6 +1572,9 @@ test("first edit reports quota full without creating a Source", async ({ page })
   await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
   await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
   expect(await readStoredDocuments(page)).toEqual([])
+  await page.getByRole("button", { name: "More actions" }).click()
+  await expect(page.locator(".loomark-menu")).toContainText("Not saved")
+  await expect(page.locator(".loomark-menu")).not.toContainText("Write to save")
 })
 
 test("opening and saving persist only authoritative Source records", async ({ page }) => {
@@ -1087,6 +1743,32 @@ test("Google sign-in waits for committed local text before preparing the redirec
 const historyTest = test.extend({
   channel: "chromium",
   launchOptions: { ignoreDefaultArgs: ["--disable-back-forward-cache"] },
+})
+
+historyTest("ordinary Back and Forward preserve locally saved writing across repeated visits", async ({ page }) => {
+  const away = "https://loomark-history.test/away"
+  await page.route("https://loomark-history.test/**", route => route.fulfill({
+    contentType: "text/html", body: "<title>Local history fixture</title><p>Another page</p>",
+  }))
+  await page.goto("/")
+  const editor = page.getByRole("textbox", { name: "Text" })
+  const source = "# Return here\nKeep this writing."
+  await editor.fill(source)
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source)
+  await page.goto(away)
+  for (let visit = 0; visit < 2; visit++) {
+    await page.goBack({ waitUntil: "commit" })
+    await expect(editor).toHaveValue(source)
+    await expect(editor).toBeEditable()
+    await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Saved on this device")
+    await page.goForward({ waitUntil: "commit" })
+    await expect(page).toHaveURL(away)
+  }
+  await page.goBack({ waitUntil: "commit" })
+  await expect(editor).toHaveValue(source)
+  await editor.press("Control+End")
+  await editor.pressSequentially(" Continued.")
+  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source + " Continued.")
 })
 
 historyTest("Back from Google restores editing and refreshes the account from BFCache", async ({ page }) => {
@@ -1592,8 +2274,33 @@ test("Replica write failure changes the save indicator until retry succeeds", as
   await text.fill("# Edited\n")
   await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible()
   await expect(indicator).toHaveAttribute("title", "Not saved")
+  const retry = page.locator(".loomark-footer").getByRole("button", { name: "Retry saving", exact: true })
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  for (const width of [320, 390, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await expect(indicator).toHaveAccessibleName("Not saved")
+    if (width <= 641) {
+      await expect(indicator.locator(".loomark-save-caption")).toBeHidden()
+    } else {
+      await expect(indicator.locator(".loomark-save-caption")).toBeVisible()
+    }
+    await expect.poll(async () => {
+      const action = await retry.boundingBox()
+      const modes = await page.locator(".loomark-bottom-actions").boundingBox()
+      return action !== null && modes !== null && action.x + action.width + 8 <= modes.x
+    }).toBe(true)
+    const bounds = await retry.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.height).toBeGreaterThanOrEqual(width <= 641 ? 44 : 32)
+    await retry.focus()
+    await expect(retry).toBeFocused()
+    expect(await retry.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      return element.contains(element.ownerDocument.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+    })).toBe(true)
+  }
   await page.evaluate(removeDocumentPutFailure)
-  await page.getByRole("button", { name: "Retry saving", exact: true }).click()
+  await retry.click()
   await expect.poll(async () => replicaCurrentText(await readStoredDocumentRaw(page, key)))
     .toBe("# Edited\n")
   await expect(indicator).toHaveAttribute("title", "Saved on this device")
@@ -2397,6 +3104,112 @@ test("Preview prepares after its status paints and refreshes typed Markdown", as
   await expect(page.getByRole("heading", { name: "Preview heading" })).toHaveCount(0)
 })
 
+test("imported active-looking Markdown stays inert and exports losslessly", async ({ page }) => {
+  await page.goto("/")
+  const origin = new URL(page.url()).origin
+  const blockedRequests: string[] = []
+  await page.context().route("**/*", route => {
+    if (new URL(route.request().url()).origin === origin) return route.continue()
+    blockedRequests.push(route.request().url())
+    return route.abort()
+  })
+  await page.evaluate(() => { (globalThis as typeof globalThis & { __unsafeNote?: number }).__unsafeNote = 0 })
+  const source = [
+    "# Safe imported material", "",
+    '<script>globalThis.__unsafeNote=1</script>', "",
+    '<img src="https://blocked-notes.test/pixel" onerror="globalThis.__unsafeNote=2">', "",
+    '<svg onload="globalThis.__unsafeNote=3"></svg>', "",
+    '<iframe srcdoc="<script>parent.__unsafeNote=4</script>"></iframe>', "",
+    '[mixed](JaVaScRiPt:globalThis.__unsafeNote=5)', "",
+    '[entity](jav&#x61;script:globalThis.__unsafeNote=6)', "",
+    '[control](java&#x09;script:globalThis.__unsafeNote=7)', "",
+    '[data](data:text/html,unsafe-note)', "",
+    '[other](vbscript:unsafe-note)', "",
+    '![image](data:image/svg+xml,unsafe-note)', "",
+    '```html', '<img src="https://blocked-notes.test/code" onerror="globalThis.__unsafeNote=8">', '```', "",
+  ].join("\n")
+  await page.getByRole("button", { name: "More actions" }).click()
+  await page.locator(".loomark-menu").getByLabel("Import Markdown").setInputFiles({
+    name: "safe-material.md", mimeType: "text/markdown", buffer: Buffer.from(source),
+  })
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await expect(editor).toHaveValue(source)
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await expect(preview.getByRole("heading", { name: "Safe imported material" })).toBeVisible()
+  await expect(preview.locator("script,img,svg,iframe,[onerror],[onload]")).toHaveCount(0)
+  await expect(preview.locator("a")).toHaveCount(0)
+  await expect(preview.locator("[data-loomark-preview-url-rejected]")).toHaveCount(6)
+  await expect(preview).toContainText('<script>globalThis.__unsafeNote=1</script>')
+  expect(await page.evaluate(() => (globalThis as typeof globalThis & { __unsafeNote?: number }).__unsafeNote)).toBe(0)
+  expect(blockedRequests).toEqual([])
+  expect((await downloadCurrentMarkdown(page)).text).toBe(source)
+  await expect(page.getByRole("status", { name: "Saved on this device", exact: true })).toBeVisible()
+  await page.reload()
+  await expect(editor).toHaveValue(source)
+})
+
+test("Preview links preserve unsaved writing when activated by keyboard", async ({ page }) => {
+  await page.goto("/")
+  const originalUrl = page.url(), external = "https://safe-preview.test/read"
+  const source = `# Link notes\n\n[HTTPS](${external})\n\n[Section](#section)\n`
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.fill(source)
+  await expect(page.getByRole("status", { name: "Saved on this device", exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await expect(page.getByRole("link", { name: "HTTPS", exact: true })).toBeVisible()
+  await page.getByRole("tab", { name: "Split", exact: true }).click()
+  await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+  await editor.press("Control+End")
+  await editor.pressSequentially("Unsaved latest writing")
+  await expect(page.getByRole("alert")).toBeVisible()
+  const latest = source + "Unsaved latest writing"
+  // Both destinations are fulfilled locally; no external server or user data is used.
+  await page.context().route(external, route => route.fulfill({ contentType: "text/html", body: "Safe link fixture" }))
+  await page.context().route(originalUrl, route => route.fulfill({ contentType: "text/html", body: "Fragment fixture" }))
+  for (const [name, destination] of [["HTTPS", external], ["Section", originalUrl + "#section"]]) {
+    const link = page.getByRole("link", { name, exact: true })
+    await expect(link).toHaveAttribute("target", "_blank")
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer")
+    const pending = page.waitForEvent("popup")
+    await link.focus()
+    await link.press("Enter")
+    const popup = await pending
+    await expect(popup).toHaveURL(destination)
+    await popup.waitForLoadState("domcontentloaded")
+    expect(await popup.evaluate(() => window.opener === null)).toBe(true)
+    await popup.close()
+    await expect(page).toHaveURL(originalUrl)
+    await expect(editor).toHaveValue(latest)
+  }
+  expect((await downloadCurrentMarkdown(page)).text).toBe(latest)
+})
+
+test("long and malformed Markdown stays contained and code remains keyboard scrollable", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 360 })
+  await page.goto("/")
+  const source = `# Readable material\n\n[broken](\n\n<https://safe-preview.test/${"a".repeat(1024)}>\n\n\`\`\`text\n${"code_".repeat(400)}\n\`\`\`\n\nEnd of note\n`
+  const editor = page.getByRole("textbox", { name: "Text" })
+  await editor.fill(source)
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  await expect(preview.getByRole("heading", { name: "Readable material" })).toBeVisible()
+  await expect(preview).toContainText("[broken](")
+  expect(await preview.evaluate(element => ({ width: element.clientWidth, scrollWidth: element.scrollWidth, bodyWidth: document.body.scrollWidth })))
+    .toEqual({ width: 320, scrollWidth: 320, bodyWidth: 320 })
+  const code = preview.locator("pre").filter({ has: page.locator('code[data-loomark-code-info="text"]') })
+  await preview.getByRole("link").focus()
+  await page.keyboard.press("Tab")
+  await expect(code).toBeFocused()
+  await code.press("ArrowRight")
+  await expect.poll(() => code.evaluate(element => element.scrollLeft)).toBeGreaterThan(0)
+  await code.press("Tab")
+  await expect(code).not.toBeFocused()
+  await page.getByRole("tab", { name: "Text", exact: true }).click()
+  await expect(editor).toHaveValue(source)
+  expect((await downloadCurrentMarkdown(page)).text).toBe(source)
+})
+
 test("Preview keeps incomplete Markdown literal without parser chrome", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -2879,6 +3692,32 @@ test("large input during an active save coalesces to the latest text", async ({ 
     .toEqual([`${largeText}a`, finalText])
 })
 
+test("hidden visibility saves an inactive document while save timers are held", async ({ page }) => {
+  const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
+  const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
+  await openStoredDocuments(page, [documentA, documentB])
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toHaveValue(documentA.text)
+  // Hold only autosave deadlines; freezing all browser timers also freezes activation.
+  await page.evaluate(() => {
+    const schedule = window.setTimeout.bind(window)
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: any[]) => (
+      schedule(handler, timeout === 250 || timeout === 2_000 ? 60_000 : timeout, ...args)
+    )) as typeof window.setTimeout
+  })
+  await text.pressSequentially("x")
+  await expect(text).toHaveValue("# A\nx")
+  await page.getByRole("button", { name: "B", exact: true }).click()
+  await expect(text).toHaveValue(documentB.text)
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true })
+    document.dispatchEvent(new Event("visibilitychange"))
+  })
+  await expectStoredDocument(page, { ...documentA, text: "# A\nx" })
+  await expect(text).toHaveValue(documentB.text)
+  await expectStoredDocument(page, documentB)
+})
+
 test("hidden visibility makes pending text eligible before quiet", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
@@ -3098,8 +3937,11 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 
   await page.evaluate(removeDocumentPutFailure)
-  await page.getByRole("button", { name: "Retry saving" }).click()
+  const retry = page.getByRole("button", { name: "Retry saving" })
+  await retry.focus()
+  await retry.press("Enter")
   await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(text).toBeFocused()
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Latest text\n")

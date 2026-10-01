@@ -3040,3 +3040,10 @@ test "preparing new reduces unrelated inactive save completion" {
     "two!",
   )
 }
+
+///|
+test "writing focus destination follows editor mode without reading the DOM" {
+  assert_eq(editor_focus_id(Text), EDITOR_TEXT_ID)
+  assert_eq(editor_focus_id(Split), EDITOR_TEXT_ID)
+  assert_eq(editor_focus_id(Preview), mode_dom_id(Preview))
+}

@@ -151,8 +151,15 @@ test "local document status exposes sign-in and sync-start states" {
   guard document_sync_view(ephemeral) is Some(ephemeral_view) else {
     fail("ephemeral document sync view")
   }
-  assert_true(ephemeral_view.durability is LocalDurability::Stored)
+  assert_true(ephemeral_view.durability is LocalDurability::NotStarted)
   assert_true(ephemeral_view.sync is DocumentSync::DeviceOnly)
+  let (documents, _) = documents.reduce(
+    @documents.Msg::TextChanged(source_key("new"), "First words"),
+  )
+  assert_true(
+    local_durability({ ..editing, documents, }, source_key("new"))
+    is Some(LocalDurability::Saving),
+  )
 }
 
 ///|

@@ -12,6 +12,7 @@ priv enum AccountStatus {
 ///|
 /// Whether the current working copy is recoverable from this device.
 priv enum LocalDurability {
+  NotStarted
   Saving
   Stored
   NotStored
@@ -46,6 +47,8 @@ fn local_durability(
   key : @documents.Key,
 ) -> LocalDurability? {
   match editing.documents.save_status(key) {
+    Some(Clean) if editing.documents.is_ephemeral_new(key) =>
+      Some(LocalDurability::NotStarted)
     Some(Clean) => Some(LocalDurability::Stored)
     Some(SaveFailed(_)) => Some(LocalDurability::NotStored)
     Some(@documents.SaveStatus::Unsaved) => Some(LocalDurability::Saving)

@@ -35,7 +35,9 @@ See the [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-sta
 
 Text input updates the Document text immediately. Autosave makes latest text
 eligible after 250 ms quiet, when one non-restarting 2,000 ms maximum-wait timer
-becomes processable, or when the page becomes hidden. The maximum is application
+becomes processable, or when the page becomes hidden. Hiding makes pending text
+eligible across all documents, including a document just left; it does not
+retry failed saves or commit an ongoing composition. The maximum is application
 policy rather than a wall-clock acknowledgment guarantee. IME composition
 defers persistence until its committed result.
 
@@ -77,6 +79,9 @@ other decoded character. Filename, extension, and media type are not admission
 or identity inputs. Each accepted import creates and activates a fresh document
 and starts its normal New-document save immediately; failure keeps the imported
 text available through the existing Retry path.
+If an import finishes during text composition, it is saved and added to
+Documents without replacing the current
+editor. Open it from Documents when ready; no later automatic switch is queued.
 
 Export downloads the Editing Document's current in-memory text without waiting
 for Autosave. The browser receives `<Derived name>.md`, or `untitled.md` when no

@@ -50,18 +50,6 @@ fn page_restore_subscription(command : @cmd.Cmd) -> @sub.Sub {
 }
 
 ///|
-extern "js" fn restore_focus_after_login_cancel() =
-  #| () => {
-  #|   const root = document.querySelector('[aria-label="Loomark Markdown Editor"]');
-  #|   const editor = root?.querySelector('textarea');
-  #|   if (!editor || editor.disabled) return;
-  #|   const target = editor.getClientRects().length
-  #|     ? editor
-  #|     : root.querySelector('[role="tab"][aria-selected="true"]');
-  #|   target?.focus({ preventScroll: true });
-  #| }
-
-///|
 fn account_controls_input(model : Model) -> AccountControlsInput {
   {
     session: model.sync().session(),

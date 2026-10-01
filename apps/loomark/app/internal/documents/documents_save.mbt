@@ -244,6 +244,18 @@ fn eligible_maximum(
 }
 
 ///|
+fn flush_visibility(
+  saved : @source_repository.SavedDocuments,
+  record : Record,
+) -> (Record, Array[Action]) {
+  guard !delete_is_active(record.delete_phase()) else { return (record, []) }
+  match record.save {
+    Waiting(_) | Saving(_, Some(_)) => mark_eligible(saved, record)
+    Saved | Saving(_, None) | Failed(_) => (record, [])
+  }
+}
+
+///|
 fn mark_eligible(
   saved : @source_repository.SavedDocuments,
   record : Record,
