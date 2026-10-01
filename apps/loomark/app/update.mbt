@@ -548,7 +548,10 @@ fn update_page(
       }
     }
     (Editing(editing), DismissImportFailure) =>
-      (Editing({ ..editing, import_failed: false, }), @cmd.none)
+      (
+        Editing({ ..editing, import_failed: false, }),
+        focus_after_render(editor_focus_id(editing.mode)),
+      )
     (Editing(editing), ExportRequested) => {
       let (filename, text) = export_payload(editing)
       (Editing(editing), @browser.download(filename, text))
@@ -1459,13 +1462,21 @@ fn reduce(
       }
     RetrySave =>
       match model.page {
-        Editing(editing) =>
-          update_documents(
+        Editing(editing) => {
+          let (model, command) = update_documents(
             model,
             @documents.Msg::RetrySave(editing.activation.key),
             emit,
             editor,
           )
+          (
+            model,
+            @cmd.batch([
+              command,
+              focus_after_render(editor_focus_id(editing.mode)),
+            ]),
+          )
+        }
         _ => (model, @cmd.none)
       }
     RetryAccount => begin_account_lookup(model, emit)

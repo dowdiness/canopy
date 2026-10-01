@@ -984,6 +984,29 @@ test("importing the same file twice creates two Documents", async ({ page }) => 
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
 })
 
+test("dismissing an import error restores the current writing destination", async ({ page }) => {
+  await page.goto("/")
+  const text = page.locator("#loomark-text")
+  await text.fill("# Keep my writing\n")
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(2, 6, "backward"))
+  for (const mode of ["Text", "Split", "Preview"] as const) {
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+    await page.getByLabel("Import Markdown")
+      .setInputFiles("tests/fixtures/import-malformed-utf8.md")
+    const dismiss = page.getByRole("alert").getByRole("button", { name: "Dismiss" })
+    await dismiss.focus()
+    await dismiss.press("Enter")
+    await expect(page.getByRole("alert")).toHaveCount(0)
+    await expect(mode === "Preview" ? page.getByRole("tab", { name: mode, exact: true }) : text)
+      .toBeFocused()
+    await expect(text).toHaveValue("# Keep my writing\n")
+    expect(await text.evaluate(element => {
+      const area = element as HTMLTextAreaElement
+      return [area.selectionStart, area.selectionEnd, area.selectionDirection]
+    })).toEqual([2, 6, "backward"])
+  }
+})
+
 test("Import rejects malformed UTF-8 without creating a Source", async ({ page }) => {
   await page.goto("/")
   await page.getByLabel("Import Markdown")
@@ -3366,8 +3389,11 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 
   await page.evaluate(removeDocumentPutFailure)
-  await page.getByRole("button", { name: "Retry saving" }).click()
+  const retry = page.getByRole("button", { name: "Retry saving" })
+  await retry.focus()
+  await retry.press("Enter")
   await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(text).toBeFocused()
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Latest text\n")
