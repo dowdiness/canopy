@@ -131,10 +131,16 @@ async function createSynced(page: Page, account: string, text: string): Promise<
   return body.documents[0].id
 }
 
+async function openDocuments(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await expect(toggle).toBeVisible()
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+}
+
 async function openRemote(page: Page, name: string, text: string): Promise<void> {
   await page.goto("/")
-  const toggle = page.getByRole("button", { name: "Toggle documents" })
-  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click()
+  await openDocuments(page)
   const row = page.getByRole("button", { name, exact: true })
   await expect(row).toBeAttached({ timeout: 20_000 })
   await expect(row).toBeVisible({ timeout: 20_000 })
@@ -223,6 +229,7 @@ test("synchronized deletion survives a lost response and restart", async () => {
 
   expect((await page.request.post(`${ORIGIN}/__e2e__/lose-next-mutation-response`)).status())
     .toBe(204)
+  await openDocuments(page)
   const row = page.getByRole("button", { name: "Delete proof", exact: true }).locator("..")
   await row.getByRole("button", { name: 'Delete "Delete proof"', exact: true }).click()
   await expect(page.getByRole("alertdialog")).toContainText(
@@ -249,6 +256,7 @@ test("synchronized deletion survives a lost response and restart", async () => {
     if (body.operationId) operationIds.push(body.operationId)
   })
   await page.goto("/")
+  await openDocuments(page)
   await expect(page.getByRole("button", { name: "Delete proof", exact: true })).toHaveCount(0)
   await expect.poll(() => operationIds.length).toBe(2)
   expect(operationIds[1]).toBe(operationIds[0])
@@ -258,6 +266,7 @@ test("synchronized deletion survives a lost response and restart", async () => {
   await signIn(fresh, "deletion")
   const freshPage = fresh.pages()[0] ?? await fresh.newPage()
   await freshPage.goto("/")
+  await openDocuments(freshPage)
   await expect(freshPage.getByRole("button", { name: "Delete proof", exact: true }))
     .toHaveCount(0)
   await fresh.close()
@@ -276,6 +285,8 @@ test("divergent browser edits preserve the local branch and expose the remote br
   const pcPage = pc.pages()[0] ?? await pc.newPage()
   await openRemote(pcPage, "Shared baseline", baseline)
 
+  // Show the rows before composition starts; inspecting recovery must not blur IME.
+  await openDocuments(phonePage)
   await phone.setOffline(true)
   const phoneEditor = phonePage.getByRole("textbox", { name: "Text" })
   await phoneEditor.evaluate(element => {
@@ -339,6 +350,7 @@ test("switching accounts hides retained replicas and isolates guessed identities
   const page = context.pages()[0] ?? await context.newPage()
   const firstId = await createSynced(page, ACCOUNT_A, "# Private A\n")
   const editor = page.getByRole("textbox", { name: "Text" })
+  await openDocuments(page)
 
   const other = await signIn(context, "other")
   expect(other.id).toBe(OTHER_ACCOUNT)
@@ -371,6 +383,7 @@ test("switching accounts hides retained replicas and isolates guessed identities
   const original = await signIn(context, "accountA")
   expect(original.id).toBe(ACCOUNT_A)
   await page.reload()
+  await openDocuments(page)
   const privateA = page.getByRole("button", { name: "Private A", exact: true })
   await expect(privateA).toBeVisible()
   await expect(page.getByRole("button", { name: "Private B", exact: true })).toHaveCount(0)
