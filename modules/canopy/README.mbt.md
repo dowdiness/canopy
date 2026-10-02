@@ -8,7 +8,7 @@ Structure emerges visibly and reversibly; you remain the author.
 
 Canopy reads your code as a live structure rather than flat text. As you type, it reparses incrementally, tracks scope and types, evaluates expressions, and formats the result — without breaking your flow. Two people can edit the same document at once with no server, and edits merge automatically.
 
-[Try the live demo](https://canopy-ideal.pages.dev) · [Architecture](../../docs/architecture/) · [eg-walker paper](https://arxiv.org/abs/2409.14252)
+[Try the live demo](https://canopy-ideal.pages.dev) · [Architecture](docs/architecture/) · [eg-walker paper](https://arxiv.org/abs/2409.14252)
 
 ## Why
 
@@ -45,9 +45,9 @@ Text CRDT → Incremental Parse → Projection → Rendering
     └────── structural edits feed back ──────────┘
 ```
 
-1. **Text CRDT** ([event-graph-walker](../../deps/event-graph-walker/)) — The document lives in a FugueMax sequence CRDT. All edits — keystrokes, remote operations, undo/redo — enter here. Peers sync directly, no central server.
+1. **Text CRDT** ([event-graph-walker](deps/event-graph-walker/)) — The document lives in a FugueMax sequence CRDT. All edits — keystrokes, remote operations, undo/redo — enter here. Peers sync directly, no central server.
 
-2. **Incremental parsing** ([loom](../../deps/loom/)) — Only the affected region is reparsed. Unchanged subtrees are reused from the previous parse through position-independent CST nodes.
+2. **Incremental parsing** ([loom](deps/loom/)) — Only the affected region is reparsed. Unchanged subtrees are reused from the previous parse through position-independent CST nodes.
 
 3. **Projection** — The syntax tree maps to a projection tree with stable node IDs and source spans. Node identity survives reparses, so UI state (selection, scroll) is preserved.
 
@@ -76,7 +76,7 @@ cd apps/web && npm install && npm run dev
 
 The targets currently exercised in CI are **JavaScript** (web demo, FFI) and
 **native** (CLI, tests). WebAssembly is not a supported build target; see the
-[CI/CD guide](../../docs/CI_CD.md) for the current target matrix.
+[CI/CD guide](docs/CI_CD.md) for the current target matrix.
 
 ## The Bigger Picture
 
@@ -84,11 +84,11 @@ Canopy is a framework as much as an editor. Define a grammar for your language, 
 
 But the long-term vision goes further. The code editor is a vertical slice of something larger: **a system where you write freely, provisional structure emerges as revisable hypotheses, and relevant context is offered with reasons and under your control.** Every layer of the editor — incremental computation, semantic analysis, reactive projections, peer-to-peer sync — is a building block for that system.
 
-Read more: [Product Vision](../../docs/architecture/product-vision.md) ·
-[Personal Knowledge Environment Direction](../../docs/architecture/personal-knowledge-environment-direction.md) ·
-[The Projectional Bridge](../../docs/architecture/vision-projectional-bridge.md) ·
-[Multi-Representation System](../../docs/architecture/multi-representation-system.md) ·
-[Human-centered product principles](../../docs/architecture/human-centered-product-principles.md)
+Read more: [Product Vision](docs/architecture/product-vision.md) ·
+[Personal Knowledge Environment Direction](docs/architecture/personal-knowledge-environment-direction.md) ·
+[The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) ·
+[Multi-Representation System](docs/architecture/multi-representation-system.md) ·
+[Human-centered product principles](docs/architecture/human-centered-product-principles.md)
 
 ## Framework Design
 
@@ -96,9 +96,9 @@ Read more: [Product Vision](../../docs/architecture/product-vision.md) ·
 
 **Language support is declarative.** Adding a new language means providing a grammar and a projection mapping; the framework handles parsing, reconciliation, undo/redo, and collaboration generically. Lambda calculus and JSON share the same core.
 
-**Multiple representations from one source.** The [Printable trait family](../../docs/architecture/multi-representation-system.md) (Show, Debug, Source, Pretty) gives every language four text representations. `Source` guarantees `parse(to_source(x)) == x`. `Pretty` produces width-aware, syntax-annotated output. Adding a new text format means writing one render function; the language definition stays untouched.
+**Multiple representations from one source.** The [Printable trait family](docs/architecture/multi-representation-system.md) (Show, Debug, Source, Pretty) gives every language four text representations. `Source` guarantees `parse(to_source(x)) == x`. `Pretty` produces width-aware, syntax-annotated output. Adding a new text format means writing one render function; the language definition stays untouched.
 
-**Incremental by construction.** Every stage — parsing, projection, rendering — recomputes only what changed. This isn't bolted-on caching; it's the [architectural principle](../../docs/architecture/Incremental-Hylomorphism.md) the framework is built around.
+**Incremental by construction.** Every stage — parsing, projection, rendering — recomputes only what changed. This isn't bolted-on caching; it's the [architectural principle](docs/architecture/Incremental-Hylomorphism.md) the framework is built around.
 
 ## Repository Structure
 
@@ -107,16 +107,16 @@ The repository is organised into seven zones:
 
 | Zone | Path | Purpose |
 |------|------|---------|
-| [Modules](../../modules/) | `modules/` | Reusable, publishable MoonBit modules; includes the primary `modules/canopy` |
-| [Applications](../../apps/) | `apps/` | Runnable or deployable vertical slices |
-| [Examples](../../examples/) | `examples/` | Removable learning and integration examples |
-| [Adapters](../../adapters/) | `adapters/` | Non-MoonBit runtime and interface adapters |
-| [Dependencies](../../deps/) | `deps/` | Separately owned Git submodules |
-| [Rules](../../rules/) | `rules/` | Policy definitions |
-| [Scripts](../../scripts/) | `scripts/` | Operations and tooling |
+| [Modules](modules/) | `modules/` | Reusable, publishable MoonBit modules; includes the primary `modules/canopy` |
+| [Applications](apps/) | `apps/` | Runnable or deployable vertical slices |
+| [Examples](examples/) | `examples/` | Removable learning and integration examples |
+| [Adapters](adapters/) | `adapters/` | Non-MoonBit runtime and interface adapters |
+| [Dependencies](deps/) | `deps/` | Separately owned Git submodules |
+| [Rules](rules/) | `rules/` | Policy definitions |
+| [Scripts](scripts/) | `scripts/` | Operations and tooling |
 
-Workspace membership is declared by [`moon.work`](../../moon.work); Git
-submodule ownership by [`.gitmodules`](../../.gitmodules). The two axes
+Workspace membership is declared by [`moon.work`](moon.work); Git
+submodule ownership by [`.gitmodules`](.gitmodules). The two axes
 intentionally overlap: a submodule under `deps/` can also be a root-workspace
 member.
 
@@ -124,45 +124,45 @@ Each zone README explains what belongs there without copying its current
 inventory. For concrete ownership, read `moon.work`, `.gitmodules`, and the
 nearest `moon.mod` and `moon.pkg`; use `moon ide outline <path>` to inspect a
 package's public interface. The
-[Module / Package Map](../../docs/development/module-package-map.md) explains
+[Module / Package Map](docs/development/module-package-map.md) explains
 the placement rules and how these sources overlap.
 
 The FFI stability surface is intentionally narrow: JS frontends should consume
-the editor through [`adapters/editor`](../../adapters/editor/) where
+the editor through [`adapters/editor`](adapters/editor/) where
 practical.
 
 **Examples:**
 
 | Example | Description | Live demo |
 |---------|-------------|-----------|
-| [apps/web/](../../apps/web/) | Waku Worker hosting the lambda, JSON, Markdown, and other editors | deployed as `canopy-examples` Worker |
-| [apps/ideal/](../../apps/ideal/) | Full-featured editor with inspector and benchmarks | [canopy-ideal.pages.dev](https://canopy-ideal.pages.dev) |
-| [examples/prosemirror/](../../examples/prosemirror/) | ProseMirror structural-editing integration | [canopy-prosemirror.pages.dev](https://canopy-prosemirror.pages.dev) |
-| [apps/canvas/](../../apps/canvas/) | Infinite canvas (experimental); nested workspace | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
-| [apps/block-editor/](../../apps/block-editor/) | Block-based structural editing | [canopy-block-editor.pages.dev](https://canopy-block-editor.pages.dev) |
-| [examples/demo-react/](../../examples/demo-react/) | Minimal React integration | [canopy-demo-react.pages.dev](https://canopy-demo-react.pages.dev) |
-| [apps/relay-server/](../../apps/relay-server/) | Cloudflare Workers relay (collaboration) | deployed as `canopy-relay` |
+| [apps/web/](apps/web/) | Waku Worker hosting the lambda, JSON, Markdown, and other editors | deployed as `canopy-examples` Worker |
+| [apps/ideal/](apps/ideal/) | Full-featured editor with inspector and benchmarks | [canopy-ideal.pages.dev](https://canopy-ideal.pages.dev) |
+| [examples/prosemirror/](examples/prosemirror/) | ProseMirror structural-editing integration | [canopy-prosemirror.pages.dev](https://canopy-prosemirror.pages.dev) |
+| [apps/canvas/](apps/canvas/) | Infinite canvas (experimental); nested workspace | [canopy-canvas.pages.dev](https://canopy-canvas.pages.dev) |
+| [apps/block-editor/](apps/block-editor/) | Block-based structural editing | [canopy-block-editor.pages.dev](https://canopy-block-editor.pages.dev) |
+| [examples/demo-react/](examples/demo-react/) | Minimal React integration | [canopy-demo-react.pages.dev](https://canopy-demo-react.pages.dev) |
+| [apps/relay-server/](apps/relay-server/) | Cloudflare Workers relay (collaboration) | deployed as `canopy-relay` |
 
 ## What to Read Next
 
-Start with the **[Documentation Index](../../docs/README.md)** — it organizes the rest
+Start with the **[Documentation Index](docs/README.md)** — it organizes the rest
 of the docs into a learning path, API/reference, and contributor material. The
 highlights:
 
 **Vision and architecture:**
-- [Product Vision](../../docs/architecture/product-vision.md) — the full picture: write, negotiate structure, surface context
-- [Personal Knowledge Environment Direction](../../docs/architecture/personal-knowledge-environment-direction.md) — resumable technical project memory
-- [The Projectional Bridge](../../docs/architecture/vision-projectional-bridge.md) — why: syntax → semantics → intent → mental model
-- [Multi-Representation System](../../docs/architecture/multi-representation-system.md) — the Printable trait family and expression problem
-- [Incremental Hylomorphism](../../docs/architecture/Incremental-Hylomorphism.md) — the compositional engine underneath
+- [Product Vision](docs/architecture/product-vision.md) — the full picture: write, negotiate structure, surface context
+- [Personal Knowledge Environment Direction](docs/architecture/personal-knowledge-environment-direction.md) — resumable technical project memory
+- [The Projectional Bridge](docs/architecture/vision-projectional-bridge.md) — why: syntax → semantics → intent → mental model
+- [Multi-Representation System](docs/architecture/multi-representation-system.md) — the Printable trait family and expression problem
+- [Incremental Hylomorphism](docs/architecture/Incremental-Hylomorphism.md) — the compositional engine underneath
 
 **API / integration:**
-- [API Reference](../../docs/development/API_REFERENCE.md) — high-level MoonBit API
-- [JS Integration Guide](../../docs/development/JS_INTEGRATION.md) — using the editor from JavaScript
+- [API Reference](docs/development/API_REFERENCE.md) — high-level MoonBit API
+- [JS Integration Guide](docs/development/JS_INTEGRATION.md) — using the editor from JavaScript
 
 **Development:**
-- [Development Workflow](../../docs/development/workflow.md) — how to make changes, run tests, manage submodules
-- [Conventions](../../docs/development/conventions.md) — MoonBit coding patterns
+- [Development Workflow](docs/development/workflow.md) — how to make changes, run tests, manage submodules
+- [Conventions](docs/development/conventions.md) — MoonBit coding patterns
 - [GitHub Issues](https://github.com/dowdiness/canopy/issues) — active backlog
 
 ## Contributing
@@ -175,7 +175,7 @@ moon bench --release         # benchmarks (always use --release)
 
 For module-local commands, use `moon -C modules/canopy ...` (or the
 corresponding path for other modules). See the
-[Development Guide](../../docs/development/) for details.
+[Development Guide](docs/development/) for details.
 
 ## References
 
@@ -184,4 +184,4 @@ corresponding path for other modules). See the
 
 ## License
 
-[Apache-2.0](../../LICENSE)
+[Apache-2.0](LICENSE)

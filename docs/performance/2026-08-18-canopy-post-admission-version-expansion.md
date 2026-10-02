@@ -162,5 +162,5 @@ admission seam. Acceptance requires:
 ## Evidence
 
 - [Raw samples, medians, provenance, and limitations](../evidence/2026-08-18-canopy-post-admission-version-characterization.json)
-- [P3 Text admission cutover characterization](../../deps/event-graph-walker/docs/performance/2026-08-17-egw-p3-text-admission-cutover-native-characterization.md)
+- [P3 Text admission cutover characterization](../../deps/event-graph-walker/docs/internals/performance/2026-08-17-egw-p3-text-admission-cutover-native-characterization.md)
 - [Version-cache maintenance follow-up](https://github.com/dowdiness/event-graph-walker/issues/123)

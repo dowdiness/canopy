@@ -49,7 +49,7 @@ package placement is not the target architecture:
 
 Implementation evidence:
 
-- [EGW network boundary](../../deps/event-graph-walker/docs/NETWORK_SYNC.md)
+- [EGW network boundary](../../deps/event-graph-walker/docs/guides/network-sync.md)
 - [Canopy sync session](../../modules/canopy/sync_session/README.md)
 - [Wire protocol](../../modules/canopy/protocol/wire/README.md)
 - [Relay](../../modules/canopy/relay/README.md)
