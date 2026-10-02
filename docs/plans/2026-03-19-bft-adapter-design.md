@@ -3,7 +3,7 @@
 **Date:** March 19, 2026
 **Status:** Draft (design only — implement after basic sync is working)
 **Scope:** `editor/` (parent crdt repo)
-**Builds on:** [Ephemeral Store v2](2026-03-19-ephemeral-store-v2-design.md) sync protocol
+**Builds on:** [Ephemeral Store v2](../archive/2026-03-19-ephemeral-store-v2-design.md) sync protocol
 **References:**
 - [Making CRDTs Byzantine Fault Tolerant (Kleppmann, PaPoC 2022)](https://dl.acm.org/doi/10.1145/3517209.3524042)
 - [mizchi/converge BFT implementation](https://github.com/mizchi/converge) — adapter pattern in MoonBit
