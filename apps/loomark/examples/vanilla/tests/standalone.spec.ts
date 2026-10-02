@@ -9,6 +9,38 @@ const SOURCE_KEY_PREFIX = "source/v1/"
 const REPLICA_KEY_PREFIX = "replica/"
 const CATALOG_KEY = "catalog/v1"
 
+// Startup/reload is closed at either side of the 720 px presentation boundary;
+// opening is a deliberate page-local choice, never a persisted preference.
+for (const width of [390, 720, 721, 1280]) {
+  test(`Documents starts closed and reload resets an open sidebar at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto("/")
+    const toggle = page.getByRole("button", { name: "Toggle documents" })
+    const sidebar = page.locator("#loomark-document-sidebar")
+    const text = page.getByRole("textbox", { name: "Text" })
+    const editor = page.locator("#loomark-editor")
+    await expect(text).toHaveValue("")
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await expect(sidebar).toHaveAttribute("aria-hidden", "true")
+    await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(false)
+    await expect(page.locator(".loomark-document-row")).toHaveCount(0)
+    const content = `# Startup at ${width}\n`
+    await text.fill(content)
+    await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: content })
+    await toggle.focus()
+    await toggle.press("Enter")
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await expect(sidebar).toHaveAttribute("aria-hidden", "false")
+    await expect(sidebar.getByRole("button", { name: `Startup at ${width}`, exact: true })).toBeVisible()
+    await page.reload()
+    await expect(text).toHaveValue(content)
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await expect(sidebar).toHaveAttribute("aria-hidden", "true")
+    await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(false)
+    await expect(page.locator(".loomark-document-row")).toHaveCount(0)
+  })
+}
+
 test("document activation lets keyboard users continue writing immediately", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -22,6 +54,7 @@ test("document activation lets keyboard users continue writing immediately", asy
   await page.keyboard.type("# Second document\n")
   await expect(text).toHaveValue("# Second document\n")
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(2)
+  await openDocuments(page)
   const first = page.getByRole("button", { name: "First document", exact: true })
   await first.focus()
   await first.press("Enter")
@@ -36,7 +69,7 @@ test("responsive reflow preserves native text selection and undo", async ({ page
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
-  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "false")
   await text.fill("# Writing\n\n日本語 and English\n")
   await text.press("Control+End")
   await text.pressSequentially("continued")
@@ -139,6 +172,8 @@ test("keyboard focus remains visible on sidebar and delete confirmation controls
     return element.matches(":focus-visible") && style.outlineStyle !== "none" && parseFloat(style.outlineWidth) >= 2
   })
   expect(await visibleOutline(toggle)).toBe(true)
+  await toggle.press("Enter")
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
   const remove = page.getByRole("button", { name: 'Delete "Focus review"', exact: true })
   await remove.focus()
   expect(await visibleOutline(remove)).toBe(true)
@@ -160,6 +195,7 @@ test("keyboard focus remains visible on sidebar and delete confirmation controls
 test("deletion closes More actions and Escape returns to the deletion trigger", async ({ page }) => {
   await page.goto("/")
   await page.getByRole("textbox", { name: "Text" }).fill("# Keep this document\n")
+  await openDocuments(page)
   const more = page.getByRole("button", { name: "More actions" })
   await more.click()
   const remove = page.getByRole("button", { name: 'Delete "Keep this document"', exact: true })
@@ -330,7 +366,7 @@ test("visible save caption waits for durable acknowledgement without moving the 
   await expect(status).toHaveText("Saved on this device")
   expect(await text.boundingBox()).toEqual(before)
   // Inspect the writing workspace, with navigation closed before compact reflow.
-  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "false")
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 })
     await expect(status.locator(".loomark-save-caption")).toBeVisible()
@@ -418,9 +454,15 @@ async function resetPendingTimerObservation(page: Page): Promise<void> {
   })
 }
 
-async function openDeleteConfirmation(page: Page, label: string): Promise<void> {
+async function openDocuments(page: Page): Promise<void> {
   const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await expect(toggle).toBeVisible()
   if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+}
+
+async function openDeleteConfirmation(page: Page, label: string): Promise<void> {
+  await openDocuments(page)
   const row = page.getByRole("button", { name: label, exact: true }).locator("..")
   await row.getByRole("button", { name: `Delete "${label}"`, exact: true }).click()
 }
@@ -984,6 +1026,7 @@ test("save indicator distinguishes an empty new document from a stored empty doc
   const indicator = page.locator(".loomark-save-status")
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue("")
+  await openDocuments(page)
   await expect(page.getByText("No documents yet")).toBeVisible()
   await expect(indicator).toHaveCount(0)
 
@@ -1341,9 +1384,11 @@ test("quiet editor keeps its source and sidebar toggle in place across views", a
   await source.fill(content)
   await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: content })
   const toggle = page.getByRole("button", { name: "Toggle documents" })
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await openDocuments(page)
   const before = await toggle.boundingBox()
   await expect(toggle).toHaveAttribute("aria-expanded", "true")
-  expect(await source.evaluate(element => element.getBoundingClientRect().left)).toBeGreaterThan(0)
+  await expect.poll(() => source.evaluate(element => element.getBoundingClientRect().left)).toBeGreaterThan(0)
   await toggle.click()
   await expect(toggle).toHaveAttribute("aria-expanded", "false")
   expect(await toggle.boundingBox()).toEqual(before)
@@ -1371,7 +1416,7 @@ test("quiet editor keeps its source and sidebar toggle in place across views", a
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await page.reload()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(content)
-  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
   await expect.poll(() => source.evaluate(element => element.getBoundingClientRect().left)).toBe(0)
 
   const metrics = await source.evaluate(element => ({
@@ -1547,7 +1592,7 @@ test("Text stays outside fixed controls while Preview keeps softened viewport ed
   expect(lastLine.bottom).toBeLessThan((await bounds(".loomark-footer")).top)
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "false")
   await page.getByRole("tab", { name: "Split" }).click()
   await expect.poll(() => bounds("#loomark-text")).toEqual({ top: 56, bottom: 422 })
   await expect.poll(() => bounds("#loomark-preview-scroll")).toEqual({ top: 422, bottom: 844 })
@@ -1707,6 +1752,7 @@ test("failed document discovery can be retried without reloading or signing out"
   available = true
   await retry.click()
   await expect.poll(() => discoveries).toBe(2)
+  await openDocuments(page)
   await expect(page.getByRole("complementary", { name: "Documents" })
     .getByRole("button", { name: "Recovered remote", exact: true })).toBeVisible()
 })
@@ -1892,6 +1938,7 @@ test("returning a failed Replica edit to saved text cannot replay obsolete text 
     { key, value: encodeReadyReplica(accountId, document) },
   ])
   await page.reload()
+  await openDocuments(page)
   await page.getByRole("complementary", { name: "Documents" })
     .getByRole("button", { name: "A", exact: true }).click()
   const editor = page.getByRole("textbox", { name: "Text" })
@@ -2236,6 +2283,7 @@ test("account replica edits persist without creating a Source copy", async ({ pa
   }])
 
   await page.reload()
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const synced = documents.getByRole("button", { name: "Synced", exact: true })
   await expect(synced).toBeVisible()
@@ -2264,6 +2312,7 @@ test("Replica write failure changes the save indicator until retry succeeds", as
   await page.goto("/")
   await replaceStoreRecords(page, [{ key, value: encodeReadyReplica(accountId, document) }])
   await page.reload()
+  await openDocuments(page)
   await page.getByRole("complementary", { name: "Documents" })
     .getByRole("button", { name: "Synced", exact: true }).click()
   const text = page.getByRole("textbox", { name: "Text" })
@@ -2310,6 +2359,7 @@ test("duplicate leads select and delete by Document ID", async ({ page }) => {
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# Same\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# Same\n" }
   await openStoredDocuments(page, [documentB, documentA])
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const selected = documents.getByRole("button", { name: "Same (2 of 2)", exact: true })
   await selected.click()
@@ -2337,6 +2387,7 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
     { key: sourceKey(documentC.document_id), value: encodeStoredDocument(documentC) },
   ])
   await page.reload()
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const order = async () => documents
     .locator('[data-slot="sidebar-menu-button"][aria-label]')
@@ -2358,6 +2409,7 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
   await expect.poll(order).toEqual(["C changed", "A", "B"])
 
   await page.reload()
+  await openDocuments(page)
   await expect.poll(order).toEqual(["A", "B", "C changed"])
 
   await page.getByLabel("Import Markdown")
@@ -2386,6 +2438,7 @@ test("startup is read-only and restores an accepted Editing Document", async ({ 
 
   await page.addInitScript(installStoreMutationLog)
   await page.reload()
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(documentB.text)
   await expect(documents.getByRole("button", { name: "B", exact: true }))
@@ -2418,6 +2471,7 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
   ])
 
   await page.reload()
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(documents.getByRole("button", { name: "A", exact: true }))
@@ -2432,6 +2486,7 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
 
   await documents.getByRole("button", { name: "B", exact: true }).click()
   await expect(text).toHaveValue(documentB.text)
+  await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "true")
   await expect.poll(() => readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY))
     .toBe(documentB.document_id)
   await expect(page.getByRole("tab", { name: "Split" })).toHaveAttribute(
@@ -2467,6 +2522,7 @@ test("Editing Document writes are last-invocation-wins", async ({ page }) => {
 
   await page.reload()
   await page.evaluate(installDelayedDocumentCommit, EDITING_DOCUMENT_KEY)
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const text = page.getByRole("textbox", { name: "Text" })
   await documents.getByRole("button", { name: "B", exact: true }).click()
@@ -2496,6 +2552,7 @@ test("remember failure cannot affect editing or Source recovery", async ({ page 
   ])
 
   await page.reload()
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const text = page.getByRole("textbox", { name: "Text" })
   await documents.getByRole("button", { name: "B", exact: true }).click()
@@ -2514,6 +2571,7 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
   const before = await readStoredDocuments(page)
   expect(before).toHaveLength(1)
 
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   await page.evaluate(installStoreMutationLog)
   await page.locator("#loomark-editor").getByRole("button", { name: "New document" }).click()
@@ -2542,6 +2600,7 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
   const renamed = await readStoredDocuments(page)
 
   await page.reload()
+  await openDocuments(page)
   const firstLexical = [...renamed].sort((left, right) => (
     left.document_id.localeCompare(right.document_id)
   ))[0]
@@ -2570,6 +2629,7 @@ test("Delete document removes a non-active Source without moving the editor", as
   await expect.poll(() => readStoredDocuments(page)).toEqual([documentA])
   await expect(text).toHaveValue(documentA.text)
   await page.reload()
+  await openDocuments(page)
   await expect(text).toHaveValue(documentA.text)
   await expect(page.getByRole("button", { name: "B", exact: true })).toHaveCount(0)
 })
@@ -2605,6 +2665,7 @@ test("Delete icon is disabled while deletion is pending", async ({ page }) => {
   })
   await page.reload()
 
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   await documents.getByRole("button", { name: "B", exact: true }).click()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# B\n")
@@ -2633,6 +2694,7 @@ test("Delete document activates and remembers the newest fallback", async ({ pag
   await page.reload()
 
   const text = page.getByRole("textbox", { name: "Text" })
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   await documents.getByRole("button", { name: "C", exact: true }).click()
   await expect(text).toHaveValue(documentC.text)
@@ -2722,6 +2784,7 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
   await waitForRepositoryOpen(page)
   const split = page.getByRole("tab", { name: "Split" })
   await split.click()
+  await openDocuments(page)
   await page.getByRole("button", { name: /^Delete "/ }).first().click()
   await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
   const text = page.getByRole("textbox", { name: "Text" })
@@ -2742,6 +2805,7 @@ test("Document delete icon is directly accessible and keyboard operable", async 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Icon test\n")
 
+  await openDocuments(page)
   const deleteButton = page.getByRole("button", { name: 'Delete "Icon test"', exact: true })
   await expect(deleteButton).toHaveAttribute("title", 'Delete "Icon test"')
   await deleteButton.focus()
@@ -2851,13 +2915,17 @@ test("Document sidebar spans the viewport and slides the editor while its toggle
     y: element.getBoundingClientRect().y,
   }))
   expect(closedPosition).toEqual({ x: 12, y: 5 })
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await expect(sidebar).toHaveAttribute("aria-hidden", "true")
+  await openDocuments(page)
   await expect(toggle).toHaveAttribute("aria-expanded", "true")
   await expect(sidebar).toBeVisible()
   expect(await sidebar.evaluate(element => ({
     top: element.getBoundingClientRect().top,
     bottom: element.getBoundingClientRect().bottom,
   }))).toEqual({ top: 0, bottom: 900 })
-  const openTextX = await text.evaluate(element => element.getBoundingClientRect().x)
+  const openTextX = await sidebar.evaluate(element => element.getBoundingClientRect().width)
+  await expect.poll(() => text.evaluate(element => element.getBoundingClientRect().x)).toBe(openTextX)
   expect(openTextX).toBeGreaterThan(0)
   await toggle.click()
   await expect(sidebar).toHaveAttribute("aria-hidden", "true")
@@ -2880,6 +2948,7 @@ test("Document sidebar respects reduced motion", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/")
   await waitForRepositoryOpen(page)
+  await openDocuments(page)
   const sidebar = page.locator("#loomark-document-sidebar")
   const shell = page.locator('[data-slot="sidebar-shell"][data-collapsible="offcanvas"]')
 
@@ -2889,31 +2958,44 @@ test("Document sidebar respects reduced motion", async ({ page }) => {
   await expect(sidebar).toHaveAttribute("aria-hidden", "true")
 })
 
-test("Sidebar visibility survives breakpoints but resets on reload", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto("/")
-  await waitForRepositoryOpen(page)
-  const toggle = page.getByRole("button", { name: "Toggle documents" })
-  const sidebar = page.locator("#loomark-document-sidebar")
-  const editor = page.locator("#loomark-editor")
-  const text = page.getByRole("textbox", { name: "Text" })
-  await expect(toggle).toHaveAttribute("aria-expanded", "true")
-  await text.focus()
-  await expect(text).toBeFocused()
-  await page.setViewportSize({ width: 390, height: 844 })
-  await expect(toggle).toHaveAttribute("aria-expanded", "true")
-  await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
-  await expect.poll(() => sidebar.evaluate(element => (
-    element.contains(document.activeElement)
-  ))).toBe(true)
-  await toggle.click()
-  await expect(toggle).toHaveAttribute("aria-expanded", "false")
-  expect(await editor.evaluate(element => (element as HTMLElement).inert)).toBe(false)
-  await page.setViewportSize({ width: 1280, height: 900 })
-  await expect(toggle).toHaveAttribute("aria-expanded", "false")
-  await page.reload()
-  await expect(toggle).toHaveAttribute("aria-expanded", "true")
-})
+for (const initialWidth of [390, 1280]) {
+  test(`Sidebar choices survive both breakpoint directions from ${initialWidth} px`, async ({ page }) => {
+    await page.setViewportSize({ width: initialWidth, height: 844 })
+    await page.goto("/")
+    await waitForRepositoryOpen(page)
+    const toggle = page.getByRole("button", { name: "Toggle documents" })
+    const sidebar = page.locator("#loomark-document-sidebar")
+    const editor = page.locator("#loomark-editor")
+    const text = page.getByRole("textbox", { name: "Text" })
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await text.focus()
+    for (const width of [1280, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 })
+      await expect(toggle).toHaveAttribute("aria-expanded", "false")
+      await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(false)
+      await expect(text).toBeFocused()
+    }
+    await openDocuments(page)
+    await text.focus()
+    await expect(text).toBeFocused()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
+    await expect.poll(() => sidebar.evaluate(element => (
+      element.contains(document.activeElement)
+    ))).toBe(true)
+    await page.setViewportSize({ width: 1280, height: 844 })
+    await expect(toggle).toHaveAttribute("aria-expanded", "true")
+    await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(false)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
+    await toggle.click()
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+    await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(false)
+    await page.setViewportSize({ width: 1280, height: 844 })
+    await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  })
+}
 
 test("Document switch does not wait for the active Source to save", async ({ page }) => {
   await page.goto("/")
@@ -2927,6 +3009,7 @@ test("Document switch does not wait for the active Source to save", async ({ pag
 
   await page.reload()
   const text = page.getByRole("textbox", { name: "Text" })
+  await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const documentAButton = documents.getByRole("button", { name: "A", exact: true })
   const documentBButton = documents.getByRole("button", { name: "B", exact: true })
@@ -2965,6 +3048,7 @@ test("old three-field Source records remain preserved and unreadable", async ({ 
   ])
 
   await page.reload()
+  await openDocuments(page)
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(valid.text)
   await expect(page.getByRole("button", { name: "Legacy", exact: true })).toHaveCount(0)
   expect(await readStoredDocumentRaw(page, legacyKey)).toBe(legacy)
@@ -3235,7 +3319,7 @@ test("Tailwind Typography and utilities preserve the Loomark shell and reading m
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
-  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "false")
   await expect.poll(() => page.getByRole("textbox", { name: "Text" })
     .evaluate(element => element.getBoundingClientRect().left)).toBe(0)
 
@@ -3341,7 +3425,7 @@ test("RUI mode tabs activate with roving keyboard focus", async ({ page }) => {
 test("Split uses RUI keyboard resizing and preserves textarea across orientation", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")
-  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "false")
   await expect.poll(() => page.getByRole("textbox", { name: "Text" })
     .evaluate(element => element.getBoundingClientRect().left)).toBe(0)
 
@@ -3482,6 +3566,7 @@ test("production keyed lead subscriptions reconcile timer lifecycles", async ({ 
     { key: EDITING_DOCUMENT_KEY, value: seed.document_id },
   ])
   await page.reload()
+  await openDocuments(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(seed.text)
   await page.clock.install()
@@ -3696,6 +3781,7 @@ test("hidden visibility saves an inactive document while save timers are held", 
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
   await openStoredDocuments(page, [documentA, documentB])
+  await openDocuments(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(documentA.text)
   // Hold only autosave deadlines; freezing all browser timers also freezes activation.

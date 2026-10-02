@@ -70,14 +70,16 @@ list preparation outside the ordinary Text input task.
   It has no Today, Yesterday, or older grouping. When it contains no saved
   documents, it shows `No documents yet` rather than unexplained blank space.
   Merely opening a document does not move it.
-- On sufficiently wide screens it starts open as a fixed-width, collapsible pane
-  beside the editor. The prototype starts with an 18rem pane and 64rem
+- It starts closed on every launch or reload at every screen width. On
+  sufficiently wide screens it opens as a fixed-width, collapsible pane beside
+  the editor. The prototype starts with an 18rem pane and 64rem
   breakpoint, but both dimensions remain provisional until compared in the
   production browser. The pane is not resizable; V1 does not add a second drag
-  divider beside Split's existing divider. A manual close lasts for the current
-  page lifetime and is not persisted, so the pane starts open again after
-  reopening or reloading Loomark. An icon-only editor-toolbar control opens or
-  closes Recent documents and has an accessible label and tooltip. The Recent
+  divider beside Split's existing divider. A manual open or close lasts for the
+  current page lifetime across breakpoint changes and is not persisted, so the
+  pane starts closed again after reopening or reloading Loomark. An icon-only
+  editor-toolbar control opens or closes Recent documents and has an accessible
+  label and tooltip. The Recent
   documents action bar has no visible heading. It contains a right-aligned,
   text-only `New` action without a plus icon, which is not duplicated in the
   editor toolbar. On narrow screens Recent documents

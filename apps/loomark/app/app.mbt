@@ -258,9 +258,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       | Recovery(_, _) => None
     }
   })
-  let sidebar_state = @sidebar.SidebarProviderState::SidebarProviderState(
-    initial_compact,
-  )
+  let sidebar_state = @sidebar.SidebarProviderState::SidebarProviderState(true)
   let recent_feature = @recent_documents.build(
     input=feature_input,
     lifecycle_key=key => key.lifecycle_key(),
