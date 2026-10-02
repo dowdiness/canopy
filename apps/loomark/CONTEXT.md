@@ -57,16 +57,19 @@ _Avoid_: ordinary content, paragraph
 
 **Recent documents**:
 The place for choosing a Loomark document as one continuous, ungrouped list,
-with the most recently changed first within the current page lifetime. A Document text change moves its document
-first immediately, even before Autosave succeeds; reopening restores deterministic lexical Document ID order; recency is never persisted.
+with the most recently changed first within the current page lifetime. A
+Document text change immediately moves its document to the first position, even
+before Autosave succeeds; reopening restores deterministic lexical Document ID
+order; recency is never persisted.
 It starts closed on every launch or reload, on both wide and narrow screens.
 On wide screens it shifts the editor as it opens or closes. The sidebar spans the
 viewport height. The same top-left icon opens and closes it at a fixed position;
 there is no separate × control. One open-or-closed state continues across
 breakpoint changes for the current page lifetime and is not persisted. New
 document uses the existing square-pen icon in the top-right toolbar. On narrow
-screens the sidebar fills the width and makes the editor inert until closed; selecting a document there
-closes it. Each entry shows the Document lead using its heading, task, quote,
+screens the sidebar fills the width and makes the editor inert until closed;
+selecting a document there closes it. Each entry shows the Document lead using
+its heading, task, quote,
 code, list, or Plain content form. Every heading level uses the same form; lists
 retain their bullets or numbering, and fenced and indented code use a restrained
 background and monospaced text without syntax highlighting. The current parser
@@ -83,19 +86,19 @@ independent of document size; visual clipping alone is not the limit. Omitted
 content is not retained in the lead or exposed in full through an accessible
 label or tooltip. Truncation preserves Unicode text boundaries and meaningful
 structure within the budget, and remains distinguishable from Empty content.
-Numeric budgets and the visible and accessible omission wording must be settled
-through browser comparison before accepting the production extractor API.
-Task checkboxes are read-only. An unsaved
-document has a small warning mark with an accessible `Not saved` label rather
-than visible status text. A document whose text is empty has
-no visible placeholder, while its selectable entry retains an accessible `Empty
-document` label. When no saved documents exist, the list shows `No documents
-yet` rather than unexplained blank space. The selected document uses an explicit
-row highlight with a
-subtle background and slim edge accent; exact visual values remain provisional. A selected cold target
-shows a small loading indicator with an accessible `Loading document` label
-while the current document remains visible. Merely opening a document does not
-move it. While typing, an entry keeps its previous Document lead until a lead
+The numeric budgets and the exact visible and accessible omission wording must
+be finalized through browser comparison before the production extractor API is
+accepted. Task checkboxes are read-only. An unsaved document has a small warning
+mark with an accessible `Not saved` label rather than visible status text. A
+document whose text is empty has no visible placeholder, while its selectable
+entry retains an accessible `Empty document` label. When no saved documents
+exist, the list shows `No documents yet` rather than unexplained blank space.
+The selected document uses an explicit row highlight with a subtle background
+and slim edge accent; exact visual values remain provisional. A selected cold
+target shows a small loading indicator with an accessible `Loading document`
+label while the current document remains visible. Merely opening a document does
+not move it. While typing, an entry keeps its previous Document lead until a
+lead
 from the newer text replaces it after a short pause; a document entering Recent
 documents for the first time uses its current text for its first lead.
 _Avoid_: Document list, catalog, title list, file browser
@@ -163,14 +166,14 @@ or carries over to another document.
 _Avoid_: fallback document, recovered text
 
 **Saved text**:
-  The most recent Document text successfully written to browser storage. It may
-  be older than the current Document text.
-  The editor footer names local durability beside its status icon: "Saving on
-  this device", "Saved on this device", or "Not saved". Untouched New has no
-  success indicator. On compact screens, an attention action or message takes
-  priority over the caption; the icon retains the complete accessible name.
-  This is a browser-storage status, not a sync or publication confirmation.
-  _Avoid_: edit history, backup
+The most recent Document text successfully written to browser storage. It may
+be older than the current Document text.
+The editor footer names local durability beside its status icon: "Saving on
+this device", "Saved on this device", or "Not saved". Untouched New has no
+success indicator. On compact screens, an attention action or message takes
+priority over the caption; the icon retains the complete accessible name.
+This is a browser-storage status, not a sync or publication confirmation.
+_Avoid_: edit history, backup
 
 **Unsaved document**:
 A Loomark document whose latest text has not reached browser storage. Loomark
