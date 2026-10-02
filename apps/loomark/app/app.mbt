@@ -43,6 +43,26 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
         }),
         page_restore_subscription(emit(PageRestored)),
         lead_subscriptions(current.page, emit),
+        match current.page {
+          Editing(editing) if editing.mode == Split =>
+            match current.scroll_owner {
+              TextPane =>
+                split_scroll_subscription(
+                  "loomark-text",
+                  "loomark-preview-scroll",
+                  editing.activation.generation,
+                  editing.preview,
+                )
+              PreviewPane =>
+                split_scroll_subscription(
+                  "loomark-preview-scroll",
+                  "loomark-text",
+                  editing.activation.generation,
+                  editing.preview,
+                )
+            }
+          _ => @sub.none
+        },
       ])
     },
   )
@@ -96,7 +116,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 class="flex min-h-0 min-w-0 overflow-hidden bg-lm-paper",
                 attrs=@html.Attrs::build()
                   .id("loomark-text-pane")
-                  .hidden(!text_visible),
+                  .hidden(!text_visible)
+                  .on_wheel(_ => emit(ScrollClaimed(TextPane)))
+                  .on_pointerdown(_ => emit(ScrollClaimed(TextPane)))
+                  .on_keydown(_ => emit(ScrollClaimed(TextPane))),
                 style=if split {
                   ["overflow:hidden"]
                 } else if text_visible {
@@ -125,7 +148,11 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                 scope~,
                 side=@rui.SecondPanel,
                 class="flex min-h-0 min-w-0 overflow-hidden bg-lm-paper",
-                attrs=@html.Attrs::build().hidden(!preview_visible),
+                attrs=@html.Attrs::build()
+                  .hidden(!preview_visible)
+                  .on_wheel(_ => emit(ScrollClaimed(PreviewPane)))
+                  .on_pointerdown(_ => emit(ScrollClaimed(PreviewPane)))
+                  .on_keydown(_ => emit(ScrollClaimed(PreviewPane))),
                 style=if split {
                   ["overflow:hidden"]
                 } else if preview_visible {

@@ -1113,6 +1113,7 @@ fn initial_state(
       departure: Stable,
       login_prepare: None,
       next_login_id: 0,
+      scroll_owner: TextPane,
     },
     @cmd.batch([
       page_command,
@@ -1322,6 +1323,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | DismissImportFailure
     | ExportRequested
     | PreviewEvent(_)
+    | ScrollClaimed(_)
     | ViewportChanged(_)
     | DocumentsLifecycle(_)
     | ApplyPendingEdit(_, _)
@@ -1363,6 +1365,11 @@ fn reduce(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
+  let model = match msg {
+    ModeSelected(Text) => { ..model, scroll_owner: TextPane, }
+    ModeSelected(Preview) => { ..model, scroll_owner: PreviewPane, }
+    _ => model
+  }
   let model = if model.departure
     is (SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _)) &&
     is_user_mutating(msg) {
@@ -1371,6 +1378,7 @@ fn reduce(
     model
   }
   match msg {
+    ScrollClaimed(pane) => ({ ..model, scroll_owner: pane, }, @cmd.none)
     AuthenticationReturned(true) =>
       ({ ..model, departure: LoginFailed(AuthenticationFailed), }, @cmd.none)
     AuthenticationReturned(false) => (model, @cmd.none)

@@ -97,6 +97,7 @@ fn test_model(page : Page, sync : @sync.State) -> Model {
     departure: Stable,
     login_prepare: None,
     next_login_id: 0,
+    scroll_owner: TextPane,
   }
 }
 
@@ -614,6 +615,7 @@ test "intermediate Replica commit cannot discard a pending Undo" {
     departure: Stable,
     login_prepare: None,
     next_login_id: 0,
+    scroll_owner: TextPane,
   }
 
   let (edited, _) = test_root_update(
@@ -723,6 +725,7 @@ test "network retry waits while a newer replica write is in flight" {
     departure: Stable,
     login_prepare: None,
     next_login_id: 0,
+    scroll_owner: TextPane,
   }
   let (unchanged, _) = test_root_update(model, RetrySync(retry))
   assert_true(unchanged == model)
@@ -756,6 +759,7 @@ test "operation identity failure stays retryable while replica storage is busy" 
     departure: Stable,
     login_prepare: None,
     next_login_id: 0,
+    scroll_owner: TextPane,
   }
   let (retired, _) = test_root_update(
     model,
