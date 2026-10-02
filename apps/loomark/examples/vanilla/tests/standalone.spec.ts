@@ -2902,7 +2902,7 @@ test("Sidebar visibility survives breakpoints but resets on reload", async ({ pa
   await expect(text).toBeFocused()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(toggle).toHaveAttribute("aria-expanded", "true")
-  expect(await editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
+  await expect.poll(() => editor.evaluate(element => (element as HTMLElement).inert)).toBe(true)
   await expect.poll(() => sidebar.evaluate(element => (
     element.contains(document.activeElement)
   ))).toBe(true)
