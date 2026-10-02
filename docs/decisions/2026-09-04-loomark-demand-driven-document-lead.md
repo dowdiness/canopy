@@ -82,8 +82,8 @@ reconciles current keys before rendering and recomputes only changed leads.
 Sidebar state remains component-local behind one opaque provider created during
 app graph construction. The provider exposes a narrow incremental visibility
 selector and command-producing operations, never a `Val` containing commands.
-Loomark has one page-lifetime Recent-documents visibility state: it initially
-shows on wide screens and hides on narrow screens, then continues unchanged
+Loomark has one page-lifetime Recent-documents visibility state: it starts
+closed on every launch or reload at every screen width, then continues unchanged
 across breakpoint transitions. Each breakpoint selects presentation and effects
 while preserving that visibility value.
 

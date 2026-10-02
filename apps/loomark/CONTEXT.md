@@ -59,8 +59,8 @@ _Avoid_: ordinary content, paragraph
 The place for choosing a Loomark document as one continuous, ungrouped list,
 with the most recently changed first within the current page lifetime. A Document text change moves its document
 first immediately, even before Autosave succeeds; reopening restores deterministic lexical Document ID order; recency is never persisted.
-On wide screens it starts open beside the editor and shifts the editor as it
-opens or closes; on narrow screens it starts closed. The sidebar spans the
+It starts closed on every launch or reload, on both wide and narrow screens.
+On wide screens it shifts the editor as it opens or closes. The sidebar spans the
 viewport height. The same top-left icon opens and closes it at a fixed position;
 there is no separate × control. One open-or-closed state continues across
 breakpoint changes for the current page lifetime and is not persisted. New

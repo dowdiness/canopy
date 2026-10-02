@@ -2,9 +2,9 @@ import { expect, test, type Page } from "@playwright/test"
 
 type Document = { document_id: string; text: string }
 const docs: Document[] = [
-  { document_id: "a", text: "# A\n" },
-  { document_id: "b", text: "# B\n" },
-  { document_id: "c", text: "# C\n" },
+  { document_id: "11111111-1111-4111-8111-111111111111", text: "# A\n" },
+  { document_id: "22222222-2222-4222-8222-222222222222", text: "# B\n" },
+  { document_id: "33333333-3333-4333-8333-333333333333", text: "# C\n" },
 ]
 
 async function seed(page: Page, documents: Document[]) {
@@ -97,6 +97,7 @@ test.beforeEach(async ({ page }) => {
 test("visible rows retain exactly three leads across repeated close/open", async ({ page }) => {
   await page.goto("/")
   await seed(page, docs)
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect.poll(() => count(page)).toBe(3)
   await closeAndReopen(page)
   await closeAndReopen(page)
@@ -108,20 +109,21 @@ test("hidden accepted edit retains leads and only extracts the changed row on re
   await page.goto("/")
   await seed(page, docs)
   await expect.poll(() => count(page)).toBe(0)
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
+  await page.getByRole("button", { name: "Toggle documents", exact: true }).click()
   await expect.poll(() => count(page)).toBe(3)
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
+  await page.getByRole("button", { name: "Toggle documents", exact: true }).click()
   await page.getByRole("textbox", { name: "Text" }).fill("# A changed\n")
-  await waitForSavedText(page, "a", "# A changed\n")
+  await waitForSavedText(page, docs[0].document_id, "# A changed\n")
   await page.waitForTimeout(300)
   await expect.poll(() => count(page)).toBe(3)
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
+  await page.getByRole("button", { name: "Toggle documents", exact: true }).click()
   await expect.poll(() => count(page)).toBe(4)
 })
 
 test("status-only unsaved transition before 250ms does not re-extract", async ({ page }) => {
   await page.goto("/")
   await seed(page, docs)
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect.poll(() => count(page)).toBe(3)
   await page.getByRole("textbox", { name: "Text" }).fill("# A changed\n")
   await page.waitForTimeout(100)
@@ -131,9 +133,10 @@ test("status-only unsaved transition before 250ms does not re-extract", async ({
 test("visible accepted edit extracts A once and reorder does not reparse B or C", async ({ page }) => {
   await page.goto("/")
   await seed(page, docs)
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect.poll(() => count(page)).toBe(3)
   await page.getByRole("textbox", { name: "Text" }).fill("# A changed\n")
-  await waitForSavedText(page, "a", "# A changed\n")
+  await waitForSavedText(page, docs[0].document_id, "# A changed\n")
   await page.waitForTimeout(300)
   await expect.poll(() => count(page)).toBe(4)
   await page.getByRole("button", { name: "B", exact: true }).click()
@@ -144,6 +147,7 @@ test("visible accepted edit extracts A once and reorder does not reparse B or C"
 test("removing one row does not reparse the remaining rows", async ({ page }) => {
   await page.goto("/")
   await seed(page, docs)
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect.poll(() => count(page)).toBe(3)
   const row = page.getByRole("button", { name: "B", exact: true }).locator("..")
   await row.getByRole("button", { name: 'Delete "B"', exact: true }).click()
@@ -155,14 +159,15 @@ test("removing one row does not reparse the remaining rows", async ({ page }) =>
 test("pending deletion survives hiding Recent documents and does not resurrect B", async ({ page }) => {
   await page.goto("/")
   await seed(page, docs)
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect.poll(() => count(page)).toBe(3)
 
-  await page.addInitScript(() => {
+  await page.addInitScript((targetKey: string) => {
     const prototype = IDBObjectStore.prototype as any
     const originalDelete = prototype.delete
     prototype.delete = function(this: IDBObjectStore, key: IDBValidKey) {
       const request = originalDelete.call(this, key)
-      if (typeof key === "string" && key === "source/v1/b") {
+      if (key === targetKey) {
         const store = this
         let released = false
         ;(window as any).releasePendingDelete = () => { released = true }
@@ -176,8 +181,9 @@ test("pending deletion survives hiding Recent documents and does not resurrect B
       }
       return request
     }
-  })
+  }, `source/v1/${docs[1].document_id}`)
   await page.reload()
+  await page.getByRole("button", { name: "Toggle documents" }).click()
 
   const row = page.getByRole("button", { name: "B", exact: true }).locator("..")
   await row.getByRole("button", { name: 'Delete "B"', exact: true }).click()
@@ -193,7 +199,7 @@ test("pending deletion survives hiding Recent documents and does not resurrect B
   await expect(page.locator(".loomark-document-row")).toHaveCount(0)
 
   await page.evaluate(() => (window as any).releasePendingDelete())
-  await expect.poll(() => readStoredDocument(page, "b")).toBeUndefined()
+  await expect.poll(() => readStoredDocument(page, docs[1].document_id)).toBeUndefined()
   await expect(page.locator(".loomark-document-row")).toHaveCount(0)
   await expect.poll(() => count(page)).toBe(3)
 
@@ -225,6 +231,7 @@ test("pending deletion survives hiding Recent documents and does not resurrect B
 test("hiding Recent documents removes row DOM and reopening creates fresh rows", async ({ page }) => {
   await page.goto("/")
   await seed(page, docs)
+  await page.getByRole("button", { name: "Toggle documents" }).click()
   await expect.poll(() => count(page)).toBe(3)
   const row = page.getByRole("button", { name: "B", exact: true })
   const rowHandle = await row.elementHandle()
@@ -249,14 +256,18 @@ test("hiding Recent documents removes row DOM and reopening creates fresh rows",
   await expect.poll(() => count(page)).toBe(3)
 })
 
-test("hidden startup performs no extraction until Recent documents is shown", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/")
-  await seed(page, docs)
-  await expect.poll(() => count(page)).toBe(0)
-  await page.getByRole("button", { name: "Documents", exact: true }).click()
-  await expect.poll(() => count(page)).toBe(3)
-})
+for (const width of [390, 1280]) {
+  test(`hidden startup performs no extraction until Recent documents is shown at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto("/")
+    await seed(page, docs)
+    await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(docs[0].text)
+    await expect(page.locator(".loomark-document-row")).toHaveCount(0)
+    await expect.poll(() => count(page)).toBe(0)
+    await page.getByRole("button", { name: "Toggle documents", exact: true }).click()
+    await expect.poll(() => count(page)).toBe(3)
+  })
+}
 
 test("hidden dialog demand renders duplicate-safe target without navigation rows", async ({ page }) => {
   // This cold fixture isolates the dialog consumer; it is not a user-flow claim.
