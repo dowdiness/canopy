@@ -78,6 +78,15 @@ impl Eq for SourceDemoModel with fn equal(self, other) {
 const SOURCE_CM_EDITOR_ID = "source-editor-cm"
 
 ///|
+enum SourceNoticeOperation {
+  Renamed
+  ParameterUpdated(String)
+  Inserted(String)
+  Deleted
+  ContextOperation
+}
+
+///|
 enum SourceDemoMsg {
   // Full post-change CodeMirror document; tracks the editor's text so `Apply`
   // and `SyncFromGraph` reason against what the user actually sees, even when
@@ -92,6 +101,8 @@ enum SourceDemoMsg {
   SyncFromGraph
   Mounted
   MountFailed(String)
+  ExternalOperation(SourceNoticeOperation, SourceGraphOperationResultJson)
+  InvalidExternalOperation
 }
 
 ///|
@@ -158,6 +169,62 @@ fn source_demo_status_from_result(
     }
     (failure_prefix + ": " + detail, @status.Error)
   }
+}
+
+///|
+fn decode_source_notice(
+  operation : String,
+  detail : String,
+  result_json : String,
+) -> SourceDemoMsg {
+  let operation : SourceNoticeOperation = match (operation, detail) {
+    ("rename", "") => Renamed
+    ("set-param", parameter) => ParameterUpdated(parameter)
+    ("insert", constructor_name) => Inserted(constructor_name)
+    ("delete", "") => Deleted
+    ("context", "") => ContextOperation
+    _ => return InvalidExternalOperation
+  }
+  let json = @json.parse(result_json) catch {
+    _ => return InvalidExternalOperation
+  }
+  let result : SourceGraphOperationResultJson = @json.from_json(json) catch {
+    _ => return InvalidExternalOperation
+  }
+  ExternalOperation(operation, result)
+}
+
+///|
+fn source_demo_external_status(
+  result : SourceGraphOperationResultJson,
+  operation : SourceNoticeOperation,
+) -> (String, @status.Tone) {
+  let (success_message, failure_prefix) = match operation {
+    Renamed =>
+      (
+        "Renamed node binding through graph-dsl source.", "Source rename rejected",
+      )
+    ParameterUpdated(detail) =>
+      (
+        "Updated \{detail} through graph-dsl source.",
+        "Source parameter edit rejected",
+      )
+    Inserted(detail) =>
+      ("Inserted \{detail} through graph-dsl source.", "Source insert rejected")
+    Deleted =>
+      (
+        result.message.unwrap_or("Deleted selection through graph-dsl source."),
+        "Source delete rejected",
+      )
+    ContextOperation =>
+      (
+        result.message.unwrap_or(
+          "Source synchronized from graph-dsl backing store.",
+        ),
+        "Source context operation rejected",
+      )
+  }
+  source_demo_status_from_result(result, success_message, failure_prefix)
 }
 
 ///|
@@ -280,9 +347,28 @@ fn source_demo_update_healthy(
         dirty_on_reject=model.dirty,
       )
     }
+    ExternalOperation(operation, result) => {
+      let (status, status_tone) = source_demo_external_status(result, operation)
+      source_demo_result_step(
+        model,
+        result,
+        status,
+        status_tone,
+        dirty_on_reject=model.dirty,
+      )
+    }
+    InvalidExternalOperation =>
+      (
+        @rabbita.none,
+        {
+          ..model,
+          status: "Source operation notification could not be decoded.",
+          status_tone: @status.Error,
+        },
+      )
     SyncFromGraph => {
-      // Keep out of the way while the editor holds unapplied edits, so the
-      // periodic poll never overwrites in-progress typing.
+      // Keep out of the way while the editor holds unapplied edits, so an
+      // out-of-band graph notification never overwrites in-progress typing.
       if model.dirty {
         return (@rabbita.none, model)
       }
@@ -433,16 +519,64 @@ fn source_graph_change_sub_loader(
 }
 
 ///|
+priv suberror SourceNoticeSub {
+  SourceNoticeBinding(
+    ((String, String, String) -> Unit) -> Unit,
+    @rabbita.Emit[SourceDemoMsg]
+  )
+}
+
+///|
+fn source_notice_sub(
+  register : ((String, String, String) -> Unit) -> Unit,
+  tagger : @rabbita.Emit[SourceDemoMsg],
+) -> @sub.Sub {
+  @sub.custom_sub(
+    "source_demo.external_operation",
+    @sub.Scope::Local,
+    SourceNoticeBinding(register, tagger),
+    @sub.SubLoader(source_notice_sub_loader),
+  )
+}
+
+///|
+fn source_notice_sub_loader(
+  payload : Error,
+  scheduler : &@cmd.Scheduler,
+) -> @sub.RunningSub? {
+  match payload {
+    SourceNoticeBinding(register, tagger) => {
+      let mut current_tagger = tagger
+      register(fn(operation, detail, result_json) {
+        scheduler.add(
+          current_tagger(decode_source_notice(operation, detail, result_json)),
+        )
+      })
+      Some({
+        unload: fn(_) { () },
+        update_tagger: fn(payload) {
+          guard payload is SourceNoticeBinding(_, new_tagger) else { return }
+          current_tagger = new_tagger
+        },
+      })
+    }
+    _ => None
+  }
+}
+
+///|
 fn source_demo_subscriptions(
   model : SourceDemoModel,
   emit : Emit[SourceDemoMsg],
+  register_source_notice : ((String, String, String) -> Unit) -> Unit,
 ) -> @sub.Sub {
-  // Both subscriptions need the editor to exist: `listen` is a no-op until the
-  // view is registered, and the graph -> editor sync has nothing to push into
-  // (and would `set_doc` a not-yet-mounted editor). Gate the whole batch on
-  // `mounted` so neither runs before the editor mounts.
-  guard model.mounted else { return @sub.none }
+  let notice = source_notice_sub(register_source_notice, emit)
+  // CodeMirror and graph synchronization need the editor to exist. External
+  // operation reporting does not, so its subscription remains active while
+  // mount readiness is pending.
+  guard model.mounted else { return notice }
   @sub.batch([
+    notice,
     source_graph_change_sub(model.handle, emit.map(_ => SyncFromGraph)),
     @codemirror.listen(
       SOURCE_CM_EDITOR_ID,
@@ -508,6 +642,7 @@ pub fn mount_source_demo(
   handle : Int,
   enabled : Bool,
   on_change : () -> Unit,
+  register_source_notice : ((String, String, String) -> Unit) -> Unit,
 ) -> Unit {
   @rabbita.new(() => @rabbita.Val::constant(source_toggle_view(enabled))).mount(
     "source-mode-root",
@@ -530,7 +665,9 @@ pub fn mount_source_demo(
         let (command, next) = source_demo_update(emit, msg, model)
         (next, command)
       },
-      subscriptions=source_demo_subscriptions,
+      subscriptions=fn(model, emit) {
+        source_demo_subscriptions(model, emit, register_source_notice)
+      },
     )
     cell.view(model => source_demo_view(emit, model))
   }).mount("source-panel-root")
