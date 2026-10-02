@@ -15,6 +15,13 @@ priv struct Model {
   // A canceled departure does not cancel or release its physical HTTP request.
   login_prepare : LoginAttempt?
   next_login_id : Int
+  scroll_owner : ScrollPane
+} derive(Eq)
+
+///|
+priv enum ScrollPane {
+  TextPane
+  PreviewPane
 } derive(Eq)
 
 ///|
@@ -172,6 +179,7 @@ priv enum Msg {
   DismissImportFailure
   ExportRequested
   PreviewEvent(@editor.EditorEvent)
+  ScrollClaimed(ScrollPane)
   ViewportChanged(Double)
   DocumentsLifecycle(@documents.Feedback)
   ApplyPendingEdit(@documents.Key, Int)

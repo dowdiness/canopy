@@ -3419,7 +3419,67 @@ test("Examples create and open new Documents, preserve existing Documents, and c
   expect(new Set(documents.map(document => document.document_id)).size).toBe(6)
 })
 
-test("Split keeps Text and Preview independently scrollable", async ({ page }) => {
+test("Split catches up when Preview finishes after Text has scrolled", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+  const source = Array.from({ length: 80 }, (_, index) => (
+    `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
+  )).join("\n\n")
+  await page.getByRole("textbox", { name: "Text" }).fill(source)
+  await page.evaluate(() => {
+    const state = window as typeof window & { __releasePreviewPreparation?: () => void }
+    const originalSetTimeout = window.setTimeout.bind(window)
+    window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: any[]) => {
+      if (!state.__releasePreviewPreparation && delay === 0 &&
+        document.querySelector("#loomark-preview-scroll [role=status]")?.textContent ===
+          "Preparing preview…" && typeof handler === "function") {
+        const timer = originalSetTimeout(() => {}, 30_000)
+        state.__releasePreviewPreparation = () => {
+          window.clearTimeout(timer)
+          window.setTimeout = originalSetTimeout
+          handler(...args)
+        }
+        return timer
+      }
+      return originalSetTimeout(handler, delay, ...args)
+    }) as typeof window.setTimeout
+  })
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect.poll(() => page.evaluate(() => !!(
+    window as typeof window & { __releasePreviewPreparation?: () => void }
+  ).__releasePreviewPreparation)).toBe(true)
+  await page.locator("#loomark-text").evaluate(element => {
+    element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.72
+  })
+  await page.evaluate(() => new Promise<void>(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  }))
+  const before = await page.locator("#loomark-preview-scroll").evaluate(element => (
+    element.scrollHeight - element.clientHeight
+  ))
+  expect(before).toBe(0)
+  await page.evaluate(() => (
+    window as typeof window & { __releasePreviewPreparation?: () => void }
+  ).__releasePreviewPreparation!())
+  await expect(page.getByRole("heading", { name: "Section 79" })).toBeVisible()
+  await expect.poll(() => page.locator("#loomark-preview-scroll").evaluate(element => (
+    element.scrollTop / (element.scrollHeight - element.clientHeight)
+  ))).toBeGreaterThan(0.67)
+  const aligned = await page.evaluate(() => {
+    const text = document.getElementById("loomark-text")!
+    const preview = document.getElementById("loomark-preview-scroll")!
+    return {
+      source: text.scrollTop / (text.scrollHeight - text.clientHeight),
+      target: preview.scrollTop / (preview.scrollHeight - preview.clientHeight),
+    }
+  })
+  expect(aligned.source).toBeGreaterThan(0.67)
+  expect(aligned.source).toBeLessThan(0.77)
+  expect(Math.abs(aligned.source - aligned.target)).toBeLessThan(0.02)
+})
+
+test("Split synchronizes Text and Preview scrolling in both directions", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")
 
@@ -3432,43 +3492,241 @@ test("Split keeps Text and Preview independently scrollable", async ({ page }) =
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(preview.getByRole("heading", { name: "Section 79" })).toBeVisible()
 
-  const assertIndependentScroll = async () => {
+  const assertSynchronizedScroll = async (checkWidth = false) => {
     const metrics = await page.evaluate(() => {
       const textarea = document.getElementById("loomark-text") as HTMLTextAreaElement
-      const textPane = document.getElementById("loomark-text-pane") as HTMLElement
       const previewScroll = document.getElementById("loomark-preview-scroll") as HTMLElement
-      const textareaBox = textarea.getBoundingClientRect()
-      const textPaneBox = textPane.getBoundingClientRect()
-      textarea.scrollTop = 120
-      previewScroll.scrollTop = 240
       return {
         text: {
           clientHeight: textarea.clientHeight,
           scrollHeight: textarea.scrollHeight,
-          scrollTop: textarea.scrollTop,
-          rightEdgeOffset: Math.abs(textareaBox.right - textPaneBox.right),
         },
         preview: {
           clientHeight: previewScroll.clientHeight,
           scrollHeight: previewScroll.scrollHeight,
-          scrollTop: previewScroll.scrollTop,
         },
       }
     })
     expect(metrics.text.scrollHeight).toBeGreaterThan(metrics.text.clientHeight)
     expect(metrics.preview.scrollHeight).toBeGreaterThan(metrics.preview.clientHeight)
-    expect(metrics.text.scrollTop).toBeGreaterThan(0)
-    expect(metrics.text.rightEdgeOffset).toBeLessThanOrEqual(1)
-    expect(metrics.preview.scrollTop).toBeGreaterThan(0)
+    if (checkWidth) {
+      await expect.poll(() => page.evaluate(() => Math.abs(
+        document.getElementById("loomark-text")!.getBoundingClientRect().right -
+        document.getElementById("loomark-text-pane")!.getBoundingClientRect().right,
+      ))).toBeLessThanOrEqual(1)
+    }
+
+    const scrollTo = async (id: string, fraction: number) => {
+      await page.locator(`#${id}`).evaluate((element, fraction) => {
+        element.scrollTop = (element.scrollHeight - element.clientHeight) * fraction
+      }, fraction)
+    }
+    const expectFraction = async (id: string, fraction: number) => {
+      await expect.poll(() => page.locator(`#${id}`).evaluate(element => (
+        element.scrollTop / (element.scrollHeight - element.clientHeight)
+      ))).toBeGreaterThan(fraction - 0.05)
+      await expect.poll(() => page.locator(`#${id}`).evaluate(element => (
+        element.scrollTop / (element.scrollHeight - element.clientHeight)
+      ))).toBeLessThan(fraction + 0.05)
+    }
+    await page.locator("#loomark-text").evaluate(element => {
+      element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    })
+    await scrollTo("loomark-text", 0.7)
+    await expectFraction("loomark-text", 0.7)
+    await expectFraction("loomark-preview-scroll", 0.7)
+    const expectAligned = async () => {
+      await expect.poll(() => page.evaluate(() => {
+        const text = document.getElementById("loomark-text")!
+        const preview = document.getElementById("loomark-preview-scroll")!
+        return Math.abs(
+          text.scrollTop / (text.scrollHeight - text.clientHeight) -
+          preview.scrollTop / (preview.scrollHeight - preview.clientHeight),
+        )
+      })).toBeLessThan(0.02)
+    }
+    await expectAligned()
+    if (checkWidth) {
+      await page.locator("#loomark-preview-scroll").hover()
+      await page.mouse.wheel(0, -450)
+      await expect.poll(() => page.locator("#loomark-preview-scroll").evaluate(element => (
+        element.scrollTop / (element.scrollHeight - element.clientHeight)
+      ))).toBeLessThan(0.7)
+      await expectAligned()
+      await page.locator("#loomark-text").hover()
+      await page.mouse.wheel(0, 450)
+      await expectAligned()
+    }
+    await page.locator("#loomark-preview-scroll").evaluate(element => {
+      element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    })
+    await scrollTo("loomark-preview-scroll", 0.2)
+    await expectFraction("loomark-text", 0.2)
+    await expectAligned()
+    await page.locator("#loomark-text").evaluate(element => {
+      element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    })
+    await scrollTo("loomark-text", 1)
+    await expectFraction("loomark-preview-scroll", 1)
+    await expectAligned()
+
+    // A newer Text movement during Preview's echo must not be rolled back.
+    await page.evaluate(() => {
+      const text = document.getElementById("loomark-text")!
+      const preview = document.getElementById("loomark-preview-scroll")!
+      const onScroll = (event: Event) => {
+        if (event.target !== preview) return
+        window.removeEventListener("scroll", onScroll, true)
+        text.scrollTop = (text.scrollHeight - text.clientHeight) * 0.8
+      }
+      window.addEventListener("scroll", onScroll, true)
+      text.scrollTop = (text.scrollHeight - text.clientHeight) * 0.35
+    })
+    await expectFraction("loomark-text", 0.8)
+    await expectFraction("loomark-preview-scroll", 0.8)
+
+    // A queued Preview→Text write must not survive a change of scroll owner.
+    await page.locator("#loomark-preview-scroll").evaluate(element => {
+      element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    })
+    await page.evaluate(() => {
+      const preview = document.getElementById("loomark-preview-scroll")!
+      preview.scrollTop = (preview.scrollHeight - preview.clientHeight) * 0.3
+      preview.dispatchEvent(new Event("scroll"))
+      const text = document.getElementById("loomark-text")!
+      text.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+      text.scrollTop = (text.scrollHeight - text.clientHeight) * 0.9
+    })
+    await expectFraction("loomark-text", 0.9)
+    await expectFraction("loomark-preview-scroll", 0.9)
   }
 
-  await assertIndependentScroll()
+  await assertSynchronizedScroll(true)
   await page.setViewportSize({ width: 640, height: 700 })
   await expect(page.getByRole("separator")).toHaveAttribute(
     "aria-orientation",
     "horizontal",
   )
-  await assertIndependentScroll()
+  await page.evaluate(() => new Promise<void>(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  }))
+  await page.locator("#loomark-text").evaluate(element => {
+    element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+  })
+  await assertSynchronizedScroll()
+
+  await page.setViewportSize({ width: 900, height: 700 })
+  await expect(page.getByRole("separator")).toHaveAttribute("aria-orientation", "vertical")
+  await page.getByRole("tab", { name: "Text" }).click()
+  await page.getByRole("tab", { name: "Split" }).click()
+  await page.locator("#loomark-text").evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)))
+  await assertSynchronizedScroll()
+})
+
+test("Split keeps element-scroll subscriptions across document activation and removes them outside Split", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.addInitScript(() => {
+    const listeners = new WeakMap<EventTarget, Set<EventListenerOrEventListenerObject>>()
+    const add = EventTarget.prototype.addEventListener
+    const remove = EventTarget.prototype.removeEventListener
+    EventTarget.prototype.addEventListener = function (type, listener, options) {
+      if (type === "scroll" && listener && this === document &&
+        typeof options === "object" && options?.capture) {
+        if (!listeners.has(this)) listeners.set(this, new Set())
+        listeners.get(this)!.add(listener)
+      }
+      return add.call(this, type, listener, options)
+    }
+    EventTarget.prototype.removeEventListener = function (type, listener, options) {
+      if (type === "scroll" && listener) listeners.get(this)?.delete(listener)
+      return remove.call(this, type, listener, options)
+    }
+    ;(window as typeof window & { __scrollListeners?: typeof listeners }).__scrollListeners = listeners
+  })
+  await page.goto("/")
+  await waitForRepositoryOpen(page)
+  const source = Array.from({ length: 80 }, (_, index) => (
+    `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
+  )).join("\n\n")
+  const documentA = { document_id: fixtureDocumentId("scroll-a"), text: source.replaceAll("Section", "Alpha") }
+  const documentB = { document_id: fixtureDocumentId("scroll-b"), text: source.replaceAll("Section", "Beta") }
+  await replaceStoreRecords(page, [
+    { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
+    { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
+  ])
+  await page.reload()
+  const text = page.getByRole("textbox", { name: "Text" })
+  const preview = page.getByRole("region", { name: "Markdown preview" })
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await expect(text).toHaveValue(documentA.text)
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(preview.getByRole("heading", { name: "Alpha 79" })).toBeVisible()
+  const listenerCounts = () => page.evaluate(() => {
+    const tracker = (window as typeof window & {
+      __scrollListeners?: WeakMap<EventTarget, Set<EventListenerOrEventListenerObject>>
+    })
+    return tracker.__scrollListeners?.get(document)?.size ?? 0
+  })
+  await expect.poll(listenerCounts).toBe(1)
+  await text.evaluate(element => {
+    ;(window as typeof window & { __oldScrollText?: Element }).__oldScrollText = element
+  })
+
+  await documents.getByRole("button", { name: "Beta 0", exact: true }).click()
+  await expect(text).toHaveValue(documentB.text)
+  await expect(preview.getByRole("heading", { name: "Beta 79" })).toBeVisible()
+  expect(await text.evaluate(element => element !== (
+    window as typeof window & { __oldScrollText?: Element }
+  ).__oldScrollText)).toBe(true)
+  await expect.poll(listenerCounts).toBe(1)
+
+  const positions = () => page.evaluate(() => {
+    const text = document.getElementById("loomark-text")!
+    const preview = document.getElementById("loomark-preview-scroll")!
+    return {
+      text: text.scrollTop / (text.scrollHeight - text.clientHeight),
+      preview: preview.scrollTop / (preview.scrollHeight - preview.clientHeight),
+    }
+  })
+  const verify = async (sourceId: string, fraction: number) => {
+    await page.locator(`#${sourceId}`).evaluate((element, fraction) => {
+      element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+      element.scrollTop = (element.scrollHeight - element.clientHeight) * fraction
+    }, fraction)
+    await expect.poll(async () => {
+      const position = await positions()
+      return Math.abs(position.text - fraction) < 0.02 &&
+        Math.abs(position.preview - fraction) < 0.02
+    }).toBe(true)
+    await page.evaluate(() => new Promise<void>(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+    }))
+    const position = await positions()
+    expect(Math.abs(position.text - fraction)).toBeLessThan(0.02)
+    expect(Math.abs(position.preview - fraction)).toBeLessThan(0.02)
+  }
+  await verify("loomark-text", 0.65)
+  await verify("loomark-preview-scroll", 0.25)
+  await page.evaluate(() => {
+    const other = document.createElement("div")
+    other.id = "unrelated-scroll"
+    other.style.cssText = "height:10px;overflow:auto"
+    other.innerHTML = '<div style="height:100px"></div>'
+    document.body.append(other)
+    other.scrollTop = 50
+  })
+  await page.evaluate(() => new Promise<void>(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  }))
+  const unchanged = await positions()
+  expect(Math.abs(unchanged.text - 0.25)).toBeLessThan(0.02)
+  expect(Math.abs(unchanged.preview - 0.25)).toBeLessThan(0.02)
+  await page.getByRole("tab", { name: "Text" }).click()
+  await expect.poll(listenerCounts).toBe(0)
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect.poll(listenerCounts).toBe(0)
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect.poll(listenerCounts).toBe(1)
 })
 
 test("production keyed lead subscriptions reconcile timer lifecycles", async ({ page }) => {

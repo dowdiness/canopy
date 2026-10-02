@@ -317,6 +317,7 @@ test "unsaved visible text projects durability and relation independently" {
     departure: Stable,
     login_prepare: None,
     next_login_id: 0,
+    scroll_owner: TextPane,
   }
   guard document_sync_view(model) is Some(status) else {
     fail("document sync view")
@@ -494,6 +495,7 @@ test "fork persistence belongs to its recovery Source until commit" {
     departure: Stable,
     login_prepare: None,
     next_login_id: 0,
+    scroll_owner: TextPane,
   }
   assert_true(
     document_replica_persistence(model)
