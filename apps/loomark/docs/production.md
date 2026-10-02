@@ -23,13 +23,13 @@ Set up the `loomark` Worker in **Settings > Build** with the following parameter
 - **Runtime Secrets:** Store `BETTER_AUTH_SECRET` and Google OAuth credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) as Worker environment secrets. Never commit them to the repository or inline them in build scripts.
 - **Origins:** Set `BETTER_AUTH_URL` to your production domain, and register `<origin>/api/auth/callback/google` in the Google Cloud Console.
 
-Database settings in [`wrangler.jsonc`](../wrangler.jsonc) bind production `AUTH_DB` explicitly, leaving local development databases untouched. The release script enforces the `production` environment and rejects any branch other than `main`.
+Database settings in [`wrangler.jsonc`](../wrangler.jsonc) bind production `AUTH_DB` explicitly, leaving local development databases untouched. The release script enforces the `production` environment and permits only `main` when running in Workers Builds.
 
 ---
 
 ## 2. Release Pipeline and Safety Gates
 
-Loomark uses a custom deployment script ([`release-loomark.mjs`](../../../scripts/release-loomark.mjs)) that promotes new code only after migrations and health checks succeed:
+Loomark uses a custom deployment script ([`release-loomark.mjs`](../../../scripts/release-loomark.mjs)) that promotes new code after migrations and before health checks:
 
 ```
 Upload Inactive Version ──> Apply D1 Migrations ──> Promote to 100% Traffic ──> Health Check Verification
@@ -44,11 +44,11 @@ Upload Inactive Version ──> Apply D1 Migrations ──> Promote to 100% Traf
    - Confirms the active deployment ID matches the uploaded build.
 
 > [!WARNING]
-> Rolling back Worker code does **not** roll back applied D1 database migrations. Always author backward-compatible migrations (expand-contract pattern): add columns or tables in one release, migrate consumers in the next, and drop obsolete schemas only after verification.
+> A failed health check may leave production changed; the script performs no automatic Worker-code or D1 rollback. Rolling back Worker code does **not** roll back applied D1 database migrations. Always author backward-compatible migrations (expand-contract pattern): add columns or tables in one release, migrate consumers in the next, and drop obsolete schemas only after verification.
 
 ### Running a Manual Release
 
-To deploy an authorized release manually from a clean repository checkout:
+Outside Workers Builds, the script requires a clean checkout, including submodules, but does not check the branch. Verify the intended release commit before running an authorized manual release:
 
 ```bash
 cd apps/loomark
@@ -60,12 +60,12 @@ Direct `wrangler deploy` bypasses migration checks and health verifications and 
 
 ### Release Pre-flight Checks
 
-To run dry-run health checks and release harness tests locally without touching production:
+To run production health checks and isolated release harness tests locally:
 
 ```bash
 cd apps/loomark
-npm run check:production   # Read-only health check against production origin
-npm run test:release       # Mock control-plane tests for upload/migration edge cases
+npm run check:production   # Sends read-only health-check requests to production
+npm run test:release       # Uses isolated mocks for upload/migration edge cases
 ```
 
 ---

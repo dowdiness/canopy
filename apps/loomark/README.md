@@ -65,7 +65,7 @@ For release and end-to-end browser validation, see [Production and Validation](d
 ## Core Invariants
 
 - **Text is truth:** Documents are stored simply as `(document_id, text)`. There is no hidden AST metadata, no proprietary JSON blob, and no lossy serialization.
-- **Non-blocking autosave:** Edits persist after 250 ms of quiet time, at most every 2,000 ms, or immediately when the browser tab hides (`visibilitychange`). Active IME composition always defers saving until committed.
+- **Non-blocking autosave:** Pending text becomes eligible for saving after 250 ms of quiet, when its non-restarting 2,000 ms maximum-wait timer can be processed, or on page hide. IME composition defers persistence until committed. These are eligibility conditions, not deadlines for storage acknowledgment. Hidden-page saves are best effort and do not automatically retry failed saves.
 - **Clean import & export:** Import decodes strict UTF-8, strips BOMs, normalizes line breaks (`\n`), and never alters your characters. Export downloads the current text in memory on demand.
 - **Offline-first sync:** You can write freely without an internet connection. When connected, changes sync via causal replica state machines with atomic conflict recovery (`Fork` on divergence).
 

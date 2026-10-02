@@ -40,7 +40,7 @@ In addition to standard local `source/v1` records, the client repository manages
 - **Causal State Machine:** Replicas follow an explicit lifecycle:
   $$\text{Live} \ (\text{Ready} \mid \text{Sending} \mid \text{Available} \mid \text{Diverged}) \longrightarrow \text{Deleting} \longrightarrow \text{Tombstone}$$
 - **Atomic Promotion:** Starting sync converts a local-only `source/v1` document into a `replica/` record in a single IndexedDB transaction.
-- **Save Admission:** Typing never triggers immediate serialization. Edits accumulate until Loomark's autosave heuristics (250 ms quiet time, 2,000 ms ceiling, or tab hide) declare the window eligible. At most one IndexedDB replica write runs at any time; newer edits coalesce behind it.
+- **Save Admission:** Typing never triggers immediate serialization. Edits accumulate until Loomark's autosave heuristics (250 ms quiet time, a non-restarting 2,000 ms maximum-wait timer when it can be processed, or tab hide) declare the window eligible. At most one IndexedDB replica write runs at any time; newer edits coalesce behind it.
 
 Returning text back to its acknowledged baseline cancels an obsolete failed save and restores the clean state without making unnecessary writes.
 
