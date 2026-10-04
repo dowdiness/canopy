@@ -3,7 +3,7 @@ name = "dowdiness/rabbita_markdown"
 version = "0.1.0"
 
 import {
-  "moonbit-community/rabbita@0.15.4",
+  "moonbit-community/rabbita@0.16.3",
   "moonbitlang/async@0.22.1",
   "dowdiness/loom@0.1.0",
   "dowdiness/markdown@0.1.0",

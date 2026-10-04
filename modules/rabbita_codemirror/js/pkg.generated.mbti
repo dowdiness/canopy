@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/rabbita_codemirror/js"
 
+import {
+  "moonbitlang/async/js_async",
+}
+
 // Values
 pub fn cm_module_of(@moonbit-community/rabbita/js.Value) -> CmModule
 
@@ -30,7 +34,7 @@ pub fn js_state_selection_main(CmView) -> @moonbit-community/rabbita/js.Value
 
 pub fn js_view_destroy(CmView) -> Unit
 
-pub fn load_codemirror(source? : String) -> @moonbit-community/rabbita/js.Promise
+pub fn load_codemirror(source? : String) -> @js_async.Promise[@moonbit-community/rabbita/js.Value]
 
 pub fn raw_extension(@moonbit-community/rabbita/js.Value) -> Extension
 

@@ -14,10 +14,11 @@ docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
-- **Downstream branch:** `refactor/indexed-db-managed-store`
-- **Upstream base:** `0a5836a3d303b7390d7067894ba8471cbd4ffcdf` (`rabbita-v0.15.8`)
-- **Pinned commit:** `90b1b3e1e26c7f18924d86694a8021852c43b344`
-- **Pin tag:** `canopy-indexed-db-managed-store-moonbit-0.10.14-20260927`
+- **Downstream branch:** `main`
+- **Upstream base:** `b46d141fa3f4971be010d7d5bb5a178dfa20f300` (upstream `main`)
+- **Pinned commit:** `139ae60c9fc7efc5a791c6720b67bceb46107e5d`
+- **Pin tag:** `canopy-main-20261004`
+- **History:** 17 rebased fork commits, followed by integration fixes and the upstream-only website deployment guard; no downstream merge commits.
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -49,16 +50,38 @@ Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an
 upstream Rabbita change.
 
+## 0.16.3 integration
+
+The pin places the fork-specific commits on top of upstream `main`, rather
+than merging upstream into the old downstream branch. It includes Rabbita
+0.16.3, RUI 0.3.5, and Warren 0.4.4 with its embedded evol minifier.
+Canopy's Rabbita dependency declarations match 0.16.3.
+
+- Loomark imports `moonbit-community/rui` instead of `Yoorkin/rui`. Its delete
+  confirmation uses the native alert dialog, `@dialog.show`, and the dialog
+  form's close value. Only `confirm` deletes; Cancel and Escape preserve the
+  document.
+- CodeMirror loading uses `Promise[Value]` and `Promise::from_async`, retaining
+  the existing module cache and error callbacks.
+- The managed IndexedDB command bridge uses a private callback-to-promise
+  adapter and `Promise[Cmd].wait()`. Transaction scheduling, completion
+  acknowledgements, and redacted errors remain owned by the existing provider.
+- The fork retains nullable `InputEvent.get_data()`; upstream's non-null
+  `InputEvent.data()` is not substituted.
+
+This upgrade does not add Worker bindings.
+
 ## Upgrade procedure
 
 1. Fetch the upstream and downstream repositories.
-2. Merge or rebase the downstream branch as appropriate.
+2. Rebase the fork-specific commits onto upstream `main`, keeping the downstream history linear.
 3. Run the full Rabbita test suite.
 4. Run the full Canopy test suite and the affected Ideal E2E tests.
 5. Build the JavaScript artifacts.
-6. Update the `deps/rabbita` submodule and
-   `scripts/install-local-warren.sh` to the same verified downstream commit.
-7. Record the new commit and tag here, then verify the superproject is clean.
+6. Publish the verified downstream `main` and a new pin tag without moving existing tags.
+7. Update the `deps/rabbita` submodule and
+   `scripts/install-local-warren.sh` to the same published downstream commit.
+8. Record the new commit and tag here, then verify the superproject is clean.
 
 A downstream commit must be pushed to `dowdiness/rabbita` before its gitlink is
 updated in Canopy so fresh recursive checkouts can resolve it.
