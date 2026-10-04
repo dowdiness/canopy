@@ -130,10 +130,10 @@ the current writing line clear of the controls and faded edges without changing
 text, selection, composition, or Undo. Manual reading scrolls are not pulled back
 to the caret. Compact Split retains a minimum usable writing pane when notices
 reduce the available height.
-At normal zoom, the editor follows the browser's visible viewport when an
-on-screen keyboard reduces it. While its height is smaller than the layout
-viewport's height, the bottom bar and its reserved space are removed, even if
-panning brings the visible bottom to the layout bottom.
+The editor follows changes in the browser's available height, excluding pinch
+magnification. While this height is smaller than the layout viewport's height,
+the bottom bar and its reserved space are removed, even if panning brings the
+visible bottom to the layout bottom.
 No bottom overlay or reserved bottom gap remains while the bar is hidden.
 The top toolbar and failure notices remain available. The
 bottom bar returns when the visible height recovers; a small window or hardware
@@ -142,7 +142,9 @@ Width or height changes keep the visible
 textarea's active selection endpoint readable, including when a resize control
 has focus, without replacing the textarea or changing text, selection, focus,
 IME composition, or native Undo. Pinch zoom remains browser-owned and does not
-cause the editor to reflow around the zoomed viewport.
+cause the editor to reflow around the zoomed viewport. Keyboard and window height
+changes still resize the editor while zoomed; a recovered height cannot leave
+the previous keyboard-sized frame or an obsolete top offset in place.
 _Avoid_: source mode, raw mode
 
 **Preview**:

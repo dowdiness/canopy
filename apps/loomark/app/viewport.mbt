@@ -86,15 +86,23 @@ fn visual_viewport_subscription(
     (_, _) => {
       let style = root.get_style()
       let mut frame : Double? = None
+      let mut top = 0.0
       fn update_viewport(_ : Double) {
         frame = None
-        // Freeze layout while pinching: zoom must not reflow or chase the page.
-        guard follows_visual_viewport(viewport.scale()) else { return }
-        let height = viewport.height()
-        let top = viewport.offset_top()
+        let scale = viewport.scale()
+        guard scale > 0.0 else { return }
+        let height = viewport_layout_height(viewport.height(), scale)
+        let layout_height = window.inner_height()
+        top = viewport_layout_top(
+          viewport.offset_top(),
+          scale,
+          top,
+          layout_height,
+          height,
+        )
         style.set_property("--loomark-viewport-height", "\{height}px")
         style.set_property("--loomark-viewport-top", "\{top}px")
-        if bottom_bar_obscured(height, window.inner_height()) {
+        if bottom_bar_obscured(height, layout_height) {
           root.set_attribute("data-loomark-bottom-obscured", "")
         } else {
           root.remove_attribute("data-loomark-bottom-obscured")

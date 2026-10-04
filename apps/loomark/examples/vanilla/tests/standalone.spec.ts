@@ -1462,6 +1462,34 @@ test("forced colors keep writing controls and the selected mode distinguishable"
   await expect(more).toBeFocused()
 })
 
+test("native zoom does not freeze editor height when the viewport grows", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    baseURL, viewport: { width: 390, height: 380 }, isMobile: true, hasTouch: true,
+  })
+  try {
+    const page = await context.newPage()
+    await page.goto("/")
+    const root = page.locator("#loomark-root")
+    await expect.poll(() => root.evaluate(element => element.getBoundingClientRect().height)).toBe(380)
+    const cdp = await context.newCDPSession(page)
+    await cdp.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 })
+    await expect.poll(() => page.evaluate(() => window.visualViewport!.scale)).toBe(2)
+    expect(await root.evaluate(element => element.getBoundingClientRect().height)).toBe(380)
+
+    // Native viewport metrics, not overridden getters or synthetic resize events.
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect.poll(() => page.evaluate(() => window.visualViewport!.height)).toBe(422)
+    await expect.poll(() => root.evaluate(element => element.getBoundingClientRect().height)).toBe(844)
+    expect(await page.evaluate(() => {
+      const viewport = window.visualViewport!
+      return document.querySelector("#loomark-root")!.getBoundingClientRect().bottom
+        >= viewport.offsetTop + viewport.height
+    })).toBe(true)
+  } finally {
+    await context.close()
+  }
+})
+
 for (const mode of ["Text", "Split"] as const) {
   test(`visual keyboard viewport keeps the current line and native editing state in ${mode}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
@@ -1536,6 +1564,15 @@ for (const mode of ["Text", "Split"] as const) {
     const beforeZoom = await root.boundingBox()
     await viewport(190, 120, 2)
     expect(await root.boundingBox()).toEqual(beforeZoom)
+    await expect(footer).toBeHidden()
+
+    // A recovered height must not stay frozen while zoomed, or retain the old pan.
+    await viewport(422, 120, 2)
+    expect(await root.evaluate(element => element.getBoundingClientRect().height)).toBe(844)
+    expect(await root.evaluate(element => element.getBoundingClientRect().top)).toBe(0)
+    await expect(footer).toBeVisible()
+    await viewport(160, 100, 2)
+    expect(await root.evaluate(element => element.getBoundingClientRect().height)).toBe(320)
     await expect(footer).toBeHidden()
 
     // Keyboard dismissal restores space without resetting native undo.

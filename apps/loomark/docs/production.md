@@ -95,6 +95,11 @@ Caret checks cover the whole line, not only its center, outside the visible bars
 Desktop device emulation does not open a real software keyboard.
 These checks do not simulate keyboard-driven document scrolling or mobile
 compositing.
+A separate Chromium regression uses native page scaling and viewport resizing,
+without overriding viewport getters: start at 380px, zoom to 2×, then grow to
+844px. The layout must recover to 844px rather than leave a 380px frame inside a
+422px visible viewport. This catches zoom-related height freezing, not a real
+Android keyboard or compositor failure.
 Compare scrolled Text, Split, and Preview screenshots at compact and wide widths
 when changing decorative layers. Geometry and hit testing alone cannot prove
 that content is not covered: `pointer-events: none` overlays are skipped by
@@ -110,8 +115,11 @@ subtle blur beneath the fixed controls, not stop at a white frame. When the bott
 bar is hidden, its fade and blur must also disappear. The active writing line
 must stay outside visible controls and faded edges.
 Closing the keyboard must restore the bar without losing text, selection, or Undo.
-Confirm that pinch zoom still works, save-failure notices remain readable, and
-a hardware keyboard or small window alone does not hide the bottom bar.
+Repeat opening and dismissal while zoomed: the layout must still respond to
+height changes, without retaining an obsolete top offset after recovery.
+Confirm that pinch zoom alone preserves layout height, save-failure notices
+remain readable, and a hardware keyboard or small window alone does not hide
+the bottom bar.
 
 For a device-only white band, capture the full screen including the keyboard,
 the browser/device, and the exact URL. Compare geometry before focus, after the

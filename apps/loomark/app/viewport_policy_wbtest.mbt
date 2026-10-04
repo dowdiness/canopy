@@ -14,10 +14,15 @@ test "caret resize reveals a line above the viewport with top padding" {
 }
 
 ///|
-test "pinch zoom does not drive editor layout" {
-  assert_true(follows_visual_viewport(1.0))
-  assert_false(follows_visual_viewport(2.0))
-  assert_false(follows_visual_viewport(0.5))
+test "viewport placement follows normal pans but preserves zoom panning" {
+  assert_eq(viewport_layout_top(32.0, 1.0, 0.0, 844.0, 380.0), 32.0)
+  assert_eq(viewport_layout_top(120.0, 2.0, 464.0, 844.0, 380.0), 464.0)
+}
+
+///|
+test "height recovery clears the obsolete zoomed viewport offset" {
+  assert_eq(viewport_layout_top(120.0, 2.0, 464.0, 844.0, 700.0), 144.0)
+  assert_eq(viewport_layout_top(120.0, 2.0, 464.0, 844.0, 844.0), 0.0)
 }
 
 ///|

@@ -23,6 +23,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
   [`dowdiness/dom_boundary/visual_viewport`](../../modules/dom-boundary/visual_viewport/visual_viewport.mbt)
   package owns native viewport access and disposable resize/scroll listeners.
   Loomark owns layout updates, frame batching, and zoom policy.
+  Available height is `visualViewport.height * visualViewport.scale`: zoom alone
+  preserves layout height, but resizing must continue while zoomed. Zoom panning
+  retains the last layout offset, bounded by the remaining layout height.
   Text and Preview share the same softened edges beneath the fixed controls.
   The bars own their decorative backgrounds, and the layout wrapper is transparent;
   no independent editor overlay remains when the bottom bar is hidden.

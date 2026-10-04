@@ -19,9 +19,31 @@ fn caret_scroll_top(
 }
 
 ///|
-/// Keyboard resizing follows the visible viewport; pinch zoom remains native.
-fn follows_visual_viewport(scale : Double) -> Bool {
-  (scale - 1.0).abs() < 0.01
+/// Remove pinch scaling, not keyboard occlusion, from the available height.
+fn viewport_layout_height(visible_height : Double, scale : Double) -> Double {
+  visible_height * scale
+}
+
+///|
+/// Follow normal viewport pans, but leave zoom panning browser-owned.
+/// A recovered height must not retain an offset beyond the layout bottom.
+fn viewport_layout_top(
+  visible_top : Double,
+  scale : Double,
+  previous_top : Double,
+  layout_height : Double,
+  height : Double,
+) -> Double {
+  if (scale - 1.0).abs() < 0.01 {
+    visible_top
+  } else {
+    let available_top = if height < layout_height {
+      layout_height - height
+    } else {
+      0.0
+    }
+    previous_top.clamp(min=0.0, max=available_top)
+  }
 }
 
 ///|
