@@ -84,6 +84,8 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
 - Switching synthetic documents retains each session and its pending lane; old
   response IDs/epochs/document IDs cannot mutate another document. Workers are
   terminated at actual Rabbita local-scope disposal. No general cache/GC added.
+  Disposal cancels unfinished native composition/editing state owned by the old
+  textarea, but retains admitted intents and unsaved packets for remount recovery.
 - Schema2 admission/resource limits remain. Compact seed max100k accepted ops;
   Version512KiB/global4096 intervals. Journal budget200k, conservative union500KiB.
   Capacity failure retains text and operations and displays Not saved. Whole
@@ -111,11 +113,14 @@ Keep the loopback server running; execute serially when collecting performance:
 node --test core.test.mjs protocol.test.mjs
 node browser-test.mjs
 node fault-test.mjs
+node lifecycle-test.mjs
+node normal-mode-test.mjs
 node performance-test.mjs
 node trace-test.mjs
 $env:HEADED='1'
 node browser-test.mjs
 node fault-test.mjs
+node lifecycle-test.mjs
 node performance-test.mjs
 node trace-test.mjs
 ```
@@ -127,6 +132,12 @@ Saved→termination, missing edit reply, delayed remote projection, transaction
 fault phases, readonly restore, A→B→A, unresolved Undo, and >100k missed ops.
 `TEST_FILTER` selects named cases in those two scripts for diagnosis; omit it
 for full verification. Fault injection belongs only to experimental assets.
+
+`lifecycle-test.mjs` exercises actual Rabbita unmount/remount while ready,
+opening, accepting an edit, or composing. The composition case cancels unfinished
+native input while retaining an earlier admitted edit, then checks new input,
+saving and reload. `normal-mode-test.mjs` checks isolation without experimental
+assets or storage and creates its own evidence directory when run independently.
 
 Performance reports separate load→ready, Worker restore/replay, local input,
 local acceptance, remote application and IDB commit. Double rAF is a presentation

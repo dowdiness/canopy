@@ -1,4 +1,9 @@
-# Follow-up review: not yet runtime validated
+# Historical follow-up review — before work resumed
+
+> Preserved from the source-only handoff prepared on 2026-10-03. “Open,”
+> “UNTESTED,” and “pending” below describe that snapshot, not the current PR.
+> For current dispositions, see [the handoff](CODEX_HANDOFF.md#original-findings-and-current-disposition);
+> exact-commit verification is recorded on [PR #1450](https://github.com/dowdiness/canopy/pull/1450).
 
 ## Additional open regression: composition commit during Worker recovery
 

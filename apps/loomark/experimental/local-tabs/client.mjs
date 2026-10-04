@@ -125,7 +125,8 @@ function mount(target){
  const size=Number(params.get('size')||0);if(![0,10000,100000].includes(size))throw Error('Unsupported synthetic fixture size');
  switchDocument(params.get('doc')||'synthetic-demo',size?'0123456789'.repeat(size/10):(params.get('seed')||'# Shared synthetic note\n\nalpha beta gamma\n'));
 }
-function dispose(){disposed=true;activation++;clearInterval(timer);channel?.close();localTabs.controller?.abort();observer.disconnect();for(const s of sessions.values()){s.ready=false;s.client.stop();}}
+// The disposed element cannot finish its native input; admitted intents stay queued.
+function dispose(){disposed=true;activation++;clearInterval(timer);channel?.close();localTabs.controller?.abort();observer.disconnect();for(const s of sessions.values()){s.composing=false;s.editing=false;s.ready=false;s.client.stop();}}
 globalThis.localTabs={mount,onChange,onComposing,dispose};
 // Explicit experiment only. Deterministic fault hooks never ship in normal mode.
 async function diagnostic(s,type){
