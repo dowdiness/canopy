@@ -28,7 +28,12 @@ export type CanvasModule = {
     constructorName: string,
   ) => string;
   sample_graph_dsl_source?: () => string;
-  mount_source_demo?: (h: number, enabled: boolean, onChange: () => undefined) => undefined;
+  mount_source_demo?: (
+    h: number,
+    enabled: boolean,
+    onChange: () => undefined,
+    registerSourceNotice: (reporter: SourceNoticeReporter) => undefined,
+  ) => undefined;
   get_workflow_node_catalog: () => string;
   mount_canvas_context_menu?: (
     h: number,
@@ -179,6 +184,19 @@ export type SourceGraphOperationResult = {
   action_count: number;
   message?: string;
 };
+
+export type SourceNoticeOperation =
+  | 'rename'
+  | 'set-param'
+  | 'insert'
+  | 'delete'
+  | 'context';
+
+export type SourceNoticeReporter = (
+  operation: SourceNoticeOperation,
+  detail: string,
+  resultJson: string,
+) => undefined;
 
 export type DeleteSelectionResult = {
   handled: boolean;
