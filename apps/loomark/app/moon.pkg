@@ -22,7 +22,7 @@ import {
   "moonbit-community/rabbita/sub",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/immut/vector",
-  "Yoorkin/rui",
+  "moonbit-community/rui",
 }
 
 supported_targets = "js"

@@ -3,7 +3,7 @@ name = "example/markdown-editor"
 version = "0.1.0"
 
 import {
-  "moonbit-community/rabbita@0.15.4",
+  "moonbit-community/rabbita@0.16.3",
   "dowdiness/rabbita_markdown@0.1.0",
   "dowdiness/text_change@0.1.0",
 }

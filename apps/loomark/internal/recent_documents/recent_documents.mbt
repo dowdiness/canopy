@@ -343,38 +343,47 @@ fn[Id] available_delete_dialog(
   row : PresentedRow[Id],
   on_intent : @cmd.Emit[Intent[Id]],
 ) -> @rabbita.Val[@html.Html] {
-  @rui.alert_dialog(
-    id="loomark-delete-document",
-    default_open=true,
-    on_open_change=@cmd.Emit(open => {
-      if open {
-        @cmd.none
-      } else {
-        on_intent(Intent::CancelDelete)
-      }
-    }),
-    scope => {
-      @rui.alert_dialog_portal([
-        @rui.alert_dialog_content(scope, [
-          @rui.alert_dialog_header([
-            @rui.alert_dialog_title(scope, delete_confirmation_label(row)),
-            @rui.alert_dialog_description(
-              scope,
-              delete_confirmation_description(row),
-            ),
-          ]),
-          @rui.alert_dialog_footer([
-            @rui.alert_dialog_cancel(scope, "Cancel"),
-            @rui.alert_dialog_action(
-              scope,
-              on_click=on_intent(Intent::ConfirmDelete(id)),
-              "Delete document",
-            ),
-          ]),
-        ]),
-      ])
+  let (state, on_close) = @rabbita.create_state_with_init(
+    init=_ => ((), @dialog.show("loomark-delete-document")),
+    update=(_, value : String, _) => {
+      (
+        (),
+        if value == "confirm" {
+          on_intent(Intent::ConfirmDelete(id))
+        } else {
+          on_intent(Intent::CancelDelete)
+        },
+      )
     },
   )
+  state.view(_ => {
+    @rui.alert_dialog(
+      id="loomark-delete-document",
+      on_close~,
+      attrs=@html.Attrs::build()
+        .aria_labelledby("loomark-delete-document-title")
+        .aria_describedby("loomark-delete-document-description"),
+      [
+        @rui.alert_dialog_header([
+          @rui.alert_dialog_title(
+            id="loomark-delete-document-title",
+            delete_confirmation_label(row),
+          ),
+          @rui.alert_dialog_description(
+            id="loomark-delete-document-description",
+            delete_confirmation_description(row),
+          ),
+        ]),
+        @html.form(
+          method_="dialog",
+          @rui.alert_dialog_footer([
+            @rui.alert_dialog_cancel(value="cancel", "Cancel"),
+            @rui.alert_dialog_action(value="confirm", "Delete document"),
+          ]),
+        ),
+      ],
+    )
+  })
 }
 
 ///|

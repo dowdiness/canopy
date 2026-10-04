@@ -16,7 +16,7 @@ import {
   "dowdiness/rabbita-menu@0.1.0",
   "dowdiness/rabbita-context-menu@0.1.0",
   "dowdiness/rabbita-status@0.1.0",
-  "moonbit-community/rabbita@0.14.1",
+  "moonbit-community/rabbita@0.16.3",
   "moonbitlang/async@0.21.0",
 }
 

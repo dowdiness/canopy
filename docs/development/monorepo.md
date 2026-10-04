@@ -139,9 +139,11 @@ git add deps/event-graph-walker     # records the new commit pointer
 git commit -m "chore: update event-graph-walker submodule"
 ```
 
-Use PRs for submodule changes; never push to a submodule's main without
-asking. Commit and push the submodule's commit to its own remote **before**
-committing the parent pointer or opening a parent PR. Stage only the submodule
+Use PRs for submodule changes, except for the
+[Rabbita fork's direct-main workflow](rabbita-fork.md#development-guidance).
+Do not push other submodules' main without asking. Commit and push the
+submodule's commit to its own remote **before** committing the parent pointer
+or opening a parent PR. Stage only the submodule
 pointers that actually moved. CI clones with `submodules: recursive`, so a parent
 commit referencing a submodule SHA that is not yet on `origin` will fail.
 
