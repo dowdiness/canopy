@@ -67,6 +67,41 @@ test "rejected external operation preserves invalid editing across graph sync" {
 }
 
 ///|
+test "delayed external success preserves newer invalid editing across graph sync" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)")
+  defer destroy_source_graph(handle)
+  let initial = source_demo_test_model(handle)
+  let rename = GraphOperation(RenameNode(handle_token(handle, "osc"), "lfo"))
+  let msg = decode_source_notice(
+    "rename",
+    "",
+    apply_source_graph_operation(handle, rename.to_json().stringify()),
+  )
+  guard msg is ExternalOperation(Renamed, result) else {
+    fail("expected typed rename result")
+  }
+  assert_true(result.applied)
+  let emit = @cmd.Emit(_ => @rabbita.none)
+  let invalid_source = "osc = sine(freq: )"
+  let (_, edited) = source_demo_update(
+    emit,
+    EditorSynced(invalid_source),
+    initial,
+  )
+  let (_, invalid) = source_demo_update(emit, ApplySource, edited)
+  assert_true(invalid.dirty)
+  let (_, notified) = source_demo_update(emit, msg, invalid)
+  assert_eq(notified.editor, invalid_source)
+  assert_true(notified.dirty)
+  assert_true(notified.status_tone == @status.Success)
+  let (_, synced) = source_demo_update(emit, SyncFromGraph, notified)
+  assert_eq(synced.editor, invalid_source)
+  assert_true(synced.dirty)
+  assert_eq(synced.status, notified.status)
+  assert_true(synced.status_tone == @status.Success)
+}
+
+///|
 test "unknown external operation cannot become a generic success" {
   let result = source_graph_operation_result_json(true, "", [], 0, None)
   assert_true(

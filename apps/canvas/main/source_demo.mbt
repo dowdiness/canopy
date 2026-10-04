@@ -349,6 +349,11 @@ fn source_demo_update_healthy(
     }
     ExternalOperation(operation, result) => {
       let (status, status_tone) = source_demo_external_status(result, operation)
+      // A delayed notice must not replace newer invalid editor text.
+      // Only editor-originated operations may resolve that dirty state.
+      if model.dirty && result.applied {
+        return (source_demo_notify(model), { ..model, status, status_tone, })
+      }
       source_demo_result_step(
         model,
         result,
@@ -367,8 +372,8 @@ fn source_demo_update_healthy(
         },
       )
     SyncFromGraph => {
-      // Keep out of the way while the editor holds unapplied edits, so an
-      // out-of-band graph notification never overwrites in-progress typing.
+      // Like external operation notices, graph synchronization must preserve
+      // invalid editor text until an editor-originated operation resolves it.
       if model.dirty {
         return (@rabbita.none, model)
       }
