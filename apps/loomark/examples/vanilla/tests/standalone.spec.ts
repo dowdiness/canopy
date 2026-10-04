@@ -1462,6 +1462,80 @@ test("forced colors keep writing controls and the selected mode distinguishable"
   await expect(more).toBeFocused()
 })
 
+for (const mode of ["Text", "Split"] as const) {
+  test(`visual keyboard viewport keeps the current line and native editing state in ${mode}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto("/")
+    const editor = page.getByRole("textbox", { name: "Text" })
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+    const content = Array.from({ length: 80 }, (_, i) => `Line ${i}`).join("\n")
+    await editor.fill(content)
+    await editor.press("Control+End")
+    await editor.pressSequentially(" typed")
+    const original = await editor.elementHandle()
+
+    // Desktop automation cannot open an OS keyboard. Change only the visual
+    // viewport: shrinking the entire Playwright viewport would miss this bug.
+    const viewport = async (height: number, offsetTop: number, scale = 1, event = "resize") => {
+      await page.evaluate(({ height, offsetTop, scale, event }) => {
+        for (const [key, value] of Object.entries({ height, offsetTop, scale })) {
+          Object.defineProperty(window.visualViewport!, key, { configurable: true, get: () => value })
+        }
+        window.visualViewport!.dispatchEvent(new Event(event))
+      }, { height, offsetTop, scale, event })
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    }
+    const lineIsVisible = () => editor.evaluate(element => {
+      const area = element as HTMLTextAreaElement
+      const rect = area.getBoundingClientRect(), style = getComputedStyle(area)
+      const endpoint = area.selectionDirection === "backward" ? area.selectionStart : area.selectionEnd
+      const line = area.value.slice(0, endpoint).split("\n").length - 1
+      const y = rect.top + Number.parseFloat(style.paddingTop)
+        + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
+      const viewport = window.visualViewport!
+      const footer = document.querySelector(".loomark-footer")!.getBoundingClientRect()
+      return y >= Math.max(rect.top, viewport.offsetTop)
+        && y < Math.min(rect.bottom, footer.top, viewport.offsetTop + viewport.height)
+        && document.elementFromPoint(rect.left + Number.parseFloat(style.paddingLeft) + 8, y) === area
+    })
+    await viewport(380, 32)
+    await expect.poll(lineIsVisible).toBe(true)
+    await expect(editor).toBeFocused()
+    expect(await editor.evaluate((element, original) => element === original, original)).toBe(true)
+    await expect(editor).toHaveValue(content + " typed")
+    expect(await editor.evaluate(element => (element as HTMLTextAreaElement).selectionStart)).toBe(content.length + 6)
+
+    await viewport(380, 64, 1, "scroll")
+    const root = page.locator("#loomark-root")
+    expect(await root.evaluate(element => element.getBoundingClientRect().top)).toBe(64)
+    await expect.poll(lineIsVisible).toBe(true)
+    const toggle = await page.getByRole("button", { name: "Toggle documents" }).boundingBox()
+    expect(toggle!.y).toBeGreaterThanOrEqual(64)
+    const beforeZoom = await root.boundingBox()
+    await viewport(190, 120, 2)
+    expect(await root.boundingBox()).toEqual(beforeZoom)
+
+    // Keyboard dismissal restores space without resetting native undo.
+    await viewport(844, 0)
+    expect(await root.evaluate(element => element.getBoundingClientRect().height)).toBe(844)
+    await editor.press("Control+z")
+    await expect(editor).toHaveValue(content)
+    // A backward selection keeps its active endpoint, not just the document end.
+    await editor.press("Control+End")
+    await editor.press("Control+Shift+Home")
+    const selection = await editor.evaluate(element => {
+      const area = element as HTMLTextAreaElement
+      return [area.selectionStart, area.selectionEnd, area.selectionDirection]
+    })
+    await viewport(320, 0)
+    await expect.poll(lineIsVisible).toBe(true)
+    expect(await editor.evaluate(element => {
+      const area = element as HTMLTextAreaElement
+      return [area.selectionStart, area.selectionEnd, area.selectionDirection]
+    })).toEqual(selection)
+  })
+}
+
 test("increased text spacing preserves status icons and native caret navigation", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 360 })
   await page.goto("/")
@@ -1499,14 +1573,14 @@ test("increased text spacing preserves status icons and native caret navigation"
 
 for (const mode of ["Text", "Split"] as const) {
   test(`current native writing line stays visible outside chrome in ${mode}`, async ({ page }) => {
-    for (const { width, height, failure, minimumSplit = false } of [
+    for (const [scenario, { width, height, failure, minimumSplit = false }] of [
       { width: 1280, height: 900, failure: false },
       { width: 390, height: 844, failure: false },
       { width: 320, height: 640, failure: false },
       { width: 320, height: 360, failure: false },
       { width: 320, height: 360, failure: true },
       { width: 320, height: 360, failure: true, minimumSplit: true },
-    ]) {
+    ].entries()) {
       await page.setViewportSize({ width, height })
       await page.goto("/")
       const editor = page.getByRole("textbox", { name: "Text" })
@@ -1519,7 +1593,9 @@ for (const mode of ["Text", "Split"] as const) {
         await page.getByRole("slider", { name: "Resize editor and preview" }).fill("25")
       }
       if (failure) await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
-      await editor.fill("# Long writing\n\n" + "Short line.\n".repeat(80))
+      // Returning to the preceding scenario's saved text clears its save error.
+      // Keep each fixture distinct so typing still leaves an unsaved document.
+      await editor.fill(`# Writing ${scenario}\n\n` + "Short line.\n".repeat(80))
       if (failure) await expect(page.getByRole("alert")).toBeVisible()
       await editor.press("Control+End")
       await editor.pressSequentially("Current line")

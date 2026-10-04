@@ -26,3 +26,25 @@ observable external effect and is justified by the operation being built.
 Test the functional core with deterministic unit and property tests. Focus
 shell tests on effect wiring, integration boundaries, and a small number of
 end-to-end cases.
+
+## DOM actions and calculations
+
+DOM reads are actions, not just DOM writes: `querySelector`, element lookup,
+selection reads, and layout measurements depend on when they run. Passing an
+element explicitly removes hidden lookup dependencies; it does not make live
+DOM access pure. This follows the actions/calculations/data distinction in
+[Eric Normand's “What is an action?”](https://ericnormand.me/podcast/what-is-an-action).
+
+- Resolve application-specific IDs and selectors at composition, mount, or
+  after-render boundaries. Reusable DOM helpers receive the actual elements
+  and browser handles they operate on, rather than locating them internally.
+- Read the required values in the shell, pass those values to pure calculations,
+  and apply the returned decisions in the shell. Core calculations accept
+  measured data, not live elements or callbacks that read them.
+- Bind observations to the node's lifetime. If rendering replaces a node,
+  disconnect the old observation and resolve the replacement after rendering.
+  Keep cancellation and pending-work guards in the shell.
+
+For example, caret visibility is a calculation over the measured line bounds,
+scroll position, viewport height, and padding. Measuring a textarea and writing
+its new scroll position remain separate actions.

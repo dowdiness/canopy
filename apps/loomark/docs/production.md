@@ -84,6 +84,26 @@ CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false ./scripts/test-loomark-sync-e2e.sh
 
 Keep your local dev Worker stopped when running these tests to avoid file conflicts in `dist/`.
 
+### Mobile keyboard validation
+
+The standalone viewport regressions simulate a visual-only resize and pan,
+including Text and Split, selection, Undo, keyboard dismissal, and pinch zoom.
+Desktop device emulation does not open a real software keyboard.
+
+Before releasing keyboard-layout changes, check iOS Safari and Android Chrome
+on devices: focus near the end of a long document, open and dismiss the keyboard,
+type Japanese through IME, move the caret within wrapped lines, and rotate the
+device in Text and Split. The current line must remain above the keyboard and
+outside the toolbar/footer without losing text, selection, or Undo. Confirm that
+pinch zoom still works and that a hardware keyboard leaves the full writing area.
+
+Also keep the height fixed while narrowing the window and resize the Split
+divider without changing the window size. With the caret near the end of a
+wrapped document, its line must remain visible. Repeat after switching documents
+and crossing the compact/wide breakpoint to check that observation follows the
+replacement textarea. Element lookup belongs to the after-render shell; the
+caret visibility calculation must remain independent of DOM access.
+
 ### Demand-Driven Projection Verification
 
 Run recent document projection tests from `examples/vanilla`:

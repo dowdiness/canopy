@@ -1,4 +1,57 @@
 ///|
+priv suberror TextAreaResizeSubscription {
+  RevealResizedCaret
+}
+
+///|
+/// Both the activation key and the responsive panel branch can replace the
+/// textarea. Resolve its node after rendering and release the old observation.
+fn text_area_resize_subscription(activation : Int, compact : Bool) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark.text-area-resize(\{activation},\{compact})",
+    @sub.Scope::Local,
+    TextAreaResizeSubscription::RevealResizedCaret,
+    (_, scheduler) => {
+      let mut active = true
+      let mut stop : (() -> Unit)? = None
+      scheduler.add(
+        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+          guard active &&
+            @dom.document().get_element_by_id(EDITOR_TEXT_ID).to_option()
+            is Some(element) &&
+            element.to_html_text_area_element() is Some(area) else {
+            return
+          }
+          stop = Some(
+            observe_text_area_resize(area) catch {
+              @js.JsError(error) => {
+                @js.global()
+                .get("console")
+                .call("error", [
+                  @js.any("Loomark could not observe the text area:"),
+                  error,
+                ])
+                |> ignore
+                return
+              }
+            },
+          )
+        }),
+      )
+      Some({
+        unload: _ => {
+          active = false
+          if stop is Some(stop) {
+            stop()
+          }
+        },
+        update_tagger: _ => (),
+      })
+    },
+  )
+}
+
+///|
 const LEAD_DELAY_MS : Int = 250
 
 ///|
@@ -27,11 +80,28 @@ fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let editor = @editor.MarkdownEditor::MarkdownEditor(EDITOR_TEXT_ID)
   let initial_compact = compact_viewport(@browser.viewport_width())
+  // Resolve stable browser handles once at the composition boundary.
+  let viewport_subscription = if @visual_viewport.current() is Some(viewport) &&
+    @dom.document().get_document_element() is Some(root) &&
+    root.to_html_element() is Some(root) {
+    visual_viewport_subscription(@dom.window(), viewport, root)
+  } else {
+    @sub.none
+  }
   let (model, emit) = @rabbita.create_state_with_init(
     init=emit => initial_state(emit, initial_compact),
     update=(model, msg, emit) => update(model, msg, emit, editor),
     subscriptions=(current, emit) => {
       @sub.batch([
+        viewport_subscription,
+        match current.page {
+          Editing(editing) =>
+            text_area_resize_subscription(
+              editing.activation.generation,
+              editing.compact,
+            )
+          _ => @sub.none
+        },
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
         @sub.on_key_down(key => {
@@ -328,7 +398,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   @sidebar.sidebar_provider_with_state(
     state=sidebar_state,
     input=layout_input,
-    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
+    class="loomark-viewport [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
     (sidebar, layout) => {
       let (
         (

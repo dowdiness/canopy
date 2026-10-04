@@ -1,0 +1,5 @@
+import {
+  "dowdiness/js_ffi" @js,
+}
+
+supported_targets = "js"

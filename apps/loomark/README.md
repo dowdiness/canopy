@@ -19,6 +19,22 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 - **Editing & Preview:** Native `<textarea>` inputs flow into `modules/rabbita-markdown/text_area`, which produces minimal `TextChange` diffs and drives the incremental preview without lag.
 - **Local Storage:** `apps/loomark/app/internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
 - **Demand-Driven Sidebar:** Recent documents extract a lightweight `DocumentLead` (the first meaningful heading or line) on the fly, rendering rows only when the sidebar opens.
+- **Mobile Viewport:** The framework-independent
+  [`dowdiness/dom_boundary/visual_viewport`](../../modules/dom-boundary/visual_viewport/visual_viewport.mbt)
+  package owns native viewport access and disposable resize/scroll listeners.
+  Loomark owns layout updates, frame batching, and zoom policy.
+- **Element Resizing:** The framework-independent
+  [`dowdiness/dom_boundary/resize_observer`](../../modules/dom-boundary/resize_observer/resize_observer.mbt)
+  package observes a supplied native element, reporting content-box width and
+  height in CSS pixels. `observe(@js.any(element), on_size)` returns an
+  idempotent disconnect function; invalid targets or missing browser support
+  raise `@js.JsError`. It does not look up IDs or selectors.
+  Loomark binds this observation to the current textarea after rendering and
+  disconnects it when that node is replaced. Width and height changes trigger
+  caret measurement, independently of VisualViewport events.
+  `app/viewport_policy.mbt` computes scroll positions from numeric measurements;
+  `app/viewport.mbt` owns DOM measurement and writes, while `app/app.mbt` owns
+  element lookup and application lifecycle wiring.
 
 ---
 

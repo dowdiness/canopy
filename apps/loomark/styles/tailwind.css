@@ -102,6 +102,16 @@
   margin-bottom: 0;
 }
 
+/* Keyboard resizing may leave dvh unchanged; the browser binding supplies the
+   visible viewport. Override the Sidebar provider's inline layout minimum. */
+.loomark-viewport {
+  position: fixed !important;
+  top: var(--loomark-viewport-top, 0px);
+  inset-inline: 0;
+  height: var(--loomark-viewport-height, 100dvh);
+  min-height: 0 !important;
+}
+
 .loomark-source-frame {
   /* Native caret scrolling uses the textarea viewport, not its document padding. */
   padding-block: 56px 64px;
@@ -206,7 +216,7 @@
   z-index: 60;
   display: flex;
   width: 250px;
-  max-height: calc(100dvh - 61px);
+  max-height: calc(var(--loomark-viewport-height, 100dvh) - 61px);
   overflow-y: auto;
   flex-direction: column;
   gap: 6px;
@@ -241,7 +251,7 @@
     justify-content: center;
   }
 }
-.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: 5px !important; background: var(--color-lm-paper); }
+.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: var(--color-lm-paper); }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
 .loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
 .loomark-footer ~ [role="alert"] { position: relative; z-index: 20; }

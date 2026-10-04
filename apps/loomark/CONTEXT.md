@@ -126,6 +126,12 @@ The native editable viewport stays outside the fixed controls, including in
 Split. Its text is not faded at the viewport edges, so native caret scrolling
 keeps the current writing line readable. Compact Split retains a minimum usable
 writing pane when notices reduce the available height. Preview retains its softened edges.
+At normal zoom, the editor follows the browser's visible viewport when an
+on-screen keyboard reduces it. Width or height changes keep the visible
+textarea's active selection endpoint readable, including when a resize control
+has focus, without replacing the textarea or changing text, selection, focus,
+IME composition, or native Undo. Pinch zoom remains browser-owned and does not
+cause the editor to reflow around the zoomed viewport.
 _Avoid_: source mode, raw mode
 
 **Preview**:

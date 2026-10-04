@@ -8,6 +8,7 @@ import {
   "moonbit-community/rui@0.3.5",
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/dom_boundary@0.1.0",
+  "dowdiness/js_ffi@0.1.0",
   "dowdiness/worker_platform@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/markdown@0.1.0",

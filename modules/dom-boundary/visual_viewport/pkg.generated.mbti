@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/dom_boundary/visual_viewport"
+
+// Values
+pub fn current() -> VisualViewport?
+
+// Errors
+
+// Types and methods
+#external
+pub type VisualViewport
+pub fn VisualViewport::height(Self) -> Double
+pub fn VisualViewport::offset_top(Self) -> Double
+pub fn VisualViewport::on_change(Self, () -> Unit) -> () -> Unit
+pub fn VisualViewport::scale(Self) -> Double
+
+// Type aliases
+
+// Traits

@@ -1,4 +1,7 @@
 import {
+  "dowdiness/dom_boundary/resize_observer",
+  "dowdiness/js_ffi" @js,
+  "dowdiness/dom_boundary/visual_viewport",
   "dowdiness/loomark/app/internal/account_http",
   "dowdiness/loomark/app/internal/replica_persistence",
   "dowdiness/loomark/app/internal/replication",
