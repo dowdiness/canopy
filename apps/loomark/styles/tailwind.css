@@ -194,8 +194,9 @@
 }
 #loomark-editor::after {
   bottom: 0;
-  height: var(--loomark-bottom-space);
-  background: linear-gradient(to top, var(--color-lm-paper), transparent);
+  /* Keep a narrow, transparent blur at the keyboard edge; never paint a white
+     strip over text. The textarea's inner padding keeps its active line clear. */
+  height: max(16px, var(--loomark-bottom-space));
   mask-image: linear-gradient(to top, black, transparent);
 }
 .loomark-icon {

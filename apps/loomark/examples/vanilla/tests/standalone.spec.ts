@@ -1492,15 +1492,21 @@ for (const mode of ["Text", "Split"] as const) {
       const rect = area.getBoundingClientRect(), style = getComputedStyle(area)
       const endpoint = area.selectionDirection === "backward" ? area.selectionStart : area.selectionEnd
       const line = area.value.slice(0, endpoint).split("\n").length - 1
-      const y = rect.top + Number.parseFloat(style.paddingTop)
-        + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
+      const lineHeight = Number.parseFloat(style.lineHeight)
+      const lineTop = rect.top + Number.parseFloat(style.paddingTop)
+        + line * lineHeight - area.scrollTop
+      const lineBottom = lineTop + lineHeight
+      const y = lineTop + lineHeight / 2
       const viewport = window.visualViewport!
       const footer = document.querySelector(".loomark-footer")!
       const footerTop = footer.getClientRects().length
         ? footer.getBoundingClientRect().top
         : Number.POSITIVE_INFINITY
-      return y >= Math.max(rect.top, viewport.offsetTop)
-        && y < Math.min(rect.bottom, footerTop, viewport.offsetTop + viewport.height)
+      const shell = document.querySelector("#loomark-editor")!
+      const blurTop = shell.getBoundingClientRect().bottom
+        - Number.parseFloat(getComputedStyle(shell, "::after").height)
+      return lineTop >= Math.max(rect.top, viewport.offsetTop) - 1
+        && lineBottom <= Math.min(rect.bottom, footerTop, blurTop, viewport.offsetTop + viewport.height) + 1
         && document.elementFromPoint(rect.left + Number.parseFloat(style.paddingLeft) + 8, y) === area
     })
     // Pinch zoom alone must not remove the controls or reflow the editor.
