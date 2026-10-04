@@ -122,12 +122,13 @@ _Avoid_: layout, workspace
 
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
-Text and Preview scroll behind the top and bottom bars. The bars themselves use
-translucent, blurred backgrounds; there is no separate white frame or decorative
-blur strip. Native scroll padding keeps the current writing line outside the
-controls without changing text, selection, composition, or Undo. Manual reading
-scrolls are not pulled back to the caret. Compact Split retains a minimum usable
-writing pane when notices reduce the available height.
+Text and Preview share the same edge fade and subtle blur beneath the fixed top
+and bottom controls in every editor mode. Document spacing stays inside the
+scrollable content rather than an empty outer frame. Native scroll padding keeps
+the current writing line clear of the controls and faded edges without changing
+text, selection, composition, or Undo. Manual reading scrolls are not pulled back
+to the caret. Compact Split retains a minimum usable writing pane when notices
+reduce the available height.
 At normal zoom, the editor follows the browser's visible viewport when an
 on-screen keyboard reduces it. While the visible viewport does not reach the
 layout viewport's bottom, the bottom bar and its reserved space are removed.

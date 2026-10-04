@@ -23,9 +23,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
   [`dowdiness/dom_boundary/visual_viewport`](../../modules/dom-boundary/visual_viewport/visual_viewport.mbt)
   package owns native viewport access and disposable resize/scroll listeners.
   Loomark owns layout updates, frame batching, and zoom policy.
-  Text and Preview paint behind the translucent bars. Textarea `scroll-padding`
-  keeps native caret navigation clear of the controls without per-input DOM
-  measurement; manual reading scrolls remain browser-owned.
+  Text and Preview share the same softened edges beneath the fixed controls.
+  Textarea `scroll-padding` keeps native caret navigation clear of the controls
+  and fades without per-input DOM measurement; manual reading scrolls remain
+  browser-owned.
 - **Element Resizing:** The framework-independent
   [`dowdiness/dom_boundary/resize_observer`](../../modules/dom-boundary/resize_observer/resize_observer.mbt)
   package observes a supplied native element, reporting content-box width and

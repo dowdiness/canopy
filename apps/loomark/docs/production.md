@@ -92,18 +92,30 @@ They also check that the bottom bar disappears without reserving space, returns
 on dismissal, and leaves save-failure notices visible at the new bottom edge.
 Caret checks cover the whole line, not only its center, outside the visible bars.
 Desktop device emulation does not open a real software keyboard.
+These checks do not simulate keyboard-driven document scrolling or mobile
+compositing.
 
 Before releasing keyboard-layout changes, check iOS Safari and Android Chrome
 on devices: focus near the end of a long document, open and dismiss the keyboard,
 type Japanese through IME, move the caret within wrapped lines, and rotate the
 device in Text and Split. The current line must remain above the keyboard,
 without the bottom bar or its reserved gap consuming the visible area. Scroll
-through Text and Preview: content should pass behind the blurred top and bottom
-bars, not stop at a white frame. When the bottom bar is hidden, no separate blur
-strip should remain. The active writing line must stay outside visible controls.
+through Text, Split, and Preview: content should share the same edge fade and
+subtle blur beneath the fixed controls, not stop at a white frame. When the bottom
+bar is hidden, its fade and blur must also disappear. The active writing line
+must stay outside visible controls and faded edges.
 Closing the keyboard must restore the bar without losing text, selection, or Undo.
 Confirm that pinch zoom still works, save-failure notices remain readable, and
 a hardware keyboard or small window alone does not hide the bottom bar.
+
+For a device-only white band, capture the full screen including the keyboard,
+the browser/device, and the exact URL. Compare geometry before focus, after the
+keyboard opens, and after the first input: `visualViewport` height, `offsetTop`,
+`pageTop`, and scale; window `innerHeight` and `scrollY`; document `clientHeight`
+and `scrollHeight`; and the viewport shell, textarea, and footer bounds.
+Use `elementFromPoint` inside the band to distinguish an app element from an
+exposed document background. A passing simulated viewport test does not resolve
+a device-only report.
 
 Also keep the height fixed while narrowing the window and resize the Split
 divider without changing the window size. With the caret near the end of a

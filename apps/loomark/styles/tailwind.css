@@ -146,6 +146,17 @@
   opacity: 1;
 }
 
+/* Keep the original Preview edge treatment shared by both scroll surfaces. */
+.loomark-source,
+#loomark-preview-scroll {
+  mask-image: linear-gradient(to bottom, transparent, black 52px, black calc(100% - 56px), transparent);
+}
+
+[data-loomark-bottom-obscured] .loomark-source,
+[data-loomark-bottom-obscured] #loomark-preview-scroll {
+  mask-image: linear-gradient(to bottom, transparent, black 52px);
+}
+
 #loomark-preview-scroll .rmd-preview-content {
   width: 100%;
   max-width: none;
@@ -174,10 +185,29 @@
 }
 
 .loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 30; }
-.loomark-topbar, .loomark-footer {
-  background: color-mix(in srgb, var(--color-lm-paper) 35%, transparent);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+#loomark-editor::before, #loomark-editor::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  z-index: 10;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+#loomark-editor::before {
+  top: 0;
+  height: 56px;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-lm-paper) 70%, transparent), transparent);
+  mask-image: linear-gradient(to bottom, black, transparent);
+}
+#loomark-editor::after {
+  bottom: 0;
+  height: 64px;
+  background: linear-gradient(to top, var(--color-lm-paper), transparent);
+  mask-image: linear-gradient(to top, black, transparent);
+}
+[data-loomark-bottom-obscured] #loomark-editor::after {
+  content: none;
 }
 .loomark-icon {
   display: inline-flex;
@@ -256,6 +286,15 @@
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) [data-side="second"] { flex-shrink: 1 !important; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 68px 24px 16px; scroll-padding-block: 68px 16px; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px var(--loomark-content-bottom); }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source {
+    mask-image: linear-gradient(to bottom, transparent, black 52px);
+  }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
+    mask-image: linear-gradient(to bottom, black calc(100% - 56px), transparent);
+  }
+  [data-loomark-bottom-obscured] #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
+    mask-image: none;
+  }
 }
 @media (max-width: 800px) {
   .loomark-source { padding-inline: 32px; }
