@@ -4,9 +4,10 @@ import {
   "dowdiness/loomark/internal/view",
   "moonbit-community/rabbita",
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dialog",
   "moonbit-community/rabbita/html",
   "moonbitlang/core/immut/vector",
-  "Yoorkin/rui",
+  "moonbit-community/rui",
 }
 
 import {

@@ -572,7 +572,7 @@ pub fn mount(
   initial_extension? : ((@js_value.Value) -> @js_ffi.Extension raise)? = None,
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=Immediately, scheduler => {
-    @js_value.async_run(() => {
+    @js_value.Promise::from_async(() => {
       let loaded = Some(@js_ffi.load_codemirror(source~).wait()) catch {
         e => {
           report_failure(
@@ -650,6 +650,7 @@ pub fn mount(
         None => ()
       }
     })
+    |> ignore
   })
 }
 

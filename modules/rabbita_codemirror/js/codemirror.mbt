@@ -90,7 +90,7 @@ pub fn raw_extension(value : @js_value.Value) -> Extension {
 /// cache so a transient CDN failure does not poison every later call.
 pub extern "js" fn load_codemirror(
   source? : String = "https://esm.sh",
-) -> @js_value.Promise =
+) -> @js_value.Promise[@js_value.Value] =
   #| async (source) => {
   #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
   #|   const slot = globalThis[key] ?? (globalThis[key] = {

@@ -15,9 +15,10 @@ docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
 - **Downstream branch:** `refactor/indexed-db-managed-store`
-- **Upstream base:** `0a5836a3d303b7390d7067894ba8471cbd4ffcdf` (`rabbita-v0.15.8`)
-- **Pinned commit:** `90b1b3e1e26c7f18924d86694a8021852c43b344`
-- **Pin tag:** `canopy-indexed-db-managed-store-moonbit-0.10.14-20260927`
+- **Upstream base:** `d31819b4b59653550af5fcd3c1bc5c424caae64a` (`rabbita-v0.16.3`)
+- **Pinned commit:** `76389326f57f66f24fde59e3fec1c7d6b0befc4e`
+- **Pin tag:** `canopy-rabbita-0.16.3-20261004`
+- **Upgrade PR:** [`dowdiness/rabbita#8`](https://github.com/dowdiness/rabbita/pull/8)
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -48,6 +49,26 @@ The pinned fork contains:
 Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an
 upstream Rabbita change.
+
+## 0.16.3 integration
+
+The pin merges upstream Rabbita 0.16.3 into the existing downstream line. It
+includes RUI 0.3.3 and Warren 0.4.0; Canopy's Rabbita dependency declarations
+match 0.16.3.
+
+- Loomark imports `moonbit-community/rui` instead of `Yoorkin/rui`. Its delete
+  confirmation uses the native alert dialog, `@dialog.show`, and the dialog
+  form's close value. Only `confirm` deletes; Cancel and Escape preserve the
+  document.
+- CodeMirror loading uses `Promise[Value]` and `Promise::from_async`, retaining
+  the existing module cache and error callbacks.
+- The managed IndexedDB command bridge uses a private callback-to-promise
+  adapter and `Promise[Cmd].wait()`. Transaction scheduling, completion
+  acknowledgements, and redacted errors remain owned by the existing provider.
+- The fork retains nullable `InputEvent.get_data()`; upstream's non-null
+  `InputEvent.data()` is not substituted.
+
+This upgrade does not add Worker bindings.
 
 ## Upgrade procedure
 
