@@ -32,6 +32,13 @@ Loomark の実際の Text エディターから、合成文書だけを使う Wo
   120k regression passes without a restart; a separate silent-exit-after-commit
   regression confirms timeout recovery still preserves the identical packet.
   Independent reviewers also checked these progress/ACK boundaries.
+- Subsequent final-candidate runs intermittently timed out after inspection or
+  test-replay. A deterministic concurrent `inspect` / `catchUp` probe exposed
+  diagnostic requests bypassing the pump's ownership guard and blocking the
+  editor with `Overlapping Worker request`. Diagnostic requests now hold the
+  same per-session `running` guard and resume queued work on release. The probe
+  changes from blocked/failure to neither; final suite results belong to the
+  exact-commit PR evidence, not the earlier passing runs.
 - Fresh Linux/Xvfb traces on `7f1f77116b329a3edf930233feaf84633a5ffb04`
   **failed** the assertion forbidding renderer-main tasks over 50ms: headless 55.846ms,
   headed 50.160ms. The headless overrun included 46.398ms of Layout.

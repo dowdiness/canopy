@@ -128,12 +128,18 @@ function mount(target){
 function dispose(){disposed=true;activation++;clearInterval(timer);channel?.close();localTabs.controller?.abort();observer.disconnect();for(const s of sessions.values()){s.ready=false;s.client.stop();}}
 globalThis.localTabs={mount,onChange,onComposing,dispose};
 // Explicit experiment only. Deterministic fault hooks never ship in normal mode.
+async function diagnostic(s,type){
+ while(s.running)await new Promise(r=>setTimeout(r,10));
+ s.running=true;
+ try{return await s.client.request(type);}
+ finally{s.running=false;void pump(s);}
+}
 globalThis.trial={get state(){return active;},history,switchDocument,retry,metrics,longTasks,
  pause(value){active.paused=value;active.needPull=true;if(!value)void pump(active);},
  catchUp(){active.needPull=true;return pump(active);},flush(){return pump(active);},
  notify(){channel.postMessage({type:'changed',document:active.documentId});},
  crash(){active.client.fail(new WorkerLost('Injected Worker failure'));active.ready=false;void pump(active);},
- async inspect(){while(active.running)await new Promise(r=>setTimeout(r,10));return (await active.client.request('inspect')).info;},
- async test(type){while(active.running)await new Promise(r=>setTimeout(r,10));return active.client.request(type);},
- async durable(){while(active.running)await new Promise(r=>setTimeout(r,10));return active.client.request('durable');},
+ async inspect(){return (await diagnostic(active,'inspect')).info;},
+ test(type){return diagnostic(active,type);},
+ durable(){return diagnostic(active,'durable');},
 };
