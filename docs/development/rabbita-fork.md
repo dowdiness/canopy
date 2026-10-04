@@ -10,15 +10,21 @@ or bindings), read the repository's `.claude/skills/rabbita` skill. The vendored
 docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
 `design.md` are authoritative when they disagree with plans or pasted specs.
 
+Changes to `dowdiness/rabbita` are reviewed and validated, then pushed directly
+to `main` without a fork PR, as requested by the maintainer. Fetch current
+`main` first and use a normal fast-forward push; do not force-push or move
+existing tags. This exception applies only to the Rabbita fork. Canopy pin
+updates still follow the normal Canopy PR and CI workflow.
+
 ## Ownership
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
 - **Downstream branch:** `main`
 - **Upstream base:** `b46d141fa3f4971be010d7d5bb5a178dfa20f300` (upstream `main`)
-- **Pinned commit:** `139ae60c9fc7efc5a791c6720b67bceb46107e5d`
-- **Pin tag:** `canopy-main-20261004`
-- **History:** 17 rebased fork commits, followed by integration fixes and the upstream-only website deployment guard; no downstream merge commits.
+- **Pinned commit:** `8fcdacd3edd35b6be267849b1098140901033ad5`
+- **Pin tag:** `canopy-worker-20261004`
+- **History:** 17 rebased fork commits, followed by integration fixes, the upstream-only website deployment guard and the Worker binding; no downstream merge commits.
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -44,7 +50,10 @@ The pinned fork contains:
   reconciliation so edge-path DOM identity survives reorder; and
 - managed IndexedDB String Store interface (`get`, `contains`, `entries`, `set`,
   `delete`, atomic `apply`) with typed errors, blocked/stale lifecycle
-  recovery, and redacted debug values.
+  recovery, and redacted debug values; and
+- a [dedicated module Worker binding](../../deps/rabbita/rabbita/worker/README.mbt.md)
+  with Sub-owned lifetime, opaque incarnation-bound connections, correlated
+  request commands, explicit failures, inactivity deadlines and cleanup.
 
 Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an
@@ -52,8 +61,8 @@ upstream Rabbita change.
 
 ## 0.16.3 integration
 
-The pin places the fork-specific commits on top of upstream `main`, rather
-than merging upstream into the old downstream branch. It includes Rabbita
+The 0.16.3 integration placed the fork-specific commits on top of upstream
+`main`, rather than merging upstream into the old downstream branch. It includes Rabbita
 0.16.3, RUI 0.3.5, and Warren 0.4.4 with its embedded evol minifier.
 Canopy's Rabbita dependency declarations match 0.16.3.
 
@@ -69,7 +78,11 @@ Canopy's Rabbita dependency declarations match 0.16.3.
 - The fork retains nullable `InputEvent.get_data()`; upstream's non-null
   `InputEvent.data()` is not substituted.
 
-This upgrade does not add Worker bindings.
+The 0.16.3 integration itself did not add Worker bindings. The subsequent
+`8fcdacd` pin adds the JS-only Worker package; it does not migrate Loomark's
+controller/dispatcher or change its persistence and recovery policy. Native/Wasm
+SSR cannot import this package. See the
+[implementation and validation record](../archive/2026-10-04-rabbita-worker-binding.md).
 
 ## Upgrade procedure
 
