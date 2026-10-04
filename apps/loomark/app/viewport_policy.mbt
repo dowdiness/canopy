@@ -25,12 +25,8 @@ fn follows_visual_viewport(scale : Double) -> Bool {
 }
 
 ///|
-/// Hide bottom chrome when the visible viewport no longer reaches the layout
-/// bottom. Account for panning; tolerate subpixel rounding of browser metrics.
-fn bottom_bar_obscured(
-  visible_height : Double,
-  visible_top : Double,
-  layout_height : Double,
-) -> Bool {
-  visible_top + visible_height < layout_height - 1.0
+/// Keep bottom chrome hidden while the visible height is reduced.
+/// Panning restores no space; tolerate subpixel rounding of browser metrics.
+fn bottom_bar_obscured(visible_height : Double, layout_height : Double) -> Bool {
+  visible_height < layout_height - 1.0
 }

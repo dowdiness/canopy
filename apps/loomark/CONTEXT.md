@@ -123,19 +123,21 @@ _Avoid_: layout, workspace
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
 Text and Preview share the same edge fade and subtle blur beneath the fixed top
-and bottom controls in every editor mode. Document spacing stays inside the
+and bottom controls in every editor mode. Each bar owns its blurred background;
+the editor has no separate decorative overlay. Document spacing stays inside the
 scrollable content rather than an empty outer frame. Native scroll padding keeps
 the current writing line clear of the controls and faded edges without changing
 text, selection, composition, or Undo. Manual reading scrolls are not pulled back
 to the caret. Compact Split retains a minimum usable writing pane when notices
 reduce the available height.
 At normal zoom, the editor follows the browser's visible viewport when an
-on-screen keyboard reduces it. While the visible viewport does not reach the
-layout viewport's bottom, the bottom bar and its reserved space are removed.
+on-screen keyboard reduces it. While its height is smaller than the layout
+viewport's height, the bottom bar and its reserved space are removed, even if
+panning brings the visible bottom to the layout bottom.
 No bottom overlay or reserved bottom gap remains while the bar is hidden.
 The top toolbar and failure notices remain available. The
-bottom bar returns when the viewport reaches the layout bottom again; a small
-window or hardware keyboard alone does not hide it.
+bottom bar returns when the visible height recovers; a small window or hardware
+keyboard alone does not hide it.
 Width or height changes keep the visible
 textarea's active selection endpoint readable, including when a resize control
 has focus, without replacing the textarea or changing text, selection, focus,

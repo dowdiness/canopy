@@ -1473,7 +1473,8 @@ for (const mode of ["Text", "Split"] as const) {
     const content = Array.from({ length: 80 }, (_, i) => `Line ${i}`).join("\n")
     await editor.fill(content)
     await editor.press("Control+End")
-    await editor.pressSequentially(" typed")
+    // One native edit avoids assuming how the browser groups a typed sequence.
+    await editor.press("x")
     const original = await editor.elementHandle()
 
     // Desktop automation cannot open an OS keyboard. Change only the visual
@@ -1518,8 +1519,8 @@ for (const mode of ["Text", "Split"] as const) {
     await expect.poll(lineIsVisible).toBe(true)
     await expect(editor).toBeFocused()
     expect(await editor.evaluate((element, original) => element === original, original)).toBe(true)
-    await expect(editor).toHaveValue(content + " typed")
-    expect(await editor.evaluate(element => (element as HTMLTextAreaElement).selectionStart)).toBe(content.length + 6)
+    await expect(editor).toHaveValue(content + "x")
+    expect(await editor.evaluate(element => (element as HTMLTextAreaElement).selectionStart)).toBe(content.length + 1)
 
     await viewport(380, 64, 1, "scroll")
     const root = page.locator("#loomark-root")
@@ -1528,6 +1529,10 @@ for (const mode of ["Text", "Split"] as const) {
     await expect(footer).toBeHidden()
     const toggle = await page.getByRole("button", { name: "Toggle documents" }).boundingBox()
     expect(toggle!.y).toBeGreaterThanOrEqual(64)
+    // Panning to the layout bottom does not restore the space taken by the keyboard.
+    await viewport(380, 844 - 380, 1, "scroll")
+    await expect(footer).toBeHidden()
+    await expect.poll(lineIsVisible).toBe(true)
     const beforeZoom = await root.boundingBox()
     await viewport(190, 120, 2)
     expect(await root.boundingBox()).toEqual(beforeZoom)

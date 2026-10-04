@@ -21,16 +21,16 @@ test "pinch zoom does not drive editor layout" {
 }
 
 ///|
-test "bottom bar follows occlusion rather than viewport height alone" {
-  assert_true(bottom_bar_obscured(380.0, 32.0, 844.0))
+test "bottom bar hides for a reduced visual viewport, not a small window" {
+  assert_true(bottom_bar_obscured(380.0, 844.0))
   // A small unobscured window or hardware-keyboard viewport keeps its controls.
-  assert_false(bottom_bar_obscured(360.0, 0.0, 360.0))
-  assert_false(bottom_bar_obscured(844.0, 0.0, 844.0))
+  assert_false(bottom_bar_obscured(360.0, 360.0))
+  assert_false(bottom_bar_obscured(844.0, 844.0))
 }
 
 ///|
-test "bottom bar accounts for viewport panning and fractional metrics" {
-  assert_false(bottom_bar_obscured(812.0, 32.0, 844.0))
-  assert_false(bottom_bar_obscured(843.5, 0.0, 844.0))
-  assert_true(bottom_bar_obscured(800.0, 32.0, 844.0))
+test "bottom bar tolerates subpixel height differences" {
+  assert_false(bottom_bar_obscured(843.5, 844.0))
+  assert_false(bottom_bar_obscured(843.0, 844.0))
+  assert_true(bottom_bar_obscured(842.9, 844.0))
 }

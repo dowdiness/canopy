@@ -105,6 +105,7 @@
 /* Keyboard resizing may leave dvh unchanged; the browser binding supplies the
    visible viewport. Override the Sidebar provider's inline layout minimum. */
 .loomark-viewport {
+  --rui-sidebar-wrapper-background: transparent;
   --loomark-bottom-space: 64px;
   --loomark-content-bottom: calc(16px + var(--loomark-bottom-space));
   position: fixed !important;
@@ -114,8 +115,8 @@
   min-height: 0 !important;
 }
 
-/* Keep bottom controls out of the writing area while the layout bottom is
-   obscured. display:none also removes the unavailable controls from tab order. */
+/* Keep bottom controls out of the writing area while the visible height is
+   reduced. display:none removes the controls and their decorative background. */
 [data-loomark-bottom-obscured] .loomark-viewport {
   --loomark-bottom-space: 0px;
   --loomark-content-bottom: 0px;
@@ -185,29 +186,28 @@
 }
 
 .loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 30; }
-#loomark-editor::before, #loomark-editor::after {
+/* Keep the existing edge treatment behind each bar's controls. Hiding a bar
+   also removes its decoration; the editor has no independent overlay. */
+.loomark-topbar::before, .loomark-footer::before {
   content: "";
   position: absolute;
   inset-inline: 0;
-  z-index: 10;
+  z-index: -1;
   pointer-events: none;
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }
-#loomark-editor::before {
+.loomark-topbar::before {
   top: 0;
   height: 56px;
   background: linear-gradient(to bottom, color-mix(in srgb, var(--color-lm-paper) 70%, transparent), transparent);
   mask-image: linear-gradient(to bottom, black, transparent);
 }
-#loomark-editor::after {
+.loomark-footer::before {
   bottom: 0;
   height: 64px;
   background: linear-gradient(to top, var(--color-lm-paper), transparent);
   mask-image: linear-gradient(to top, black, transparent);
-}
-[data-loomark-bottom-obscured] #loomark-editor::after {
-  content: none;
 }
 .loomark-icon {
   display: inline-flex;

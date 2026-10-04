@@ -94,7 +94,7 @@ fn visual_viewport_subscription(
         let top = viewport.offset_top()
         style.set_property("--loomark-viewport-height", "\{height}px")
         style.set_property("--loomark-viewport-top", "\{top}px")
-        if bottom_bar_obscured(height, top, window.inner_height()) {
+        if bottom_bar_obscured(height, window.inner_height()) {
           root.set_attribute("data-loomark-bottom-obscured", "")
         } else {
           root.remove_attribute("data-loomark-bottom-obscured")

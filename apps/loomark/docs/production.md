@@ -88,12 +88,17 @@ Keep your local dev Worker stopped when running these tests to avoid file confli
 
 The standalone viewport regressions simulate a visual-only resize and pan,
 including Text and Split, selection, Undo, keyboard dismissal, and pinch zoom.
-They also check that the bottom bar disappears without reserving space, returns
-on dismissal, and leaves save-failure notices visible at the new bottom edge.
+They also check that the bottom bar disappears without reserving space, stays
+hidden when a reduced viewport pans to the layout bottom, returns on dismissal,
+and leaves save-failure notices visible at the new bottom edge.
 Caret checks cover the whole line, not only its center, outside the visible bars.
 Desktop device emulation does not open a real software keyboard.
 These checks do not simulate keyboard-driven document scrolling or mobile
 compositing.
+Compare scrolled Text, Split, and Preview screenshots at compact and wide widths
+when changing decorative layers. Geometry and hit testing alone cannot prove
+that content is not covered: `pointer-events: none` overlays are skipped by
+`elementFromPoint` but can still obscure text.
 
 Before releasing keyboard-layout changes, check iOS Safari and Android Chrome
 on devices: focus near the end of a long document, open and dismiss the keyboard,
@@ -113,9 +118,10 @@ the browser/device, and the exact URL. Compare geometry before focus, after the
 keyboard opens, and after the first input: `visualViewport` height, `offsetTop`,
 `pageTop`, and scale; window `innerHeight` and `scrollY`; document `clientHeight`
 and `scrollHeight`; and the viewport shell, textarea, and footer bounds.
-Use `elementFromPoint` inside the band to distinguish an app element from an
-exposed document background. A passing simulated viewport test does not resolve
-a device-only report.
+Use `elementFromPoint` inside the band together with computed backgrounds and
+pseudo-element styles to distinguish an app element from an exposed document
+background or a non-interactive overlay. A passing simulated viewport test does
+not resolve a device-only report.
 
 Also keep the height fixed while narrowing the window and resize the Split
 divider without changing the window size. With the caret near the end of a

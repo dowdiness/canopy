@@ -24,6 +24,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
   package owns native viewport access and disposable resize/scroll listeners.
   Loomark owns layout updates, frame batching, and zoom policy.
   Text and Preview share the same softened edges beneath the fixed controls.
+  The bars own their decorative backgrounds, and the layout wrapper is transparent;
+  no independent editor overlay remains when the bottom bar is hidden.
   Textarea `scroll-padding` keeps native caret navigation clear of the controls
   and fades without per-input DOM measurement; manual reading scrolls remain
   browser-owned.
