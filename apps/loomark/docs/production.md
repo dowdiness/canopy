@@ -88,14 +88,18 @@ Keep your local dev Worker stopped when running these tests to avoid file confli
 
 The standalone viewport regressions simulate a visual-only resize and pan,
 including Text and Split, selection, Undo, keyboard dismissal, and pinch zoom.
+They also check that the bottom bar disappears without reserving space, returns
+on dismissal, and leaves save-failure notices visible at the new bottom edge.
 Desktop device emulation does not open a real software keyboard.
 
 Before releasing keyboard-layout changes, check iOS Safari and Android Chrome
 on devices: focus near the end of a long document, open and dismiss the keyboard,
 type Japanese through IME, move the caret within wrapped lines, and rotate the
-device in Text and Split. The current line must remain above the keyboard and
-outside the toolbar/footer without losing text, selection, or Undo. Confirm that
-pinch zoom still works and that a hardware keyboard leaves the full writing area.
+device in Text and Split. The current line must remain above the keyboard,
+without the bottom bar or its reserved gap consuming the visible area. Closing
+the keyboard must restore the bar without losing text, selection, or Undo.
+Confirm that pinch zoom still works, save-failure notices remain readable, and
+a hardware keyboard or small window alone does not hide the bottom bar.
 
 Also keep the height fixed while narrowing the window and resize the Split
 divider without changing the window size. With the caret near the end of a

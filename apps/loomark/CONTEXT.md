@@ -125,9 +125,15 @@ The editor mode that shows the textarea and hides Preview.
 The native editable viewport stays outside the fixed controls, including in
 Split. Its text is not faded at the viewport edges, so native caret scrolling
 keeps the current writing line readable. Compact Split retains a minimum usable
-writing pane when notices reduce the available height. Preview retains its softened edges.
+writing pane when notices reduce the available height. Preview retains its softened edges
+where fixed controls remain visible.
 At normal zoom, the editor follows the browser's visible viewport when an
-on-screen keyboard reduces it. Width or height changes keep the visible
+on-screen keyboard reduces it. While the visible viewport does not reach the
+layout viewport's bottom, the bottom bar, its reserved space, and the bottom
+fade are removed. The top toolbar and failure notices remain available. The
+bottom bar returns when the viewport reaches the layout bottom again; a small
+window or hardware keyboard alone does not hide it.
+Width or height changes keep the visible
 textarea's active selection endpoint readable, including when a resize control
 has focus, without replacing the textarea or changing text, selection, focus,
 IME composition, or native Undo. Pinch zoom remains browser-owned and does not

@@ -23,3 +23,14 @@ fn caret_scroll_top(
 fn follows_visual_viewport(scale : Double) -> Bool {
   (scale - 1.0).abs() < 0.01
 }
+
+///|
+/// Hide bottom chrome when the visible viewport no longer reaches the layout
+/// bottom. Account for panning; tolerate subpixel rounding of browser metrics.
+fn bottom_bar_obscured(
+  visible_height : Double,
+  visible_top : Double,
+  layout_height : Double,
+) -> Bool {
+  visible_top + visible_height < layout_height - 1.0
+}

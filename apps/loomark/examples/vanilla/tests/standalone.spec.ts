@@ -1468,6 +1468,8 @@ for (const mode of ["Text", "Split"] as const) {
     await page.goto("/")
     const editor = page.getByRole("textbox", { name: "Text" })
     await page.getByRole("tab", { name: mode, exact: true }).click()
+    const footer = page.locator(".loomark-footer")
+    await expect(footer).toBeVisible()
     const content = Array.from({ length: 80 }, (_, i) => `Line ${i}`).join("\n")
     await editor.fill(content)
     await editor.press("Control+End")
@@ -1493,12 +1495,22 @@ for (const mode of ["Text", "Split"] as const) {
       const y = rect.top + Number.parseFloat(style.paddingTop)
         + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
       const viewport = window.visualViewport!
-      const footer = document.querySelector(".loomark-footer")!.getBoundingClientRect()
+      const footer = document.querySelector(".loomark-footer")!
+      const footerTop = footer.getClientRects().length
+        ? footer.getBoundingClientRect().top
+        : Number.POSITIVE_INFINITY
       return y >= Math.max(rect.top, viewport.offsetTop)
-        && y < Math.min(rect.bottom, footer.top, viewport.offsetTop + viewport.height)
+        && y < Math.min(rect.bottom, footerTop, viewport.offsetTop + viewport.height)
         && document.elementFromPoint(rect.left + Number.parseFloat(style.paddingLeft) + 8, y) === area
     })
+    // Pinch zoom alone must not remove the controls or reflow the editor.
+    await viewport(422, 0, 2)
+    await expect(footer).toBeVisible()
     await viewport(380, 32)
+    await expect(footer).toBeHidden()
+    const bottomPane = mode === "Text" ? editor : page.locator("#loomark-preview-scroll")
+    expect(await bottomPane.evaluate(element => element.getBoundingClientRect().bottom))
+      .toBeCloseTo(380 + 32, 0)
     await expect.poll(lineIsVisible).toBe(true)
     await expect(editor).toBeFocused()
     expect(await editor.evaluate((element, original) => element === original, original)).toBe(true)
@@ -1509,14 +1521,17 @@ for (const mode of ["Text", "Split"] as const) {
     const root = page.locator("#loomark-root")
     expect(await root.evaluate(element => element.getBoundingClientRect().top)).toBe(64)
     await expect.poll(lineIsVisible).toBe(true)
+    await expect(footer).toBeHidden()
     const toggle = await page.getByRole("button", { name: "Toggle documents" }).boundingBox()
     expect(toggle!.y).toBeGreaterThanOrEqual(64)
     const beforeZoom = await root.boundingBox()
     await viewport(190, 120, 2)
     expect(await root.boundingBox()).toEqual(beforeZoom)
+    await expect(footer).toBeHidden()
 
     // Keyboard dismissal restores space without resetting native undo.
     await viewport(844, 0)
+    await expect(footer).toBeVisible()
     expect(await root.evaluate(element => element.getBoundingClientRect().height)).toBe(844)
     await editor.press("Control+z")
     await expect(editor).toHaveValue(content)
@@ -1533,6 +1548,16 @@ for (const mode of ["Text", "Split"] as const) {
       const area = element as HTMLTextAreaElement
       return [area.selectionStart, area.selectionEnd, area.selectionDirection]
     })).toEqual(selection)
+
+    // Hiding bottom chrome must not hide a save failure or leave its old gap.
+    await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
+    await editor.press("Control+End")
+    await editor.pressSequentially(" unsaved")
+    const alert = page.getByRole("alert")
+    await expect(alert).toBeVisible()
+    await expect(footer).toBeHidden()
+    expect(await alert.evaluate(element => element.getBoundingClientRect().bottom))
+      .toBeCloseTo(320, 0)
   })
 }
 
