@@ -37,6 +37,12 @@ RAF publication, validation/action-stat rendering, and action-log inspection.
 Remove displaced mutation helpers, individual UI mount exports, and Source
 notification registration/JSON transport; do not retain compatibility aliases.
 
+Import the required Canvas module statically so its download and evaluation
+remain part of navigation. An unawaited async bootstrap lets the page `load`
+event finish before the application starts, racing subsequent UI assertions
+against module delivery. Publish the bundled CodeMirror namespace before
+mounting the MoonBit UI; native editor mounting may still complete asynchronously.
+
 ### Host and publication boundaries
 
 - Register each receiver through a subscription owned by the receiving host.

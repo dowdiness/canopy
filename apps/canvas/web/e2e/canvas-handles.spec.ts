@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import type { RenderState } from '../src/graph-adapter';
 
 type Point = {
   x: number;
@@ -100,8 +101,17 @@ async function dispatchContextMenu(
 }
 
 async function moveViewportOriginToMax(page: Page): Promise<void> {
-  await page.evaluate(() => {
+  const snapshot = await page.evaluate(async () => {
+    const target = document.getElementById('canvas-render-layer');
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    if (!target) throw new Error('canvas render layer is not mounted');
+    const eventName = 'canopy-canvas-render-state';
+    const { promise, resolve } = Promise.withResolvers<RenderState>();
+    const listener = (event: Event) => {
+      target.removeEventListener(eventName, listener);
+      resolve(JSON.parse((event as CustomEvent<string>).detail));
+    };
+    target.addEventListener(eventName, listener);
     root.setPointerCapture = () => undefined;
     root.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
@@ -124,8 +134,10 @@ async function moveViewportOriginToMax(page: Page): Promise<void> {
       clientX: Number.MAX_VALUE,
       clientY: 0,
     }));
+    return await promise;
   });
-  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  expect(snapshot.viewport.x).toBe(Number.MAX_VALUE);
+  await expectWorldMatches(page, snapshot);
 }
 
 async function dragBetween(page: Page, from: Locator, to: Locator): Promise<void> {
@@ -147,10 +159,13 @@ async function worldTransform(page: Page): Promise<string> {
   return page.locator('#world').evaluate((el) => (el as HTMLElement).style.transform);
 }
 
-async function waitForRenderFrames(page: Page): Promise<void> {
-  await page.evaluate(() => new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-  }));
+async function expectWorldMatches(page: Page, snapshot: RenderState): Promise<void> {
+  const expected = await page.evaluate((viewport) => {
+    const style = document.createElement('div').style;
+    style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`;
+    return style.transform;
+  }, snapshot.viewport);
+  await expect.poll(() => worldTransform(page)).toBe(expected);
 }
 
 async function worldScale(page: Page): Promise<number> {
@@ -160,12 +175,13 @@ async function worldScale(page: Page): Promise<number> {
   return Number(match[1]);
 }
 
-async function captureNextRenderState(page: Page): Promise<any> {
-  return page.evaluate(() => new Promise((resolve) => {
+async function captureNextRenderState(page: Page): Promise<RenderState> {
+  const snapshot = await page.evaluate(async () => {
     const target = document.getElementById('canvas-render-layer');
     const root = document.getElementById('canvas-root');
     if (!target || !root) throw new Error('canvas render layer is not mounted');
     const eventName = 'canopy-canvas-render-state';
+    const { promise, resolve } = Promise.withResolvers<RenderState>();
     const listener = (event: Event) => {
       target.removeEventListener(eventName, listener);
       resolve(JSON.parse((event as CustomEvent<string>).detail));
@@ -179,7 +195,10 @@ async function captureNextRenderState(page: Page): Promise<any> {
       clientX: 120.25,
       clientY: 80.75,
     }));
-  }));
+    return await promise;
+  });
+  await expectWorldMatches(page, snapshot);
+  return snapshot;
 }
 
 test('Rabbita keyed nodes preserve DOM identity when snapshot order changes', async ({ page }) => {
@@ -225,9 +244,19 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
     deltaY: number,
     deltaMode: number,
     ctrlKey = false,
-  ): Promise<boolean> => {
-    return page.evaluate(({ deltaY, deltaMode, ctrlKey }) => {
+    cancelPointer = false,
+  ): Promise<{ defaultPrevented: boolean; snapshot: RenderState }> => {
+    return page.evaluate(async ({ deltaY, deltaMode, ctrlKey, cancelPointer }) => {
       const root = document.querySelector('#canvas-root') as HTMLDivElement;
+      const target = document.getElementById('canvas-render-layer');
+      if (!target) throw new Error('canvas render layer is not mounted');
+      const eventName = 'canopy-canvas-render-state';
+      const { promise, resolve } = Promise.withResolvers<RenderState>();
+      const listener = (event: Event) => {
+        target.removeEventListener(eventName, listener);
+        resolve(JSON.parse((event as CustomEvent<string>).detail));
+      };
+      target.addEventListener(eventName, listener);
       const rect = root.getBoundingClientRect();
       const event = new WheelEvent('wheel', {
         bubbles: true,
@@ -239,8 +268,19 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
         clientY: rect.top + 80.75,
       });
       root.dispatchEvent(event);
-      return event.defaultPrevented;
-    }, { deltaY, deltaMode, ctrlKey });
+      if (cancelPointer) {
+        // Active wheel input publishes nothing. Cancel the unchanged pan to
+        // acknowledge the queued rejection without committing a pointer-up action.
+        root.dispatchEvent(new PointerEvent('pointercancel', {
+          bubbles: true,
+          pointerId: 121,
+          button: 0,
+          clientX: 20,
+          clientY: 20,
+        }));
+      }
+      return { defaultPrevented: event.defaultPrevented, snapshot: await promise };
+    }, { deltaY, deltaMode, ctrlKey, cancelPointer });
   };
 
   await page.goto('/');
@@ -248,32 +288,37 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   const initialTransform = await worldTransform(page);
 
-  expect(await dispatchWheel(0, 0)).toBe(true);
+  const noOpWheel = await dispatchWheel(0, 0);
+  expect(noOpWheel.defaultPrevented).toBe(true);
+  await expectWorldMatches(page, noOpWheel.snapshot);
+  expect(noOpWheel.snapshot.action_count).toBe(0);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   expect(await worldTransform(page)).toBe(initialTransform);
 
-  await dispatchWheel(-50, 0);
+  const pixelWheel = await dispatchWheel(-50, 0);
+  expect(pixelWheel.defaultPrevented).toBe(true);
+  await expectWorldMatches(page, pixelWheel.snapshot);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
-  await waitForRenderFrames(page);
   const pixelScale = await worldScale(page);
 
   await page.reload();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await dispatchWheel(-2, 1);
+  const lineWheel = await dispatchWheel(-2, 1);
+  expect(lineWheel.defaultPrevented).toBe(true);
+  await expectWorldMatches(page, lineWheel.snapshot);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
-  await waitForRenderFrames(page);
   const lineScale = await worldScale(page);
   expect(lineScale).toBeCloseTo(pixelScale, 9);
 
   await page.reload();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await dispatchWheel(-10, 0);
-  await waitForRenderFrames(page);
+  const smallWheel = await dispatchWheel(-10, 0);
+  await expectWorldMatches(page, smallWheel.snapshot);
   const smallScale = await worldScale(page);
   await page.reload();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await dispatchWheel(-100, 0);
-  await waitForRenderFrames(page);
+  const largeWheel = await dispatchWheel(-100, 0);
+  await expectWorldMatches(page, largeWheel.snapshot);
   const largeScale = await worldScale(page);
   expect(largeScale).toBeGreaterThan(smallScale);
 
@@ -292,20 +337,13 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
   });
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
   const activeTransform = await worldTransform(page);
-  expect(await dispatchWheel(-100, 0)).toBe(true);
+  const activeWheel = await dispatchWheel(-100, 0, false, true);
+  expect(activeWheel.defaultPrevented).toBe(true);
+  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+  expect(activeWheel.snapshot.action_count).toBe(0);
+  await expectWorldMatches(page, activeWheel.snapshot);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   expect(await worldTransform(page)).toBe(activeTransform);
-  await page.evaluate(() => {
-    const root = document.querySelector('#canvas-root') as HTMLDivElement;
-    root.dispatchEvent(new PointerEvent('pointerup', {
-      bubbles: true,
-      pointerId: 121,
-      button: 0,
-      clientX: 20,
-      clientY: 20,
-    }));
-  });
-  await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -449,19 +487,19 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   await page.mouse.down();
   await page.mouse.up();
   await page.keyboard.up('Control');
-  await expect(pendingEdgePaths(page)).toHaveCount(0);
-  await expect(edgePaths(page)).toHaveCount(3);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
 
   const cancelStart = await center(source, 'node 1 output handle');
   const cancelTarget = await canvasBackgroundPoint(page);
   await page.mouse.move(cancelStart.x, cancelStart.y);
   await page.mouse.down();
   await page.mouse.move(cancelTarget.x, cancelTarget.y, { steps: 4 });
+  // The rejected Control-click publishes nothing; the completed canceled drag
+  // below drains both queued gestures before these no-op assertions.
   await expect(pendingEdgePaths(page)).toHaveCount(1);
   await page.mouse.up();
   await expect(pendingEdgePaths(page)).toHaveCount(0);
   await expect(edgePaths(page)).toHaveCount(3);
+  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
 
   await commitDrag(page, outputHandle(page, 2), inputHandle(page, 5));
   await expect(edgePaths(page)).toHaveCount(4);
@@ -1113,10 +1151,18 @@ test('pointercancel interrupts a canvas drag without committing it', async ({ pa
     rect: element.getBoundingClientRect().toJSON(),
   }));
 
-  await page.evaluate(() => {
+  const snapshot = await page.evaluate(async () => {
+    const target = document.getElementById('canvas-render-layer');
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     const node = document.querySelector('.canvas-node[data-node-id="1"]');
-    if (!node) throw new Error('canvas node is missing');
+    if (!target || !node) throw new Error('canvas render targets are missing');
+    const eventName = 'canopy-canvas-render-state';
+    const { promise, resolve } = Promise.withResolvers<RenderState>();
+    const listener = (event: Event) => {
+      target.removeEventListener(eventName, listener);
+      resolve(JSON.parse((event as CustomEvent<string>).detail));
+    };
+    target.addEventListener(eventName, listener);
     root.setPointerCapture = () => undefined;
     const rect = node.getBoundingClientRect();
     node.dispatchEvent(new PointerEvent('pointerdown', {
@@ -1139,11 +1185,20 @@ test('pointercancel interrupts a canvas drag without committing it', async ({ pa
       clientX: rect.left + rect.width / 2 + 48,
       clientY: rect.top + rect.height / 2 + 32,
     }));
+    return await promise;
   });
-  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
 
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   await expect(node).not.toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  const expectedNode = snapshot.nodes.find((candidate) => candidate.id === '1');
+  if (!expectedNode) throw new Error('canceled drag snapshot is missing node 1');
+  await expect.poll(() => node.evaluate((element) => ({
+    left: (element as HTMLElement).style.left,
+    top: (element as HTMLElement).style.top,
+  }))).toEqual({
+    left: `${expectedNode.x}px`,
+    top: `${expectedNode.y}px`,
+  });
   const after = await node.evaluate((element) => ({
     left: (element as HTMLElement).style.left,
     top: (element as HTMLElement).style.top,

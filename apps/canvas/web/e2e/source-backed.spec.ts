@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import type { RenderState } from '../src/graph-adapter';
 
 const SAMPLE_SOURCE = 'osc = sine(freq: 440Hz)\nmeter = scope()';
 
@@ -147,12 +148,14 @@ test('source-backed node drag updates local layout without mutating source', asy
   const node = sourceNode(page, 'osc');
   const before = await center(node, 'source-backed node');
   await dragBy(page, node.locator('.node-title'), 82, 36);
-  const after = await center(node, 'dragged source-backed node');
-
-  expect(after.x - before.x).toBeGreaterThan(60);
-  expect(after.y - before.y).toBeGreaterThan(20);
-  await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(async () => (
+    (await center(node, 'dragged source-backed node')).x - before.x
+  )).toBeGreaterThan(60);
+  await expect.poll(async () => (
+    (await center(node, 'dragged source-backed node')).y - before.y
+  )).toBeGreaterThan(20);
+  await expectSource(page, SAMPLE_SOURCE);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -433,8 +436,17 @@ test('source-backed pointercancel drops the local connection preview', async ({ 
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
 
-  await page.evaluate(() => {
-    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+  const state = await page.evaluate(() => {
+    const target = document.getElementById('canvas-render-layer');
+    const root = document.querySelector('#canvas-root') as HTMLDivElement | null;
+    if (!target || !root) throw new Error('canvas render layer is not mounted');
+    const { promise, resolve } = Promise.withResolvers<{ connecting?: unknown }>();
+    const eventName = 'canopy-canvas-render-state';
+    const listener = (event: Event) => {
+      target.removeEventListener(eventName, listener);
+      resolve(JSON.parse((event as CustomEvent<string>).detail) as { connecting?: unknown });
+    };
+    target.addEventListener(eventName, listener);
     const source = [...document.querySelectorAll('.handle.output')].find((handle) => (
       handle.closest('.canvas-node')?.querySelector('.node-title')?.textContent === 'osc'
     ));
@@ -461,8 +473,9 @@ test('source-backed pointercancel drops the local connection preview', async ({ 
       clientX: rect.left + rect.width / 2 + 40,
       clientY: rect.top + rect.height / 2 + 40,
     }));
+    return promise;
   });
-  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  expect(state.connecting).toBeUndefined();
 
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
@@ -480,12 +493,19 @@ test('source-backed connection ignores non-finite preview moves', async ({ page 
   const start = await center(source, 'source output handle');
   await page.mouse.move(start.x, start.y);
   await page.mouse.down();
-  await page.mouse.move(start.x + 40, start.y + 40, { steps: 4 });
+  const endpoint = { x: start.x + 40, y: start.y + 40 };
+  await page.mouse.move(endpoint.x, endpoint.y, { steps: 4 });
   const pending = page.locator('#edges path.edge-pending');
   await expect(pending).toHaveCount(1);
-  await page.evaluate(() => new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-  }));
+  await expect.poll(() => pending.evaluate((element, expected) => {
+    const path = element as SVGPathElement;
+    const matrix = path.getScreenCTM();
+    if (!matrix) throw new Error('pending edge has no screen transform');
+    const point = path.getPointAtLength(path.getTotalLength());
+    const screenX = point.x * matrix.a + point.y * matrix.c + matrix.e;
+    const screenY = point.x * matrix.b + point.y * matrix.d + matrix.f;
+    return Math.abs(screenX - expected.x) < 0.01 && Math.abs(screenY - expected.y) < 0.01;
+  }, endpoint)).toBe(true);
   const before = await pending.getAttribute('d');
 
   await page.evaluate(() => {
@@ -932,13 +952,24 @@ test('source-backed pointercancel interrupts a node drag without changing source
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
   const node = sourceNode(page, 'osc');
+  const nodeId = await node.getAttribute('data-node-id');
   const before = await node.evaluate((element) => ({
     left: (element as HTMLElement).style.left,
     top: (element as HTMLElement).style.top,
   }));
+  const beforeCenter = await center(node, 'source-backed node');
 
-  await page.evaluate(() => {
-    const root = document.querySelector('#canvas-root') as HTMLDivElement;
+  const snapshot = await page.evaluate(() => {
+    const target = document.getElementById('canvas-render-layer');
+    const root = document.querySelector('#canvas-root') as HTMLDivElement | null;
+    if (!target || !root) throw new Error('canvas render layer is not mounted');
+    const { promise, resolve } = Promise.withResolvers<RenderState>();
+    const eventName = 'canopy-canvas-render-state';
+    const listener = (event: Event) => {
+      target.removeEventListener(eventName, listener);
+      resolve(JSON.parse((event as CustomEvent<string>).detail));
+    };
+    target.addEventListener(eventName, listener);
     const node = [...document.querySelectorAll('.canvas-node')].find((candidate) => (
       candidate.querySelector('.node-title')?.textContent === 'osc'
     ));
@@ -965,8 +996,16 @@ test('source-backed pointercancel interrupts a node drag without changing source
       clientX: rect.left + rect.width / 2 + 48,
       clientY: rect.top + rect.height / 2 + 32,
     }));
+    return promise;
   });
-  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  expect(snapshot.nodes.find((node) => node.id === nodeId)).toMatchObject({
+    x: Number.parseFloat(before.left),
+    y: Number.parseFloat(before.top),
+  });
+  await expect.poll(async () => {
+    const after = await center(node, 'interrupted source-backed node');
+    return [after.x, after.y];
+  }).toEqual([beforeCenter.x, beforeCenter.y]);
 
   await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');

@@ -2,6 +2,7 @@ import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import * as cmCommands from '@codemirror/commands';
 import * as cmState from '@codemirror/state';
 import * as cmView from '@codemirror/view';
+import * as canvasModule from '@moonbit/canopy-canvas';
 import {
   GraphAdapter,
   type CanvasModule,
@@ -91,10 +92,9 @@ const canopyGlobal = globalThis as typeof globalThis & {
   __canopy_codemirror?: Record<string, unknown>;
 };
 
-async function init(): Promise<void> {
+function init(): void {
   canopyGlobal.__canopy_codemirror = { ...cmState, ...cmView, ...cmCommands };
-  const raw = await import('@moonbit/canopy-canvas');
-  const mod: CanvasModule = adaptMoonBitModule(raw, {
+  const mod: CanvasModule = adaptMoonBitModule(canvasModule, {
     createFunctions: ['create_source_graph'],
     destroyFunctions: ['destroy_source_graph'],
     tryDestroyFunctions: ['try_destroy_source_graph'],
