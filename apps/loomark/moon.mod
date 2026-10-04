@@ -5,7 +5,7 @@ version = "0.1.0"
 import {
   "moonbit-community/rabbita@0.16.3",
   "moonbitlang/async@0.22.1",
-  "moonbit-community/rui@0.3.3",
+  "moonbit-community/rui@0.3.5",
   "dowdiness/diagnostic@0.1.0",
   "dowdiness/dom_boundary@0.1.0",
   "dowdiness/worker_platform@0.1.0",

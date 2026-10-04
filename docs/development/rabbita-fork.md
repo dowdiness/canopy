@@ -14,11 +14,11 @@ docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
-- **Downstream branch:** `refactor/indexed-db-managed-store`
-- **Upstream base:** `d31819b4b59653550af5fcd3c1bc5c424caae64a` (`rabbita-v0.16.3`)
-- **Pinned commit:** `76389326f57f66f24fde59e3fec1c7d6b0befc4e`
-- **Pin tag:** `canopy-rabbita-0.16.3-20261004`
-- **Upgrade PR:** [`dowdiness/rabbita#8`](https://github.com/dowdiness/rabbita/pull/8)
+- **Downstream branch:** `main`
+- **Upstream base:** `b46d141fa3f4971be010d7d5bb5a178dfa20f300` (upstream `main`)
+- **Pinned commit:** `139ae60c9fc7efc5a791c6720b67bceb46107e5d`
+- **Pin tag:** `canopy-main-20261004`
+- **History:** 17 rebased fork commits, followed by integration fixes and the upstream-only website deployment guard; no downstream merge commits.
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -52,9 +52,10 @@ upstream Rabbita change.
 
 ## 0.16.3 integration
 
-The pin merges upstream Rabbita 0.16.3 into the existing downstream line. It
-includes RUI 0.3.3 and Warren 0.4.0; Canopy's Rabbita dependency declarations
-match 0.16.3.
+The pin places the fork-specific commits on top of upstream `main`, rather
+than merging upstream into the old downstream branch. It includes Rabbita
+0.16.3, RUI 0.3.5, and Warren 0.4.4 with its embedded evol minifier.
+Canopy's Rabbita dependency declarations match 0.16.3.
 
 - Loomark imports `moonbit-community/rui` instead of `Yoorkin/rui`. Its delete
   confirmation uses the native alert dialog, `@dialog.show`, and the dialog
@@ -73,13 +74,14 @@ This upgrade does not add Worker bindings.
 ## Upgrade procedure
 
 1. Fetch the upstream and downstream repositories.
-2. Merge or rebase the downstream branch as appropriate.
+2. Rebase the fork-specific commits onto upstream `main`, keeping the downstream history linear.
 3. Run the full Rabbita test suite.
 4. Run the full Canopy test suite and the affected Ideal E2E tests.
 5. Build the JavaScript artifacts.
-6. Update the `deps/rabbita` submodule and
-   `scripts/install-local-warren.sh` to the same verified downstream commit.
-7. Record the new commit and tag here, then verify the superproject is clean.
+6. Publish the verified downstream `main` and a new pin tag without moving existing tags.
+7. Update the `deps/rabbita` submodule and
+   `scripts/install-local-warren.sh` to the same published downstream commit.
+8. Record the new commit and tag here, then verify the superproject is clean.
 
 A downstream commit must be pushed to `dowdiness/rabbita` before its gitlink is
 updated in Canopy so fresh recursive checkouts can resolve it.
