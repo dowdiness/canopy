@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:process.env.HEADED!=='1'}),context=await browser.newContext(),results=[];
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined),headless:process.env.HEADED!=='1'}),context=await browser.newContext(),results=[];
 try{for(const phase of ['ready','opening','inflight']){
  const p=await context.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));
  await p.goto(`http://127.0.0.1:4182/fixture.html?local-tabs-worker=1&doc=lifecycle-${Date.now()}&seed=base${phase==='opening'?'&size=100000':''}`);await p.waitForSelector('textarea');

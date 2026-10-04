@@ -2,7 +2,7 @@ import {chromium} from 'playwright';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import assert from 'node:assert/strict';
-const headed=process.env.HEADED==='1',browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:!headed});
+const headed=process.env.HEADED==='1',browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined),headless:!headed});
 const context=await browser.newContext({viewport:{width:1200,height:900}}),errors=[];context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
 const result={date:new Date().toISOString(),browser:browser.version(),headless:!headed,cpu:os.cpus()[0].model,node:process.version,viewport:{width:1200,height:900},cases:[],errors};
 const run='worker-perf-'+Date.now();

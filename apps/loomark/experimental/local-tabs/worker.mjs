@@ -12,7 +12,7 @@ async function open(request){
  if(!seed){
   const text=request.seed;if(!text.isWellFormed()||[...text].length>100000)throw Error('Invalid or oversized synthetic seed');
   const h=egw.create('seed-'+crypto.randomUUID(),'','').handle;
-  const state=egw.replace(h,0,0,text);
+  const state=egw.replace(h,0,0,text,true);
   seed=await initialize(db,documentId,{archive:egw.archive(h).archive,version:state.version});
  }
  timings.seedMs=performance.now()-start;let t=performance.now();
@@ -52,7 +52,8 @@ async function execute(r){
    let text=before.text;
    const cost=changes.reduce((n,c)=>n+[...c.inserted].length+[...text.slice(c.start,c.start+c.deleted)].length,0);
    if(cost>MAX_OPS)throw Error('Input exceeds per-packet operation limit; draft retained');
-   for(const c of changes){if(!c.inserted.isWellFormed())throw Error('Malformed UTF-16');const a=scalarAt(text,c.start),b=scalarAt(text,c.start+c.deleted);text=egw.replace(editor,a,b,c.inserted).text;}
+   // A native intent, not each diff hunk, starts the next Undo group.
+   for(let i=0;i<changes.length;i++){const c=changes[i];if(!c.inserted.isWellFormed())throw Error('Malformed UTF-16');const a=scalarAt(text,c.start),b=scalarAt(text,c.start+c.deleted);text=egw.replace(editor,a,b,c.inserted,i===0).text;}
    if(text!==r.after)throw Error('Native TextChange result mismatch');
   }
   const after=info(),payload=egw.delta(editor,before.version).payload;
@@ -96,7 +97,7 @@ async function execute(r){
  }
  if(r.type==='test-admission'){
   const before=info(),errors=[],h=egw.create(crypto.randomUUID(),'','').handle,empty=egw.inspect(h).version;
-  egw.replace(h,0,0,'X');const oversized=JSON.parse(egw.delta(h,empty).payload);oversized.operations=Array(100001).fill(oversized.operations[0]);
+  egw.replace(h,0,0,'X',true);const oversized=JSON.parse(egw.delta(h,empty).payload);oversized.operations=Array(100001).fill(oversized.operations[0]);
   for(const payload of ['{}','{"schema":1,"operations":[]}',JSON.stringify(oversized)])try{egw.apply(editor,payload);}catch(e){errors.push(e.message);}
   return {before,after:info(),errors};
  }

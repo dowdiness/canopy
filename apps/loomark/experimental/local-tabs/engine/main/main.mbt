@@ -49,17 +49,24 @@ fn inspect_state(handle : Int) -> String {
 }
 
 ///|
-fn replace(handle : Int, start : Int, end : Int, inserted : String) -> String {
+fn replace(
+  handle : Int,
+  start : Int,
+  end : Int,
+  inserted : String,
+  new_group : Bool,
+) -> String {
   try {
     let (state, undo) = states[handle]
-    undo.stop_capturing()
+    if new_group {
+      undo.stop_capturing()
+    }
     state.replace_range_and_record(
       @text.Range::from_ints(start, end),
       inserted,
       undo,
       timestamp_ms=0,
     )
-    undo.stop_capturing()
     inspect_state(handle)
   } catch {
     error => failure(error)
@@ -157,7 +164,7 @@ fn apply(handle : Int, payload : String) -> String {
 extern "js" fn expose(
   create : (String, String, String) -> String,
   inspect : (Int) -> String,
-  replace : (Int, Int, Int, String) -> String,
+  replace : (Int, Int, Int, String, Bool) -> String,
   apply : (Int, String) -> String,
   delta : (Int, String) -> String,
   archive : (Int) -> String,

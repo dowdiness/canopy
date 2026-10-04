@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
-const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:process.env.HEADED!=='1'});
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined),headless:process.env.HEADED!=='1'});
 const context=await browser.newContext({viewport:{width:1200,height:900}});
 const errors=[],results=[];
 context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
@@ -29,8 +29,21 @@ async function same(a,b){
   const ids=v=>JSON.parse(v).ranges.flatMap(r=>r.ranges.flatMap(i=>Array.from({length:i.end-i.start},(_,n)=>[r.replica_id,i.start+n]))).sort();
   assert.deepEqual(ids(aa.version),ids(bb.version));return aa;
 }
-async function record(name,fn){const start=Date.now();const detail=await fn();results.push({name,passed:true,ms:Date.now()-start,...detail});console.log('PASS',name,detail||'');}
+async function record(name,fn){if(process.env.TEST_FILTER&&!name.includes(process.env.TEST_FILTER))return;const start=Date.now();const detail=await fn();results.push({name,passed:true,ms:Date.now()-start,...detail});console.log('PASS',name,detail||'');}
 try{
+  await record('ReplaceAll separated hunks are one native Undo group',async()=>{
+    const seed='alpha middle omega',replacement='ALPHA middle OMEGA';
+    const a=await page('replace-all',seed);
+    // An input without beforeinput makes the real binding admit ReplaceAll.
+    await a.locator('textarea').evaluate((e,text)=>{e.value=text;e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertReplacementText',data:text}));},replacement);
+    await settled(a);assert.equal((await a.evaluate(()=>trial.inspect())).text,replacement);
+    await edit(a,replacement.length,replacement.length,'!');await settled(a);
+    await a.keyboard.press('Control+z');await settled(a);assert.equal(await a.locator('textarea').inputValue(),replacement);
+    await a.keyboard.press('Control+z');await settled(a);assert.equal(await a.locator('textarea').inputValue(),seed);
+    await a.keyboard.press('Control+Shift+z');await settled(a);assert.equal(await a.locator('textarea').inputValue(),replacement);
+    await a.keyboard.press('Control+Shift+z');await settled(a);assert.equal(await a.locator('textarea').inputValue(),replacement+'!');
+    await a.close();
+  });
   await record('two real tabs: edit, save, close both, reopen',async()=>{
     let [a,b]=await Promise.all([page('basic'),page('basic')]);
     await edit(a,0,0,'A ');await settled(a);await b.evaluate(()=>trial.catchUp());

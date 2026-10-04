@@ -9,14 +9,14 @@ Source/DocumentReplica schema, account enrollment and cloud sync are unchanged.
 |---|---|
 | First open / 100k restore | Atomic seed, fresh writer; readonly until ready; no EGW on main |
 | Local edit / delayed remote offer | Preserve every optimistic input; reject offer on local revision or composition mismatch |
-| Japanese composition | Freeze remote DOM; commit original displayed basis; terminal input clears fence |
+| Japanese composition | Freeze remote DOM; retain terminal input and original displayed basis through Worker recovery or blocked save; Retry persists it |
 | Save R while typing R+1 | Only exact packet transaction completion removes that packet; never clear newer dirty |
 | Worker dies before edit response | Retain native intent; no save authorized before main retains immutable packet |
 | Worker dies before/during/after save | Replay durable union and retained packets; same operation IDs, exactly once |
 | A→B→A / late response | Worker epoch, request ID and document identity fence all responses |
 | Close/reload | Only committed union advertised Saved; pending text stays exportable and unload guarded |
 | Duplicate/reordered hints | Hints carry no operations; poll IDB, validate original whole packets |
-| Undo/Redo | Record only local edits; known concurrent-delete revival unchanged; restart clears Undo explicitly |
+| Undo/Redo | One group per native intent, including separated ReplaceAll hunks; only local edits recorded; known concurrent-delete revival unchanged; restart clears Undo explicitly |
 | Resource failure | Keep native draft and packets, show not saved, never slice admission or evict history |
 | Disposal | Actual Rabbita local subscription terminates Worker/listeners, rejects callbacks |
 
@@ -31,6 +31,12 @@ existing local-tabs proof-of-concept immutable IDB journal and pure UTF16/
 selection helpers; real MarkdownEditor input_view/admit; Rabbita after_render
 command and Local subscription cleanup. Worker owns mutable EGW and IDB effects;
 pure protocol admission and selection transformations are separately tested.
+
+The private engine FFI reuses `UndoManager::stop_capturing()` at the first hunk
+of a native intent, not at every hunk. EGW's existing timestamp-based capture
+then groups that intent's hunks; no public EGW API or submodule change is needed.
+Binding-admitted input is retained independently of the Worker's execution
+gate; read-only UI prevents new edits without discarding an in-flight commit.
 
 The Worker keeps an editing replica matching the main display's accepted basis
 and a merged replica admitting durable remote packets. Main accepts a remote

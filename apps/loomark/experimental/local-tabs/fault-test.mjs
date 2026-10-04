@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:process.env.HEADED!=='1'});
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined),headless:process.env.HEADED!=='1'});
 const context=await browser.newContext({viewport:{width:1200,height:900}}),results=[],errors=[];
 context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
 const run='fault-'+Date.now();
@@ -9,9 +9,54 @@ async function page(name,extra=''){const p=await context.newPage();await p.goto(
 async function ready(p){await p.waitForFunction(()=>globalThis.trial?.state?.ready&&!document.querySelector('textarea').readOnly,{},{timeout:30000});}
 async function settled(p){await p.waitForFunction(()=>trial.state.ready&&!trial.state.running&&!trial.state.queue.length&&!trial.state.packets.length&&!trial.state.failure&&!trial.state.blocked,{},{timeout:30000});}
 async function edit(p,text){await p.locator('textarea').focus();await p.keyboard.press('Control+End');await p.keyboard.insertText(text);}
-async function record(name,fn){const start=Date.now();const data=await fn();results.push({name,passed:true,ms:Date.now()-start,...data});console.log('PASS',name,data||'');}
+async function record(name,fn){if(process.env.TEST_FILTER&&!name.includes(process.env.TEST_FILTER))return;const start=Date.now();const data=await fn();results.push({name,passed:true,ms:Date.now()-start,...data});console.log('PASS',name,data||'');}
 async function committedCount(p){return p.evaluate(async()=>{const {openStore,readJournal}=await import('./store.mjs');const db=await openStore();const rows=await readJournal(db,trial.state.documentId,0);db.close();return rows.length;});}
 try{
+ for(const fault of ['worker-loss','blocked-save'])await record('composition terminal input survives '+fault,async()=>{
+  const p=await page('composition-'+fault);
+  if(fault==='blocked-save'){
+   await p.evaluate(()=>{
+    trial.state.abortNext=true;
+    const client=trial.state.client,request=client.request.bind(client);
+    let release;trial.releaseSaveFailure=()=>release();
+    const gate=new Promise(resolve=>release=resolve);
+    client.request=async(type,args)=>{try{return await request(type,args);}catch(error){if(type==='save'){trial.saveFailed=true;await gate;}throw error;}};
+   });
+   await edit(p,' X');await p.waitForFunction(()=>trial.saveFailed);
+   // Queue another native intent while the save is in flight, then start IME.
+   await edit(p,' Y');
+  }
+  const before=await p.locator('textarea').inputValue(),basis=await p.evaluate(()=>trial.state.basisVersion);
+  await p.locator('textarea').evaluate(e=>{
+   e.focus();e.setSelectionRange(e.value.length,e.value.length);
+   e.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:''}));
+   e.dispatchEvent(new InputEvent('beforeinput',{bubbles:true,inputType:'insertCompositionText',data:'に',isComposing:true}));
+   e.setRangeText('に',e.selectionStart,e.selectionEnd,'end');
+   e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertCompositionText',data:'に',isComposing:true}));
+  });
+  if(fault==='worker-loss')await p.evaluate(()=>{
+   const client=trial.state.client,request=client.request.bind(client);
+   let release;trial.releaseRecovery=()=>release();
+   const gate=new Promise(resolve=>release=resolve);
+   client.request=async(type,args)=>{if(type==='open')await gate;return request(type,args);};
+   trial.crash();
+  });
+  else {await p.evaluate(()=>trial.releaseSaveFailure());await p.waitForFunction(()=>!!trial.state.blocked);}
+  await p.locator('textarea').evaluate(e=>{
+   const end=e.value.length;e.setRangeText('日本語',end-1,end,'end');
+   e.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'日本語'}));
+   e.dispatchEvent(new InputEvent('beforeinput',{bubbles:true,inputType:'insertFromComposition',data:'日本語',isComposing:false}));
+   e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertFromComposition',data:'日本語',isComposing:false}));
+  });
+  const retained=await p.evaluate(before=>({text:trial.state.text,basis:trial.state.basisVersion,item:trial.state.queue.find(item=>item.before===before&&item.after===before+'日本語'),composing:trial.state.composing}),before);
+  assert.equal(retained.text,before+'日本語');assert.equal(retained.basis,basis);
+  assert.equal(retained.item.before,before);assert.equal(retained.item.after,before+'日本語');
+  assert.equal(retained.composing,false);assert.notEqual(await p.locator('#status').innerText(),'Saved on this device');
+  if(fault==='worker-loss')await p.evaluate(()=>trial.releaseRecovery());else await p.locator('#retry').click();
+  await ready(p);await settled(p);assert.equal(await p.locator('textarea').inputValue(),before+'日本語');
+  await p.reload();await ready(p);assert.equal(await p.locator('textarea').inputValue(),before+'日本語');
+  await p.close();
+ });
  await record('Saved then Worker termination restores each accepted operation exactly once',async()=>{
   const p=await page('saved');await edit(p,' A');await settled(p);await edit(p,' B');await settled(p);
   const before=await p.evaluate(()=>trial.inspect()),writer=await p.evaluate(()=>trial.state.writer);

@@ -1,6 +1,7 @@
 # Loomark local-tabs Worker: Codex handoff
 
-Status: **draft handoff only; not merge-ready** (2026-10-03).
+Status: **draft synthetic-only experiment; not approved for merge or deployment**
+(updated 2026-10-04).
 
 ## 日本語の引き継ぎ
 
@@ -9,6 +10,28 @@ Loomark の実際の Text エディターから、合成文書だけを使う Wo
 承認ではありません。既存の測定結果と、このブランチの検証状態を分けて
 扱ってください。まず下記の未解決項目を再現し、修正後のコミットで通常の
 フックと CI を実行してください。
+
+## Resumed work, 2026-10-04
+
+- Reproduced and fixed both reported bugs: one Undo group now spans all diff
+  hunks of a native ReplaceAll; a binding-admitted composition commit is queued
+  on its original basis even while blocked. Retry does not discard the intent.
+- Added browser regressions for separated-hunk Undo/Redo and terminal Japanese
+  composition during Worker recovery and a blocked IndexedDB abort. Both
+  regressions failed before the corresponding fix and passed afterward.
+- Fresh headless validation passed: 11 pure tests, 13 browser scenarios,
+  13 fault scenarios, 3 real Rabbita unmount/remount scenarios, and ordinary-mode
+  isolation. Scoped strict MoonBit checks and 388 Loomark release tests passed.
+  Independent persistence/concurrency and Undo-boundary reviews found no
+  high-confidence defects. These are scoped results, not whole-workspace CI.
+- Final-commit reruns, performance measurements, normal hook results, and the
+  exact GitHub CI head are recorded on [PR #1450](https://github.com/dowdiness/canopy/pull/1450).
+  Do not infer a current pass from the historical results below or `RESULTS.md`.
+- Browser scripts now support `CHROME_PATH` consistently and default to the
+  lockfile-matched Playwright Chromium on Linux. See README for Linux build/run
+  commands. Generated bundles, dependencies, and raw `evidence/` remain untracked.
+- Actual Japanese OS IME, stable provenance-based cursor anchors, and durable
+  local Undo across Worker restarts remain outside the verified claims.
 
 ## Source provenance and scope
 
@@ -34,27 +57,24 @@ Loomark の実際の Text エディターから、合成文書だけを使う Wo
 - No production storage migration, account enrollment, server sync, submodule
   pointer change, merge, or deployment is included.
 
-## Must resolve before implementation review
+## Original findings and current disposition
 
-1. **ReplaceAll is split into multiple Undo groups.** `worker.mjs` expands a
-   full replacement into diff hunks and calls `egw.replace` for each; the engine
-   `replace` calls `undo.stop_capturing()` around every hunk. Add a regression
-   with separated hunks and prove one Undo/Redo represents one native intent.
-2. **Composition commit can be dropped during recovery or blocked state.**
-   The original `client.mjs` rejected `onChange` while `!ready || blocked`. The
-   recovered patch queues an existing-basis edit during `!ready`, but still
-   rejects it while explicitly blocked even after binding admission. Reproduce Worker
-   loss and persistence failure during composition, then terminal composition
-   input. Preserve original basis, native text, intent, and honest Not saved
-   status. A `!ready` fix alone does not establish correctness while blocked.
-3. **Unacknowledged history action must remain explicit.** The pre-fix export's
-   Retry canceled an interrupted Undo/Redo. Recovered A6 edits now retain history
-   requests on any error and require a separately confirmed cancellation.
-   The exact source changes and added fault tests are included, but the new
-   regressions have not been run. Review and test this change before promotion.
-4. Recheck normal-mode isolation, interrupted/repeated flows, and actual
-   Rabbita disposal. Keep accepted packets immutable until matching IndexedDB
-   transaction completion; ordinary Preview's latest-only policy is unsuitable.
+1. **ReplaceAll Undo grouping — fixed.** The Worker starts a new Undo group
+   only on the first diff hunk of each native intent. The regression checks a
+   separated-hunk replacement, a following edit, two Undo steps and two Redo
+   steps, preserving both grouping and boundaries between intents.
+2. **Composition commit during recovery or blocked state — fixed.** Once the
+   binding admits an input on an existing basis, the client retains its native
+   text and intent regardless of the execution gate. Worker loss and an actual
+   IndexedDB transaction abort while composing are covered; Retry and reload
+   preserve the committed text. Blocked state remains Not saved.
+3. **Unacknowledged history action remains explicit — revalidated.** Retry
+   retains an interrupted Undo/Redo request; only separately confirmed
+   cancellation abandons it. Fresh fault runs exercise a Worker crash and an
+   ordinary error after history execution, including Retry and cancellation.
+4. **Isolation, repeated flows, and disposal — revalidated in scoped suites.**
+   Accepted packets remain immutable until matching IndexedDB completion;
+   ordinary Preview's latest-only policy is not used.
 5. Real Japanese OS IME remains unverified. Synthetic composition events and
    headed Chrome do not establish OS input-method correctness.
 
@@ -133,15 +153,13 @@ node performance-test.mjs
 node trace-test.mjs
 ```
 
-Most browser scripts currently hard-code
-`C:/Program Files/Google/Chrome/Application/chrome.exe`; only browser-test.mjs
-accepts `CHROME_PATH`. Review a portability change before running on another OS.
-Performance runs must be serial. Build outputs and dependencies are deliberately
-absent from this source handoff and must be regenerated, never copied from an
-older bundle to claim final-source validation.
+All browser scripts accept `CHROME_PATH`; Linux defaults to the pinned
+Playwright Chromium installed with `npx playwright install chromium`.
+Performance runs must be serial. Build outputs and dependencies must be
+regenerated, never copied from an older bundle to claim final-source validation.
 
-Add the failing regressions above first. Then run the affected MoonBit strict
-checks/release tests and normal repository hooks against the candidate commit.
+Keep the behavioral regressions above when making further changes. Run the
+affected MoonBit strict checks/release tests and normal hooks on each candidate.
 Review the generated `.mbti` diff and get independent persistence/concurrency
 review. Push normally without bypassing Lefthook and verify GitHub's required
 `All Checks Passed` aggregate for the exact commit before considering merge.

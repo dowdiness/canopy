@@ -2,7 +2,7 @@ import {chromium} from 'playwright';
 import fs from 'node:fs/promises';
 import {gzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
-const headed=process.env.HEADED==='1',browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:!headed});
+const headed=process.env.HEADED==='1',browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined),headless:!headed});
 const context=await browser.newContext({viewport:{width:1200,height:900}}),p=await context.newPage(),records=[];
 const url=`http://127.0.0.1:4182/?local-tabs-worker=1&doc=trace-${Date.now()}&size=100000`;
 async function ready(){await p.bringToFront();await p.waitForFunction(()=>globalThis.trial?.state?.ready&&!document.querySelector('textarea').readOnly,{},{timeout:60000});await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));}

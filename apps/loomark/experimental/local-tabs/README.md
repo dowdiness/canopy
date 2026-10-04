@@ -1,7 +1,8 @@
 # Loomark local tabs — Worker experiment
 
-> Draft Codex handoff, not merge-ready. Start with [CODEX_HANDOFF.md](CODEX_HANDOFF.md)
-> for source provenance, unresolved correctness issues, and unrun gates.
+> Draft synthetic-only experiment; no merge or production rollout is authorized.
+> [CODEX_HANDOFF.md](CODEX_HANDOFF.md) records the fixes and separates historical
+> measurements from current-commit verification on PR #1450.
 
 Explicit experimental Text mode in the real Loomark `app()` entry. It reuses
 MarkdownEditor.input_view/admit, TextArea/TextChange, Rabbita rendering and local
@@ -9,7 +10,7 @@ subscription disposal. It is not a production Source/DocumentReplica migration,
 and it does not integrate the ordinary Catalog, Preview, account or server sync.
 The experimental controls/style are deliberately limited to synthetic Text.
 
-## Run on A6
+## Build and run
 
 Use the repository's pinned submodules, MoonBit/compiler core 0.10.14+7d59c7ec9,
 Node 24.11.1 and installed Chrome. The independent EGW checkout must be a sibling
@@ -25,6 +26,26 @@ npm ci
 .\build.ps1
 node serve.mjs
 ```
+
+On Linux, build the same targets from this directory:
+
+```sh
+npm ci
+npx playwright install chromium
+moon check ../../internal/local_tabs --target js --deny-warn
+moon build ../../main --target js --release
+moon build engine/main --target js --release
+moon build fixture --target js --release
+cp _build/js/release/build/dowdiness/loomark/main/main.js loomark.js
+cp _build/js/release/build/trial/local_tabs/main/main.js egw.js
+cp _build/js/release/build/dowdiness/loomark/experimental/local-tabs/fixture/fixture.js fixture.js
+node serve.mjs
+```
+
+All browser scripts accept `CHROME_PATH`. Without it, Windows uses installed
+Chrome and other platforms use the lockfile-matched Playwright Chromium.
+For a Linux virtual display, use `xvfb-run -a node <script>`; add `HEADED=1`
+to exercise headed Chromium. A virtual display does not exercise an OS IME.
 
 Open `http://127.0.0.1:4182/?local-tabs-worker=1&doc=synthetic-demo` in two tabs.
 Use `&size=10000` or `&size=100000` for synthetic digit seeds. Size/seed only
@@ -43,6 +64,9 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
   memory; no second CRDT is rebuilt on the main thread.
 - No editing until restore verifies Version/pending and returns text. Native
   input then changes the textarea immediately and queues every exact intent.
+  An already admitted terminal input retains its native text and original basis
+  even if recovery or a blocked save has since made the editor read-only.
+  Blocked queues remain Not saved until explicit Retry succeeds.
   Remote projection requires matching local revision/basis with no composition
   or pending input. This is not Preview's latest-only operation-dropping policy.
 - An accepted packet reaches main memory before main authorizes its transaction.
@@ -63,8 +87,10 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
 - UTF16/scalar translation is validated. Composition defers remote DOM and keeps
   the original basis. Selection uses bounded text alignment with an explicit
   approximate fallback; repeated characters lack stable provenance anchors.
-- Undo records this tab's edits only. Known concurrent-delete Undo revival and
-  deterministic redgreen/greenred overlapping rewrites are unchanged.
+- Undo records this tab's edits only, with one group per native intent even when
+  ReplaceAll expands into separated diff hunks. Consecutive native intents remain
+  separate groups. Known concurrent-delete Undo revival and deterministic
+  redgreen/greenred overlapping rewrites are unchanged.
   Worker restart, like reopen, clears the old local Undo stack and says so.
   **Undo/Redo interrupted before its response cannot be reconstructed with the
   current EGW API.** It remains an explicit unresolved failure, never silently
@@ -90,10 +116,13 @@ node performance-test.mjs
 node trace-test.mjs
 ```
 
-`browser-test.mjs` retains the previous twelve boundaries. `fault-test.mjs`
-adds Saved→termination, missing edit reply, delayed remote projection, transaction
+`browser-test.mjs` includes separated-hunk ReplaceAll Undo/Redo alongside the
+two-tab, Unicode, selection, save and admission boundaries. `fault-test.mjs`
+adds terminal composition during Worker loss and a blocked transaction failure,
+Saved→termination, missing edit reply, delayed remote projection, transaction
 fault phases, readonly restore, A→B→A, unresolved Undo, and >100k missed ops.
-Fault injection hooks belong only to these isolated experimental assets.
+`TEST_FILTER` selects named cases in those two scripts for diagnosis; omit it
+for full verification. Fault injection belongs only to experimental assets.
 
 Performance reports separate load→ready, Worker restore/replay, local input,
 local acceptance, remote application and IDB commit. Double rAF is a presentation
@@ -101,10 +130,8 @@ opportunity proxy, not pixel paint. Chrome traces include navigation through
 usable text and renderer main RunTask durations, excluding dedicated Worker
 threads; raw traces are gzip JSON. Headed browser input is not actual OS IME.
 
-Actual Japanese IME remains unverified: Windows lists Japanese input, but this
-session lacks the required node_repl/@oai/sky CUA controls. No OS settings or
-input methods were installed or changed. Synthetic composition tests do not
-establish OS IME correctness.
+Actual Japanese OS IME remains unverified. Synthetic composition events and
+headed Chromium, including Linux/Xvfb runs, do not establish OS IME correctness.
 
 See BOUNDARIES.md for the reference/reuse decisions and fault matrix. Root full
 workspace validation belongs to repository CI; local results must identify the

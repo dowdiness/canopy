@@ -1,7 +1,7 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||(process.platform==='win32'?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined),headless:true});
 const context=await browser.newContext();await context.route('**/api/**',route=>route.fulfill({status:503,body:'isolated test: account service unavailable'}));
 const p=await context.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
 try{await p.goto('http://127.0.0.1:4182/');const area=p.getByRole('textbox',{name:'Text',exact:true});await area.waitFor();await area.fill('Synthetic normal-mode smoke');

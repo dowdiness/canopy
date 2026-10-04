@@ -91,7 +91,9 @@ async function pump(s){
   else{s.failure=String(error.message||error);if(!s.packets.length||s.queue.length)s.blocked=s.failure;}
  }finally{s.running=false;paint();if(!disposed&&!s.ready&&!s.failure)queueMicrotask(()=>void pump(s));}
 }
-function onChange(change){const s=active;if(s.blocked||(!s.ready&&!s.basisVersion))return;const start=performance.now();const before=s.text,after=element.value;s.text=after;s.revision++;s.queue.push({type:'edit',command:`${sessionId}:${s.documentId}:${++s.serial}`,commandSeq:s.serial,input:change,before,after,createdAt:performance.timeOrigin+(s.inputStarted||start)});paint();mark('local-input',s.inputStarted||start,{document:s.documentId});void pump(s);}
+// Binding admission already happened. Readonly blocks new input, not the
+// terminal event of an input begun before failure; retain it on its old basis.
+function onChange(change){const s=active;if(!s.basisVersion)return;const start=performance.now();const before=s.text,after=element.value;s.text=after;s.revision++;s.queue.push({type:'edit',command:`${sessionId}:${s.documentId}:${++s.serial}`,commandSeq:s.serial,input:change,before,after,createdAt:performance.timeOrigin+(s.inputStarted||start)});paint();mark('local-input',s.inputStarted||start,{document:s.documentId});void pump(s);}
 function onComposing(value){const s=active;s.composing=value;if(!value){s.editing=false;s.needPull=true;void pump(s);}paint();}
 function history(redo){const s=active;if(!s.ready||s.composing||s.editing||s.queue.length||s.historyPending||s.blocked)return;s.revision++;s.historyPending=true;s.queue.push({type:'history',command:`${sessionId}:${s.documentId}:${++s.serial}`,commandSeq:s.serial,before:s.text,redo,createdAt:Date.now()});paint();void pump(s);}
 function switchDocument(id,seed='# Synthetic document\n'){if(active?.composing)return false;if(active){active.selection=[element.selectionStart,element.selectionEnd,element.selectionDirection,element.scrollTop];}activation++;active=sessions.get(id)||newSession(id,seed);element.value=active.text;element.setSelectionRange(...active.selection.slice(0,3));element.scrollTop=active.selection[3];paint();void pump(active);return true;}
