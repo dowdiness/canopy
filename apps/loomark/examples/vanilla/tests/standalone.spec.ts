@@ -1502,11 +1502,9 @@ for (const mode of ["Text", "Split"] as const) {
       const footerTop = footer.getClientRects().length
         ? footer.getBoundingClientRect().top
         : Number.POSITIVE_INFINITY
-      const shell = document.querySelector("#loomark-editor")!
-      const blurTop = shell.getBoundingClientRect().bottom
-        - Number.parseFloat(getComputedStyle(shell, "::after").height)
-      return lineTop >= Math.max(rect.top, viewport.offsetTop) - 1
-        && lineBottom <= Math.min(rect.bottom, footerTop, blurTop, viewport.offsetTop + viewport.height) + 1
+      const headerBottom = document.querySelector(".loomark-topbar")!.getBoundingClientRect().bottom
+      return lineTop >= Math.max(rect.top, viewport.offsetTop, headerBottom) - 1
+        && lineBottom <= Math.min(rect.bottom, footerTop, viewport.offsetTop + viewport.height) + 1
         && document.elementFromPoint(rect.left + Number.parseFloat(style.paddingLeft) + 8, y) === area
     })
     // Pinch zoom alone must not remove the controls or reflow the editor.
@@ -1618,8 +1616,6 @@ for (const mode of ["Text", "Split"] as const) {
       const toggle = page.getByRole("button", { name: "Toggle documents" })
       if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click()
       await page.getByRole("tab", { name: mode, exact: true }).click()
-      expect(await editor.evaluate(element => element.getBoundingClientRect().top
-        + Number.parseFloat(getComputedStyle(element).paddingTop))).toBe(width <= 520 ? 68 : 70)
       if (mode === "Split" && minimumSplit) {
         await page.getByRole("slider", { name: "Resize editor and preview" }).fill("25")
       }
@@ -1631,26 +1627,27 @@ for (const mode of ["Text", "Split"] as const) {
       await editor.press("Control+End")
       await editor.pressSequentially("Current line")
       if (failure) await expect(page.getByRole("alert")).toBeVisible()
-      const visible = await editor.evaluate(element => {
+      await expect.poll(() => editor.evaluate(element => {
         const area = element as HTMLTextAreaElement
         const style = getComputedStyle(area), rect = area.getBoundingClientRect()
         // Every fixture line fits without wrapping. Check the actual selected line,
         // not scrollHeight or the amount of padding after the document.
-        const line = area.value.slice(0, area.selectionStart).split("\n").length - 1
-        const y = rect.top + Number.parseFloat(style.paddingTop)
-          + (line + 0.5) * Number.parseFloat(style.lineHeight) - area.scrollTop
+        const endpoint = area.selectionDirection === "backward" ? area.selectionStart : area.selectionEnd
+        const line = area.value.slice(0, endpoint).split("\n").length - 1
+        const lineHeight = Number.parseFloat(style.lineHeight)
+        const top = rect.top + Number.parseFloat(style.paddingTop) + line * lineHeight - area.scrollTop
+        const bottom = top + lineHeight
+        const y = (top + bottom) / 2
         const x = rect.left + Number.parseFloat(style.paddingLeft) + 8
         const footer = document.querySelector(".loomark-footer")!.getBoundingClientRect()
         const header = document.querySelector(".loomark-topbar")!.getBoundingClientRect()
         return {
           atEnd: area.selectionStart === area.value.length,
-          lineOutsideChrome: y > header.bottom && y < footer.top,
-          lineInsideInput: y > rect.top && y < rect.bottom,
+          lineOutsideChrome: top >= header.bottom - 1 && bottom <= footer.top + 1,
+          lineInsideInput: top >= rect.top - 1 && bottom <= rect.bottom + 1,
           unobscured: document.elementFromPoint(x, y) === area,
-          mask: style.maskImage,
         }
-      })
-      expect(visible).toEqual({ atEnd: true, lineOutsideChrome: true, lineInsideInput: true, unobscured: true, mask: "none" })
+      })).toEqual({ atEnd: true, lineOutsideChrome: true, lineInsideInput: true, unobscured: true })
       if (mode === "Split" && minimumSplit) {
         const panes = await page.locator("#loomark-editor-panels").evaluate(group => {
           const text = group.querySelector<HTMLElement>("#loomark-text-pane")!
@@ -1667,50 +1664,35 @@ for (const mode of ["Text", "Split"] as const) {
   })
 }
 
-test("Text stays outside fixed controls while Preview keeps softened viewport edges", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto("/")
-  const source = page.getByRole("textbox", { name: "Text" })
-  await source.fill(Array.from({ length: 90 }, (_, i) => `Line ${i + 1}`).join("\n"))
-  const bounds = async (selector: string) => page.locator(selector).evaluate(element => {
-    const { top, bottom } = element.getBoundingClientRect()
-    return { top, bottom }
-  })
-  expect(await bounds("#loomark-text")).toEqual({ top: 56, bottom: 836 })
-  expect(await bounds(".loomark-topbar")).toEqual({ top: 0, bottom: 48 })
-  expect(await bounds(".loomark-footer")).toEqual({ top: 836, bottom: 900 })
-  await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
-    .toBe("14px")
-  expect(await page.locator("#loomark-editor").evaluate(element => (
-    getComputedStyle(element, "::before").backdropFilter
-  ))).toBe("blur(2px)")
-  expect(await source.evaluate(element => getComputedStyle(element).maskImage)).toBe("none")
+test("scrollable text extends behind both bars without a separate blank frame", async ({ page }) => {
+  for (const size of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(size)
+    await page.goto("/")
+    const source = page.getByRole("textbox", { name: "Text" })
+    const content = Array.from({ length: 90 }, (_, i) => `Line ${i + 1}`).join("\n")
+    await source.fill(content)
+    const bounds = async (selector: string) => page.locator(selector).evaluate(element => {
+      const { top, bottom } = element.getBoundingClientRect()
+      return { top, bottom }
+    })
+    const shell = await bounds("#loomark-editor")
+    await expect.poll(() => bounds("#loomark-text")).toEqual(shell)
+    // A manual reading scroll must not be pulled back to the selection endpoint.
+    await source.press("Control+End")
+    await source.evaluate(element => { element.scrollTop = 300 })
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    expect(await source.evaluate(element => element.scrollTop)).toBe(300)
 
-  await page.getByRole("tab", { name: "Preview" }).click()
-  await expect.poll(() => bounds("#loomark-preview-scroll"))
-    .toEqual({ top: 0, bottom: 900 })
-  expect(await page.locator("#loomark-preview-scroll").evaluate(element => getComputedStyle(element).maskImage))
-    .toContain("rgb(0, 0, 0) 52px, rgb(0, 0, 0) calc(100% - 56px)")
-  await expect.poll(() => page.locator("#loomark-preview-scroll .rmd-preview-content")
-    .evaluate(element => getComputedStyle(element).paddingTop)).toBe("70px")
-  const preview = page.locator("#loomark-preview-scroll")
-  await preview.evaluate(element => { element.scrollTop = element.scrollHeight })
-  const lastLine = await bounds("#loomark-preview-scroll .rmd-preview-content > :last-child")
-  expect(lastLine.bottom).toBeLessThan((await bounds(".loomark-footer")).top)
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "false")
-  await page.getByRole("tab", { name: "Split" }).click()
-  await expect.poll(() => bounds("#loomark-text")).toEqual({ top: 56, bottom: 422 })
-  await expect.poll(() => bounds("#loomark-preview-scroll")).toEqual({ top: 422, bottom: 844 })
-  await expect.poll(() => source.evaluate(element => getComputedStyle(element).paddingTop))
-    .toBe("12px")
-  await expect.poll(() => page.locator("#loomark-preview-scroll .rmd-preview-content")
-    .evaluate(element => getComputedStyle(element).paddingTop)).toBe("16px")
-  expect(await source.evaluate(element => getComputedStyle(element).maskImage))
-    .not.toContain("calc(100% - 56px)")
-  expect(await preview.evaluate(element => getComputedStyle(element).maskImage))
-    .not.toContain("rgb(0, 0, 0) 52px")
+    await page.getByRole("tab", { name: "Preview", exact: true }).click()
+    await expect.poll(() => bounds("#loomark-preview-scroll")).toEqual(shell)
+    const preview = page.locator("#loomark-preview-scroll")
+    await preview.evaluate(element => { element.scrollTop = element.scrollHeight })
+    const lastLine = await bounds("#loomark-preview-scroll .rmd-preview-content > :last-child")
+    expect(lastLine.bottom).toBeLessThan((await bounds(".loomark-footer")).top)
+    await page.getByRole("tab", { name: "Text", exact: true }).click()
+    await expect(source).toHaveValue(content)
+  }
 })
 
 test("first edit reports quota full without creating a Source", async ({ page }) => {

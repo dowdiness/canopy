@@ -122,16 +122,16 @@ _Avoid_: layout, workspace
 
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
-The native editable viewport stays outside the fixed controls, including in
-Split. Native caret scrolling keeps the whole current writing line clear of the
-edge blur. Compact Split retains a minimum usable
-writing pane when notices reduce the available height. Preview retains its softened edges
-where fixed controls remain visible.
+Text and Preview scroll behind the top and bottom bars. The bars themselves use
+translucent, blurred backgrounds; there is no separate white frame or decorative
+blur strip. Native scroll padding keeps the current writing line outside the
+controls without changing text, selection, composition, or Undo. Manual reading
+scrolls are not pulled back to the caret. Compact Split retains a minimum usable
+writing pane when notices reduce the available height.
 At normal zoom, the editor follows the browser's visible viewport when an
 on-screen keyboard reduces it. While the visible viewport does not reach the
 layout viewport's bottom, the bottom bar and its reserved space are removed.
-Only a narrow, transparent bottom blur remains, without a white fill over text;
-the textarea's inner padding keeps its active line above that blur.
+No bottom overlay or reserved bottom gap remains while the bar is hidden.
 The top toolbar and failure notices remain available. The
 bottom bar returns when the viewport reaches the layout bottom again; a small
 window or hardware keyboard alone does not hide it.

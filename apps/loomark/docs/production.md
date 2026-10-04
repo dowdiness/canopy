@@ -90,7 +90,7 @@ The standalone viewport regressions simulate a visual-only resize and pan,
 including Text and Split, selection, Undo, keyboard dismissal, and pinch zoom.
 They also check that the bottom bar disappears without reserving space, returns
 on dismissal, and leaves save-failure notices visible at the new bottom edge.
-Caret checks cover the whole line, not only its center, above the bottom blur.
+Caret checks cover the whole line, not only its center, outside the visible bars.
 Desktop device emulation does not open a real software keyboard.
 
 Before releasing keyboard-layout changes, check iOS Safari and Android Chrome
@@ -98,8 +98,9 @@ on devices: focus near the end of a long document, open and dismiss the keyboard
 type Japanese through IME, move the caret within wrapped lines, and rotate the
 device in Text and Split. The current line must remain above the keyboard,
 without the bottom bar or its reserved gap consuming the visible area. Scroll
-through text and Preview: the bottom edge should blur underlying content, not
-cover it with a white strip. The active writing line must stay above the blur.
+through Text and Preview: content should pass behind the blurred top and bottom
+bars, not stop at a white frame. When the bottom bar is hidden, no separate blur
+strip should remain. The active writing line must stay outside visible controls.
 Closing the keyboard must restore the bar without losing text, selection, or Undo.
 Confirm that pinch zoom still works, save-failure notices remain readable, and
 a hardware keyboard or small window alone does not hide the bottom bar.

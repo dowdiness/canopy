@@ -106,7 +106,7 @@
    visible viewport. Override the Sidebar provider's inline layout minimum. */
 .loomark-viewport {
   --loomark-bottom-space: 64px;
-  --loomark-bottom-fade: max(0px, calc(var(--loomark-bottom-space) - 8px));
+  --loomark-content-bottom: calc(16px + var(--loomark-bottom-space));
   position: fixed !important;
   top: var(--loomark-viewport-top, 0px);
   inset-inline: 0;
@@ -118,23 +118,23 @@
    obscured. display:none also removes the unavailable controls from tab order. */
 [data-loomark-bottom-obscured] .loomark-viewport {
   --loomark-bottom-space: 0px;
+  --loomark-content-bottom: 0px;
 }
 [data-loomark-bottom-obscured] .loomark-footer {
   display: none;
 }
 
-.loomark-source-frame {
-  /* Native caret scrolling uses the textarea viewport, not its document padding. */
-  padding-block: 56px var(--loomark-bottom-space);
-}
-
-#loomark-editor:has(> .loomark-footer ~ [role="alert"]) .loomark-source-frame {
-  /* These notices already reserve the footer space in normal flow. */
-  padding-bottom: 0;
+#loomark-editor:has(> .loomark-footer ~ [role="alert"]) .loomark-source {
+  /* Notices already keep the caret clear of the footer. */
+  padding-bottom: 16px;
+  scroll-padding-bottom: 16px;
 }
 
 .loomark-source {
-  padding: 14px max(28px, calc((100% - 760px) / 2)) 16px;
+  /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
+     only element resizing needs the existing measured-caret correction. */
+  padding: 70px max(28px, calc((100% - 760px) / 2)) var(--loomark-content-bottom);
+  scroll-padding-block: 70px var(--loomark-content-bottom);
   line-height: 1.85;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -146,14 +146,10 @@
   opacity: 1;
 }
 
-#loomark-preview-scroll {
-  mask-image: linear-gradient(to bottom, transparent, black 52px, black calc(100% - var(--loomark-bottom-fade)), transparent);
-}
-
 #loomark-preview-scroll .rmd-preview-content {
   width: 100%;
   max-width: none;
-  padding: 70px max(28px, calc((100% - 720px) / 2)) calc(16px + var(--loomark-bottom-space));
+  padding: 70px max(28px, calc((100% - 720px) / 2)) var(--loomark-content-bottom);
   font-size: 16px;
   line-height: 1.85;
 }
@@ -178,26 +174,10 @@
 }
 
 .loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 30; }
-#loomark-editor::before, #loomark-editor::after {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  z-index: 10;
-  pointer-events: none;
-  backdrop-filter: blur(2px);
-}
-#loomark-editor::before {
-  top: 0;
-  height: 56px;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-lm-paper) 70%, transparent), transparent);
-  mask-image: linear-gradient(to bottom, black, transparent);
-}
-#loomark-editor::after {
-  bottom: 0;
-  /* Keep a narrow, transparent blur at the keyboard edge; never paint a white
-     strip over text. The textarea's inner padding keeps its active line clear. */
-  height: max(16px, var(--loomark-bottom-space));
-  mask-image: linear-gradient(to top, black, transparent);
+.loomark-topbar, .loomark-footer {
+  background: color-mix(in srgb, var(--color-lm-paper) 35%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 .loomark-icon {
   display: inline-flex;
@@ -263,7 +243,7 @@
     justify-content: center;
   }
 }
-.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: var(--color-lm-paper); }
+.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: transparent; }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
 .loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
 .loomark-footer ~ [role="alert"] { position: relative; z-index: 20; }
@@ -274,20 +254,16 @@
   /* Override RUI inline sizes to retain a writing line when notices reduce height. */
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text-pane { min-height: 112px !important; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) [data-side="second"] { flex-shrink: 1 !important; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame { padding-bottom: 0; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 12px 24px 16px; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px calc(16px + var(--loomark-bottom-space)); }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
-    mask-image: linear-gradient(to bottom, black calc(100% - var(--loomark-bottom-fade)), transparent);
-  }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 68px 24px 16px; scroll-padding-block: 68px 16px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px var(--loomark-content-bottom); }
 }
 @media (max-width: 800px) {
   .loomark-source { padding-inline: 32px; }
   #loomark-preview-scroll .rmd-preview-content { padding-inline: 32px; }
 }
 @media (max-width: 520px) {
-  .loomark-source { padding: 12px 24px 16px; }
-  #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px calc(16px + var(--loomark-bottom-space)); }
+  .loomark-source { padding-top: 68px; padding-inline: 24px; scroll-padding-top: 68px; }
+  #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px var(--loomark-content-bottom); }
   .loomark-menu { right: 12px; top: 49px; }
 }
 
