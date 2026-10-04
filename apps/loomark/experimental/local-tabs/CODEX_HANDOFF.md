@@ -32,6 +32,11 @@ Loomark の実際の Text エディターから、合成文書だけを使う Wo
   120k regression passes without a restart; a separate silent-exit-after-commit
   regression confirms timeout recovery still preserves the identical packet.
   Independent reviewers also checked these progress/ACK boundaries.
+- Fresh Linux/Xvfb traces on `7f1f77116b329a3edf930233feaf84633a5ffb04`
+  **failed** the assertion forbidding renderer-main tasks over 50ms: headless 55.846ms,
+  headed 50.160ms. The headless overrun included 46.398ms of Layout.
+  Functional success does not establish the historical A6 performance result.
+  Keep the performance failure visible even if a later sample falls below 50ms.
 - Final-commit reruns, performance measurements, normal hook results, and the
   exact GitHub CI head are recorded on [PR #1450](https://github.com/dowdiness/canopy/pull/1450).
   Do not infer a current pass from the historical results below or `RESULTS.md`.
