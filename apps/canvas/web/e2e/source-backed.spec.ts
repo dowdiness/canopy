@@ -590,6 +590,67 @@ test('source-backed inspector numeric parameter edit lowers to canonical source'
   expect(runtimeErrors).toEqual([]);
 });
 
+test('inspector preserves native draft and caret across snapshots, then cancels or commits once', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await selectSourceNode(page, 'osc');
+  const freq = page.locator('#node-param-freq');
+  await freq.fill('777');
+  await expect(freq).toBeFocused();
+  expect(await freq.evaluate((element) => {
+    const input = element as HTMLInputElement;
+    input.setSelectionRange(1, 2);
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter', isComposing: true, bubbles: true, cancelable: true,
+    });
+    input.dispatchEvent(event);
+    return event.defaultPrevented;
+  })).toBe(false);
+  await page.locator('#canvas-root').dispatchEvent('wheel', {
+    deltaY: -50, clientX: 700, clientY: 400, bubbles: true, cancelable: true,
+  });
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect(freq).toBeFocused();
+  await expect(freq).toHaveValue('777');
+  expect(await freq.evaluate((element) => {
+    const input = element as HTMLInputElement;
+    return [input.selectionStart, input.selectionEnd];
+  })).toEqual([1, 2]);
+  await expectSource(page, SAMPLE_SOURCE);
+
+  await freq.press('Escape');
+  await expect(freq).not.toBeFocused();
+  await expect(freq).toHaveValue('440');
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await freq.fill('880');
+  await page.getByRole('searchbox').click();
+  await expectSource(page, 'osc = sine(freq: 880Hz)\nmeter = scope()');
+  await expect(freq).toHaveValue('880');
+  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('rejected inspector edit restores canonical value without replacing dirty source', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  const dirtySource = 'osc = sine(freq: )\nmeter = scope()';
+  await setSource(page, dirtySource);
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
+  await selectSourceNode(page, 'osc');
+  const freq = page.locator('#node-param-freq');
+  await freq.fill('900');
+  await freq.press('Enter');
+  await expect(freq).toHaveValue('440');
+  await expect(freq).not.toBeFocused();
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
+  await expectSource(page, dirtySource);
+  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('source-backed selected edge deletion lowers into canonical source', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 
@@ -1028,4 +1089,56 @@ test('source-backed capture failure does not enter a graph session', async ({ pa
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
   await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
   expect(runtimeErrors).toEqual([]);
+});
+
+test('Inspector accepts focus and Enter in the same task before its next render', async ({ page }) => {
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await selectSourceNode(page, 'osc');
+  const freq = page.locator('#node-param-freq');
+  expect(await freq.evaluate((element) => {
+    const input = element as HTMLInputElement;
+    input.focus();
+    input.value = '880';
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, data: '880' }));
+    const enter = new KeyboardEvent('keydown', {
+      key: 'Enter', bubbles: true, cancelable: true,
+    });
+    input.dispatchEvent(enter);
+    return enter.defaultPrevented;
+  })).toBe(true);
+  await expectSource(page, 'osc = sine(freq: 880Hz)\nmeter = scope()');
+  await expect(freq).not.toBeFocused();
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+});
+
+test('cancelled Inspector follows later canonical Source edits and can edit again', async ({ page }) => {
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await selectSourceNode(page, 'osc');
+  const freq = page.locator('#node-param-freq');
+  await freq.fill('999');
+  await freq.press('Escape');
+  await expect(freq).toHaveValue('440');
+  await expect(freq).not.toBeFocused();
+
+  // Edit only the number: replacing the entire document can remint node tokens
+  // and clear selection, which would not exercise an existing inactive field.
+  await page.locator('#source-editor-cm .cm-content').click();
+  await page.keyboard.press('ControlOrMeta+Home');
+  for (let i = 0; i < 'osc = sine(freq: '.length; i++) {
+    await page.keyboard.press('ArrowRight');
+  }
+  for (let i = 0; i < '440'.length; i++) {
+    await page.keyboard.press('Shift+ArrowRight');
+  }
+  await page.keyboard.insertText('880');
+  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
+  await expect(sourceNode(page, 'osc')).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  await expect(freq).toHaveValue('880');
+
+  await freq.fill('660');
+  await freq.press('Enter');
+  await expectSource(page, 'osc = sine(freq: 660Hz)\nmeter = scope()');
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
 });

@@ -16,7 +16,9 @@ priv struct CanvasRenderLayerSnapshot {
   viewport : CanvasRenderLayerViewport
   nodes : Array[NodeJson]
   edges : Array[EdgeJson]
+  selected : String?
   selected_nodes : Array[String]
+  inspector : InspectorNodeJson?
   connecting : ConnectingJson?
   input_compatibility : Array[PortCompatibilityJson]
   validation : Array[ValidationJson]
@@ -29,7 +31,7 @@ priv struct CanvasRenderLayerState {
 
 ///|
 priv enum CanvasRenderLayerMsg {
-  RenderState(String)
+  RenderState(CanvasRenderLayerSnapshot)
 }
 
 ///|
@@ -112,8 +114,16 @@ fn parse_canvas_render_layer_snapshot(
       let edges : Array[EdgeJson] = @json.from_json(edges_json) catch {
         _ => return None
       }
+      let selected = match fields.get("selected") {
+        None | Some(Null) => None
+        Some(value) => Some(@json.from_json(value) catch { _ => return None })
+      }
       let selected_nodes : Array[String] = @json.from_json(selected_nodes_json) catch {
         _ => return None
+      }
+      let inspector = match fields.get("inspector") {
+        None | Some(Null) => None
+        Some(value) => Some(@json.from_json(value) catch { _ => return None })
       }
       let input_compatibility : Array[PortCompatibilityJson] = @json.from_json(
         input_compatibility_json,
@@ -133,7 +143,9 @@ fn parse_canvas_render_layer_snapshot(
         viewport,
         nodes,
         edges,
+        selected,
         selected_nodes,
+        inspector,
         connecting,
         input_compatibility,
         validation,
@@ -145,15 +157,11 @@ fn parse_canvas_render_layer_snapshot(
 
 ///|
 fn canvas_render_layer_update(
-  model : CanvasRenderLayerState,
+  _model : CanvasRenderLayerState,
   message : CanvasRenderLayerMsg,
 ) -> CanvasRenderLayerState {
   match message {
-    RenderState(json) =>
-      match parse_canvas_render_layer_snapshot(json) {
-        Some(snapshot) => { snapshot: Some(snapshot), }
-        None => model
-      }
+    RenderState(snapshot) => { snapshot: Some(snapshot), }
   }
 }
 
@@ -428,9 +436,11 @@ fn canvas_render_layer_view(model : CanvasRenderLayerState) -> @rabbita.Html {
 }
 
 ///|
-#cfg(target="js")
 priv suberror CanvasRenderLayerSubscription {
-  RenderState(@rabbita.Emit[CanvasRenderLayerMsg])
+  RenderState(
+    @rabbita.Emit[CanvasRenderLayerMsg],
+    (CanvasRenderLayerSnapshot) -> Unit
+  )
 }
 
 ///|
@@ -449,19 +459,24 @@ fn canvas_render_layer_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasRenderLayerSubscription::RenderState(emit) => {
+    CanvasRenderLayerSubscription::RenderState(emit, on_snapshot) => {
       let tagger = @ref.Ref(emit)
       let target = canvas_render_layer_event_target()
       let listener : @dom.Listener = event => {
         match event.to_custom_event() {
           Some(custom) =>
-            scheduler.add(
-              (tagger.val)(
-                CanvasRenderLayerMsg::RenderState(
-                  custom.get_detail().to_string(),
-                ),
-              ),
-            )
+            match
+              parse_canvas_render_layer_snapshot(
+                custom.get_detail().to_string(),
+              ) {
+              Some(snapshot) => {
+                scheduler.add(
+                  (tagger.val)(CanvasRenderLayerMsg::RenderState(snapshot)),
+                )
+                on_snapshot(snapshot)
+              }
+              None => ()
+            }
           None => ()
         }
       }
@@ -471,7 +486,7 @@ fn canvas_render_layer_sub_loader(
           target.remove_event_listener(CANVAS_RENDER_STATE_EVENT, listener)
         },
         update_tagger: next => {
-          guard next is CanvasRenderLayerSubscription::RenderState(new_emit) else {
+          guard next is CanvasRenderLayerSubscription::RenderState(new_emit, _) else {
             return
           }
           tagger.val = new_emit
@@ -487,25 +502,30 @@ fn canvas_render_layer_sub_loader(
 fn canvas_render_layer_subscriptions(
   _model : CanvasRenderLayerState,
   emit : @rabbita.Emit[CanvasRenderLayerMsg],
+  on_snapshot : (CanvasRenderLayerSnapshot) -> Unit,
 ) -> @sub.Sub {
   @sub.custom_sub(
     "canvas.render-state",
     @sub.Scope::Local,
-    CanvasRenderLayerSubscription::RenderState(emit),
+    CanvasRenderLayerSubscription::RenderState(emit, on_snapshot),
     canvas_render_layer_sub_loader,
   )
 }
 
 ///|
 #cfg(target="js")
-pub fn mount_canvas_render_layer() -> Unit {
+fn mount_canvas_render_layer(
+  on_snapshot : (CanvasRenderLayerSnapshot) -> Unit,
+) -> Unit {
   @rabbita.new(fn() {
     let (model, _emit) = @rabbita.create_state(
       { snapshot: None, },
       update=fn(model, message, _emit) {
         (canvas_render_layer_update(model, message), @rabbita.none)
       },
-      subscriptions=canvas_render_layer_subscriptions,
+      subscriptions=(model, emit) => {
+        canvas_render_layer_subscriptions(model, emit, on_snapshot)
+      },
     )
     model.map(canvas_render_layer_view)
   }).mount(CANVAS_RENDER_LAYER_ID)

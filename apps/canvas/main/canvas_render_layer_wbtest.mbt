@@ -13,7 +13,9 @@ test "render layer view renders accessible keyed paths and pending path" {
           aria_label: "Connection source.out → target.in",
         },
       ],
+      selected: None,
       selected_nodes: [],
+      inspector: None,
       connecting: Some({
         from: "source",
         from_port: "out",
@@ -41,45 +43,21 @@ test "render layer view renders accessible keyed paths and pending path" {
 }
 
 ///|
-test "render layer update accepts the shared render snapshot shape" {
-  let json = "{\"viewport\":{\"x\":1.0,\"y\":2.0,\"scale\":3.0},\"nodes\":[],\"edges\":[{\"id\":\"edge-1\",\"path_d\":\"M 0 0\",\"selected\":false,\"aria_label\":\"Connection source.out → target.in\"}],\"selected_nodes\":[],\"input_compatibility\":[],\"validation\":[],\"action_count\":0,\"connecting\":{\"from\":\"source\",\"from_port\":\"out\",\"cursor_x\":1.0,\"cursor_y\":2.0,\"path_d\":[\"M 0 0\"]}}"
-  let parsed_snapshot = parse_canvas_render_layer_snapshot(json)
-  assert_true(parsed_snapshot is Some(_))
-  let next = canvas_render_layer_update(
-    { snapshot: None, },
-    CanvasRenderLayerMsg::RenderState(json),
-  )
-  match next.snapshot {
+test "render snapshot decode includes selected node and Inspector projection" {
+  let json = "{\"viewport\":{\"x\":1.0,\"y\":2.0,\"scale\":3.0},\"nodes\":[],\"edges\":[],\"selected\":\"node-a\",\"selected_nodes\":[\"node-a\"],\"inspector\":{\"id\":\"node-a\",\"title\":\"Mixer\",\"subtitle\":\"mix\",\"configured\":true,\"input_count\":2,\"output_count\":1,\"source\":\"selected\"},\"input_compatibility\":[],\"validation\":[],\"action_count\":0}"
+  match parse_canvas_render_layer_snapshot(json) {
     Some(snapshot) => {
-      assert_eq(snapshot.viewport.x, 1.0)
-      assert_eq(snapshot.viewport.y, 2.0)
-      assert_eq(snapshot.viewport.scale, 3.0)
-      assert_eq(snapshot.edges.length(), 1)
-      match snapshot.connecting {
-        Some(connecting) => assert_eq(connecting.path_d, Some("M 0 0"))
-        None => fail("expected the published connection")
+      assert_eq(snapshot.selected, Some("node-a"))
+      match snapshot.inspector {
+        Some(inspector) => {
+          assert_eq(inspector.id, "node-a")
+          assert_eq(inspector.input_count, 2)
+          assert_eq(inspector.source, "selected")
+        }
+        None => fail("expected the published Inspector projection")
       }
     }
-    None => fail("expected the published render snapshot")
+    None => fail("expected a valid published render snapshot")
   }
-}
-
-///|
-test "render layer update keeps the last valid snapshot on malformed JSON" {
-  let current : CanvasRenderLayerState = {
-    snapshot: Some({
-      viewport: { x: 1.0, y: 2.0, scale: 1.0, },
-      nodes: [],
-      edges: [],
-      selected_nodes: [],
-      connecting: None,
-      input_compatibility: [],
-      validation: [],
-    }),
-  }
-  let next = canvas_render_layer_update(
-    current,
-    CanvasRenderLayerMsg::RenderState("{broken"),
-  )
-  assert_true(next == current)
+  assert_true(parse_canvas_render_layer_snapshot("{broken") is None)
 }

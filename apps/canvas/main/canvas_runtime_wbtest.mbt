@@ -203,7 +203,7 @@ test "runtime delete_nodes removes selected nodes and incident edges" {
 }
 
 ///|
-test "runtime edge selection is ephemeral and edge-first" {
+test "runtime edge disconnection preserves ephemeral node selection" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let initial = runtime.state_peek()
   let edge = initial.edges[0]
@@ -215,7 +215,7 @@ test "runtime edge selection is ephemeral and edge-first" {
   assert_eq(runtime.render_state().selected_edge, Some(edge.id.to_string()))
   assert_eq(runtime.action_log_snapshot().length(), 0)
 
-  assert_true(runtime.delete_selection())
+  assert_true(runtime.disconnect_edge(edge.id))
   let after_edge = runtime.render_state()
   assert_eq(after_edge.selected_edge, None)
   assert_eq(after_edge.nodes.length(), 6)
@@ -232,7 +232,7 @@ test "runtime edge selection is ephemeral and edge-first" {
     _ => fail("expected DisconnectPorts action")
   }
 
-  assert_true(runtime.delete_selection())
+  runtime.delete_nodes(runtime.peek_selection().selected_nodes)
   let after_node = runtime.render_state()
   assert_eq(after_node.nodes.length(), 5)
   assert_eq(after_node.action_count, 2)

@@ -43,9 +43,9 @@ fn test_context_open(
 fn test_context_binding(
   handle : Int,
   on_change? : () -> Unit = () => (),
-  on_source_result? : (String) -> Unit = _ => (),
+  on_source_result? : (SourceGraphOperationResultJson) -> Unit = _ => (),
 ) -> CanvasContextMenuBinding {
-  { handle, on_change, on_source_result, }
+  { handle, on_change, on_source_result, can_mutate: () => true, }
 }
 
 ///|

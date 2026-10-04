@@ -727,10 +727,7 @@ fn canvas_pointer_view(_model : CanvasPointerState) -> @rabbita.Html {
 
 ///|
 #cfg(target="js")
-pub fn mount_canvas_pointer_session(
-  handle : Int,
-  on_change : () -> Unit,
-) -> Unit {
+fn mount_canvas_pointer_session(handle : Int, on_change : () -> Unit) -> Unit {
   @rabbita.new(fn() {
     let (model, _emit) = @rabbita.create_state(
       { handle, session: Idle, },

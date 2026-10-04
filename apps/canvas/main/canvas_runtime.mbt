@@ -668,46 +668,6 @@ fn CanvasRuntime::delete_nodes(
 }
 
 ///|
-/// Edge-first semantic deletion owned by the MoonBit host.
-fn CanvasRuntime::delete_selection(self : CanvasRuntime) -> Bool {
-  match self.selected_edge() {
-    Some(edge_id) => {
-      let state = self.state_peek()
-      match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
-        Some(index) => {
-          let edge = state.edges[index]
-          self.sync_document_action_state(
-            @graph_model.record_action(
-              state,
-              DisconnectPorts(
-                edge.source,
-                edge.source_port,
-                edge.target,
-                edge.target_port,
-              ),
-            ),
-          )
-          true
-        }
-        None => {
-          self.clear_selected_edge()
-          true
-        }
-      }
-    }
-    None => {
-      let nodes = self.peek_selection().selected_nodes
-      if nodes.length() == 0 {
-        false
-      } else {
-        self.delete_nodes(nodes)
-        true
-      }
-    }
-  }
-}
-
-///|
 /// Disconnect one captured edge target without consulting current selection.
 fn CanvasRuntime::disconnect_edge(
   self : CanvasRuntime,

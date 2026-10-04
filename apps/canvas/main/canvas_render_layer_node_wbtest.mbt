@@ -24,6 +24,8 @@ test "render layer view renders keyed nodes, handles, edges, and connection stat
       viewport: { x: 10.0, y: 20.0, scale: 1.5, },
       nodes: [source, target],
       edges: [],
+      selected: None,
+      inspector: None,
       selected_nodes: ["target"],
       connecting: Some({
         from: "source",
@@ -87,6 +89,8 @@ test "missing compatibility is incompatible only during a connection" {
       viewport: { x: 0.0, y: 0.0, scale: 1.0, },
       nodes: [target],
       edges: [],
+      selected: None,
+      inspector: None,
       selected_nodes: [],
       connecting: Some({
         from: "source",
@@ -106,6 +110,8 @@ test "missing compatibility is incompatible only during a connection" {
       edges: [],
       selected_nodes: [],
       connecting: None,
+      selected: None,
+      inspector: None,
       input_compatibility: [],
       validation: [],
     }),

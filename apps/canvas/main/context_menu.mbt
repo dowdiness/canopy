@@ -34,7 +34,8 @@ priv struct CanvasContextMenuModel {
 priv struct CanvasContextMenuBinding {
   handle : Int
   on_change : () -> Unit
-  on_source_result : (String) -> Unit
+  on_source_result : (SourceGraphOperationResultJson) -> Unit
+  can_mutate : () -> Bool
 }
 
 ///|
@@ -101,6 +102,11 @@ fn context_menu_update(
           (
             next,
             @rabbita.perform(result => emit(Prepared(result)), () => {
+              guard (binding.can_mutate)() else {
+                return Err(
+                  Rejected("The graph parser stopped. Reload to recover."),
+                )
+              }
               build_context_menu(binding.handle, request)
             }),
           )
@@ -137,6 +143,11 @@ fn context_menu_update(
         model.close(),
         @rabbita.batch([
           @rabbita.perform(result => emit(Completed(result)), () => {
+            guard (binding.can_mutate)() else {
+              return Failed(
+                Rejected("The graph parser stopped. Reload to recover."),
+              )
+            }
             apply_menu_operation(operation)
           }),
           model.context_menu.close_focus_cmd(),
@@ -157,13 +168,14 @@ fn context_menu_update(
       )
     }
     Completed(outcome) => {
-      let (problem, notify) = match outcome {
+      let (problem, notify) : (CanvasContextProblem?, @rabbita.Cmd) = match
+        outcome {
         RuntimeApplied => (None, @rabbita.effect(() => (binding.on_change)()))
         SourceApplied(result) =>
           (
             None,
             @rabbita.effect(() => {
-              (binding.on_source_result)(ToJson::to_json(result).stringify())
+              (binding.on_source_result)(result)
               (binding.on_change)()
             }),
           )
@@ -175,7 +187,7 @@ fn context_menu_update(
               ),
             ),
             @rabbita.effect(() => {
-              (binding.on_source_result)(ToJson::to_json(result).stringify())
+              (binding.on_source_result)(result)
               // on_change invalidates rendering; this is an ephemeral selection
               // change, not a successful source edit (result.applied is false).
               if selection_changed {
@@ -351,7 +363,7 @@ fn context_menu_subscriptions(
 
 ///|
 #cfg(target="js")
-pub fn dismiss_canvas_context_menu(handle : Int) -> Unit {
+fn dismiss_canvas_context_menu(handle : Int) -> Unit {
   match context_menu_dismissers.get(handle) {
     Some(dismiss) => dismiss()
     None => ()
@@ -360,15 +372,17 @@ pub fn dismiss_canvas_context_menu(handle : Int) -> Unit {
 
 ///|
 #cfg(target="js")
-pub fn mount_canvas_context_menu(
+fn mount_canvas_context_menu(
   handle : Int,
   on_change : () -> Unit,
-  on_source_result : (String) -> Unit,
+  on_source_result : (SourceGraphOperationResultJson) -> Unit,
+  can_mutate : () -> Bool,
 ) -> Unit {
   let binding : CanvasContextMenuBinding = {
     handle,
     on_change,
     on_source_result,
+    can_mutate,
   }
   @rabbita.new(() => {
     let (model, emit) = @rabbita.create_state(

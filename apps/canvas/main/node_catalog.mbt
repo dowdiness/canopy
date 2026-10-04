@@ -1,11 +1,10 @@
 ///|
-/// Workflow node metadata shared by the MoonBit context menu and the
-/// presentation-only TypeScript sidebar.
+/// Workflow node metadata shared by the MoonBit context menu and library.
 priv struct CanvasNodeCatalogItem {
   key : String
   label : String
   description : String
-} derive(ToJson)
+}
 
 ///|
 fn workflow_node_catalog() -> Array[CanvasNodeCatalogItem] {
@@ -34,9 +33,4 @@ fn workflow_node_catalog() -> Array[CanvasNodeCatalogItem] {
       description: "Reserve an integration point",
     },
   ]
-}
-
-///|
-pub fn get_workflow_node_catalog() -> String {
-  workflow_node_catalog().to_json().stringify()
 }

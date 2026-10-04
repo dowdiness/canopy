@@ -1,0 +1,845 @@
+///|
+const CANVAS_INSPECTOR_ID : String = "inspector-node"
+
+///|
+priv enum CanvasInspectorField {
+  Binding
+  Parameter(String)
+} derive(Eq)
+
+///|
+priv struct CanvasInspectorFieldKey {
+  node_id : String
+  field : CanvasInspectorField
+} derive(Eq)
+
+///|
+priv enum CanvasInspectorSessionPhase {
+  Editing
+  Submitted
+  Cancelled
+} derive(Eq)
+
+///|
+priv struct CanvasInspectorSession {
+  id : Int
+  key : CanvasInspectorFieldKey
+  canonical : String
+  submitted_value : String?
+  phase : CanvasInspectorSessionPhase
+} derive(Eq)
+
+///|
+priv struct CanvasInspectorProjection {
+  summary : InspectorNodeJson
+  params : Array[NodeParamJson]
+  has_source_node : Bool
+} derive(Eq)
+
+///|
+priv struct CanvasInspectorState {
+  projection : CanvasInspectorProjection?
+  session : CanvasInspectorSession?
+  reset_generation : Int
+  terminal : Bool
+} derive(Eq)
+
+///|
+priv enum CanvasInspectorMsg {
+  Snapshot(CanvasRenderLayerSnapshot)
+  ParserStopped
+  Focus(CanvasInspectorFieldKey, String, Int, Int)
+  Change(CanvasInspectorFieldKey, Int, String)
+  Enter(CanvasInspectorFieldKey, Int, String, Bool)
+  Escape(CanvasInspectorFieldKey, Int)
+  Completion(Int, CanvasSourceReply)
+}
+
+///|
+fn canvas_inspector_projection(
+  source_backed : Bool,
+  snapshot : CanvasRenderLayerSnapshot,
+) -> CanvasInspectorProjection? {
+  match snapshot.inspector {
+    Some(summary) => {
+      let node = if source_backed && summary.source == "selected" {
+        snapshot.nodes
+        .search_by(node => node.id == summary.id)
+        .map(index => snapshot.nodes[index])
+      } else {
+        None
+      }
+      Some({
+        summary,
+        params: match node {
+          Some(value) => value.params
+          None => []
+        },
+        has_source_node: node is Some(_),
+      })
+    }
+    None if source_backed => {
+      let selected_id = match snapshot.selected {
+        Some(id) => Some(id)
+        None => snapshot.selected_nodes.get(0)
+      }
+      match selected_id {
+        None => None
+        Some(id) =>
+          match
+            snapshot.nodes
+            .search_by(node => node.id == id)
+            .map(index => snapshot.nodes[index]) {
+            None => None
+            Some(node) =>
+              Some({
+                summary: {
+                  id: node.id,
+                  title: node.title,
+                  subtitle: node.subtitle,
+                  configured: node.configured,
+                  input_count: node.inputs.length(),
+                  output_count: node.outputs.length(),
+                  source: "selected",
+                },
+                params: node.params,
+                has_source_node: true,
+              })
+          }
+      }
+    }
+    None => None
+  }
+}
+
+///|
+fn canvas_inspector_field_canonical(
+  projection : CanvasInspectorProjection,
+  key : CanvasInspectorFieldKey,
+) -> String? {
+  guard key.node_id == projection.summary.id else { return None }
+  guard projection.has_source_node && projection.summary.source == "selected" else {
+    return None
+  }
+  match key.field {
+    Binding => Some(projection.summary.title)
+    Parameter(name) =>
+      match
+        projection.params.search_by(param => {
+          param.name == name && param.editable
+        }) {
+        Some(index) => Some(projection.params[index].value)
+        None => None
+      }
+  }
+}
+
+///|
+fn canvas_inspector_same_editable_fields(
+  left : Array[NodeParamJson],
+  right : Array[NodeParamJson],
+) -> Bool {
+  for param in left {
+    if param.editable {
+      guard right.search_by(other => other.name == param.name && other.editable)
+        is Some(_) else {
+        return false
+      }
+    }
+  }
+  for param in right {
+    if param.editable {
+      guard left.search_by(other => other.name == param.name && other.editable)
+        is Some(_) else {
+        return false
+      }
+    }
+  }
+  true
+}
+
+///|
+fn canvas_inspector_reconcile(
+  state : CanvasInspectorState,
+  snapshot : CanvasRenderLayerSnapshot,
+  source_backed : Bool,
+) -> CanvasInspectorState {
+  let projection = canvas_inspector_projection(source_backed, snapshot)
+  let target_changed = match (state.projection, projection) {
+    (None, None) => false
+    (Some(previous), Some(next)) =>
+      previous.summary.id != next.summary.id ||
+      previous.summary.source != next.summary.source ||
+      previous.has_source_node != next.has_source_node ||
+      !canvas_inspector_same_editable_fields(previous.params, next.params)
+    _ => true
+  }
+  let invalidated = match (state.session, projection) {
+    (Some(session), Some(next)) =>
+      canvas_inspector_field_canonical(next, session.key) is None ||
+      next.summary.id != session.key.node_id
+    (Some(_), None) => true
+    (None, _) => false
+  }
+  let reset = invalidated || target_changed
+  {
+    ..state,
+    projection,
+    session: if invalidated {
+      None
+    } else {
+      state.session
+    },
+    reset_generation: if reset {
+      state.reset_generation + 1
+    } else {
+      state.reset_generation
+    },
+  }
+}
+
+///|
+fn canvas_inspector_update(
+  state : CanvasInspectorState,
+  message : CanvasInspectorMsg,
+  source_backed : Bool,
+  send_source : (CanvasSourceMessage) -> Unit,
+  post_to_self : (CanvasInspectorMsg) -> Unit,
+) -> (CanvasInspectorState, @rabbita.Cmd) {
+  match message {
+    Snapshot(snapshot) => {
+      let next = canvas_inspector_reconcile(state, snapshot, source_backed)
+      let command = if source_backed && state.projection != next.projection {
+        @rabbita.effect(() => {
+          canvas_inspector_sync_inactive_fields(state.projection, next)
+        })
+      } else {
+        @rabbita.none
+      }
+      (next, command)
+    }
+    ParserStopped => {
+      let command = match state.session {
+        Some(session) =>
+          @rabbita.effect(() => {
+            canvas_inspector_dom_finalize(
+              session.key,
+              Some(session.canonical),
+              true,
+            )
+          })
+        None => @rabbita.none
+      }
+      (
+        {
+          ..state,
+          terminal: true,
+          session: None,
+          reset_generation: state.reset_generation + 1,
+        },
+        command,
+      )
+    }
+    Focus(key, canonical, generation, id) if source_backed && !state.terminal => {
+      let valid = generation == state.reset_generation &&
+        (match state.projection {
+          Some(projection) =>
+            canvas_inspector_field_canonical(projection, key) == Some(canonical)
+          None => false
+        })
+      if !valid {
+        (state, @rabbita.none)
+      } else {
+        let session = {
+          id,
+          key,
+          canonical,
+          submitted_value: None,
+          phase: Editing,
+        }
+        ({ ..state, session: Some(session), }, @rabbita.none)
+      }
+    }
+    Focus(_, _, _, _) => (state, @rabbita.none)
+    Change(key, id, value) =>
+      canvas_inspector_commit(state, key, id, value, send_source, post_to_self)
+    Enter(key, id, value, composing) if !composing =>
+      canvas_inspector_commit(state, key, id, value, send_source, post_to_self)
+    Enter(_, _, _, _) => (state, @rabbita.none)
+    Escape(key, id) =>
+      match state.session {
+        Some(session) if session.id == id &&
+          session.key == key &&
+          session.phase == Editing =>
+          (
+            {
+              ..state,
+              session: Some({ ..session, phase: Cancelled, }),
+              reset_generation: state.reset_generation + 1,
+            },
+            @rabbita.effect(() => {
+              canvas_inspector_dom_finalize(key, Some(session.canonical), true)
+            }),
+          )
+        _ => (state, @rabbita.none)
+      }
+    Completion(id, reply) =>
+      match state.session {
+        Some(session) if session.id == id && session.phase == Submitted => {
+          let canonical = match state.projection {
+            Some(projection) =>
+              canvas_inspector_field_canonical(projection, session.key)
+            None => None
+          }
+          let canonical = match (reply, session.submitted_value, canonical) {
+            (Applied, Some(_), Some(latest)) if latest != session.canonical =>
+              Some(latest)
+            (Applied, Some(value), _) => Some(value)
+            (_, _, value) => value
+          }
+          let command = match canonical {
+            Some(value) =>
+              @rabbita.effect(() => {
+                canvas_inspector_dom_finalize(session.key, Some(value), false)
+              })
+            None => @rabbita.none
+          }
+          (
+            {
+              ..state,
+              session: None,
+              terminal: reply is ParserStopped,
+              reset_generation: state.reset_generation + 1,
+            },
+            command,
+          )
+        }
+        _ => (state, @rabbita.none)
+      }
+  }
+}
+
+///|
+fn canvas_inspector_commit(
+  state : CanvasInspectorState,
+  key : CanvasInspectorFieldKey,
+  id : Int,
+  value : String,
+  send_source : (CanvasSourceMessage) -> Unit,
+  post_to_self : (CanvasInspectorMsg) -> Unit,
+) -> (CanvasInspectorState, @rabbita.Cmd) {
+  guard state.terminal is false else { return (state, @rabbita.none) }
+  guard state.session is Some(session) &&
+    session.id == id &&
+    session.key == key &&
+    session.phase == Editing else {
+    return (state, @rabbita.none)
+  }
+  let trimmed = value.trim().to_owned()
+  if trimmed == "" || trimmed == session.canonical {
+    return (
+      { ..state, session: None, reset_generation: state.reset_generation + 1, },
+      @rabbita.effect(() => {
+        canvas_inspector_dom_finalize(key, Some(session.canonical), true)
+      }),
+    )
+  }
+  let request = match key.field {
+    Binding => CanvasSourceRequest::Rename(NodeId(key.node_id), trimmed)
+    Parameter(name) =>
+      CanvasSourceRequest::Parameter(NodeId(key.node_id), name, trimmed)
+  }
+  let submitted = {
+    ..session,
+    submitted_value: Some(trimmed),
+    phase: Submitted,
+  }
+  (
+    { ..state, session: Some(submitted), },
+    @rabbita.effect(() => {
+      send_source(
+        CanvasSourceMessage::Request(
+          request,
+          Some(reply => post_to_self(Completion(id, reply))),
+        ),
+      )
+      canvas_inspector_dom_finalize(key, None, true)
+    }),
+  )
+}
+
+///|
+fn canvas_inspector_param_id(name : String) -> String {
+  let safe = StringBuilder()
+  for char in name {
+    if char.is_ascii_alphabetic() ||
+      char.is_ascii_digit() ||
+      char == '_' ||
+      char == '-' {
+      safe.write_char(char)
+    } else {
+      safe.write_char('-')
+    }
+  }
+  "node-param-" + safe.to_string()
+}
+
+///|
+fn canvas_inspector_input_value_from_key(event : @dom.KeyboardEvent) -> String {
+  match event.current_target().to_option() {
+    Some(target) =>
+      match target.to_html_input_element() {
+        Some(input) => input.value()
+        None => ""
+      }
+    None => ""
+  }
+}
+
+///|
+fn canvas_inspector_event_session(event : @dom.Event) -> Int? {
+  guard event.target().to_element() is Some(element) else { return None }
+  guard element.get_attribute("data-inspector-session") is Some(text) else {
+    return None
+  }
+  Some(
+    @json.from_json(@json.parse(text) catch { _ => return None }) catch {
+      _ => return None
+    },
+  )
+}
+
+///|
+fn canvas_inspector_change_input(
+  event : @dom.Event,
+) -> (CanvasInspectorFieldKey, Int, String)? {
+  guard event.target().to_html_input_element() is Some(input) else {
+    return None
+  }
+  guard input.as_event_target().to_element() is Some(element) else {
+    return None
+  }
+  let node_id = match element.get_attribute("data-inspector-node-id") {
+    Some(value) => value
+    None => return None
+  }
+  let kind = match element.get_attribute("data-inspector-kind") {
+    Some(value) => value
+    None => return None
+  }
+  guard canvas_inspector_event_session(event) is Some(session_id) else {
+    return None
+  }
+  let field : CanvasInspectorField = match kind {
+    "binding" => Binding
+    "parameter" =>
+      match element.get_attribute("data-inspector-param") {
+        Some(name) => Parameter(name)
+        None => return None
+      }
+    _ => return None
+  }
+  Some(({ node_id, field, }, session_id, input.value()))
+}
+
+///|
+fn canvas_inspector_dom_finalize(
+  key : CanvasInspectorFieldKey,
+  restore : String?,
+  blur : Bool,
+) -> Unit {
+  let id = match key.field {
+    Binding => "node-rename-input"
+    Parameter(name) => canvas_inspector_param_id(name)
+  }
+  match @dom.document().get_element_by_id(id).to_option() {
+    Some(element) if element.get_attribute("data-inspector-node-id") ==
+      Some(key.node_id) =>
+      match element.as_event_target().to_html_input_element() {
+        Some(input) => {
+          match restore {
+            Some(value) => input.set_value(value)
+            None => ()
+          }
+          if blur {
+            input.blur()
+          }
+        }
+        None => ()
+      }
+    _ => ()
+  }
+}
+
+///|
+fn canvas_inspector_sync_inactive_field(
+  previous : CanvasInspectorProjection?,
+  next : CanvasInspectorState,
+  key : CanvasInspectorFieldKey,
+  value : String,
+) -> Unit {
+  match next.session {
+    Some(session) if session.key == key && session.phase != Cancelled => return
+    _ => ()
+  }
+  match previous {
+    Some(projection) if canvas_inspector_field_canonical(projection, key) ==
+      Some(value) => return
+    _ => ()
+  }
+  // Changing the value attribute does not reset a dirty native input property.
+  canvas_inspector_dom_finalize(key, Some(value), false)
+}
+
+///|
+fn canvas_inspector_sync_inactive_fields(
+  previous : CanvasInspectorProjection?,
+  next : CanvasInspectorState,
+) -> Unit {
+  guard next.projection is Some(projection) &&
+    projection.has_source_node &&
+    projection.summary.source == "selected" else {
+    return
+  }
+  let node_id = projection.summary.id
+  canvas_inspector_sync_inactive_field(
+    previous,
+    next,
+    { node_id, field: Binding, },
+    projection.summary.title,
+  )
+  for param in projection.params {
+    if param.editable {
+      canvas_inspector_sync_inactive_field(
+        previous,
+        next,
+        { node_id, field: Parameter(param.name), },
+        param.value,
+      )
+    }
+  }
+}
+
+///|
+fn canvas_inspector_input(
+  state : CanvasInspectorState,
+  key : CanvasInspectorFieldKey,
+  id : String,
+  canonical : String,
+  label : String,
+  emit : @rabbita.Emit[CanvasInspectorMsg],
+  next_session_id : @ref.Ref[Int],
+) -> @rabbita.Html {
+  let key_text = match key.field {
+    Binding => key.node_id + ":binding"
+    Parameter(name) => key.node_id + ":parameter:" + name
+  }
+  let canonical = match state.session {
+    Some(session) if session.key == key && session.phase != Cancelled =>
+      session.canonical
+    _ => canonical
+  }
+  let attrs = @html.Attrs::build()
+    .id(id)
+    .data_set("inspector-field", key_text)
+    .data_set("inspector-node-id", key.node_id)
+    .data_set(
+      "inspector-kind",
+      match key.field {
+        Binding => "binding"
+        Parameter(_) => "parameter"
+      },
+    )
+    .data_set(
+      "inspector-param",
+      match key.field {
+        Binding => ""
+        Parameter(name) => name
+      },
+    )
+    .type_("text")
+    .value(canonical)
+    .autocomplete(@html.Off)
+    .spellcheck(false)
+    .disabled(state.terminal)
+    .aria_label(label)
+    .on_focus(event => {
+      guard event.target().to_element() is Some(element) else {
+        return @rabbita.none
+      }
+      // Reserve the identity in the DOM callback, before queued updates/render.
+      // Enter/change/Escape in this same task must carry this focus's identity.
+      let id = next_session_id.val
+      next_session_id.val += 1
+      element.set_attribute("data-inspector-session", id.to_string())
+      emit(Focus(key, canonical, state.reset_generation, id))
+    })
+    .on_keydown(event => {
+      match event.key() {
+        "Enter" if !event.is_composing() => {
+          event.prevent_default()
+          guard canvas_inspector_event_session(event.as_event())
+            is Some(session_id) else {
+            return @rabbita.none
+          }
+          emit(
+            Enter(
+              key,
+              session_id,
+              canvas_inspector_input_value_from_key(event),
+              false,
+            ),
+          )
+        }
+        "Escape" => {
+          event.prevent_default()
+          guard canvas_inspector_event_session(event.as_event())
+            is Some(session_id) else {
+            return @rabbita.none
+          }
+          emit(Escape(key, session_id))
+        }
+        _ => @rabbita.none
+      }
+    })
+  let attrs = match key.field {
+    Binding => attrs
+    Parameter(_) => attrs.inputmode("decimal")
+  }
+  @html.node("input", attrs, @html.nothing)
+}
+
+///|
+fn canvas_inspector_view(
+  state : CanvasInspectorState,
+  source_backed : Bool,
+  emit : @rabbita.Emit[CanvasInspectorMsg],
+  next_session_id : @ref.Ref[Int],
+) -> @rabbita.Html {
+  match state.projection {
+    None =>
+      @html.node(
+        "div",
+        @html.Attrs::build().class("inspector-empty"),
+        "Select or hover a node to inspect its sparse derived details.",
+      )
+    Some(projection) => {
+      let item = projection.summary
+      let source = if item.source == "selected" {
+        "Selected node"
+      } else {
+        "Hovered node"
+      }
+      // Fixed chrome uses ordered children. Key only semantic identities:
+      // rebuilding a multi-entry Map can reorder and relocate focused DOM.
+      let children : Array[@rabbita.Html] = [
+        @html.div(class="inspector-eyebrow", source),
+        @html.div(class="inspector-title", item.title),
+        @html.div(class="inspector-subtitle", item.subtitle),
+        @html.div(class="inspector-meta", [
+          @html.span(
+            if item.configured {
+              "Configured"
+            } else {
+              "Needs config"
+            },
+          ),
+          @html.span("\{item.input_count} in · \{item.output_count} out"),
+        ]),
+      ]
+      if source_backed &&
+        item.source == "selected" &&
+        projection.has_source_node {
+        let fields : Array[@rabbita.Html] = []
+        let binding_key : CanvasInspectorFieldKey = {
+          node_id: item.id,
+          field: Binding,
+        }
+        fields.push(
+          @html.node(
+            "label",
+            @html.Attrs::build()
+            .class("inspector-field")
+            .for_("node-rename-input"),
+            [
+              @html.node("span", @html.Attrs::build(), "Binding"),
+              canvas_inspector_input(
+                state,
+                binding_key,
+                "node-rename-input",
+                item.title,
+                "Node binding",
+                emit,
+                next_session_id,
+              ),
+            ],
+          ),
+        )
+        let params : Array[@rabbita.Html] = []
+        for param in projection.params {
+          let pkey : CanvasInspectorFieldKey = {
+            node_id: item.id,
+            field: Parameter(param.name),
+          }
+          let id = canvas_inspector_param_id(param.name)
+          let child = if param.editable {
+            let input = canvas_inspector_input(
+              state,
+              pkey,
+              id,
+              param.value,
+              "Parameter " + param.name,
+              emit,
+              next_session_id,
+            )
+            @html.node(
+              "label",
+              @html.Attrs::build()
+              .class("inspector-field param editable")
+              .for_(id),
+              match param.unit {
+                Some(unit) =>
+                  [
+                    @html.node("span", @html.Attrs::build(), param.name),
+                    input,
+                    @html.node(
+                      "span",
+                      @html.Attrs::build().class("param-unit"),
+                      unit,
+                    ),
+                  ]
+                None =>
+                  [@html.node("span", @html.Attrs::build(), param.name), input]
+              },
+            )
+          } else {
+            @html.node(
+              "label",
+              @html.Attrs::build().class("inspector-field param readonly"),
+              [
+                @html.node("span", @html.Attrs::build(), param.name),
+                @html.node(
+                  "span",
+                  @html.Attrs::build().class("param-readonly-value"),
+                  match param.unit {
+                    Some(unit) => param.value + unit
+                    None => param.value
+                  },
+                ),
+              ],
+            )
+          }
+          params.push(
+            @html.div(style=["display: contents"], Map([(param.name, child)])),
+          )
+        }
+        if params.length() > 0 {
+          fields.push(@html.div(class="inspector-param-list", params))
+        }
+        children.push(@html.div(class="inspector-source-editor", fields))
+      }
+      @html.div(Map([(item.id, @html.div(children))]))
+    }
+  }
+}
+
+///|
+#cfg(target="js")
+priv suberror CanvasInspectorSubscription {
+  Receive(
+    @rabbita.Emit[CanvasInspectorMsg],
+    ((CanvasInspectorMsg) -> Unit) -> Unit,
+    @ref.Ref[(CanvasInspectorMsg) -> Unit]
+  )
+}
+
+///|
+#cfg(target="js")
+fn canvas_inspector_sub_loader(
+  payload : Error,
+  scheduler : &@cmd.Scheduler,
+) -> @sub.RunningSub? {
+  match payload {
+    CanvasInspectorSubscription::Receive(emit, register, self_queue) => {
+      let tagger = @ref.Ref(emit)
+      let active = @ref.Ref(true)
+      let root = @dom.document()
+        .get_element_by_id(CANVAS_INSPECTOR_ID)
+        .unwrap()
+        .as_event_target()
+      let queue = fn(message) {
+        if active.val {
+          scheduler.add((tagger.val)(message))
+        }
+      }
+      let change_listener : @dom.Listener = event => {
+        if active.val {
+          match canvas_inspector_change_input(event) {
+            Some((key, session_id, value)) =>
+              scheduler.add((tagger.val)(Change(key, session_id, value)))
+            None => ()
+          }
+        }
+      }
+      root.add_event_listener("change", change_listener)
+      self_queue.val = queue
+      register(queue)
+      Some({
+        unload: _ => {
+          active.val = false
+          root.remove_event_listener("change", change_listener)
+          self_queue.val = _ => ()
+        },
+        update_tagger: next => {
+          guard next is CanvasInspectorSubscription::Receive(new_emit, _, _) else {
+            return
+          }
+          tagger.val = new_emit
+        },
+      })
+    }
+    _ => None
+  }
+}
+
+///|
+#cfg(target="js")
+fn mount_canvas_inspector(
+  source_backed : Bool,
+  send_source : (CanvasSourceMessage) -> Unit,
+  register : ((CanvasInspectorMsg) -> Unit) -> Unit,
+) -> Unit {
+  let self_queue = @ref.Ref((_ : CanvasInspectorMsg) => ())
+  let initial : CanvasInspectorState = {
+    projection: None,
+    session: None,
+    reset_generation: 0,
+    terminal: false,
+  }
+  @rabbita.new(() => {
+    let next_session_id = @ref.Ref(1)
+    let (model, emit) = @rabbita.create_state(
+      initial,
+      update=fn(model, message, _emit) {
+        canvas_inspector_update(
+          model,
+          message,
+          source_backed,
+          send_source,
+          self_queue.val,
+        )
+      },
+      subscriptions=(_, emit) => {
+        @sub.custom_sub(
+          "canvas.inspector.receiver",
+          @sub.Scope::Local,
+          CanvasInspectorSubscription::Receive(emit, register, self_queue),
+          canvas_inspector_sub_loader,
+        )
+      },
+    )
+    model.map(state => {
+      canvas_inspector_view(state, source_backed, emit, next_session_id)
+    })
+  }).mount(CANVAS_INSPECTOR_ID)
+}

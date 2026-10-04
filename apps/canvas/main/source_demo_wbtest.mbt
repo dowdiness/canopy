@@ -9,24 +9,20 @@ fn source_demo_test_model(handle : Int) -> SourceDemoModel {
     status: "previous status",
     status_tone: @status.Info,
     on_change: fn() { () },
+    on_terminal: fn() { () },
   }
 }
 
 ///|
-test "external rename notification survives deferred graph synchronization" {
+test "canvas rename survives deferred graph synchronization" {
   let source = "osc = sine(freq: 440Hz)\nmeter = scope(input: osc)"
   let handle = create_source_graph(source)
   defer destroy_source_graph(handle)
   let initial = source_demo_test_model(handle)
   let rename = GraphOperation(RenameNode(handle_token(handle, "osc"), "lfo"))
-  let result_json = apply_source_graph_operation(
-    handle,
-    rename.to_json().stringify(),
-  )
-  let msg = decode_source_notice("rename", "", result_json)
-  guard msg is ExternalOperation(Renamed, result) else {
-    fail("expected typed rename result")
-  }
+  let graph = source_graph_by_handle(handle).unwrap()
+  let result = graph.apply_operation(rename)
+  let msg = CanvasOperation(Completed(Renamed, result))
   assert_true(result.applied)
   let emit = @cmd.Emit(_ => @rabbita.none)
   let (_, notified) = source_demo_update(emit, msg, initial)
@@ -39,7 +35,7 @@ test "external rename notification survives deferred graph synchronization" {
 }
 
 ///|
-test "rejected external operation preserves invalid editing across graph sync" {
+test "rejected canvas operation preserves invalid editing across graph sync" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)")
   defer destroy_source_graph(handle)
   let emit = @cmd.Emit(_ => @rabbita.none)
@@ -55,7 +51,7 @@ test "rejected external operation preserves invalid editing across graph sync" {
   assert_false(result.applied)
   let (_, rejected) = source_demo_update(
     emit,
-    decode_source_notice("insert", "plate", ToJson::to_json(result).stringify()),
+    CanvasOperation(Completed(Inserted("plate"), result)),
     invalid,
   )
   let (_, synced) = source_demo_update(emit, SyncFromGraph, rejected)
@@ -67,19 +63,13 @@ test "rejected external operation preserves invalid editing across graph sync" {
 }
 
 ///|
-test "delayed external success preserves newer invalid editing across graph sync" {
+test "delayed canvas success preserves newer invalid editing across graph sync" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)")
   defer destroy_source_graph(handle)
   let initial = source_demo_test_model(handle)
   let rename = GraphOperation(RenameNode(handle_token(handle, "osc"), "lfo"))
-  let msg = decode_source_notice(
-    "rename",
-    "",
-    apply_source_graph_operation(handle, rename.to_json().stringify()),
-  )
-  guard msg is ExternalOperation(Renamed, result) else {
-    fail("expected typed rename result")
-  }
+  let result = source_graph_by_handle(handle).unwrap().apply_operation(rename)
+  let msg = CanvasOperation(Completed(Renamed, result))
   assert_true(result.applied)
   let emit = @cmd.Emit(_ => @rabbita.none)
   let invalid_source = "osc = sine(freq: )"
@@ -102,10 +92,88 @@ test "delayed external success preserves newer invalid editing across graph sync
 }
 
 ///|
-test "unknown external operation cannot become a generic success" {
-  let result = source_graph_operation_result_json(true, "", [], 0, None)
-  assert_true(
-    decode_source_notice("renmae", "", ToJson::to_json(result).stringify())
-    is InvalidExternalOperation,
+async test "typed inspector request completes once with canonical source and action" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)")
+  defer destroy_source_graph(handle)
+  let replies : Array[CanvasSourceReply] = []
+  let (command, next) = source_demo_update(
+    @cmd.Emit(_ => @rabbita.none),
+    CanvasOperation(
+      Request(
+        Parameter(handle_token(handle, "osc"), "freq", "880"),
+        Some(reply => replies.push(reply)),
+      ),
+    ),
+    source_demo_test_model(handle),
   )
+  @rabbita_testing.run_cmd(command)
+  assert_true(replies is [Applied])
+  assert_eq(next.editor, "osc = sine(freq: 880Hz)")
+  assert_false(next.dirty)
+  assert_eq(source_graph_by_handle(handle).unwrap().action_log.length(), 1)
+}
+
+///|
+async test "rejected inspector request completes without replacing invalid source" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)")
+  defer destroy_source_graph(handle)
+  let node = handle_token(handle, "osc")
+  let emit = @cmd.Emit(_ => @rabbita.none)
+  let invalid_text = "osc = sine(freq: )"
+  let (_, invalid) = source_demo_update(emit, ApplySource, {
+    ..source_demo_test_model(handle),
+    editor: invalid_text,
+  })
+  let replies : Array[CanvasSourceReply] = []
+  let (command, rejected) = source_demo_update(
+    emit,
+    CanvasOperation(
+      Request(
+        Parameter(node, "freq", "880"),
+        Some(reply => replies.push(reply)),
+      ),
+    ),
+    invalid,
+  )
+  @rabbita_testing.run_cmd(command)
+  assert_true(replies is [Rejected])
+  assert_eq(rejected.editor, invalid_text)
+  assert_true(rejected.dirty)
+  assert_eq(source_graph_by_handle(handle).unwrap().action_log.length(), 0)
+}
+
+///|
+async test "sticky parser failure stops requests and preserves editable text" {
+  let handle = create_source_graph("osc = sine(freq: 440Hz)")
+  defer destroy_source_graph(handle)
+  let graph = source_graph_by_handle(handle).unwrap()
+  let node = handle_token(handle, "osc")
+  let initial = source_demo_test_model(handle)
+  let stops = @ref.Ref(0)
+  let replies : Array[CanvasSourceReply] = []
+  let emit = @cmd.Emit(_ => @rabbita.none)
+  let request = CanvasOperation(
+    Request(Rename(node, "lfo"), Some(reply => replies.push(reply))),
+  )
+  // Inject the backing's real terminal latch, not a rejected syntax result.
+  graph.parser_failure = Some(Failure("test parser failure"))
+  let (command, stopped) = source_demo_update(emit, request, {
+    ..initial,
+    on_terminal: () => stops.val += 1,
+  })
+  @rabbita_testing.run_cmd(command)
+  assert_true(stopped.parser_failed)
+  assert_eq(stopped.editor, initial.editor)
+  let (_, edited) = source_demo_update(
+    emit,
+    EditorSynced("recoverable text"),
+    stopped,
+  )
+  let (later, still_stopped) = source_demo_update(emit, request, edited)
+  @rabbita_testing.run_cmd(later)
+  assert_eq(stops.val, 1)
+  assert_true(replies is [ParserStopped, ParserStopped])
+  assert_eq(still_stopped.editor, "recoverable text")
+  assert_eq(graph.source, initial.editor)
+  assert_eq(graph.action_log.length(), 0)
 }
