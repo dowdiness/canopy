@@ -10,6 +10,23 @@ subscription disposal. It is not a production Source/DocumentReplica migration,
 and it does not integrate the ordinary Catalog, Preview, account or server sync.
 The experimental controls/style are deliberately limited to synthetic Text.
 
+## Worker implementation
+
+`engine/main` is the compiled MoonBit module Worker. It owns the FIFO consumer,
+typed requests, editing/merged replicas, projection offers and duplicate-command
+results. EGW calls stay inside MoonBit; the old JavaScript dispatcher and
+`globalThis.egw` string-returning facade are removed.
+
+`worker-native.mjs` adapts browser primitives and the existing `core.mjs` /
+`store.mjs` helpers. IndexedDB schema, immutable journal and transaction receipts
+are unchanged. `client.mjs` still owns the main-thread controller; this step does
+not move that controller into Rabbita or adopt the generic Rabbita Worker
+request envelope. The existing structured-clone wire, progress checkpoints,
+safe-integer IDs and `changes.approximate` array metadata are retained.
+
+Migration tracking: [#1458](https://github.com/dowdiness/canopy/issues/1458).
+
+
 ## Build and run
 
 Use the repository's pinned submodules, MoonBit/compiler core 0.10.14+7d59c7ec9,
@@ -18,6 +35,12 @@ of the Canopy checkout, named `egw-trial`, at commit
 07a6a833ed9442eee26d463375f589864539b864 (manifest version 0.8.0). This includes
 PR134 and experimental PR135. No submodule pointers are changed by this trial.
 The `moon.work` here isolates this override from the ordinary root workspace.
+
+`npm run build` checks the app binding and Worker package, then builds and copies
+three separate assets: `loomark.js`, `worker.js` and `fixture.js`. The Windows
+`build.ps1` wrapper selects its optional sibling toolchain and invokes the same
+Node build script. Keep `worker-native.mjs`, `core.mjs`, `store.mjs` and the
+installed `diff` dependency alongside the served Worker asset.
 
 From this directory:
 
@@ -32,13 +55,7 @@ On Linux, build the same targets from this directory:
 ```sh
 npm ci
 npx playwright install chromium
-moon check ../../internal/local_tabs --target js --deny-warn
-moon build ../../main --target js --release
-moon build engine/main --target js --release
-moon build fixture --target js --release
-cp _build/js/release/build/dowdiness/loomark/main/main.js loomark.js
-cp _build/js/release/build/trial/local_tabs/main/main.js egw.js
-cp _build/js/release/build/dowdiness/loomark/experimental/local-tabs/fixture/fixture.js fixture.js
+npm run build
 node serve.mjs
 ```
 
@@ -111,6 +128,7 @@ Keep the loopback server running; execute serially when collecting performance:
 
 ```powershell
 node --test core.test.mjs protocol.test.mjs
+node worker-test.mjs
 node browser-test.mjs
 node fault-test.mjs
 node lifecycle-test.mjs
@@ -118,12 +136,20 @@ node normal-mode-test.mjs
 node performance-test.mjs
 node trace-test.mjs
 $env:HEADED='1'
+node worker-test.mjs
 node browser-test.mjs
 node fault-test.mjs
 node lifecycle-test.mjs
 node performance-test.mjs
 node trace-test.mjs
 ```
+
+`worker-test.mjs` posts directly to the real module Worker, bypassing the main
+controller's serialization. It checks overlapping delayed requests, IDs and
+command sequences above 32 bits, duplicate operation identity, recovery after a
+rejected request, committed-save/lost-reply recovery without a second journal
+row, and approximate selection metadata after a large rewrite/Undo.
+
 
 `browser-test.mjs` includes separated-hunk ReplaceAll Undo/Redo alongside the
 two-tab, Unicode, selection, save and admission boundaries. `fault-test.mjs`
@@ -145,9 +171,45 @@ opportunity proxy, not pixel paint. Chrome traces include navigation through
 usable text and renderer main RunTask durations, excluding dedicated Worker
 threads; raw traces are gzip JSON. Headed browser input is not actual OS IME.
 
+The previously reported missed-history capacity timeout and renderer-main trace
+failure remain unresolved. The dispatcher migration and functional passes do
+not establish either a capacity fix or the historical performance result.
+
 Actual Japanese OS IME remains unverified. Synthetic composition events and
 headed Chromium, including Linux/Xvfb runs, do not establish OS IME correctness.
 
 See BOUNDARIES.md for the reference/reuse decisions and fault matrix. Root full
 workspace validation belongs to repository CI; local results must identify the
 actual affected-package/module scope and not be called whole-repository CI.
+
+## Local migration verification — 2026-10-04
+
+Linux, compiler/core `0.10.14+7d59c7ec9`, Node `24.14.1`, Playwright Chromium
+`153.0.8010.12`, headless. The shared Node build was exercised; the Windows
+PowerShell wrapper was not run.
+
+| Check | Observed result |
+|---|---|
+| `npm run build` | Strict app-binding/Worker checks and all three assets built |
+| Core/protocol | 11 passed |
+| Direct module Worker contracts | 3 passed |
+| Existing browser scenarios | 13 passed |
+| Selected fault scenarios | 13 passed; known missed-history capacity case excluded |
+| Actual Rabbita lifecycle | 4 passed |
+| Ordinary-mode isolation | Passed |
+| Explicit Loomark package release tests | 388 passed |
+
+The fault selection covers both terminal-composition failures, Saved→termination,
+missing edit replies, delayed remote offers, all three transaction-loss phases,
+silent exit after commit, 100k restore gating, A→B→A and both interrupted-Undo
+cases. It does not claim the excluded capacity case passes.
+
+A separate live-page check typed `base 日本語😀`, observed Saved, reloaded the
+same text with a fresh writer, and found no main-thread EGW global or page errors.
+Generated evidence is under ignored `evidence/`; these results are local scoped
+verification, not CI, a performance certification, real OS IME coverage or
+production approval.
+
+The [archived implementation record](../../../../docs/archive/2026-10-04-loomark-moonbit-worker.md)
+records the review corrections, artifact fingerprint and explicit release-test
+package selection.

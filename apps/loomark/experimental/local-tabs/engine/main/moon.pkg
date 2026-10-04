@@ -1,6 +1,7 @@
 import {
   "dowdiness/event-graph-walker/text",
   "dowdiness/event-graph-walker/undo",
+  "moonbit-community/rabbita/js",
 }
 
 supported_targets = "js"

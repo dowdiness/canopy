@@ -3,6 +3,13 @@
 Status: **draft synthetic-only experiment; not approved for merge or deployment**
 (updated 2026-10-04).
 
+The Worker-side migration tracked in
+[#1458](https://github.com/dowdiness/canopy/issues/1458) is documented in the
+[current README](README.md#worker-implementation). The timeline below describes
+the earlier PR #1450 implementation and evidence, not the compiled MoonBit
+Worker's current validation. Its capacity/renderer-trace limitations remain
+unresolved.
+
 ## 日本語の引き継ぎ
 
 Loomark の実際の Text エディターから、合成文書だけを使う Worker / EGW

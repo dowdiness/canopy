@@ -33,9 +33,9 @@ selection helpers; real MarkdownEditor input_view/admit; Rabbita after_render
 command and Local subscription cleanup. Worker owns mutable EGW and IDB effects;
 pure protocol admission and selection transformations are separately tested.
 
-The private engine FFI reuses `UndoManager::stop_capturing()` at the first hunk
-of a native intent, not at every hunk. EGW's existing timestamp-based capture
-then groups that intent's hunks; no public EGW API or submodule change is needed.
+The MoonBit Worker calls `UndoManager::stop_capturing()` once before applying
+a native intent's prepared replacements. EGW's existing timestamp-based capture
+groups that intent's hunks; no public EGW API or submodule change is needed.
 Binding-admitted input is retained independently of the Worker's execution
 gate; read-only UI prevents new edits without discarding an in-flight commit.
 
@@ -46,3 +46,21 @@ Optimistic edits always execute on their original basis. Both replicas stay in
 the Worker after restore. Double restore/memory overhead is measured, not hidden.
 On Worker recovery, main retains the last accepted Version, uncommitted packets
 and unaccepted native intents. It does not recreate EGW on the main thread.
+
+The compiled `engine/main` now owns FIFO dispatch and typed request/session,
+packet, offer and duplicate-result data. EGW `Version` values stay typed when
+exporting a local delta; only the actual journal/thread contract encodes them.
+`SyncMessage` values are reused across the editing and merged replicas rather
+than crossing an internal JSON facade for each EGW call.
+
+The native adapter reuses Rabbita `js.Promise`, checked `js.Error_` conversion,
+`js.Object` and `js.JsArray` for browser/storage boundaries. Wire objects are
+constructed explicitly, including the approximate-selection array attribute;
+MoonBit record layouts are not sent to JavaScript consumers. Core `String.iter`
+counts Unicode scalars without a temporary character array, and the established
+`core.mjs` alignment/scalar helpers and `store.mjs` journal policy remain shared.
+Mutation is confined to Worker-owned replicas, FIFO/session state and I/O.
+
+Rabbita's generic Worker request envelope is not used in this step: retaining
+the existing wire lets the Worker migrate without creating a second main-thread
+controller beside `client.mjs`. Main-controller ownership is a separate change.
