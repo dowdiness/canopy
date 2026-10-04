@@ -13,6 +13,7 @@ Source/DocumentReplica schema, account enrollment and cloud sync are unchanged.
 | Save R while typing R+1 | Only exact packet transaction completion removes that packet; never clear newer dirty |
 | Worker dies before edit response | Retain native intent; no save authorized before main retains immutable packet |
 | Worker dies before/during/after save | Replay durable union and retained packets; same operation IDs, exactly once |
+| Long replay / silent Worker exit | Whole-packet progress renews only the matched watchdog; 120k catch-up completes without false restart; real silence recovers the identical packet |
 | A→B→A / late response | Worker epoch, request ID and document identity fence all responses |
 | Close/reload | Only committed union advertised Saved; pending text stays exportable and unload guarded |
 | Duplicate/reordered hints | Hints carry no operations; poll IDB, validate original whole packets |

@@ -6,6 +6,8 @@ let documentId,db,editor,merged,cursor=0,offer=null,offerSequence=0,historyRows=
 let lastCommand=null,lastSequence=0;
 const info=()=>egw.inspect(editor);
 function admit(handle,payload){boundedPacket(payload);const t=egw.apply(handle,payload);if(t.pending)throw Error('Durable operation union is not causally closed');return t;}
+// Progress renews only the matching request's liveness deadline, never its ACK.
+function checkpoint(r,phase){self.postMessage({epoch:r.epoch,id:r.id,document:r.document,checkpoint:phase});}
 async function open(request){
  documentId=request.document;db=await openStore();let seed=await readSeed(db,documentId);
  const timings={},start=performance.now();
@@ -18,7 +20,9 @@ async function open(request){
  timings.seedMs=performance.now()-start;let t=performance.now();
  const writer=crypto.randomUUID();
  editor=egw.create(writer,seed.archive,seed.version).handle;
+ checkpoint(request,'editor-restored');
  merged=egw.create(crypto.randomUUID(),seed.archive,seed.version).handle;
+ checkpoint(request,'merged-restored');
  timings.restoreMs=performance.now()-t;t=performance.now();
  const rows=await readJournal(db,documentId,0);
  historyRows=rows;
@@ -26,11 +30,11 @@ async function open(request){
  // Select whole previously validated journal packets, never slice messages to
  // dodge admission limits. Every selected packet is re-admitted by real EGW.
  for(const row of rows){
-  admit(merged,row.payload);
-  if(!basis||boundedPacket(row.payload).operations.every(op=>contains(basis,op.id)))admit(editor,row.payload);
+  admit(merged,row.payload);checkpoint(request,'merged-replayed');
+  if(!basis||boundedPacket(row.payload).operations.every(op=>contains(basis,op.id))){admit(editor,row.payload);checkpoint(request,'editor-replayed');}
   cursor=row.cursor;
  }
- for(const packet of request.packets||[]){admit(editor,packet.payload);admit(merged,packet.payload);}
+ for(const packet of request.packets||[]){admit(editor,packet.payload);checkpoint(request,'editor-retained');admit(merged,packet.payload);checkpoint(request,'merged-retained');}
  const state=info();
  if(request.basisVersion&&state.version!==request.basisVersion)throw Error('Recovery basis unavailable; retained draft was not overwritten');
  timings.replayMs=performance.now()-t;
@@ -65,14 +69,14 @@ async function execute(r){
  if(r.type==='save'){
   // Main must retain this immutable packet before authorizing its transaction.
   admit(merged,r.packet.payload);
-  const timings=await append(db,documentId,r.packet,{...r.fault,checkpoint:()=>self.postMessage({epoch:r.epoch,id:r.id,document:r.document,checkpoint:'before-commit'})});
+  const timings=await append(db,documentId,r.packet,{...r.fault,checkpoint:()=>checkpoint(r,'before-commit')});
   if(r.fault?.crashAfterCommit){self.close();return new Promise(()=>{});}
   return {packetId:r.packet.id,timings};
  }
  if(r.type==='pull'){
   const rows=await readJournal(db,documentId,cursor);
   historyRows.push(...rows);
-  for(const row of rows){admit(merged,row.payload);cursor=row.cursor;}
+  for(const row of rows){admit(merged,row.payload);cursor=row.cursor;checkpoint(r,'pulled-packet');}
   const before=info(),after=egw.inspect(merged);
   if(before.version===after.version)return {offer:null};
   const known=knowledge(before.version);
@@ -82,7 +86,7 @@ async function execute(r){
  }
  if(r.type==='project'){
   if(!offer||offer.token!==r.token)throw Error('Stale projection acknowledgement');
-  for(const payload of offer.payloads)admit(editor,payload);const state=info();
+  for(const payload of offer.payloads){admit(editor,payload);checkpoint(r,'projected-packet');}const state=info();
   if(state.version!==offer.info.version||state.text!==offer.info.text)throw Error('Projection acknowledgement mismatch');
   offer=null;return {info:state};
  }

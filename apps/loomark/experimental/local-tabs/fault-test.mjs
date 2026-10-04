@@ -7,7 +7,7 @@ context.on('page',p=>p.on('pageerror',e=>errors.push(e.message)));
 const run='fault-'+Date.now();
 async function page(name,extra=''){const p=await context.newPage();await p.goto(`http://127.0.0.1:4182/?local-tabs-worker=1&doc=${run}-${name}&seed=base${extra}`);await ready(p);return p;}
 async function ready(p){await p.waitForFunction(()=>globalThis.trial?.state?.ready&&!document.querySelector('textarea').readOnly,{},{timeout:30000});}
-async function settled(p){await p.waitForFunction(()=>trial.state.ready&&!trial.state.running&&!trial.state.queue.length&&!trial.state.packets.length&&!trial.state.failure&&!trial.state.blocked,{},{timeout:30000});}
+async function settled(p){await p.waitForFunction(()=>trial.state.ready&&!trial.state.running&&!trial.state.queue.length&&!trial.state.packets.length&&!trial.state.failure&&!trial.state.blocked,{},{timeout:60000});}
 async function edit(p,text){await p.locator('textarea').focus();await p.keyboard.press('Control+End');await p.keyboard.insertText(text);}
 async function record(name,fn){if(process.env.TEST_FILTER&&!name.includes(process.env.TEST_FILTER))return;const start=Date.now();const data=await fn();results.push({name,passed:true,ms:Date.now()-start,...data});console.log('PASS',name,data||'');}
 async function committedCount(p){return p.evaluate(async()=>{const {openStore,readJournal}=await import('./store.mjs');const db=await openStore();const rows=await readJournal(db,trial.state.documentId,0);db.close();return rows.length;});}
@@ -88,6 +88,16 @@ try{
   const rows=(await p.evaluate(()=>trial.durable())).journal;assert.equal(rows.length,1);assert.equal(rows[0].id,packet.id);assert.equal(rows[0].payload,packet.payload);assert.equal(await p.locator('textarea').inputValue(),'base PACKET');
   const info=await p.evaluate(()=>trial.inspect());assert.equal(info.count,11);await p.close();return {packetId:packet.id};
  });
+ await record('silent Worker exit after commit times out and recovers the same packet',async()=>{
+  const p=await page('silent-exit');await p.evaluate(()=>trial.state.crashAfterCommit=true);
+  await edit(p,' PACKET');await p.waitForFunction(()=>trial.state.packets.length===1);
+  const packet=await p.evaluate(()=>trial.state.packets[0]);
+  await p.waitForFunction(()=>trial.state.recoveries===1,{},{timeout:30000});await settled(p);
+  const rows=(await p.evaluate(()=>trial.durable())).journal;
+  assert.equal(rows.length,1);assert.equal(rows[0].id,packet.id);assert.equal(rows[0].payload,packet.payload);
+  assert.equal(await p.locator('textarea').inputValue(),'base PACKET');
+  assert.equal((await p.evaluate(()=>trial.inspect())).count,11);await p.close();
+ });
  await record('100k restore gates native input until Ready',async()=>{
   const p=await context.newPage();await p.goto(`http://127.0.0.1:4182/?local-tabs-worker=1&doc=${run}-restore&size=100000`);await p.waitForSelector('textarea');
   assert.equal(await p.locator('textarea').evaluate(e=>e.readOnly),true);await p.locator('textarea').focus();await p.keyboard.insertText('MUST_NOT_APPEAR');await ready(p);assert.equal((await p.locator('textarea').inputValue()).length,100000);await p.close();
@@ -130,9 +140,10 @@ try{
  });
  await record('missed history over 100k operations replays original valid packets without slicing',async()=>{
   const a=await page('capacity'),b=await page('capacity');await b.evaluate(()=>trial.pause(true));
+  const recoveries=await b.evaluate(()=>trial.state.recoveries);
   for(let i=0;i<3;i++){await edit(a,'x'.repeat(20000));await settled(a);await a.locator('textarea').evaluate(e=>e.setSelectionRange(4,20004));await a.keyboard.press('Backspace');await settled(a);}
   assert.equal(await a.locator('textarea').inputValue(),'base');await b.evaluate(()=>trial.pause(false));await settled(b);
-  const ia=await a.evaluate(()=>trial.inspect()),ib=await b.evaluate(()=>trial.inspect());assert.equal(ia.version,ib.version);assert.equal(ib.count,120004);assert.equal(ib.pending,0);await a.close();await b.close();return {journalOperations:120000,packets:6};
+  const ia=await a.evaluate(()=>trial.inspect()),ib=await b.evaluate(()=>trial.inspect());assert.equal(ia.version,ib.version);assert.equal(ib.count,120004);assert.equal(ib.pending,0);assert.equal(await b.evaluate(()=>trial.state.recoveries),recoveries);await a.close();await b.close();return {journalOperations:120000,packets:6};
  });
  assert.deepEqual(errors,[]);
 }catch(e){results.push({passed:false,error:e.stack});process.exitCode=1;console.error(e);}

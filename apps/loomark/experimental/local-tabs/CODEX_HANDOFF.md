@@ -19,11 +19,19 @@ Loomark の実際の Text エディターから、合成文書だけを使う Wo
 - Added browser regressions for separated-hunk Undo/Redo and terminal Japanese
   composition during Worker recovery and a blocked IndexedDB abort. Both
   regressions failed before the corresponding fix and passed afterward.
-- Fresh headless validation passed: 11 pure tests, 13 browser scenarios,
+- Before the subsequent watchdog correction, fresh headless validation passed:
+  11 pure tests, 13 browser scenarios,
   13 fault scenarios, 3 real Rabbita unmount/remount scenarios, and ordinary-mode
   isolation. Scoped strict MoonBit checks and 388 Loomark release tests passed.
   Independent persistence/concurrency and Undo-boundary reviews found no
   high-confidence defects. These are scoped results, not whole-workspace CI.
+- Headed revalidation then exposed a further recovery defect: valid 120k replay
+  exceeded the fixed 15-second response deadline and repeatedly restarted the
+  Worker. The watchdog now measures inactivity, renewed only after actual
+  replica restore or whole-packet admission on the matching request. The headed
+  120k regression passes without a restart; a separate silent-exit-after-commit
+  regression confirms timeout recovery still preserves the identical packet.
+  Independent reviewers also checked these progress/ACK boundaries.
 - Final-commit reruns, performance measurements, normal hook results, and the
   exact GitHub CI head are recorded on [PR #1450](https://github.com/dowdiness/canopy/pull/1450).
   Do not infer a current pass from the historical results below or `RESULTS.md`.

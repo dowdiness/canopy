@@ -77,6 +77,10 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
   then retries without changing IDs of already accepted operations. A fresh
   writer handles newly generated operations. Unload warns while work is unsaved;
   abrupt browser/process loss before commit is not claimed durable.
+- The Worker watchdog measures 15 seconds without progress, not total replay
+  time. Completed replica restores and whole-packet admissions renew only the
+  matching request's deadline. Progress never acknowledges an edit or a save.
+  A silent Worker exit still triggers recovery with the same retained packet.
 - Switching synthetic documents retains each session and its pending lane; old
   response IDs/epochs/document IDs cannot mutate another document. Workers are
   terminated at actual Rabbita local-scope disposal. No general cache/GC added.

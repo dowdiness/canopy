@@ -6,8 +6,9 @@ export class WorkerLost extends Error {}
 export class Client {
  constructor(document,onFault=()=>{}){this.document=document;this.onFault=onFault;this.epoch=0;this.serial=0;this.pending=null;this.worker=null;}
  start(){this.stop();const epoch=this.epoch;this.worker=new Worker(new URL('./worker.mjs',import.meta.url),{type:'module'});this.worker.onmessage=e=>this.receive(e.data);this.worker.onerror=this.worker.onmessageerror=()=>{if(epoch===this.epoch)this.fail(new WorkerLost('Worker stopped; recovering retained edits'));};}
- receive(message){const p=this.pending;if(!acceptEnvelope(p,message))return;if(message.checkpoint){this.checkpoint=message.checkpoint;return;}clearTimeout(p.timer);this.pending=null;message.ok?p.resolve(message.result):p.reject(Error(message.error));}
- request(type,data={}){if(this.pending)throw Error('Overlapping Worker request');return new Promise((resolve,reject)=>{const p={epoch:this.epoch,id:++this.serial,document:this.document,resolve,reject};p.timer=setTimeout(()=>this.fail(new WorkerLost('Worker response timed out')),15000);this.pending=p;this.worker.postMessage({epoch:p.epoch,id:p.id,document:p.document,type,...data});});}
+ #watch(p){clearTimeout(p.timer);p.timer=setTimeout(()=>this.fail(new WorkerLost('Worker stopped making progress')),15000);}
+ receive(message){const p=this.pending;if(!acceptEnvelope(p,message))return;if(message.checkpoint){this.checkpoint=message.checkpoint;this.#watch(p);return;}clearTimeout(p.timer);this.pending=null;message.ok?p.resolve(message.result):p.reject(Error(message.error));}
+ request(type,data={}){if(this.pending)throw Error('Overlapping Worker request');return new Promise((resolve,reject)=>{const p={epoch:this.epoch,id:++this.serial,document:this.document,resolve,reject};this.#watch(p);this.pending=p;this.worker.postMessage({epoch:p.epoch,id:p.id,document:p.document,type,...data});});}
  fail(error){const p=this.pending;this.pending=null;if(p){clearTimeout(p.timer);p.reject(error);}this.stop();this.onFault(error);}
  stop(){this.epoch++;if(this.pending){clearTimeout(this.pending.timer);this.pending.reject(new WorkerLost('Worker restarted'));this.pending=null;}if(this.worker){this.worker.onmessage=this.worker.onerror=this.worker.onmessageerror=null;this.worker.terminate();this.worker=null;}}
 }
