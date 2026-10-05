@@ -131,13 +131,16 @@ text, selection, composition, or Undo. Manual reading scrolls are not pulled bac
 to the caret. Compact Split retains a minimum usable writing pane when notices
 reduce the available height.
 The editor follows changes in the browser's available height, excluding pinch
-magnification. While this height is smaller than the layout viewport's height,
-the bottom bar and its reserved space are removed, even if panning brings the
-visible bottom to the layout bottom.
+magnification. It requests native content resizing where supported. The bottom
+bar and its reserved space are removed when visual-viewport occlusion or a
+window-size-adjusted height estimate indicates a keyboard. Panning alone does
+not restore the bar.
 No bottom overlay or reserved bottom gap remains while the bar is hidden.
 The top toolbar and failure notices remain available. The
-bottom bar returns when the visible height recovers; a small window or hardware
-keyboard alone does not hide it.
+bottom bar returns when the visible height recovers. Ordinary window-height
+changes and hardware-keyboard focus alone do not hide it. Keyboard detection
+under content resizing is best-effort, not a browser-provided visibility signal;
+its limitations are described in [Mobile Viewport](README.md#how-it-works).
 Width or height changes keep the visible
 textarea's active selection endpoint readable, including when a resize control
 has focus, without replacing the textarea or changing text, selection, focus,

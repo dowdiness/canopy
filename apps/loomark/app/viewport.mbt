@@ -68,6 +68,10 @@ fn observe_text_area_resize(
 }
 
 ///|
+extern "js" fn window_outer_height(window : @dom.Window) -> Double =
+  #| window => window.outerHeight
+
+///|
 priv suberror VisualViewportSubscription {
   FollowViewport
 }
@@ -87,12 +91,22 @@ fn visual_viewport_subscription(
       let style = root.get_style()
       let mut frame : Double? = None
       let mut top = 0.0
+      let baseline : ViewportBaseline = {
+        height: window.inner_height(),
+        outer_height: window_outer_height(window),
+        width: window.inner_width(),
+      }
       fn update_viewport(_ : Double) {
         frame = None
         let scale = viewport.scale()
         guard scale > 0.0 else { return }
         let height = viewport_layout_height(viewport.height(), scale)
         let layout_height = window.inner_height()
+        let layout_reduced = baseline.update(
+          layout_height,
+          window_outer_height(window),
+          window.inner_width(),
+        )
         top = viewport_layout_top(
           viewport.offset_top(),
           scale,
@@ -102,7 +116,7 @@ fn visual_viewport_subscription(
         )
         style.set_property("--loomark-viewport-height", "\{height}px")
         style.set_property("--loomark-viewport-top", "\{top}px")
-        if bottom_bar_obscured(height, layout_height) {
+        if layout_reduced || bottom_bar_obscured(height, layout_height) {
           root.set_attribute("data-loomark-bottom-obscured", "")
         } else {
           root.remove_attribute("data-loomark-bottom-obscured")

@@ -105,11 +105,21 @@ when changing decorative layers. Geometry and hit testing alone cannot prove
 that content is not covered: `pointer-events: none` overlays are skipped by
 `elementFromPoint` but can still obscure text.
 
+The entry page requests native content resizing. Check that path with an actual
+Android keyboard and the browser address bar at the bottom, not only with a
+simulated visual-only resize. Record `outerHeight` alongside `innerHeight`;
+ordinary window resizing changes both, whereas keyboard resizing can leave the
+outer height unchanged. Close the keyboard without blurring the textarea and
+confirm that the bottom bar returns. Also reload while the keyboard is open.
+The [height estimate and its limitations](../README.md#how-it-works) affect
+bar visibility only; the editor must always use the current available height.
+
 Before releasing keyboard-layout changes, check iOS Safari and Android Chrome
 on devices: focus near the end of a long document, open and dismiss the keyboard,
 type Japanese through IME, move the caret within wrapped lines, and rotate the
-device in Text and Split. The current line must remain above the keyboard,
-without the bottom bar or its reserved gap consuming the visible area. Scroll
+device in Text and Split. The current line must remain above the keyboard.
+When the keyboard is detected, neither the bottom bar nor its reserved gap
+should consume the visible area. Scroll
 through Text, Split, and Preview: content should share the same edge fade and
 subtle blur beneath the fixed controls, not stop at a white frame. When the bottom
 bar is hidden, its fade and blur must also disappear. The active writing line
@@ -124,7 +134,7 @@ the bottom bar.
 For a device-only white band, capture the full screen including the keyboard,
 the browser/device, and the exact URL. Compare geometry before focus, after the
 keyboard opens, and after the first input: `visualViewport` height, `offsetTop`,
-`pageTop`, and scale; window `innerHeight` and `scrollY`; document `clientHeight`
+`pageTop`, and scale; window `innerHeight`, `outerHeight`, and `scrollY`; document `clientHeight`
 and `scrollHeight`; and the viewport shell, textarea, and footer bounds.
 Use `elementFromPoint` inside the band together with computed backgrounds and
 pseudo-element styles to distinguish an app element from an exposed document

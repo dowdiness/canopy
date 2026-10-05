@@ -23,9 +23,18 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
   [`dowdiness/dom_boundary/visual_viewport`](../../modules/dom-boundary/visual_viewport/visual_viewport.mbt)
   package owns native viewport access and disposable resize/scroll listeners.
   Loomark owns layout updates, frame batching, and zoom policy.
+  The entry page requests `interactive-widget=resizes-content`, so supporting
+  browsers resize the layout rather than leave an exposed document strip above
+  the keyboard. Other browsers retain the visual-viewport path.
   Available height is `visualViewport.height * visualViewport.scale`: zoom alone
   preserves layout height, but resizing must continue while zoomed. Zoom panning
   retains the last layout offset, bounded by the remaining layout height.
+  With content resizing, bottom-bar visibility is estimated from the largest
+  observed layout height, adjusted by changes in `window.outerHeight`. A deficit
+  greater than 100 CSS pixels hides the bar; this threshold never changes the
+  editor's height. Width changes reset the estimate. Small/floating keyboards,
+  rotation with the keyboard open, and startup without an unobscured sample can
+  leave the bar visible. Large browser-UI changes can also resemble a keyboard.
   Text and Preview share the same softened edges beneath the fixed controls.
   The bars own their decorative backgrounds, and the layout wrapper is transparent;
   no independent editor overlay remains when the bottom bar is hidden.

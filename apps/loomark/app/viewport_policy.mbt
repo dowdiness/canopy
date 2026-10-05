@@ -52,3 +52,35 @@ fn viewport_layout_top(
 fn bottom_bar_obscured(visible_height : Double, layout_height : Double) -> Bool {
   visible_height < layout_height - 1.0
 }
+
+///|
+/// resizes-content shrinks both viewports, so their difference no longer
+/// identifies the keyboard. Keep a window-size-adjusted high-water mark.
+/// This is a heuristic: width changes reset it rather than guessing across
+/// rotation or desktop zoom, and small browser-toolbar changes are ignored.
+priv struct ViewportBaseline {
+  mut height : Double
+  mut outer_height : Double
+  mut width : Double
+}
+
+///|
+fn ViewportBaseline::update(
+  self : ViewportBaseline,
+  layout_height : Double,
+  outer_height : Double,
+  width : Double,
+) -> Bool {
+  if width != self.width || outer_height <= 0.0 || self.outer_height <= 0.0 {
+    self.height = layout_height
+  } else {
+    self.height = Double::max(
+      layout_height,
+      self.height + outer_height - self.outer_height,
+    )
+  }
+  self.outer_height = outer_height
+  self.width = width
+  // A visibility threshold, never a correction to the editor's actual height.
+  layout_height < self.height - 100.0
+}

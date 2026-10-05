@@ -39,3 +39,45 @@ test "bottom bar tolerates subpixel height differences" {
   assert_false(bottom_bar_obscured(843.0, 844.0))
   assert_true(bottom_bar_obscured(842.9, 844.0))
 }
+
+///|
+test "content resizing hides the bar until keyboard height recovers" {
+  let baseline : ViewportBaseline = {
+    height: 635.0,
+    outer_height: 800.0,
+    width: 360.0,
+  }
+  assert_true(baseline.update(448.0, 800.0, 360.0))
+  assert_true(baseline.update(420.0, 800.0, 360.0))
+  assert_false(baseline.update(635.0, 800.0, 360.0))
+  assert_true(baseline.update(448.0, 800.0, 360.0))
+}
+
+///|
+test "window height resizing is not mistaken for a keyboard" {
+  let baseline : ViewportBaseline = {
+    height: 635.0,
+    outer_height: 800.0,
+    width: 360.0,
+  }
+  assert_false(baseline.update(335.0, 500.0, 360.0))
+  assert_false(baseline.update(735.0, 900.0, 360.0))
+  assert_true(baseline.update(448.0, 900.0, 360.0))
+  // Growing the window while the keyboard remains open preserves the deficit.
+  assert_true(baseline.update(548.0, 1000.0, 360.0))
+  assert_false(baseline.update(835.0, 1000.0, 360.0))
+}
+
+///|
+test "browser controls and width changes do not retain a keyboard estimate" {
+  let baseline : ViewportBaseline = {
+    height: 635.0,
+    outer_height: 800.0,
+    width: 360.0,
+  }
+  assert_false(baseline.update(664.0, 800.0, 360.0))
+  assert_false(baseline.update(635.0, 800.0, 360.0))
+  assert_true(baseline.update(448.0, 800.0, 360.0))
+  assert_false(baseline.update(243.0, 360.0, 800.0))
+  assert_false(baseline.update(635.0, 800.0, 360.0))
+}
