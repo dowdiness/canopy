@@ -84,6 +84,32 @@ CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false ./scripts/test-loomark-sync-e2e.sh
 
 Keep your local dev Worker stopped when running these tests to avoid file conflicts in `dist/`.
 
+### Test contracts
+
+Name each standalone test after the user-visible invariant and the state
+transition that could break it. Observe the application, not its fixture helpers.
+
+| Boundary | What the test must protect |
+| --- | --- |
+| Native editing | Exact text, selection, composition, Undo, and continued editing after navigation or Sync. |
+| Layout and accessibility | Reachable controls, visible focus and graphics, non-overlapping content, and actual pane resizing. |
+| Asynchronous work | Only committed content appears in Preview and document names; late work cannot overwrite newer state. |
+| Persistence | Durable acknowledgements, recovery after failure, no lost text or redundant writes, and correct reload/export results. |
+
+Do not pin CSS defaults, icon classes, DOM identity, timer counts, or textarea
+getter counts. For example, assert that keyboard resizing changes the pane, not
+that a library slider moves from 50 to 51. Check icon-only controls' rendered
+interiors rather than a particular mask implementation or a golden screenshot.
+Wait for the required interaction to become possible, not for a particular
+opacity or animation duration. Reduced-motion checks are different: the absence
+of motion is itself the requested behavior.
+
+Keep numeric fixtures that distinguish real boundaries: compact/wide layouts,
+zoom factors, viewport clipping, keyboard estimates, and explicit latency limits.
+Keep controlled delays and storage failures where they make races reproducible;
+assert the resulting visible or persisted state rather than scheduler mechanics.
+Direct IndexedDB helper timings are not Loomark E2E coverage.
+
 ### Mobile keyboard validation
 
 The standalone viewport regressions simulate a visual-only resize and pan,
@@ -104,10 +130,6 @@ Compare scrolled Text, Split, and Preview screenshots at compact and wide widths
 when changing decorative layers. Geometry and hit testing alone cannot prove
 that content is not covered: `pointer-events: none` overlays are skipped by
 `elementFromPoint` but can still obscure text.
-Assert visible content placement, control reachability, and document overflow
-rather than fixed textarea offsets or header `scrollHeight`. Content insets can
-move between positioning and padding without moving the text; the header's
-decorative pseudo-element can extend its scroll bounds without overflowing controls.
 
 The entry page requests native content resizing. Check that path with an actual
 Android keyboard and the browser address bar at the bottom, not only with a
