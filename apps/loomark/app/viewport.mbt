@@ -1,46 +1,70 @@
 ///|
-/// Measurement is an action: it reads live selection/style/layout and briefly
-/// attaches a mirror. The callback receives only numeric geometry; it never
-/// needs to look up a node. No text, selection, or focus is changed here.
-extern "js" fn measure_caret(
+let caret_mirror_properties : FixedArray[String] = [
+  "font-family", "font-size", "font-weight", "font-style", "font-stretch", "font-variant",
+  "line-height", "letter-spacing", "word-spacing", "tab-size", "text-indent", "text-transform",
+  "text-align", "direction", "word-break", "padding-top", "padding-right", "padding-bottom",
+  "padding-left",
+]
+
+///|
+/// Measurement is an action. Mirror lifetime and typed DOM calls stay in
+/// MoonBit; the callback receives numeric geometry, never a live node.
+fn measure_caret(
   area : @dom.HTMLTextAreaElement,
   measured : (Double, Double, Double, Double, Double, Double) -> Unit,
-) =
-  #| (area, measured) => {
-  #|   const document = area.ownerDocument;
-  #|   if (area.clientHeight === 0) return;
-  #|   const style = document.defaultView.getComputedStyle(area);
-  #|   const mirror = document.createElement('div');
-  #|   mirror.setAttribute('aria-hidden', 'true');
-  #|   for (const property of [
-  #|     'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch',
-  #|     'fontVariant', 'lineHeight', 'letterSpacing', 'wordSpacing', 'tabSize',
-  #|     'textIndent', 'textTransform', 'textAlign', 'direction', 'wordBreak',
-  #|     'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'
-  #|   ]) mirror.style[property] = style[property];
-  #|   Object.assign(mirror.style, {
-  #|     position: 'fixed', visibility: 'hidden', pointerEvents: 'none',
-  #|     top: '0', left: '0', width: `${area.clientWidth}px`,
-  #|     boxSizing: 'border-box', whiteSpace: 'pre-wrap', overflowWrap: 'break-word'
-  #|   });
-  #|   const endpoint = area.selectionDirection === 'backward'
-  #|     ? area.selectionStart : area.selectionEnd;
-  #|   mirror.textContent = area.value.slice(0, endpoint);
-  #|   const marker = document.createElement('span');
-  #|   marker.textContent = area.value.slice(endpoint) || '.';
-  #|   mirror.append(marker);
-  #|   document.body.append(mirror);
-  #|   try {
-  #|     const top = marker.getClientRects()[0].top - mirror.getBoundingClientRect().top;
-  #|     measured(
-  #|       top, top + parseFloat(style.lineHeight),
-  #|       area.scrollTop, area.clientHeight,
-  #|       parseFloat(style.paddingTop), parseFloat(style.paddingBottom)
-  #|     );
-  #|   } finally {
-  #|     mirror.remove();
-  #|   }
-  #| }
+) -> Unit {
+  guard area.get_client_height() > 0.0 else { return }
+  let document = element_document(area.as_element())
+  guard document.get_body() is Some(body) else { return }
+  let style = document_window(document).get_computed_style(area.as_element())
+  let mirror = document.create_element("div").to_html_element().unwrap()
+  mirror.set_attribute("aria-hidden", "true")
+  let mirror_style = mirror.get_style()
+  for property in caret_mirror_properties {
+    mirror_style.set_property(property, style.get_property_value(property))
+  }
+  mirror_style.set_property("position", "fixed")
+  mirror_style.set_property("visibility", "hidden")
+  mirror_style.set_property("pointer-events", "none")
+  mirror_style.set_property("top", "0")
+  mirror_style.set_property("left", "0")
+  mirror_style.set_property("width", "\{area.get_client_width()}px")
+  mirror_style.set_property("box-sizing", "border-box")
+  mirror_style.set_property("white-space", "pre-wrap")
+  mirror_style.set_property("overflow-wrap", "break-word")
+  let endpoint = if area.get_selection_direction() == "backward" {
+    area.get_selection_start()
+  } else {
+    area.get_selection_end()
+  }
+  let text = area.get_value()
+  // Browser selection offsets are UTF-16 code units, including split surrogates.
+  mirror.append_child(
+    document
+    .create_text_node(text.unsafe_substring(start=0, end=endpoint))
+    .as_node(),
+  )
+  let marker = document.create_element("span")
+  let remainder = text.unsafe_substring(start=endpoint, end=text.length())
+  marker.append_child(
+    document
+    .create_text_node(if remainder.is_empty() { "." } else { remainder })
+    .as_node(),
+  )
+  mirror.append_child(marker.as_node())
+  body.append_child(mirror.as_node())
+  defer body.remove_child(mirror.as_node())
+  let top = marker.get_client_rects().item(0.0).to_option().unwrap().get_top() -
+    mirror.get_bounding_client_rect().get_top()
+  measured(
+    top,
+    css_pixels(style, "line-height"),
+    area.get_scroll_top(),
+    area.get_client_height(),
+    css_pixels(style, "padding-top"),
+    css_pixels(style, "padding-bottom"),
+  )
+}
 
 ///|
 /// Bind effects to a supplied node, not to a document-global selector.
@@ -49,14 +73,14 @@ fn observe_text_area_resize(
 ) -> (() -> Unit) raise @js.JsError {
   let apply_measurement = (
     top,
-    bottom,
+    line_height,
     scroll_top,
     height,
     padding_top,
     padding_bottom,
   ) => {
     let next = caret_scroll_top(
-      top, bottom, scroll_top, height, padding_top, padding_bottom,
+      top, line_height, scroll_top, height, padding_top, padding_bottom,
     )
     if next != scroll_top {
       area.set_scroll_top(next)
@@ -66,10 +90,6 @@ fn observe_text_area_resize(
     measure_caret(area, apply_measurement)
   })
 }
-
-///|
-extern "js" fn window_outer_height(window : @dom.Window) -> Double =
-  #| window => window.outerHeight
 
 ///|
 priv suberror VisualViewportSubscription {
@@ -91,22 +111,23 @@ fn visual_viewport_subscription(
       let style = root.get_style()
       let mut frame : Double? = None
       let mut top = 0.0
-      let baseline : ViewportBaseline = {
-        height: window.inner_height(),
-        outer_height: window_outer_height(window),
-        width: window.inner_width(),
-      }
+      let mut baseline_height = window.inner_height()
+      let mut previous_outer_height = window_outer_height(window)
+      let mut previous_width = window.inner_width()
       fn update_viewport(_ : Double) {
         frame = None
         let scale = viewport.scale()
         guard scale > 0.0 else { return }
         let height = viewport_layout_height(viewport.height(), scale)
         let layout_height = window.inner_height()
-        let layout_reduced = baseline.update(
-          layout_height,
-          window_outer_height(window),
-          window.inner_width(),
+        let outer_height = window_outer_height(window)
+        let width = window.inner_width()
+        baseline_height = viewport_baseline_height(
+          baseline_height, previous_outer_height, previous_width, layout_height,
+          outer_height, width,
         )
+        previous_outer_height = outer_height
+        previous_width = width
         top = viewport_layout_top(
           viewport.offset_top(),
           scale,
@@ -116,7 +137,7 @@ fn visual_viewport_subscription(
         )
         style.set_property("--loomark-viewport-height", "\{height}px")
         style.set_property("--loomark-viewport-top", "\{top}px")
-        if layout_reduced || bottom_bar_obscured(height, layout_height) {
+        if bottom_bar_obscured(height, layout_height, baseline_height) {
           root.set_attribute("data-loomark-bottom-obscured", "")
         } else {
           root.remove_attribute("data-loomark-bottom-obscured")

@@ -3,12 +3,13 @@
 /// Preserve the current position when the whole caret line is already visible.
 fn caret_scroll_top(
   caret_top : Double,
-  caret_bottom : Double,
+  line_height : Double,
   scroll_top : Double,
   viewport_height : Double,
   padding_top : Double,
   padding_bottom : Double,
 ) -> Double {
+  let caret_bottom = caret_top + line_height
   if caret_bottom > scroll_top + viewport_height - padding_bottom {
     caret_bottom - viewport_height + padding_bottom
   } else if caret_top < scroll_top + padding_top {
@@ -47,40 +48,63 @@ fn viewport_layout_top(
 }
 
 ///|
-/// Keep bottom chrome hidden while the visible height is reduced.
+/// Keep bottom chrome hidden for visual occlusion or estimated keyboard height.
 /// Panning restores no space; tolerate subpixel rounding of browser metrics.
-fn bottom_bar_obscured(visible_height : Double, layout_height : Double) -> Bool {
-  visible_height < layout_height - 1.0
+fn bottom_bar_obscured(
+  visible_height : Double,
+  layout_height : Double,
+  baseline_height : Double,
+) -> Bool {
+  visible_height < layout_height - 1.0 ||
+  layout_height < baseline_height - 100.0
 }
 
 ///|
+/// Compute the next window-size-adjusted high-water mark from numeric samples.
 /// resizes-content shrinks both viewports, so their difference no longer
-/// identifies the keyboard. Keep a window-size-adjusted high-water mark.
-/// This is a heuristic: width changes reset it rather than guessing across
-/// rotation or desktop zoom, and small browser-toolbar changes are ignored.
-priv struct ViewportBaseline {
-  mut height : Double
-  mut outer_height : Double
-  mut width : Double
-}
-
-///|
-fn ViewportBaseline::update(
-  self : ViewportBaseline,
+/// identifies the keyboard. Width changes reset the estimate rather than
+/// guessing across rotation or desktop zoom. The shell retains the samples.
+fn viewport_baseline_height(
+  previous_height : Double,
+  previous_outer_height : Double,
+  previous_width : Double,
   layout_height : Double,
   outer_height : Double,
   width : Double,
-) -> Bool {
-  if width != self.width || outer_height <= 0.0 || self.outer_height <= 0.0 {
-    self.height = layout_height
+) -> Double {
+  if width != previous_width ||
+    outer_height <= 0.0 ||
+    previous_outer_height <= 0.0 {
+    layout_height
   } else {
-    self.height = Double::max(
+    Double::max(
       layout_height,
-      self.height + outer_height - self.outer_height,
+      previous_height + outer_height - previous_outer_height,
     )
   }
-  self.outer_height = outer_height
-  self.width = width
-  // A visibility threshold, never a correction to the editor's actual height.
-  layout_height < self.height - 100.0
+}
+
+///|
+/// Keep the same relative reading position in the other Split pane.
+/// No write is needed for non-scrolling panes or a subpixel difference.
+fn split_scroll_top(
+  source_top : Double,
+  source_height : Double,
+  source_client_height : Double,
+  target_top : Double,
+  target_height : Double,
+  target_client_height : Double,
+) -> Double? {
+  let source_distance = source_height - source_client_height
+  let target_distance = target_height - target_client_height
+  if source_distance > 0.0 && target_distance > 0.0 {
+    let next = source_top / source_distance * target_distance
+    if (target_top - next).abs() >= 1.0 {
+      Some(next)
+    } else {
+      None
+    }
+  } else {
+    None
+  }
 }

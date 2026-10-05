@@ -50,9 +50,17 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
   Loomark binds this observation to the current textarea after rendering and
   disconnects it when that node is replaced. Width and height changes trigger
   caret measurement, independently of VisualViewport events.
-  `app/viewport_policy.mbt` computes scroll positions from numeric measurements;
-  `app/viewport.mbt` owns DOM measurement and writes, while `app/app.mbt` owns
-  element lookup and application lifecycle wiring.
+  `app/viewport_policy.mbt` contains numeric-only calculations for caret scrolling,
+  viewport placement, the next keyboard baseline, bottom-bar visibility, and
+  Split scroll alignment. It neither reads nor mutates retained state.
+  `app/viewport.mbt` and `app/split_scroll.mbt` perform typed DOM operations in
+  MoonBit; the viewport shell retains previous numeric samples and owns frames
+  and cleanup. `app/viewport_dom.mbt` contains only the missing native accessors
+  and CSS numeric conversion, with no application policy or scheduling.
+  `app/app.mbt` resolves elements at startup or after rendering. Split connects
+  directly to the resolved scroll owner and releases that connection on document,
+  mode, owner, or breakpoint changes. An initial sync catches scrolling that
+  occurred before the after-render connection.
 
 ---
 

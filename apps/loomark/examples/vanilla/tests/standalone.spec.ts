@@ -3838,26 +3838,8 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
   await assertSynchronizedScroll()
 })
 
-test("Split keeps element-scroll subscriptions across document activation and removes them outside Split", async ({ page }) => {
+test("Split preserves reading-position synchronization across document and mode changes", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
-  await page.addInitScript(() => {
-    const listeners = new WeakMap<EventTarget, Set<EventListenerOrEventListenerObject>>()
-    const add = EventTarget.prototype.addEventListener
-    const remove = EventTarget.prototype.removeEventListener
-    EventTarget.prototype.addEventListener = function (type, listener, options) {
-      if (type === "scroll" && listener && this === document &&
-        typeof options === "object" && options?.capture) {
-        if (!listeners.has(this)) listeners.set(this, new Set())
-        listeners.get(this)!.add(listener)
-      }
-      return add.call(this, type, listener, options)
-    }
-    EventTarget.prototype.removeEventListener = function (type, listener, options) {
-      if (type === "scroll" && listener) listeners.get(this)?.delete(listener)
-      return remove.call(this, type, listener, options)
-    }
-    ;(window as typeof window & { __scrollListeners?: typeof listeners }).__scrollListeners = listeners
-  })
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const source = Array.from({ length: 80 }, (_, index) => (
@@ -3877,13 +3859,6 @@ test("Split keeps element-scroll subscriptions across document activation and re
   await openDocuments(page)
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(preview.getByRole("heading", { name: "Alpha 79" })).toBeVisible()
-  const listenerCounts = () => page.evaluate(() => {
-    const tracker = (window as typeof window & {
-      __scrollListeners?: WeakMap<EventTarget, Set<EventListenerOrEventListenerObject>>
-    })
-    return tracker.__scrollListeners?.get(document)?.size ?? 0
-  })
-  await expect.poll(listenerCounts).toBe(1)
   await text.evaluate(element => {
     ;(window as typeof window & { __oldScrollText?: Element }).__oldScrollText = element
   })
@@ -3894,7 +3869,6 @@ test("Split keeps element-scroll subscriptions across document activation and re
   expect(await text.evaluate(element => element !== (
     window as typeof window & { __oldScrollText?: Element }
   ).__oldScrollText)).toBe(true)
-  await expect.poll(listenerCounts).toBe(1)
 
   const positions = () => page.evaluate(() => {
     const text = document.getElementById("loomark-text")!
@@ -3938,11 +3912,11 @@ test("Split keeps element-scroll subscriptions across document activation and re
   expect(Math.abs(unchanged.text - 0.25)).toBeLessThan(0.02)
   expect(Math.abs(unchanged.preview - 0.25)).toBeLessThan(0.02)
   await page.getByRole("tab", { name: "Text" }).click()
-  await expect.poll(listenerCounts).toBe(0)
   await page.getByRole("tab", { name: "Preview" }).click()
-  await expect.poll(listenerCounts).toBe(0)
   await page.getByRole("tab", { name: "Split" }).click()
-  await expect.poll(listenerCounts).toBe(1)
+  await expect(text).toBeVisible()
+  await expect(preview).toBeVisible()
+  await verify("loomark-text", 0.55)
 })
 
 test("production keyed lead subscriptions reconcile timer lifecycles", async ({ page }) => {

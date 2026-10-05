@@ -52,6 +52,75 @@ fn text_area_resize_subscription(activation : Int, compact : Bool) -> @sub.Sub {
 }
 
 ///|
+priv suberror SplitScrollSubscription {
+  Follow(@editor.EditorState)
+}
+
+///|
+/// Resolve this render's pair once. Activation and breakpoint changes replace
+/// nodes; mode and scroll-owner changes also release the old connection.
+fn split_scroll_subscription(
+  source : String,
+  target : String,
+  activation : Int,
+  compact : Bool,
+  preview : @editor.EditorState,
+) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark.split-scroll(\{source},\{target},\{activation},\{compact})",
+    @sub.Scope::Local,
+    SplitScrollSubscription::Follow(preview),
+    (payload, scheduler) => {
+      guard payload is SplitScrollSubscription::Follow(preview) else {
+        return None
+      }
+      let mut active = true
+      let mut previous_preview = preview
+      let mut connection : (() -> Unit, () -> Unit)? = None
+      fn sync_after_render() {
+        scheduler.add(
+          @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+            guard active && connection is Some((sync, _)) else { return }
+            sync()
+          }),
+        )
+      }
+      scheduler.add(
+        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+          guard active &&
+            @dom.document().get_element_by_id(source).to_option() is Some(from) &&
+            @dom.document().get_element_by_id(target).to_option() is Some(to) else {
+            return
+          }
+          let connected = connect_split_scroll(from, to, sync_after_render)
+          connection = Some(connected)
+          // A scroll can precede this after-render connection when its owner
+          // changes. Catch up from live geometry once the listener is attached.
+          let (sync, _) = connected
+          sync()
+        }),
+      )
+      Some({
+        unload: _ => {
+          active = false
+          if connection is Some((_, stop)) {
+            stop()
+          }
+          connection = None
+        },
+        update_tagger: payload => {
+          guard payload is SplitScrollSubscription::Follow(next) else { return }
+          if previous_preview != next {
+            previous_preview = next
+            sync_after_render()
+          }
+        },
+      })
+    },
+  )
+}
+
+///|
 const LEAD_DELAY_MS : Int = 250
 
 ///|
@@ -121,6 +190,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   "loomark-text",
                   "loomark-preview-scroll",
                   editing.activation.generation,
+                  editing.compact,
                   editing.preview,
                 )
               PreviewPane =>
@@ -128,6 +198,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   "loomark-preview-scroll",
                   "loomark-text",
                   editing.activation.generation,
+                  editing.compact,
                   editing.preview,
                 )
             }

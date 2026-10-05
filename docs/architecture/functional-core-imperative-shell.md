@@ -27,6 +27,9 @@ Test the functional core with deterministic unit and property tests. Focus
 shell tests on effect wiring, integration boundaries, and a small number of
 end-to-end cases.
 
+The [Functional Core / Imperative Shell reference collection](https://github.com/kbilsted/Functional-core-imperative-shell)
+describes this separation of dependencies and mutation from decision paths.
+
 ## DOM actions and calculations
 
 DOM reads are actions, not just DOM writes: `querySelector`, element lookup,
@@ -44,6 +47,12 @@ DOM access pure. This follows the actions/calculations/data distinction in
 - Bind observations to the node's lifetime. If rendering replaces a node,
   disconnect the old observation and resolve the replacement after rendering.
   Keep cancellation and pending-work guards in the shell.
+- Prefer existing typed MoonBit browser bindings. Keep JS FFI limited to missing
+  native operations and interop conversion; return typed handles or measured
+  values rather than leaking dynamic JavaScript objects into the core.
+  Keep application decisions, scheduling, retained state, and resource lifetime
+  in the MoonBit shell. Extract numeric decisions into the core, including the
+  next value of an accumulated baseline; do not hide mutation in a policy method.
 
 For example, caret visibility is a calculation over the measured line bounds,
 scroll position, viewport height, and padding. Measuring a textarea and writing
