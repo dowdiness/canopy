@@ -20,3 +20,7 @@ extern "js" fn css_pixels(
 ///|
 extern "js" fn window_outer_height(window : @dom.Window) -> Double =
   #| window => window.outerHeight
+
+///|
+extern "js" fn visual_viewport_scale(viewport : @dom.VisualViewport) -> Double =
+  #| viewport => viewport.scale

@@ -19,10 +19,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 - **Editing & Preview:** Native `<textarea>` inputs flow into `modules/rabbita-markdown/text_area`, which produces minimal `TextChange` diffs and drives the incremental preview without lag.
 - **Local Storage:** `apps/loomark/app/internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
 - **Demand-Driven Sidebar:** Recent documents extract a lightweight `DocumentLead` (the first meaningful heading or line) on the fly, rendering rows only when the sidebar opens.
-- **Mobile Viewport:** The framework-independent
-  [`dowdiness/dom_boundary/visual_viewport`](../../modules/dom-boundary/visual_viewport/visual_viewport.mbt)
-  package owns native viewport access and disposable resize/scroll listeners.
-  Loomark owns layout updates, frame batching, and zoom policy.
+- **Mobile Viewport:** Loomark uses Rabbita's typed `@dom.VisualViewport`
+  for native viewport access and resize/scroll events. The subscription owns
+  listener removal, layout updates, frame batching, and zoom policy.
+  Only the missing `scale` getter uses a private accessor in `app/viewport_dom.mbt`.
   The entry page requests `interactive-widget=resizes-content`, so supporting
   browsers resize the layout rather than leave an exposed document strip above
   the keyboard. Other browsers retain the visual-viewport path.

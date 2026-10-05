@@ -104,7 +104,7 @@ priv suberror VisualViewportSubscription {
 /// Own scheduling and style writes for explicit browser handles.
 fn visual_viewport_subscription(
   window : @dom.Window,
-  viewport : @visual_viewport.VisualViewport,
+  viewport : @dom.VisualViewport,
   root : @dom.HTMLElement,
 ) -> @sub.Sub {
   @sub.custom_sub(
@@ -120,9 +120,9 @@ fn visual_viewport_subscription(
       let mut previous_width = window.inner_width()
       fn update_viewport(_ : Double) {
         frame = None
-        let scale = viewport.scale()
+        let scale = visual_viewport_scale(viewport)
         guard scale > 0.0 else { return }
-        let height = viewport_layout_height(viewport.height(), scale)
+        let height = viewport_layout_height(viewport.get_height(), scale)
         let layout_height = window.inner_height()
         let outer_height = window_outer_height(window)
         let width = window.inner_width()
@@ -133,7 +133,7 @@ fn visual_viewport_subscription(
         previous_outer_height = outer_height
         previous_width = width
         top = viewport_layout_top(
-          viewport.offset_top(),
+          viewport.get_offset_top(),
           scale,
           top,
           layout_height,
@@ -152,13 +152,15 @@ fn visual_viewport_subscription(
           frame = Some(window.request_animation_frame(update_viewport))
         }
       }
-      let stop = viewport.on_change(schedule_update)
       let listener : @dom.Listener = _ => schedule_update()
+      viewport.add_event_listener("resize", listener)
+      viewport.add_event_listener("scroll", listener)
       window.add_event_listener("resize", listener)
       frame = Some(window.request_animation_frame(update_viewport))
       Some({
         unload: _ => {
-          stop()
+          viewport.remove_event_listener("resize", listener)
+          viewport.remove_event_listener("scroll", listener)
           window.remove_event_listener("resize", listener)
           if frame is Some(frame) {
             window.cancel_animation_frame(frame)
