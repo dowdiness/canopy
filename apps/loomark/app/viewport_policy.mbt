@@ -1,4 +1,14 @@
 ///|
+/// Parse resolved line-height/padding values, not arbitrary CSS expressions.
+/// Nonnumeric keywords such as `normal` keep the existing NaN behavior.
+fn parse_css_number(value : String) -> Double {
+  let view = value.view()
+  @string.parse_double(view.strip_suffix("px").unwrap_or(view)) catch {
+    _ => @double.not_a_number
+  }
+}
+
+///|
 /// Compute the scroll position from measured geometry without reading live DOM.
 /// Preserve the current position when the whole caret line is already visible.
 fn caret_scroll_top(

@@ -1,4 +1,11 @@
 ///|
+test "CSS measurements preserve subpixels and do not turn keywords into zero" {
+  assert_eq(parse_css_number("31.25px"), 31.25)
+  assert_eq(parse_css_number("0"), 0.0)
+  assert_true(parse_css_number("normal").is_nan())
+}
+
+///|
 test "caret resize preserves a line exactly within the padded viewport" {
   assert_eq(caret_scroll_top(100.0, 170.0, 86.0, 200.0, 14.0, 16.0), 86.0)
 }

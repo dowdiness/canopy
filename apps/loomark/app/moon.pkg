@@ -20,6 +20,8 @@ import {
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
+  "moonbitlang/core/double",
+  "moonbitlang/core/string",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/immut/vector",
   "moonbit-community/rui",

@@ -58,11 +58,11 @@ fn measure_caret(
     mirror.get_bounding_client_rect().get_top()
   measured(
     top,
-    css_pixels(style, "line-height"),
+    parse_css_number(style.get_property_value("line-height")),
     area.get_scroll_top(),
     area.get_client_height(),
-    css_pixels(style, "padding-top"),
-    css_pixels(style, "padding-bottom"),
+    parse_css_number(style.get_property_value("padding-top")),
+    parse_css_number(style.get_property_value("padding-bottom")),
   )
 }
 
