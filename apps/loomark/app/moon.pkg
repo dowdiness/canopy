@@ -1,4 +1,5 @@
 import {
+  "dowdiness/js_ffi" @js,
   "dowdiness/loomark/app/internal/account_http",
   "dowdiness/loomark/app/internal/replica_persistence",
   "dowdiness/loomark/app/internal/replication",
@@ -19,6 +20,8 @@ import {
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
   "moonbit-community/rabbita/sub",
+  "moonbitlang/core/double",
+  "moonbitlang/core/string",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/immut/vector",
   "moonbit-community/rui",

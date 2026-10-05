@@ -122,10 +122,32 @@ _Avoid_: layout, workspace
 
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
-The native editable viewport stays outside the fixed controls, including in
-Split. Its text is not faded at the viewport edges, so native caret scrolling
-keeps the current writing line readable. Compact Split retains a minimum usable
-writing pane when notices reduce the available height. Preview retains its softened edges.
+Text and Preview share the same edge fade and subtle blur beneath the fixed top
+and bottom controls in every editor mode. Each bar owns its blurred background;
+the editor has no separate decorative overlay. Document spacing stays inside the
+scrollable content rather than an empty outer frame. Native scroll padding keeps
+the current writing line clear of the controls and faded edges without changing
+text, selection, composition, or Undo. Manual reading scrolls are not pulled back
+to the caret. Compact Split retains a minimum usable writing pane when notices
+reduce the available height.
+The editor follows changes in the browser's available height, excluding pinch
+magnification. It requests native content resizing where supported. The bottom
+bar and its reserved space are removed when visual-viewport occlusion or a
+window-size-adjusted height estimate indicates a keyboard. Panning alone does
+not restore the bar.
+No bottom overlay or reserved bottom gap remains while the bar is hidden.
+The top toolbar and failure notices remain available. The
+bottom bar returns when the visible height recovers. Ordinary window-height
+changes and hardware-keyboard focus alone do not hide it. Keyboard detection
+under content resizing is best-effort, not a browser-provided visibility signal;
+its limitations are described in [Mobile Viewport](README.md#how-it-works).
+Width or height changes keep the visible
+textarea's active selection endpoint readable, including when a resize control
+has focus, without replacing the textarea or changing text, selection, focus,
+IME composition, or native Undo. Pinch zoom remains browser-owned and does not
+cause the editor to reflow around the zoomed viewport. Keyboard and window height
+changes still resize the editor while zoomed; a recovered height cannot leave
+the previous keyboard-sized frame or an obsolete top offset in place.
 _Avoid_: source mode, raw mode
 
 **Preview**:

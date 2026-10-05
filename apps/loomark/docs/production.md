@@ -84,6 +84,96 @@ CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV=false ./scripts/test-loomark-sync-e2e.sh
 
 Keep your local dev Worker stopped when running these tests to avoid file conflicts in `dist/`.
 
+### Test contracts
+
+Name each standalone test after the user-visible invariant and the state
+transition that could break it. Observe the application, not its fixture helpers.
+
+| Boundary | What the test must protect |
+| --- | --- |
+| Native editing | Exact text, selection, composition, Undo, and continued editing after navigation or Sync. |
+| Layout and accessibility | Reachable controls, visible focus and graphics, non-overlapping content, and actual pane resizing. |
+| Asynchronous work | Only committed content appears in Preview and document names; late work cannot overwrite newer state. |
+| Persistence | Durable acknowledgements, recovery after failure, no lost text or redundant writes, and correct reload/export results. |
+
+Do not pin CSS defaults, icon classes, DOM identity, timer counts, or textarea
+getter counts. For example, assert that keyboard resizing changes the pane, not
+that a library slider moves from 50 to 51. Check icon-only controls' rendered
+interiors rather than a particular mask implementation or a golden screenshot.
+Wait for the required interaction to become possible, not for a particular
+opacity or animation duration. Reduced-motion checks are different: the absence
+of motion is itself the requested behavior.
+
+Keep numeric fixtures that distinguish real boundaries: compact/wide layouts,
+zoom factors, viewport clipping, keyboard estimates, and explicit latency limits.
+Keep controlled delays and storage failures where they make races reproducible;
+assert the resulting visible or persisted state rather than scheduler mechanics.
+Direct IndexedDB helper timings are not Loomark E2E coverage.
+
+### Mobile keyboard validation
+
+The standalone viewport regressions simulate a visual-only resize and pan,
+including Text and Split, selection, Undo, keyboard dismissal, and pinch zoom.
+They also check that the bottom bar disappears without reserving space, stays
+hidden when a reduced viewport pans to the layout bottom, returns on dismissal,
+and leaves save-failure notices visible at the new bottom edge.
+Caret checks cover the whole line, not only its center, outside the visible bars.
+Desktop device emulation does not open a real software keyboard.
+These checks do not simulate keyboard-driven document scrolling or mobile
+compositing.
+A separate Chromium regression uses native page scaling and viewport resizing,
+without overriding viewport getters: start at 380px, zoom to 2×, then grow to
+844px. The layout must recover to 844px rather than leave a 380px frame inside a
+422px visible viewport. This catches zoom-related height freezing, not a real
+Android keyboard or compositor failure.
+Compare scrolled Text, Split, and Preview screenshots at compact and wide widths
+when changing decorative layers. Geometry and hit testing alone cannot prove
+that content is not covered: `pointer-events: none` overlays are skipped by
+`elementFromPoint` but can still obscure text.
+
+The entry page requests native content resizing. Check that path with an actual
+Android keyboard and the browser address bar at the bottom, not only with a
+simulated visual-only resize. Record `outerHeight` alongside `innerHeight`;
+ordinary window resizing changes both, whereas keyboard resizing can leave the
+outer height unchanged. Close the keyboard without blurring the textarea and
+confirm that the bottom bar returns. Also reload while the keyboard is open.
+The [height estimate and its limitations](../README.md#how-it-works) affect
+bar visibility only; the editor must always use the current available height.
+
+Before releasing keyboard-layout changes, check iOS Safari and Android Chrome
+on devices: focus near the end of a long document, open and dismiss the keyboard,
+type Japanese through IME, move the caret within wrapped lines, and rotate the
+device in Text and Split. The current line must remain above the keyboard.
+When the keyboard is detected, neither the bottom bar nor its reserved gap
+should consume the visible area. Scroll
+through Text, Split, and Preview: content should share the same edge fade and
+subtle blur beneath the fixed controls, not stop at a white frame. When the bottom
+bar is hidden, its fade and blur must also disappear. The active writing line
+must stay outside visible controls and faded edges.
+Closing the keyboard must restore the bar without losing text, selection, or Undo.
+Repeat opening and dismissal while zoomed: the layout must still respond to
+height changes, without retaining an obsolete top offset after recovery.
+Confirm that pinch zoom alone preserves layout height, save-failure notices
+remain readable, and a hardware keyboard or small window alone does not hide
+the bottom bar.
+
+For a device-only white band, capture the full screen including the keyboard,
+the browser/device, and the exact URL. Compare geometry before focus, after the
+keyboard opens, and after the first input: `visualViewport` height, `offsetTop`,
+`pageTop`, and scale; window `innerHeight`, `outerHeight`, and `scrollY`; document `clientHeight`
+and `scrollHeight`; and the viewport shell, textarea, and footer bounds.
+Use `elementFromPoint` inside the band together with computed backgrounds and
+pseudo-element styles to distinguish an app element from an exposed document
+background or a non-interactive overlay. A passing simulated viewport test does
+not resolve a device-only report.
+
+Also keep the height fixed while narrowing the window and resize the Split
+divider without changing the window size. With the caret near the end of a
+wrapped document, its line must remain visible. Repeat after switching documents
+and crossing the compact/wide breakpoint to check that observation follows the
+replacement textarea. Element lookup belongs to the after-render shell; the
+caret visibility calculation must remain independent of DOM access.
+
 ### Demand-Driven Projection Verification
 
 Run recent document projection tests from `examples/vanilla`:

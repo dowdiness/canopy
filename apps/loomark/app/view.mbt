@@ -599,7 +599,7 @@ fn view(
 ) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
-    class="flex h-dvh min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light selection:bg-lm-accent-soft",
+    class="flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light selection:bg-lm-accent-soft",
     attrs=@html.Attrs::build()
       .role("region")
       .aria_label("Loomark Markdown Editor"),
@@ -607,7 +607,7 @@ fn view(
       match model {
         Loading(_) | PreparingNew(_) =>
           @html.div(
-            class="grid min-h-dvh place-items-center text-lm-muted [&_p]:m-0",
+            class="grid min-h-full place-items-center text-lm-muted [&_p]:m-0",
             [@html.p("Loading document")],
           )
         Recovery(failure, _) | NewPreparationFailed(_, failure) => {
