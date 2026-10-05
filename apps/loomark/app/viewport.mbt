@@ -86,9 +86,13 @@ fn observe_text_area_resize(
       area.set_scroll_top(next)
     }
   }
-  @resize_observer.observe(@js.any(area), (_, _) => {
-    measure_caret(area, apply_measurement)
-  })
+  @js.try_sync(() => {
+    let observer = @dom.ResizeObserver::new((_, _) => {
+      measure_caret(area, apply_measurement)
+    })
+    observer.observe(area.as_element())
+    @js.any(() => observer.disconnect())
+  }).cast()
 }
 
 ///|

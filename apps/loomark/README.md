@@ -41,15 +41,12 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
   Textarea `scroll-padding` keeps native caret navigation clear of the controls
   and fades without per-input DOM measurement; manual reading scrolls remain
   browser-owned.
-- **Element Resizing:** The framework-independent
-  [`dowdiness/dom_boundary/resize_observer`](../../modules/dom-boundary/resize_observer/resize_observer.mbt)
-  package observes a supplied native element, reporting content-box width and
-  height in CSS pixels. `observe(@js.any(element), on_size)` returns an
-  idempotent disconnect function; invalid targets or missing browser support
-  raise `@js.JsError`. It does not look up IDs or selectors.
-  Loomark binds this observation to the current textarea after rendering and
-  disconnects it when that node is replaced. Width and height changes trigger
-  caret measurement, independently of VisualViewport events.
+- **Element Resizing:** Loomark uses Rabbita's typed `@dom.ResizeObserver`
+  to observe the current textarea after rendering. Creation and registration
+  stay inside `@js.try_sync`, preserving the existing error path when the
+  browser API is unavailable. The subscription disconnects the observer when
+  that node is replaced. Width and height changes trigger caret measurement,
+  independently of VisualViewport events.
   `app/viewport_policy.mbt` contains numeric-only calculations for caret scrolling,
   viewport placement, the next keyboard baseline, bottom-bar visibility, and
   Split scroll alignment. It neither reads nor mutates retained state.
