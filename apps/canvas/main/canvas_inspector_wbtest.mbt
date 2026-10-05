@@ -73,7 +73,6 @@ test "Inspector source fallback and sessions target captured identity" {
     _ => (),
   )
   assert_true(rejected.session is None)
-  assert_eq(rejected.reset_generation, submitted.reset_generation + 1)
   let other = edge_projection_test_node("node-b", 0.0, 0.0, 100.0, 80.0, [], [])
   let changed = canvas_inspector_reconcile(
     submitted,
@@ -118,7 +117,7 @@ test "Inspector cancellation permits a new session and terminal blocks edits" {
   assert_true(cancelled.session is Some(session) && session.phase == Cancelled)
   let (reopened, _) = canvas_inspector_update(
     cancelled,
-    Focus(key, "node-a", cancelled.reset_generation, 2),
+    Focus(key, "node-a", populated.reset_generation, 2),
     true,
     _ => (),
     _ => (),

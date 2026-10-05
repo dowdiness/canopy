@@ -75,6 +75,12 @@ wait for a reducer update or render. Enter/change/Escape read that stamped ID,
 not a session captured by the previous render. Otherwise focus and Enter in the
 same task can enqueue mismatched identities and silently lose an edit.
 
+The focus generation tracks target invalidation and terminal shutdown, not
+completion, cancellation, or a no-op edit. Native Tab can emit change and focus
+before another render; ending the old session must not reject the new focus.
+Session-owned DOM restoration and blur also match the stamped focus ID so an
+older queued command cannot overwrite or blur a refocused draft.
+
 Non-IME Enter synchronously prevents default. An admitted edit becomes Submitted
 before blur can emit native change. Escape becomes Cancelled before restoring
 and blurring; a later focus starts a new session. Empty/unchanged input produces

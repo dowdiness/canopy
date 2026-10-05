@@ -40,6 +40,8 @@ priv struct CanvasInspectorProjection {
 priv struct CanvasInspectorState {
   projection : CanvasInspectorProjection?
   session : CanvasInspectorSession?
+  // Target/terminal invalidation only; ending one edit must not reject the
+  // next focus event captured before the next render.
   reset_generation : Int
   terminal : Bool
 } derive(Eq)
@@ -272,13 +274,14 @@ fn canvas_inspector_update(
           session.key == key &&
           session.phase == Editing =>
           (
-            {
-              ..state,
-              session: Some({ ..session, phase: Cancelled, }),
-              reset_generation: state.reset_generation + 1,
-            },
+            { ..state, session: Some({ ..session, phase: Cancelled, }), },
             @rabbita.effect(() => {
-              canvas_inspector_dom_finalize(key, Some(session.canonical), true)
+              canvas_inspector_dom_finalize(
+                key,
+                Some(session.canonical),
+                true,
+                session_id=id,
+              )
             }),
           )
         _ => (state, @rabbita.none)
@@ -300,17 +303,17 @@ fn canvas_inspector_update(
           let command = match canonical {
             Some(value) =>
               @rabbita.effect(() => {
-                canvas_inspector_dom_finalize(session.key, Some(value), false)
+                canvas_inspector_dom_finalize(
+                  session.key,
+                  Some(value),
+                  false,
+                  session_id=id,
+                )
               })
             None => @rabbita.none
           }
           (
-            {
-              ..state,
-              session: None,
-              terminal: reply is ParserStopped,
-              reset_generation: state.reset_generation + 1,
-            },
+            { ..state, session: None, terminal: reply is ParserStopped, },
             command,
           )
         }
@@ -338,9 +341,14 @@ fn canvas_inspector_commit(
   let trimmed = value.trim().to_owned()
   if trimmed == "" || trimmed == session.canonical {
     return (
-      { ..state, session: None, reset_generation: state.reset_generation + 1, },
+      { ..state, session: None, },
       @rabbita.effect(() => {
-        canvas_inspector_dom_finalize(key, Some(session.canonical), true)
+        canvas_inspector_dom_finalize(
+          key,
+          Some(session.canonical),
+          true,
+          session_id=id,
+        )
       }),
     )
   }
@@ -363,7 +371,7 @@ fn canvas_inspector_commit(
           Some(reply => post_to_self(Completion(id, reply))),
         ),
       )
-      canvas_inspector_dom_finalize(key, None, true)
+      canvas_inspector_dom_finalize(key, None, true, session_id=id)
     }),
   )
 }
@@ -447,6 +455,7 @@ fn canvas_inspector_dom_finalize(
   key : CanvasInspectorFieldKey,
   restore : String?,
   blur : Bool,
+  session_id? : Int,
 ) -> Unit {
   let id = match key.field {
     Binding => "node-rename-input"
@@ -457,6 +466,12 @@ fn canvas_inspector_dom_finalize(
       Some(key.node_id) =>
       match element.as_event_target().to_html_input_element() {
         Some(input) => {
+          // Native focus reserves its identity before queued effects run.
+          if session_id is Some(expected_id) &&
+            element.get_attribute("data-inspector-session") !=
+            Some(expected_id.to_string()) {
+            return
+          }
           match restore {
             Some(value) => input.set_value(value)
             None => ()

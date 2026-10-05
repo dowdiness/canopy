@@ -1151,6 +1151,59 @@ test('Inspector accepts focus and Enter in the same task before its next render'
   await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
 });
 
+test('Inspector accepts the next field after an empty edit ends with native Tab', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await selectSourceNode(page, 'osc');
+  const binding = page.locator('#node-rename-input');
+  const freq = page.locator('#node-param-freq');
+
+  await binding.focus();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('Tab');
+  await expect(binding).toHaveValue('osc');
+  await expect(freq).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.insertText('990');
+  await page.keyboard.press('Enter');
+
+  await expectSource(page, 'osc = sine(freq: 990Hz)\nmeter = scope()');
+  await expect(freq).not.toBeFocused();
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
+test('Inspector cancellation preserves a refocused draft before its next render', async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto('/?source=1');
+  await expectSource(page, SAMPLE_SOURCE);
+  await selectSourceNode(page, 'osc');
+  const freq = page.locator('#node-param-freq');
+
+  await freq.evaluate((element) => {
+    const input = element as HTMLInputElement;
+    input.focus();
+    input.value = '999';
+    input.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Escape', bubbles: true, cancelable: true,
+    }));
+    input.blur();
+    input.focus();
+    input.value = '660';
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, data: '660' }));
+  });
+  await expect(freq).toBeFocused();
+  await expect(freq).toHaveValue('660');
+  await freq.press('Enter');
+
+  await expectSource(page, 'osc = sine(freq: 660Hz)\nmeter = scope()');
+  await expect(freq).not.toBeFocused();
+  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('cancelled Inspector follows later canonical Source edits and can edit again', async ({ page }) => {
   await page.goto('/?source=1');
   await expectSource(page, SAMPLE_SOURCE);
