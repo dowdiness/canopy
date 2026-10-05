@@ -147,6 +147,29 @@ preventDefault or mutation. An admitted target cancels the browser default and
 dismisses the context menu even if the subsequent Source operation is rejected.
 Queued intent never retargets to a later selection.
 
+### Test ownership
+
+Keep assertions at the boundary that owns the guarantee:
+
+- Inspector core tests exercise event sequences and resulting edit requests or
+  finalization: one submission for Enter/change, stale completion isolation,
+  target replacement, cancellation/refocus, and terminal shutdown. A generation
+  is an input token, not a counter whose arithmetic is part of the contract.
+- Source-owner tests verify canonical source, dirty-buffer preservation,
+  completion outcomes, and durable operations. Status prose and status-field
+  copying are not additional contracts.
+- Browser tests own native focus/caret/Tab/IME ordering, keyed DOM identity,
+  compatibility presentation, keyboard admission, and menu dismissal. Do not
+  duplicate them with serialized-HTML or CSS-string snapshots.
+- Library/menu tests verify query normalization, the chosen inserted node, and
+  operation deltas. The separated-node arrangement fixture checks reduced bounds
+  without overlap. Demo graph size, catalog length, insertion percentages,
+  packing coordinates, and action-stat wording are not promises.
+- Keep independently worked numeric examples for subpixel coordinates, overflow
+  rejection, and viewport clamping with caller-supplied margins and offsets.
+  Precise expected results at those boundaries catch arithmetic regressions;
+  replacing them with “some value was returned” would weaken the tests.
+
 ## Rationale
 
 Local typed receivers keep Source policy with its existing owner without merging

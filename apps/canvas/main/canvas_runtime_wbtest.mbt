@@ -74,17 +74,6 @@ test "validate_workflow reports missing typed input ports independently" {
 }
 
 ///|
-test "get_render_state exposes workflow JSON shape" {
-  let handle = create_canvas()
-  let json_str = get_render_state(handle)
-  assert_true(json_str.contains("\"nodes\""))
-  assert_true(json_str.contains("Timer trigger"))
-  assert_true(json_str.contains("\"path_d\""))
-  assert_true(json_str.contains("\"input_compatibility\""))
-  assert_true(json_str.contains("\"validation\""))
-}
-
-///|
 test "render snapshot owns input compatibility for the active connection" {
   let runtime = CanvasRuntime::CanvasRuntime()
   assert_eq(runtime.render_state().input_compatibility.length(), 0)
@@ -100,7 +89,6 @@ test "render snapshot owns input compatibility for the active connection" {
     ),
   })
   let rendered = runtime.render_state()
-  assert_eq(rendered.input_compatibility.length(), 6)
   inspect(
     compatibility_for(rendered.input_compatibility, "5", "items"),
     content="true",
@@ -139,11 +127,9 @@ test "runtime ignores non-finite drag moves before commit" {
   runtime.pointer_up(node.id.to_string(), "", false)
   let next = runtime.state_peek()
   assert_eq(next.nodes[0].position(), node.position())
-  assert_true(next.action_log.length() > 0)
-  match next.action_log[0].action() {
-    MoveNodes(_) => fail("invalid drag move must not commit")
-    _ => ()
-  }
+  assert_false(
+    next.action_log.iter().any(operation => operation.action() is MoveNodes(_)),
+  )
 }
 
 ///|
@@ -240,86 +226,23 @@ test "runtime edge disconnection preserves ephemeral node selection" {
 }
 
 ///|
-test "context arrangement packs a captured multi-selection with MoveNodes" {
-  let handle = create_canvas()
-  let runtime = test_context_runtime(handle)
-  let node1 = NodeId("1")
-  let node2 = NodeId("2")
-  let first = contract_state_node(runtime.state_peek(), node1)
-  let (one_sx, one_sy) = contract_screen_point(
-    runtime.render_state().viewport,
-    first.position().x(),
-    first.position().y(),
-  )
-  ignore(runtime.pointer_down(Some(node1), one_sx, one_sy))
-  runtime.pointer_up("1", "", false)
-  let second = contract_state_node(runtime.state_peek(), node2)
-  let (two_sx, two_sy) = contract_screen_point(
-    runtime.render_state().viewport,
-    second.position().x(),
-    second.position().y(),
-  )
-  ignore(runtime.pointer_down(Some(node2), two_sx, two_sy))
-  runtime.pointer_up("2", "", true)
-
-  let prepared = test_context_prepare(handle, test_background_target())
-  guard apply_menu_operation(prepared.items[0].operation) is RuntimeApplied else {
-    fail("expected arrangement to apply")
-  }
-
-  let packed1 = contract_state_node(runtime.state_peek(), node1)
-  let packed2 = contract_state_node(runtime.state_peek(), node2)
-  debug_inspect(packed1.position().x(), content="-520")
-  debug_inspect(packed1.position().y(), content="-190")
-  debug_inspect(packed2.position().x(), content="-260")
-  debug_inspect(packed2.position().y(), content="-190")
-  let actions = runtime.action_log_snapshot()
-  match actions[actions.length() - 1].action() {
-    MoveNodes(positions) => {
-      debug_inspect(positions.length(), content="2")
-      debug_inspect(
-        positions[0].id.to_string(),
-        content=(
-          #|"1"
-        ),
-      )
-      debug_inspect(
-        positions[1].id.to_string(),
-        content=(
-          #|"2"
-        ),
-      )
-    }
-    _ => fail("expected MoveNodes as the last action")
-  }
-}
-
-///|
 test "runtime sparse inspector follows hover until a node is selected" {
   let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.sync_viewport_state({
-    ..runtime.state_peek(),
-    viewport: Viewport::from_scale(
-      origin=try! ScreenPoint::from_xy(x=0.0, y=0.0),
-      scale=try! @spatial.Scale::from_double(value=1.0),
-    ),
-  })
   runtime.hover_node("1")
   match runtime.render_state().inspector {
     Some(node) => {
       inspect(node.source, content="hovered")
-      inspect(node.title, content="Timer trigger")
+      assert_eq(node.id, "1")
     }
     None => fail("expected hovered inspector")
   }
 
-  ignore(runtime.pointer_down(Some(NodeId("2")), -190.0, -190.0))
-  runtime.pointer_up("2", "", false)
+  test_select_node(runtime, NodeId("2"))
   runtime.hover_node("1")
   match runtime.render_state().inspector {
     Some(node) => {
       inspect(node.source, content="selected")
-      inspect(node.title, content="HTTP request")
+      assert_eq(node.id, "2")
     }
     None => fail("expected selected inspector")
   }

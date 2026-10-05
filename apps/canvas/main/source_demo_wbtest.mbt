@@ -28,9 +28,6 @@ test "canvas rename survives deferred graph synchronization" {
   let (_, notified) = source_demo_update(emit, msg, initial)
   let (_, synced) = source_demo_update(emit, SyncFromGraph, notified)
   assert_eq(synced.editor, "lfo = sine(freq: 440Hz)\nmeter = scope(input: lfo)")
-  assert_true(notified.status_tone == @status.Success)
-  assert_eq(synced.status, notified.status)
-  assert_true(synced.status_tone == @status.Success)
   assert_false(synced.dirty)
 }
 
@@ -57,9 +54,6 @@ test "rejected canvas operation preserves invalid editing across graph sync" {
   let (_, synced) = source_demo_update(emit, SyncFromGraph, rejected)
   assert_eq(synced.editor, invalid_source)
   assert_true(synced.dirty)
-  assert_true(rejected.status_tone == @status.Error)
-  assert_eq(synced.status, rejected.status)
-  assert_true(synced.status_tone == @status.Error)
 }
 
 ///|
@@ -83,12 +77,9 @@ test "delayed canvas success preserves newer invalid editing across graph sync" 
   let (_, notified) = source_demo_update(emit, msg, invalid)
   assert_eq(notified.editor, invalid_source)
   assert_true(notified.dirty)
-  assert_true(notified.status_tone == @status.Success)
   let (_, synced) = source_demo_update(emit, SyncFromGraph, notified)
   assert_eq(synced.editor, invalid_source)
   assert_true(synced.dirty)
-  assert_eq(synced.status, notified.status)
-  assert_true(synced.status_tone == @status.Success)
 }
 
 ///|

@@ -14,13 +14,6 @@ test "canvas input geometry preserves fractional positions" {
     }
     None => fail("finite fractional local points should be retained")
   }
-  match canvas_library_screen_point(500, 400) {
-    Some(point) => {
-      assert_eq(point.x(), 260.0)
-      assert_eq(point.y(), 192.0)
-    }
-    None => fail("finite canvas dimensions should produce an insertion point")
-  }
 }
 
 ///|

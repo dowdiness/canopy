@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import type { RenderState } from '../src/graph-adapter';
+import { loggedActions } from './observations';
 
 const SAMPLE_SOURCE = 'osc = sine(freq: 440Hz)\nmeter = scope()';
 
@@ -148,7 +149,7 @@ test('source-backed node drag updates local layout without mutating source', asy
   const node = sourceNode(page, 'osc');
   const before = await center(node, 'source-backed node');
   await dragBy(page, node.locator('.node-title'), 82, 36);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   await expect.poll(async () => (
     (await center(node, 'dragged source-backed node')).x - before.x
   )).toBeGreaterThan(60);
@@ -226,7 +227,7 @@ test('source-backed canvas gestures lower into canonical source', async ({ page 
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#edges path.edge')).toHaveAttribute('d', /^M /);
   await expect(page.locator('#edges path.edge')).toHaveAttribute('aria-label', /^Connection /);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -241,14 +242,14 @@ test('source-backed edge keyboard activation selects without changing source', a
   await page.mouse.up();
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(edgePaths(page)).toHaveCount(1);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
 
   const edge = edgePaths(page).first();
   await edge.focus();
   await page.keyboard.press('Enter');
   await expect(edge).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(edge).toBeFocused();
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
 
   const defaultPrevented = await edge.evaluate((node) => {
@@ -263,7 +264,7 @@ test('source-backed edge keyboard activation selects without changing source', a
   });
   expect(defaultPrevented).toBe(true);
   await expect(edge).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -280,7 +281,7 @@ test('source-backed self connection is rejected by compatibility validation', as
   await expect(page.locator('#edges path.edge')).toHaveCount(0);
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
   await expectSource(page, SAMPLE_SOURCE);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -331,7 +332,7 @@ test('source-backed release hit ignores elements outside the canvas root', async
   await expect(page.locator('#edges path.edge')).toHaveCount(0);
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
   await expectSource(page, SAMPLE_SOURCE);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   await page.evaluate(() => document.querySelector('#outside-release-target')?.remove());
   expect(runtimeErrors).toEqual([]);
 });
@@ -361,11 +362,11 @@ test('source-backed wheel shares normalized camera semantics', async ({ page }) 
     }, { deltaY, deltaMode });
   };
 
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   expect(await dispatchWheel(0, 0)).toBe(true);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   await dispatchWheel(-2, 1);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -380,7 +381,7 @@ test('source-backed wheel shares normalized camera semantics', async ({ page }) 
   });
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
   expect(await dispatchWheel(-100, 0)).toBe(true);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     root.dispatchEvent(new PointerEvent('pointerup', {
@@ -423,7 +424,7 @@ test('source-backed connection keeps its preview while wheel is consumed', async
   });
   expect(prevented).toBe(true);
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(1);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   await page.mouse.up();
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
@@ -478,7 +479,7 @@ test('source-backed pointercancel drops the local connection preview', async ({ 
   expect(state.connecting).toBeUndefined();
 
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   await expectSource(page, SAMPLE_SOURCE);
   expect(runtimeErrors).toEqual([]);
 });
@@ -572,6 +573,7 @@ test('source-backed inspector rename lowers to canonical source and references',
   await selectSourceNode(page, 'osc');
   const renameInput = page.locator('#node-rename-input');
   await expect(renameInput).toHaveValue('osc');
+  const beforeActions = await loggedActions(page);
   await renameInput.fill('lfo');
   await renameInput.press('Enter');
 
@@ -582,31 +584,7 @@ test('source-backed inspector rename lowers to canonical source and references',
   await expect(sourceNode(page, 'lfo')).toHaveCount(1);
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
-  await expect(page.locator('#source-status')).toContainText(
-    'Renamed node binding through graph-dsl source.',
-  );
-  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
-  expect(runtimeErrors).toEqual([]);
-});
-
-test('source-backed inspector numeric parameter edit lowers to canonical source', async ({ page }) => {
-  const runtimeErrors = collectRuntimeErrors(page);
-
-  await page.goto('/?source=1');
-  await expectSource(page, SAMPLE_SOURCE);
-
-  await selectSourceNode(page, 'osc');
-  const freqInput = page.locator('#node-param-freq');
-  await expect(freqInput).toHaveValue('440');
-  await freqInput.fill('880');
-  await freqInput.press('Enter');
-
-  await expectSource(page, 'osc = sine(freq: 880Hz)\nmeter = scope()');
-  await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
-  await expect(page.locator('#source-status')).toContainText(
-    'Updated freq through graph-dsl source.',
-  );
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -616,6 +594,7 @@ test('inspector preserves native draft and caret across snapshots, then cancels 
   await expectSource(page, SAMPLE_SOURCE);
   await selectSourceNode(page, 'osc');
   const freq = page.locator('#node-param-freq');
+  const beforeActions = await loggedActions(page);
   await freq.fill('777');
   await expect(freq).toBeFocused();
   expect(await freq.evaluate((element) => {
@@ -630,7 +609,7 @@ test('inspector preserves native draft and caret across snapshots, then cancels 
   await page.locator('#canvas-root').dispatchEvent('wheel', {
     deltaY: -50, clientX: 700, clientY: 400, bubbles: true, cancelable: true,
   });
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
   await expect(freq).toBeFocused();
   await expect(freq).toHaveValue('777');
   expect(await freq.evaluate((element) => {
@@ -642,12 +621,12 @@ test('inspector preserves native draft and caret across snapshots, then cancels 
   await freq.press('Escape');
   await expect(freq).not.toBeFocused();
   await expect(freq).toHaveValue('440');
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
   await freq.fill('880');
   await page.getByRole('searchbox').click();
   await expectSource(page, 'osc = sine(freq: 880Hz)\nmeter = scope()');
   await expect(freq).toHaveValue('880');
-  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 2);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -660,14 +639,16 @@ test('rejected inspector edit restores canonical value without replacing dirty s
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
   await selectSourceNode(page, 'osc');
   const freq = page.locator('#node-param-freq');
+  const beforeActions = await loggedActions(page);
+  const beforeNodes = await page.locator('.canvas-node').count();
   await freq.fill('900');
   await freq.press('Enter');
   await expect(freq).toHaveValue('440');
   await expect(freq).not.toBeFocused();
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
   await expectSource(page, dirtySource);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
-  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions);
+  await expect(page.locator('.canvas-node')).toHaveCount(beforeNodes);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -690,7 +671,7 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await clickEdge(page, 0);
   await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(2);
 
   await page.keyboard.press('Backspace');
 
@@ -699,7 +680,7 @@ test('source-backed selected edge deletion lowers into canonical source', async 
   await expect(edgePaths(page)).toHaveCount(0);
   await expect(page.locator('#edges path.edge.selected')).toHaveCount(0);
   await expect(osc).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
-  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(3);
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
   expect(runtimeErrors).toEqual([]);
 });
@@ -714,7 +695,7 @@ test('source-backed finite but Float-overflowing background anchors are rejected
   await expect(page.locator('#context-menu [role="menu"]')).toBeHidden();
   await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('.canvas-node')).toHaveCount(2);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -729,7 +710,7 @@ test('source-backed context menu inserts through canonical source lowering', asy
 
   await expectSource(page, `${SAMPLE_SOURCE}\ncustom = custom()`);
   await expect(page.locator('.canvas-node')).toHaveCount(3);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -755,7 +736,7 @@ test('source-backed edge context menu disconnects its captured edge', async ({ p
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(menu).toBeHidden();
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(2);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -773,7 +754,7 @@ test('source-backed selected node deletion lowers into canonical source', async 
   await expectSource(page, 'osc = sine(freq: 440Hz)');
   await expect(page.locator('.canvas-node')).toHaveCount(1);
   await expect(sourceNode(page, 'meter')).toHaveCount(0);
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(2);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -792,8 +773,6 @@ test('source-backed deletion rejects unsafe survivor references', async ({ page 
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'error');
-  await expect(page.locator('#source-status')).toContainText('Source delete rejected:');
-  await expect(page.locator('#source-status')).toContainText('still references deleted binding');
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -801,7 +780,7 @@ test('source-backed deletion ignores source editor focus', async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
 
   await page.goto('/?source=1');
-  await expect(page.locator('.canvas-node')).toHaveCount(2);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
 
   // Select a canvas node so a missing focus guard WOULD delete it. The keydown
   // bubbles to the document handler even from CodeMirror (CM6 does not
@@ -820,7 +799,7 @@ test('source-backed deletion ignores source editor focus', async ({ page }) => {
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(');
   // ... and did NOT delete the selected canvas node (the focus guard held).
   await expect(page.locator('.canvas-node')).toHaveCount(2);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -838,15 +817,12 @@ for (const invalidSource of INVALID_SOURCE_CASES) {
     await expectSource(page, invalidSource.source);
     await expect(page.locator('.canvas-node')).toHaveCount(2);
     await expect(page.locator('#edges path.edge')).toHaveCount(0);
-    await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+    await expect.poll(() => loggedActions(page)).toBe(0);
     const status = page.locator('#source-status');
     await expect(status).toHaveAttribute('role', 'status');
     await expect(status).toHaveAttribute('aria-live', 'polite');
     await expect(status).toHaveAttribute('aria-atomic', 'true');
     await expect(status).toHaveAttribute('data-tone', 'error');
-    await expect(status).toContainText(
-      'Current source is invalid; canvas is rendering last-good graph: current source is not graph-valid:',
-    );
     await expect(page.locator('#validation-list .validation-item.error').first()).toBeVisible();
 
     expect(runtimeErrors).toEqual([]);
@@ -908,16 +884,15 @@ test('source-backed mode mutates canonical source and render state together', as
   await page.goto('/?source=1');
 
   await expect(page.locator('#source-panel')).toBeVisible();
-  await expect(page.locator('#source-mode-toggle')).toHaveText('Return to canvas runtime');
   await expectSource(page, SAMPLE_SOURCE);
   await expect(page.locator('.canvas-node')).toHaveCount(2);
   await expect(page.locator('#edges path.edge')).toHaveCount(0);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   await page.locator('#source-connect').click();
   await expectSource(page, 'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)');
   await expect(page.locator('#edges path.edge')).toHaveCount(1);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
 
   await page.locator('#source-insert').click();
   await expectSource(
@@ -925,7 +900,7 @@ test('source-backed mode mutates canonical source and render state together', as
     'osc = sine(freq: 440Hz)\nmeter = scope(input: osc)\nreverb = plate()',
   );
   await expect(page.locator('.canvas-node')).toHaveCount(3);
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(2);
 
   await setSource(
     page,
@@ -935,13 +910,7 @@ test('source-backed mode mutates canonical source and render state together', as
   await expect(page.locator('.canvas-node')).toHaveCount(4);
   await expect(page.locator('#edges path.edge')).toHaveCount(2);
   const status = page.locator('#source-status');
-  await expect(status).toHaveAttribute('role', 'status');
-  await expect(status).toHaveAttribute('aria-live', 'polite');
-  await expect(status).toHaveAttribute('aria-atomic', 'true');
   await expect(status).toHaveAttribute('data-tone', 'success');
-  await expect(status).toHaveText(
-    'Source applied; render state is reparsed from Loom GraphDoc.',
-  );
 
   expect(runtimeErrors).toEqual([]);
 });
@@ -1008,7 +977,7 @@ test('source-backed pointercancel interrupts a node drag without changing source
   }).toEqual([beforeCenter.x, beforeCenter.y]);
 
   await expectSource(page, SAMPLE_SOURCE);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   const after = await node.evaluate((element) => ({
     left: (element as HTMLElement).style.left,
     top: (element as HTMLElement).style.top,
@@ -1084,7 +1053,7 @@ test('source-backed output connection shares the root pointer owner', async ({ p
     }));
   });
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -1126,7 +1095,7 @@ test('source-backed capture failure does not enter a graph session', async ({ pa
   });
 
   await expect(page.locator('#edges path.edge-pending')).toHaveCount(0);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -1135,6 +1104,7 @@ test('Inspector accepts focus and Enter in the same task before its next render'
   await expectSource(page, SAMPLE_SOURCE);
   await selectSourceNode(page, 'osc');
   const freq = page.locator('#node-param-freq');
+  const beforeActions = await loggedActions(page);
   expect(await freq.evaluate((element) => {
     const input = element as HTMLInputElement;
     input.focus();
@@ -1148,7 +1118,7 @@ test('Inspector accepts focus and Enter in the same task before its next render'
   })).toBe(true);
   await expectSource(page, 'osc = sine(freq: 880Hz)\nmeter = scope()');
   await expect(freq).not.toBeFocused();
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
 });
 
 test('Inspector accepts the next field after an empty edit ends with native Tab', async ({ page }) => {
@@ -1158,6 +1128,7 @@ test('Inspector accepts the next field after an empty edit ends with native Tab'
   await selectSourceNode(page, 'osc');
   const binding = page.locator('#node-rename-input');
   const freq = page.locator('#node-param-freq');
+  const beforeActions = await loggedActions(page);
 
   await binding.focus();
   await page.keyboard.press('ControlOrMeta+A');
@@ -1171,7 +1142,7 @@ test('Inspector accepts the next field after an empty edit ends with native Tab'
 
   await expectSource(page, 'osc = sine(freq: 990Hz)\nmeter = scope()');
   await expect(freq).not.toBeFocused();
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -1181,6 +1152,7 @@ test('Inspector cancellation preserves a refocused draft before its next render'
   await expectSource(page, SAMPLE_SOURCE);
   await selectSourceNode(page, 'osc');
   const freq = page.locator('#node-param-freq');
+  const beforeActions = await loggedActions(page);
 
   await freq.evaluate((element) => {
     const input = element as HTMLInputElement;
@@ -1200,7 +1172,7 @@ test('Inspector cancellation preserves a refocused draft before its next render'
 
   await expectSource(page, 'osc = sine(freq: 660Hz)\nmeter = scope()');
   await expect(freq).not.toBeFocused();
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -1228,9 +1200,10 @@ test('cancelled Inspector follows later canonical Source edits and can edit agai
   await expect(page.locator('#source-status')).toHaveAttribute('data-tone', 'success');
   await expect(sourceNode(page, 'osc')).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(freq).toHaveValue('880');
+  const beforeActions = await loggedActions(page);
 
   await freq.fill('660');
   await freq.press('Enter');
   await expectSource(page, 'osc = sine(freq: 660Hz)\nmeter = scope()');
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
 });
