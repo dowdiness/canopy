@@ -1419,12 +1419,6 @@ test("quiet editor keeps its source and sidebar toggle in place across views", a
   await expect(toggle).toHaveAttribute("aria-expanded", "false")
   await expect.poll(() => source.evaluate(element => element.getBoundingClientRect().left)).toBe(0)
 
-  const metrics = await source.evaluate(element => ({
-    top: element.getBoundingClientRect().top,
-    paddingTop: getComputedStyle(element).paddingTop,
-    paddingLeft: getComputedStyle(element).paddingLeft,
-  }))
-  expect(metrics).toEqual({ top: 56, paddingTop: "14px", paddingLeft: "340px" })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(page.getByRole("separator")).toHaveAttribute("aria-orientation", "horizontal")
@@ -2964,11 +2958,6 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
   const editor = page.locator("#loomark-editor")
   await expect(sidebar)
     .toHaveAttribute("aria-hidden", "true")
-  const topBar = page.locator("header")
-  expect(await topBar.evaluate(element => ({
-    height: element.getBoundingClientRect().height,
-    scrollHeight: element.scrollHeight,
-  }))).toEqual({ height: 52, scrollHeight: 52 })
   await expect(page.getByRole("tab", { name: "Text" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Preview" })).toBeVisible()
   await expect(page.getByRole("tab", { name: "Split" })).toBeVisible()

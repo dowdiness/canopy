@@ -104,6 +104,10 @@ Compare scrolled Text, Split, and Preview screenshots at compact and wide widths
 when changing decorative layers. Geometry and hit testing alone cannot prove
 that content is not covered: `pointer-events: none` overlays are skipped by
 `elementFromPoint` but can still obscure text.
+Assert visible content placement, control reachability, and document overflow
+rather than fixed textarea offsets or header `scrollHeight`. Content insets can
+move between positioning and padding without moving the text; the header's
+decorative pseudo-element can extend its scroll bounds without overflowing controls.
 
 The entry page requests native content resizing. Check that path with an actual
 Android keyboard and the browser address bar at the bottom, not only with a
