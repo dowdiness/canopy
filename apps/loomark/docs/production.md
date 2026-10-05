@@ -110,6 +110,10 @@ Keep controlled delays and storage failures where they make races reproducible;
 assert the resulting visible or persisted state rather than scheduler mechanics.
 Direct IndexedDB helper timings are not Loomark E2E coverage.
 
+Cloud-sync assertions must identify the intended Document ID and verify its exact
+remote text under the signed-in account. Matching text in another document is not
+evidence that the Editing Document synchronized; document text is not unique.
+
 ### Mobile keyboard validation
 
 The standalone viewport regressions simulate a visual-only resize and pan,
