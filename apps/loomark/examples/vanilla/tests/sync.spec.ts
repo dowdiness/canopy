@@ -90,24 +90,18 @@ async function openActions(page: Page): Promise<void> {
   if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click()
 }
 
-async function expectSynced(page: Page): Promise<void> {
+async function expectSynced(page: Page, documentId: string): Promise<void> {
   const text = await page.getByRole("textbox", { name: "Text" }).inputValue()
   const accountResponse = await page.request.get(`${ORIGIN}/api/account`)
   expect(accountResponse.status()).toBe(200)
   const account = await accountResponse.json() as { id: string }
   await expect.poll(async () => {
-    const response = await page.request.get(`${ORIGIN}/api/documents`, {
+    const response = await page.request.get(`${ORIGIN}/api/documents/${documentId}`, {
       headers: { "X-Loomark-Account": account.id },
     })
     if (response.status() !== 200) return false
-    const catalog = await response.json() as { documents: Array<{ id: string }> }
-    for (const document of catalog.documents) {
-      const detail = await page.request.get(`${ORIGIN}/api/documents/${document.id}`, {
-        headers: { "X-Loomark-Account": account.id },
-      })
-      if (detail.status() === 200 && (await detail.json()).text === text) return true
-    }
-    return false
+    const document = await response.json() as { id: string; text: string }
+    return document.id === documentId && document.text === text
   }, { timeout: 20_000 }).toBe(true)
 }
 
@@ -129,21 +123,18 @@ function captureMutationOperationIds(page: Page, operationIds: string[]): void {
   })
 }
 
-async function createSynced(page: Page, account: string, text: string): Promise<string> {
+async function createSynced(page: Page, text: string): Promise<string> {
   await page.goto("/")
   const editor = page.getByRole("textbox", { name: "Text" })
   await expect(editor).toBeVisible()
   await editor.fill(text)
   await openActions(page)
+  const mutation = page.waitForRequest(request =>
+    request.method() === "PUT" && request.url().startsWith(`${ORIGIN}/api/documents/`))
   await page.locator("#loomark-more-actions-content").getByRole("button", { name: "Sync", exact: true }).click()
-  await expectSynced(page)
-  const response = await page.request.get(`${ORIGIN}/api/documents`, {
-    headers: { "X-Loomark-Account": account },
-  })
-  expect(response.status()).toBe(200)
-  const body = await response.json() as { documents: Array<{ id: string }> }
-  expect(body.documents).toHaveLength(1)
-  return body.documents[0].id
+  const id = (await mutation).url().slice(`${ORIGIN}/api/documents/`.length)
+  await expectSynced(page, id)
+  return id
 }
 
 async function openDocuments(page: Page): Promise<void> {
@@ -199,7 +190,9 @@ test("durable operation survives a lost response, browser close, and Worker rest
   const committed = await page.request.get(`${ORIGIN}/api/documents`, {
     headers: { "X-Loomark-Account": ACCOUNT },
   })
-  expect(await committed.json()).toMatchObject({ documents: [{ revision: 1 }] })
+  const catalog = await committed.json() as { documents: Array<{ id: string; revision: number }> }
+  expect(catalog).toMatchObject({ documents: [{ id: expect.any(String), revision: 1 }] })
+  const id = catalog.documents[0].id
   await phone.close()
 
   await restartWorker()
@@ -212,7 +205,7 @@ test("durable operation survives a lost response, browser close, and Worker rest
   })
   expect(await persisted.json()).toMatchObject({ documents: [{ revision: 1 }] })
   await openRemote(pcPage, "Restart proof", exact)
-  await expectSynced(pcPage)
+  await expectSynced(pcPage, id)
   await pc.close()
 
   phone = await openProfile("restart-phone", true)
@@ -220,7 +213,7 @@ test("durable operation survives a lost response, browser close, and Worker rest
   page = phone.pages()[0] ?? await phone.newPage()
   captureMutationOperationIds(page, operationIds)
   await openRemote(page, "Restart proof", exact)
-  await expectSynced(page)
+  await expectSynced(page, id)
   const remote = await page.request.get(`${ORIGIN}/api/documents`, {
     headers: { "X-Loomark-Account": ACCOUNT },
   })
@@ -235,7 +228,7 @@ test("synchronized deletion survives a lost response and restart", async () => {
   let context = await openProfile("deletion")
   await signIn(context, "deletion")
   let page = context.pages()[0] ?? await context.newPage()
-  const id = await createSynced(page, DELETION_ACCOUNT, "# Delete proof\n")
+  const id = await createSynced(page, "# Delete proof\n")
   page.on("request", request => {
     if (request.method() !== "DELETE") return
     const body = JSON.parse(request.postData() ?? "{}") as { operationId?: string }
@@ -296,7 +289,7 @@ test("divergent browser edits preserve the local branch and expose the remote br
   await signIn(phone, "conflict")
   await signIn(pc, "conflict")
   const phonePage = phone.pages()[0] ?? await phone.newPage()
-  const id = await createSynced(phonePage, CONFLICT_ACCOUNT, baseline)
+  const id = await createSynced(phonePage, baseline)
   const pcPage = pc.pages()[0] ?? await pc.newPage()
   await openRemote(pcPage, "Shared baseline", baseline)
 
@@ -328,7 +321,7 @@ test("divergent browser edits preserve the local branch and expose the remote br
     })
     return response.json()
   }).toMatchObject({ id, revision: 2, text: pcText })
-  await expectSynced(pcPage)
+  await expectSynced(pcPage, id)
 
   await phone.setOffline(false)
   await phonePage.locator(".loomark-footer").getByRole("button", { name: "Retry sync" }).click()
@@ -363,7 +356,7 @@ test("switching accounts hides retained replicas and isolates guessed identities
   const context = await openProfile("account-switch")
   await signIn(context, "accountA")
   const page = context.pages()[0] ?? await context.newPage()
-  const firstId = await createSynced(page, ACCOUNT_A, "# Private A\n")
+  const firstId = await createSynced(page, "# Private A\n")
   const editor = page.getByRole("textbox", { name: "Text" })
   await openDocuments(page)
 
@@ -390,8 +383,11 @@ test("switching accounts hides retained replicas and isolates guessed identities
   await expect(editor).toHaveValue("")
   await editor.fill("# Private B\n")
   await openActions(page)
+  const mutation = page.waitForRequest(request =>
+    request.method() === "PUT" && request.url().startsWith(`${ORIGIN}/api/documents/`))
   await page.locator("#loomark-more-actions-content").getByRole("button", { name: "Sync", exact: true }).click()
-  await expectSynced(page)
+  const otherId = (await mutation).url().slice(`${ORIGIN}/api/documents/`.length)
+  await expectSynced(page, otherId)
 
   const original = await signIn(context, "accountA")
   expect(original.id).toBe(ACCOUNT_A)
@@ -402,7 +398,7 @@ test("switching accounts hides retained replicas and isolates guessed identities
   await expect(page.getByRole("button", { name: "Private B", exact: true })).toHaveCount(0)
   await privateA.click()
   await expect(editor).toHaveValue(pendingA)
-  await expectSynced(page)
+  await expectSynced(page, firstId)
   const unchanged = await page.request.get(`${ORIGIN}/api/documents/${firstId}`, {
     headers: { "X-Loomark-Account": ACCOUNT_A },
   })
