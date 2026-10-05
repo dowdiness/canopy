@@ -91,9 +91,24 @@ async function openActions(page: Page): Promise<void> {
 }
 
 async function expectSynced(page: Page): Promise<void> {
-  await openActions(page)
-  await expect(page.locator(".loomark-menu-status").getByRole("status"))
-    .toContainText("Synced", { timeout: 20_000 })
+  const text = await page.getByRole("textbox", { name: "Text" }).inputValue()
+  const accountResponse = await page.request.get(`${ORIGIN}/api/account`)
+  expect(accountResponse.status()).toBe(200)
+  const account = await accountResponse.json() as { id: string }
+  await expect.poll(async () => {
+    const response = await page.request.get(`${ORIGIN}/api/documents`, {
+      headers: { "X-Loomark-Account": account.id },
+    })
+    if (response.status() !== 200) return false
+    const catalog = await response.json() as { documents: Array<{ id: string }> }
+    for (const document of catalog.documents) {
+      const detail = await page.request.get(`${ORIGIN}/api/documents/${document.id}`, {
+        headers: { "X-Loomark-Account": account.id },
+      })
+      if (detail.status() === 200 && (await detail.json()).text === text) return true
+    }
+    return false
+  }, { timeout: 20_000 }).toBe(true)
 }
 
 async function nextRender(page: Page): Promise<void> {
@@ -120,7 +135,7 @@ async function createSynced(page: Page, account: string, text: string): Promise<
   await expect(editor).toBeVisible()
   await editor.fill(text)
   await openActions(page)
-  await page.locator(".loomark-menu-status").getByRole("button", { name: "Sync", exact: true }).click()
+  await page.locator("#loomark-more-actions-content").getByRole("button", { name: "Sync", exact: true }).click()
   await expectSynced(page)
   const response = await page.request.get(`${ORIGIN}/api/documents`, {
     headers: { "X-Loomark-Account": account },
@@ -175,7 +190,7 @@ test("durable operation survives a lost response, browser close, and Worker rest
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.fill(exact)
   await openActions(page)
-  const sync = page.locator(".loomark-menu-status").getByRole("button", { name: "Sync", exact: true })
+  const sync = page.locator("#loomark-more-actions-content").getByRole("button", { name: "Sync", exact: true })
   await expect(sync).toBeVisible()
   expect((await page.request.post(`${ORIGIN}/__e2e__/lose-next-mutation-response`)).status())
     .toBe(204)
@@ -356,8 +371,6 @@ test("switching accounts hides retained replicas and isolates guessed identities
   expect(other.id).toBe(OTHER_ACCOUNT)
   const pendingA = "# Private A\nPending while account changes\n"
   await editor.fill(pendingA)
-  await expect(page.locator('[role="status"][aria-live="polite"]'))
-    .toContainText("Other account", { timeout: 20_000 })
   await expect(page.getByRole("button", { name: "Private A", exact: true })).toHaveCount(0)
   const guessed = await page.request.get(`${ORIGIN}/api/documents/${firstId}`, {
     headers: { "X-Loomark-Account": OTHER_ACCOUNT },
@@ -377,7 +390,7 @@ test("switching accounts hides retained replicas and isolates guessed identities
   await expect(editor).toHaveValue("")
   await editor.fill("# Private B\n")
   await openActions(page)
-  await page.locator(".loomark-menu-status").getByRole("button", { name: "Sync", exact: true }).click()
+  await page.locator("#loomark-more-actions-content").getByRole("button", { name: "Sync", exact: true }).click()
   await expectSynced(page)
 
   const original = await signIn(context, "accountA")

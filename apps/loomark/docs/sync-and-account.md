@@ -21,7 +21,27 @@ The server compiles independently from the browser client.
 
 ## 2. Google Sign-In and Page Departure Lifecycle
 
-When a user clicks **Sign in with Google**, Loomark guarantees that local work is safely committed before navigating away:
+The **Login with Google** button in More actions uses a white pill-shaped
+surface, a fine border, and a locally served Google mark. Retry sign-in keeps
+the same treatment; Cancel sign-in and sign-out remain neutral account controls.
+Normally the menu shows account and document operations, not saving or sync
+progress. Signed-out users see the login button; signed-in users see their name
+and Sign out on both desktop and mobile. A local document keeps its explicit
+Sync action when eligible. There is no Account heading or signed-out label.
+
+The footer remains the home for routine local saving feedback. The menu shows
+only saving failures, sync failures, conflicts, pending remote deletion, and
+available recovery or update actions. A sync failure says **Saved on this device.
+Sync failed.** only when the current text is locally stored; otherwise it says
+**Sync failed.** Replica persistence failures retain **Retry saving** even after
+logout or when account lookup is unavailable. Account lookup failures retain
+**Check account connection** without presenting the user as signed out.
+
+Sign-in preparation shows **Signing in…** with **Cancel sign-in** until
+navigation begins. During account lookup the account control is disabled;
+logout failures retain the account name and **Retry sign-out**.
+
+When a user clicks **Login with Google**, Loomark guarantees that local work is safely committed before navigating away:
 
 1. **Local Pre-Flight:** The root model asks the document store to flush pending edits to IndexedDB across both Source and Replica lanes. If saving fails, navigation aborts, the editor stays interactive, and a retry button appears. If the user continues typing while departure is pending, the new edits immediately cancel departure to avoid losing keystrokes.
 2. **Cancellation:** Until browser navigation physically starts, clicking **Cancel sign-in** abandons the OAuth flow and returns focus to the editor (or preview tab). Any background save already in flight continues quietly.

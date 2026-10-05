@@ -269,7 +269,7 @@ test("sign-in preparation disables creation and Import until cancelled", async (
   const create = page.locator("header").getByRole("button", { name: "New document", exact: true })
   await page.getByRole("button", { name: "More actions" }).click()
   const importLabel = page.locator('label[for="loomark-menu-import"]')
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(text).toBeDisabled()
   await expect(create).toBeDisabled()
   await expect(importLabel.locator("input")).toBeDisabled()
@@ -1573,14 +1573,13 @@ test("account retry remains available in the narrow layout", async ({ page }) =>
   await page.getByRole("button", { name: "More actions" }).click()
   const retry = page.getByRole("button", { name: "Check account connection" })
   await expect(retry).toBeInViewport()
-  await expect(page.getByText("Sign-in status is unavailable. You can keep editing documents on this device.")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Sign in with Google" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Login with Google" })).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Retry account" })).toHaveCount(0)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Kept while account lookup recovers\n")
   available = true
   await retry.click()
-  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Login with Google" })).toBeEnabled()
   await expect(text).toHaveValue("# Kept while account lookup recovers\n")
 })
 
@@ -1595,8 +1594,7 @@ test("an absent account endpoint does not imply signed out or interrupt local ed
   await text.fill("# Local document\n")
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
   await page.getByRole("button", { name: "More actions" }).click()
-  await expect(page.getByText("Sign-in status is unavailable. You can keep editing documents on this device.")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Sign in with Google" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Login with Google" })).toHaveCount(0)
   await page.getByRole("button", { name: "Check account connection" }).click()
   await expect.poll(() => lookups).toBe(2)
   await expect(text).toHaveValue("# Local document\n")
@@ -1658,7 +1656,7 @@ test("Google sign-in waits for committed local text before preparing the redirec
   await page.evaluate(installDelayedDocumentCommit, sourceKey(document.document_id))
   await page.getByRole("textbox", { name: "Text" }).fill("# Depart with this text\n")
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
   await expect(page).toHaveURL(provider)
   expect(preparedText).toBe("# Depart with this text\n")
@@ -1734,7 +1732,7 @@ historyTest("Back from Google restores editing and refreshes the account from BF
   const source = "# Keep this when returning from Google\n"
   await text.fill(source)
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page).toHaveURL(provider)
   signedIn = true
   await page.goBack({ waitUntil: "commit" })
@@ -1767,7 +1765,7 @@ test("failed departure save unlocks editing and retries persistence before OAuth
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.fill("# Keep this despite failure\n")
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page.getByRole("button", { name: "Retry sign-in" })).toBeVisible()
   await expect(editor).toBeEnabled()
   expect(loginRequests).toBe(0)
@@ -1825,7 +1823,7 @@ test("returning a failed Replica edit to saved text cannot replay obsolete text 
   await page.evaluate(removeDocumentPutFailure)
   await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Sign out", exact: true }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page.getByRole("button", { name: "Retry sign-in" })).toBeVisible()
   expect(textAtPreparation).toBe("A")
   expect(replicaCurrentText(await readStoredDocumentRaw(page, key))).toBe("A")
@@ -1857,7 +1855,7 @@ test("a new sign-in joins the physical OAuth request after a racing edit", async
   await waitForRepositoryOpen(page)
   const editor = page.getByRole("textbox", { name: "Text" })
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect.poll(() => loginRequests).toBe(1)
   // Deliver an input accepted before the departure lock, but queued behind it.
   await editor.evaluate(element => {
@@ -1874,7 +1872,7 @@ test("a new sign-in joins the physical OAuth request after a racing edit", async
     }))
   })
   await expect(editor).toBeEnabled()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(editor).toBeDisabled()
   expect((await readStoredDocument(page))?.text).toBe("# Newest text\n")
   expect(loginRequests).toBe(1)
@@ -1908,7 +1906,7 @@ test("account refresh holds an OAuth result until signed-out status is confirmed
   }))
   await page.goto("/")
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
   await expect.poll(() => accountRequests).toBe(2)
@@ -1953,7 +1951,7 @@ test("an old successful OAuth response cannot bypass a newer pending save", asyn
   })
   const editor = page.getByRole("textbox", { name: "Text" })
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect.poll(() => loginRequests).toBe(1)
   // Deliver an edit accepted before the departure lock, but queued behind it.
   await editor.evaluate(element => {
@@ -1970,7 +1968,7 @@ test("an old successful OAuth response cannot bypass a newer pending save", asyn
     }))
   })
   await expect(editor).toBeEnabled()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect.poll(() => page.evaluate(() =>
     (globalThis as typeof globalThis & { __loomarkDelayedCommitActive?: boolean })
       .__loomarkDelayedCommitActive,
@@ -2022,7 +2020,7 @@ test("canceling sign-in resumes editing while its physical request stays owned",
   const baseline = await editor.inputValue()
   await editor.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(1, 3))
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect.poll(() => loginRequests).toBe(1)
   await expect(editor).toBeDisabled()
   await page.getByRole("button", { name: "Cancel sign-in" }).press("Enter")
@@ -2037,7 +2035,7 @@ test("canceling sign-in resumes editing while its physical request stays owned",
   await editor.press("ControlOrMeta+A")
   await editor.pressSequentially("# Kept after cancellation")
   await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("# Kept after cancellation")
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(editor).toBeDisabled()
   expect(loginRequests).toBe(1)
   await page.getByRole("button", { name: "Cancel sign-in" }).click()
@@ -2050,7 +2048,7 @@ test("canceling sign-in resumes editing while its physical request stays owned",
   await expect(editor).toBeEnabled()
   await expect(editor).toHaveValue("# Kept after cancellation")
   expect(new URL(page.url()).hostname).not.toBe("accounts.google.com")
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page).toHaveURL("https://accounts.google.com/o/oauth2/v2/auth?state=attempt-2")
   expect(loginRequests).toBe(2)
   const cookies = await context.cookies()
@@ -2077,7 +2075,7 @@ test("canceling sign-in during saving does not cancel persistence or start OAuth
   await editor.press("ControlOrMeta+A")
   await editor.pressSequentially("Still saving")
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(editor).toBeDisabled()
   await page.getByRole("button", { name: "Cancel sign-in" }).click()
   await expect(editor).toBeEnabled()
@@ -2116,7 +2114,7 @@ test("canceling a prepared sign-in during account lookup restores editor focus",
   })
   await page.goto("/")
   await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Sign in with Google" }).click()
+  await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page.getByRole("button", { name: "Cancel sign-in" })).toBeVisible()
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")))
   await expect.poll(() => accountRequests).toBe(2)
@@ -2131,7 +2129,7 @@ test("canceling a prepared sign-in during account lookup restores editor focus",
   await expect(editor).toBeEnabled()
   await expect(editor).toBeFocused()
   releaseLookup()
-  await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Login with Google" })).toBeVisible()
   await editor.press("ControlOrMeta+A")
   await editor.pressSequentially("Keep editing after account lookup")
   await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("Keep editing after account lookup")
@@ -2218,6 +2216,57 @@ test("Replica write failure changes the save indicator until retry succeeds", as
     .toBe("# Edited\n")
   await expect(indicator).toHaveAttribute("title", "Saved on this device")
 })
+
+for (const lookup of ["signed-out", "unavailable"] as const) {
+  test(`menu retries Replica persistence when account is ${lookup}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    const accountId = "account-a"
+    const document = {
+      document_id: fixtureDocumentId(`menu-retry-${lookup}`),
+      text: "# Recovery document\n",
+    }
+    const key = replicaKey(accountId, document.document_id)
+    let signedIn = true
+    await page.route("**/api/account", route => signedIn
+      ? route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ id: accountId, name: "Account A" }),
+      })
+      : route.fulfill({ status: lookup === "unavailable" ? 503 : 401 }))
+    await page.route("**/api/auth/sign-out", route => {
+      signedIn = false
+      return route.fulfill({ status: 204 })
+    })
+    await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
+    await page.goto("/")
+    await replaceStoreRecords(page, [{ key, value: encodeReadyReplica(accountId, document) }])
+    await page.reload()
+    await openDocuments(page)
+    await page.getByRole("complementary", { name: "Documents" })
+      .getByRole("button", { name: "Recovery document", exact: true }).click()
+    const editor = page.getByRole("textbox", { name: "Text" })
+    await expect(editor).toHaveValue(document.text)
+    await page.evaluate(installDocumentPutFailure, key)
+    await editor.fill("# Keep after sign-out\n")
+    await expect(page.locator(".loomark-footer").getByRole("button", { name: "Retry saving" }))
+      .toBeVisible()
+    await page.getByRole("button", { name: "More actions" }).click()
+    const menu = page.locator("#loomark-more-actions-content")
+    await expect(menu.getByText("Account A", { exact: true })).toBeVisible()
+    await menu.getByRole("button", { name: "Sign out", exact: true }).click()
+    await expect(menu.getByRole("button", { name: "Login with Google" })).toBeVisible()
+    if (lookup === "unavailable") {
+      await page.evaluate(() => globalThis.document.dispatchEvent(new Event("visibilitychange")))
+      await expect(menu.getByRole("button", { name: "Check account connection" })).toBeVisible()
+    }
+    await page.evaluate(removeDocumentPutFailure)
+    await menu.getByRole("button", { name: "Retry saving" }).click()
+    await expect.poll(async () => replicaCurrentText(await readStoredDocumentRaw(page, key)))
+      .toBe("# Keep after sign-out\n")
+    await expect(editor).toHaveValue("# Keep after sign-out\n")
+    await expect(menu.getByRole("button", { name: "Retry saving" })).toHaveCount(0)
+  })
+}
 
 test("duplicate leads select and delete by Document ID", async ({ page }) => {
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# Same\n" }

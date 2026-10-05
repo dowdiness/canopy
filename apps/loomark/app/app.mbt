@@ -347,9 +347,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let document_remote = model.map(document_remote_state)
   let document_activity = model.map(document_sync_activity)
   let selection = model.map(selection_activity)
-  let account_view = account.view(account => {
-    account_status_section(account, emit)
-  })
+  let account_view = account.view(account => account_status_view(account, emit))
   let durability_view = durability.view(durability => {
     local_durability_option_view(durability)
   })
@@ -362,9 +360,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let document_remote_view = document_remote.view(remote => {
     remote_state_option_view(remote, emit)
   })
-  let document_activity_view = document_activity.view(activity => {
-    activity_option_view(activity, emit)
-  })
+  let document_activity_view = document_activity.view2(durability, (
+    activity,
+    durability,
+  ) => activity_option_view(activity, durability, emit))
   let selection_view = selection.view(activity => {
     selection_activity_view(activity, emit)
   })
@@ -385,7 +384,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
             AcceptRemote(action),
             emit,
           )
-        Some(@documents.RemoteState::Diverged) => sync_status_label("Conflict")
+        Some(@documents.RemoteState::Diverged) =>
+          sync_status_label("Conflicting changes")
         Some(@documents.RemoteState::DeletedRemotely) =>
           sync_status_label("Deletion pending")
         _ =>

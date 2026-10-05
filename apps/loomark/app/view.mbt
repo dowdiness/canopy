@@ -55,11 +55,8 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 }
 
 ///|
-fn sync_status_label(text : String, compact? : String = text) -> @rabbita.Html {
-  @html.span(class="min-w-0 truncate px-1.5 py-1", title=text, [
-    @html.span(class="max-[641px]:hidden", text),
-    @html.span(class="min-[642px]:hidden", compact),
-  ])
+fn sync_status_label(text : String) -> @rabbita.Html {
+  @html.span(class="min-w-0 px-1.5 py-1", text)
 }
 
 ///|
@@ -82,11 +79,12 @@ fn account_status_view(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   match status {
-    Checking => sync_status_label("Checking account", compact="Checking")
-    SignedOut => sync_status_label("Signed out")
-    SignedIn(name) => sync_status_label(name)
-    SigningOut(name) | SignOutUnconfirmed(name) => sync_status_label(name)
-    Unavailable => @html.nothing
+    Checking
+    | SignedOut
+    | SignedIn(_)
+    | SigningOut(_)
+    | SignOutUnconfirmed(_)
+    | Unavailable => @html.nothing
     SyncUnavailable =>
       sync_status_button("Retry document connection", RetryAccount, emit)
   }
@@ -95,10 +93,8 @@ fn account_status_view(
 ///|
 fn local_durability_view(durability : LocalDurability) -> @rabbita.Html {
   match durability {
-    NotStarted => sync_status_label("Write to save on this device")
-    Saving => sync_status_label("Saving on this device", compact="Saving")
-    Stored => sync_status_label("Saved on this device", compact="Saved")
-    NotStored => sync_status_label("Not saved")
+    NotStarted | Saving | Stored => @html.nothing
+    NotStored => sync_status_label("Not saved on this device")
   }
 }
 
@@ -129,11 +125,9 @@ fn remote_state_view(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   match remote {
-    @documents.RemoteState::Current => sync_status_label("Synced")
-    LocalAhead => sync_status_label("Local changes")
-    RemoteAhead => sync_status_label("Update pending")
-    Concurrent => sync_status_label("Checking changes")
-    Diverged => sync_status_label("Conflict")
+    @documents.RemoteState::Current | LocalAhead | RemoteAhead | Concurrent =>
+      @html.nothing
+    Diverged => sync_status_label("Conflicting changes")
     DeletedRemotely => sync_status_label("Deletion pending")
     UpdateAvailable(action) =>
       sync_status_button("Open update", AcceptRemote(action), emit)
@@ -149,23 +143,34 @@ fn replica_persistence_view(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   match persistence {
-    @replica_persistence.Status::Current => @html.nothing
-    Persisting => sync_status_label("Saving sync state", compact="Saving sync")
+    @replica_persistence.Status::Current | Persisting => @html.nothing
     Retryable(action, _) =>
-      sync_status_button("Retry saving", RetrySaving(action), emit)
+      @html.div(class="flex flex-col items-start gap-1", [
+        sync_status_label("Sync information was not saved on this device."),
+        sync_status_button("Retry saving", RetrySaving(action), emit),
+      ])
   }
 }
 
 ///|
 fn activity_view(
   activity : @sync.Activity,
+  durability : LocalDurability?,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   match activity {
-    @sync.Activity::Idle => @html.nothing
-    Working => sync_status_label("Syncing")
+    @sync.Activity::Idle | Working => @html.nothing
     Retryable(action) =>
-      sync_status_button("Retry sync", RetrySync(action), emit)
+      @html.div(class="flex flex-col items-start gap-1", [
+        sync_status_label(
+          if durability is Some(Stored) {
+            "Saved on this device. Sync failed."
+          } else {
+            "Sync failed."
+          },
+        ),
+        sync_status_button("Retry sync", RetrySync(action), emit),
+      ])
     Blocked => sync_status_label("Sync paused")
   }
 }
@@ -176,8 +181,7 @@ fn selection_activity_view(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   match activity {
-    @sync.SelectionActivity::Idle => @html.nothing
-    Working => sync_status_label("Opening")
+    @sync.SelectionActivity::Idle | Working => @html.nothing
     Retryable(action) =>
       sync_status_button("Retry opening", RetrySelection(action), emit)
   }
@@ -189,10 +193,8 @@ fn render_document_sync(
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   match sync {
-    DeviceOnly | Unavailable => @html.nothing
+    DeviceOnly | Unavailable | Linking | Linked => @html.nothing
     SyncAvailable(action) => sync_status_button("Sync", StartSync(action), emit)
-    Linking => sync_status_label("Preparing sync", compact="Preparing")
-    Linked => @html.nothing
   }
 }
 
@@ -240,42 +242,13 @@ fn remote_state_option_view(
 ///|
 fn activity_option_view(
   activity : @sync.Activity?,
+  durability : LocalDurability?,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   match activity {
     None => @html.nothing
-    Some(activity) => activity_view(activity, emit)
+    Some(activity) => activity_view(activity, durability, emit)
   }
-}
-
-///|
-fn account_status_section(
-  account : AccountStatus,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  @html.div(
-    class=match account {
-      SignedIn(_) => "contents max-[820px]:hidden"
-      Checking
-      | SignedOut
-      | SigningOut(_)
-      | SignOutUnconfirmed(_)
-      | Unavailable
-      | SyncUnavailable => "contents"
-    },
-    [
-      account_status_view(account, emit),
-      if account is Unavailable {
-        @html.nothing
-      } else {
-        @html.span(
-          class="text-lm-rule max-[641px]:hidden",
-          attrs=@html.Attrs::build().aria_hidden("true"),
-          "·",
-        )
-      },
-    ],
-  )
 }
 
 ///|
@@ -289,7 +262,7 @@ fn sync_status_view(
   opening : @rabbita.Html,
 ) -> @rabbita.Html {
   @html.div(
-    class="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1 overflow-x-auto text-xs text-lm-muted [scrollbar-width:none]",
+    class="loomark-menu-attention flex min-w-0 flex-col items-start gap-1 text-xs text-lm-muted empty:hidden",
     attrs=@html.Attrs::build().role("status").aria_live("polite"),
     [account, durability, persistence, sync, remote, activity, opening],
   )
@@ -390,13 +363,10 @@ fn mode_bar(
       ),
       if editing.menu_open {
         @html.div(id="loomark-more-actions-content", class="loomark-menu", [
-          @html.div(class="loomark-menu-status", sync_status),
+          sync_status,
           @html.div(
             class="flex flex-col gap-1 border-b border-lm-rule px-1 pb-2",
-            [
-              @html.span(class="text-xs font-medium text-lm-ink", "Account"),
-              account_controls(account, emit),
-            ],
+            account_controls(account, emit),
           ),
           file_actions(
             "loomark-menu-import",

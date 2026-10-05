@@ -250,7 +250,6 @@
   font-size: 12px;
 }
 .loomark-menu > * { flex-shrink: 0; }
-.loomark-menu-status > div { flex-wrap: wrap; justify-content: flex-start; }
 .loomark-save-status {
   width: 168px;
   gap: 6px;
