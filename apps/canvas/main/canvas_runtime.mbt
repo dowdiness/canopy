@@ -601,6 +601,7 @@ fn CanvasRuntime::zoom(
   ctrl_key : Bool,
   cx : Double,
   cy : Double,
+  is_mac_like~ : Bool,
 ) -> Unit {
   let before = self.state_peek()
   guard !before.interaction.pointer_down else { return }
@@ -613,7 +614,7 @@ fn CanvasRuntime::zoom(
       delta_y,
       delta_mode,
       ctrl_key,
-      canvas_pointer_is_mac_like(),
+      is_mac_like,
       min_scale=CANVAS_MIN_SCALE,
       max_scale=CANVAS_MAX_SCALE,
     ) {
@@ -665,46 +666,6 @@ fn CanvasRuntime::delete_nodes(
   self.sync_commit_state(
     @graph_model.record_action(self.state_peek(), DeleteNodes(nodes)),
   )
-}
-
-///|
-/// Edge-first semantic deletion owned by the MoonBit host.
-fn CanvasRuntime::delete_selection(self : CanvasRuntime) -> Bool {
-  match self.selected_edge() {
-    Some(edge_id) => {
-      let state = self.state_peek()
-      match state.edges.search_by(fn(edge) { edge.id == edge_id }) {
-        Some(index) => {
-          let edge = state.edges[index]
-          self.sync_document_action_state(
-            @graph_model.record_action(
-              state,
-              DisconnectPorts(
-                edge.source,
-                edge.source_port,
-                edge.target,
-                edge.target_port,
-              ),
-            ),
-          )
-          true
-        }
-        None => {
-          self.clear_selected_edge()
-          true
-        }
-      }
-    }
-    None => {
-      let nodes = self.peek_selection().selected_nodes
-      if nodes.length() == 0 {
-        false
-      } else {
-        self.delete_nodes(nodes)
-        true
-      }
-    }
-  }
 }
 
 ///|

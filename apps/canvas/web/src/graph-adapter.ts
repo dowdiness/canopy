@@ -1,78 +1,36 @@
 export type CanvasModule = {
   create_canvas: () => number;
-  mount_canvas_pointer_session: (
+  mount_canvas_ui: (
     h: number,
+    renderTarget: Element,
     onChange: () => undefined,
+    onRendered: () => undefined,
   ) => undefined;
-  mount_canvas_render_layer: () => undefined;
-  publish_render_state: (h: number) => string;
-  add_node: (h: number, kindKey: string, sx: number, sy: number) => void;
-  delete_nodes: (h: number, nodeIdsJson: string) => void;
-  clear_selected_edge: (h: number) => void;
-  delete_selection: (h: number) => boolean;
+  publish_render_state: (h: number, target: Element) => string;
   get_render_state: (h: number) => string;
   get_action_log: (h: number) => string;
   create_source_graph?: (source: string) => number;
   destroy_source_graph?: (h: number) => void;
   get_source_graph_source?: (h: number) => string;
-  set_source_graph_source?: (h: number, source: string) => void;
-  set_source_graph_source_result?: (h: number, source: string) => string;
   get_source_graph_render_state?: (h: number) => string;
   get_source_graph_action_log?: (h: number) => string;
-  clear_source_graph_edge?: (h: number) => void;
-  delete_source_graph_selection?: (h: number) => string;
-  apply_source_graph_operation?: (h: number, operationJson: string) => string;
-  source_graph_insert_unique?: (
-    h: number,
-    bindingBase: string,
-    constructorName: string,
-  ) => string;
-  sample_graph_dsl_source?: () => string;
-  mount_source_demo?: (
-    h: number,
-    enabled: boolean,
-    onChange: () => undefined,
-    registerSourceNotice: (reporter: SourceNoticeReporter) => undefined,
-  ) => undefined;
-  get_workflow_node_catalog: () => string;
-  mount_canvas_context_menu?: (
-    h: number,
-    onChange: () => undefined,
-    onSourceResult: (result: string) => undefined,
-  ) => undefined;
-  dismiss_canvas_context_menu: (h: number) => undefined;
+  sample_graph_dsl_source: () => string;
 };
 
 type SourceCanvasModule = CanvasModule & {
   create_source_graph: (source: string) => number;
   destroy_source_graph: (h: number) => void;
   get_source_graph_source: (h: number) => string;
-  set_source_graph_source: (h: number, source: string) => void;
-  set_source_graph_source_result: (h: number, source: string) => string;
   get_source_graph_render_state: (h: number) => string;
   get_source_graph_action_log: (h: number) => string;
-  clear_source_graph_edge: (h: number) => void;
-  delete_source_graph_selection: (h: number) => string;
-  apply_source_graph_operation: (h: number, operationJson: string) => string;
-  source_graph_insert_unique: (
-    h: number,
-    bindingBase: string,
-    constructorName: string,
-  ) => string;
 };
 
 const SOURCE_METHODS = [
   'create_source_graph',
   'destroy_source_graph',
   'get_source_graph_source',
-  'set_source_graph_source',
-  'set_source_graph_source_result',
   'get_source_graph_render_state',
   'get_source_graph_action_log',
-  'clear_source_graph_edge',
-  'delete_source_graph_selection',
-  'apply_source_graph_operation',
-  'source_graph_insert_unique',
 ] as const;
 
 export type Tagged = string | [string, ...unknown[]];
@@ -177,32 +135,6 @@ export type GraphOperation =
 
 export type GraphOperationCallback = (operation: GraphOperation) => void;
 
-export type SourceGraphOperationResult = {
-  applied: boolean;
-  source: string;
-  diagnostics: string[];
-  action_count: number;
-  message?: string;
-};
-
-export type SourceNoticeOperation =
-  | 'rename'
-  | 'set-param'
-  | 'insert'
-  | 'delete'
-  | 'context';
-
-export type SourceNoticeReporter = (
-  operation: SourceNoticeOperation,
-  detail: string,
-  resultJson: string,
-) => undefined;
-
-export type DeleteSelectionResult = {
-  handled: boolean;
-  sourceResult: SourceGraphOperationResult | null;
-};
-
 type AdapterMode = 'canvas' | 'source';
 
 function requireSourceModule(mb: CanvasModule): SourceCanvasModule {
@@ -213,29 +145,12 @@ function requireSourceModule(mb: CanvasModule): SourceCanvasModule {
   return mb as SourceCanvasModule;
 }
 
-function sourceNodePayload(binding: string, constructorName: string): NodeData {
-  return {
-    id: '',
-    x: 0,
-    y: 0,
-    w: 250,
-    h: 138,
-    kind: ['Workflow', ['Custom', constructorName]],
-    title: binding,
-    subtitle: constructorName,
-    inputs: [],
-    outputs: [],
-    configured: true,
-  };
-}
 
 /**
  * Lifecycle boundary for the canvas graph surface.
  *
- * `create()` keeps the original MoonBit-canvas state as the backing store.
- * `createSourceBacked()` keeps graph-dsl source text canonical: operations are
- * sent to MoonBit as `GraphOperation` JSON, lowered through Loom GraphDoc source
- * maps, and rendered from the reparsed source/last-good GraphDoc.
+ * MoonBit owns canvas/source mutations and UI composition. TypeScript retains
+ * lifecycle, render publication, and delivery of canonical action-log entries.
  */
 export class GraphAdapter {
   private operationCallback: GraphOperationCallback | null = null;
@@ -277,10 +192,10 @@ export class GraphAdapter {
     return state;
   }
 
-  publishRenderState(): RenderState {
+  publishRenderState(target: Element): RenderState {
     this.assertLive();
     const state = JSON.parse(
-      this.mb.publish_render_state(this.handle),
+      this.mb.publish_render_state(this.handle, target),
     ) as RenderState;
     this.emitOperationsThrough(state.action_count);
     return state;
@@ -300,135 +215,6 @@ export class GraphAdapter {
   source(): string {
     this.assertLive();
     return this.sourceModule().get_source_graph_source(this.handle);
-  }
-
-  setSource(source: string): SourceGraphOperationResult {
-    this.assertLive();
-    const result = JSON.parse(
-      this.sourceModule().set_source_graph_source_result(this.handle, source),
-    ) as SourceGraphOperationResult;
-    this.lastActionCount = this.readActionLog().length;
-    return result;
-  }
-
-  applyOperation(operation: GraphOperation): SourceGraphOperationResult {
-    this.assertLive();
-    const result = JSON.parse(
-      this.sourceModule().apply_source_graph_operation(
-        this.handle,
-        JSON.stringify(operation),
-      ),
-    ) as SourceGraphOperationResult;
-    this.emitLatestOperations();
-    return result;
-  }
-
-  insertNode(binding: string, constructorName: string): SourceGraphOperationResult {
-    return this.applyOperation({
-      version: 2,
-      type: 'AddNode',
-      node: sourceNodePayload(binding, constructorName),
-    });
-  }
-
-  insertUniqueNode(bindingBase: string, constructorName: string): SourceGraphOperationResult {
-    this.assertLive();
-    const result = JSON.parse(
-      this.sourceModule().source_graph_insert_unique(
-        this.handle,
-        bindingBase,
-        constructorName,
-      ),
-    ) as SourceGraphOperationResult;
-    this.emitLatestOperations();
-    return result;
-  }
-
-  deleteNodes(nodeIds: string[]): SourceGraphOperationResult | null {
-    this.assertLive();
-    const uniqueNodeIds = [...new Set(nodeIds)].filter((id) => id.length > 0);
-    if (uniqueNodeIds.length === 0) return null;
-    const operation: GraphOperation = {
-      version: 2,
-      type: 'DeleteNodes',
-      nodes: uniqueNodeIds,
-    };
-    if (this.isSourceBacked) {
-      return this.applyOperation(operation);
-    }
-    this.mb.delete_nodes(this.handle, JSON.stringify(uniqueNodeIds));
-    this.emitLatestOperations();
-    return null;
-  }
-
-  renameNode(nodeId: string, name: string): SourceGraphOperationResult | null {
-    this.assertLive();
-    const nextName = name.trim();
-    if (!this.isSourceBacked || nodeId.length === 0 || nextName.length === 0) {
-      return null;
-    }
-    return this.applyOperation({
-      version: 2,
-      type: 'RenameNode',
-      node_id: nodeId,
-      name: nextName,
-    });
-  }
-
-  setNodeParam(
-    nodeId: string,
-    parameter: string,
-    value: string,
-  ): SourceGraphOperationResult | null {
-    this.assertLive();
-    const nextParameter = parameter.trim();
-    const nextValue = value.trim();
-    if (
-      !this.isSourceBacked ||
-      nodeId.length === 0 ||
-      nextParameter.length === 0 ||
-      nextValue.length === 0
-    ) {
-      return null;
-    }
-    return this.applyOperation({
-      version: 2,
-      type: 'SetNodeParam',
-      node_id: nodeId,
-      parameter: nextParameter,
-      value: nextValue,
-    });
-  }
-
-  clearSelectedEdge(): void {
-    this.assertLive();
-    if (this.isSourceBacked) this.sourceModule().clear_source_graph_edge(this.handle);
-    else this.mb.clear_selected_edge(this.handle);
-  }
-
-  deleteSelection(): DeleteSelectionResult {
-    this.assertLive();
-    if (this.isSourceBacked) {
-      const sourceResult = JSON.parse(
-        this.sourceModule().delete_source_graph_selection(this.handle),
-      ) as SourceGraphOperationResult | null;
-      this.emitLatestOperations();
-      return { handled: sourceResult != null, sourceResult };
-    }
-    const handled = this.mb.delete_selection(this.handle);
-    this.emitLatestOperations();
-    return { handled, sourceResult: null };
-  }
-
-  dismissContextMenu(): void {
-    this.assertLive();
-    this.mb.dismiss_canvas_context_menu(this.handle);
-  }
-
-  addNode(kindKey: string, sx: number, sy: number): void {
-    this.assertCanvasBacked('addNode');
-    this.mb.add_node(this.handle, kindKey, sx, sy);
-    this.emitLatestOperations();
   }
 
   destroy(): void {
@@ -453,11 +239,6 @@ export class GraphAdapter {
     return this.mb as SourceCanvasModule;
   }
 
-  private emitLatestOperations(): void {
-    if (!this.operationCallback) return;
-    this.emitOperationsThrough(this.readActionLog().length);
-  }
-
   private emitOperationsThrough(actionCount: number): void {
     if (!this.operationCallback) return;
     if (actionCount <= this.lastActionCount) {
@@ -477,10 +258,4 @@ export class GraphAdapter {
     }
   }
 
-  private assertCanvasBacked(method: string): void {
-    this.assertLive();
-    if (this.isSourceBacked) {
-      throw new Error(`${method} is only available for canvas-backed graphs`);
-    }
-  }
 }

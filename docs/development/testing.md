@@ -284,6 +284,19 @@ Include malformed-input recovery and incremental parsing cases. Follow the
 owning [Loom package](../../deps/loom/README.md) for its test commands;
 `deps/loom/examples/lambda/` provides parser test examples.
 
+## Canvas Browser E2E Synchronization
+
+Wait for the expected DOM state, not elapsed time or a fixed number of animation
+frames. When a gesture publishes `canopy-canvas-render-state`, register the
+listener before dispatching the gesture in the same browser task. Publication
+precedes Rabbita's DOM update; also wait for the corresponding rendered state.
+Canonicalize expected style values through CSSOM when comparing CSSOM output.
+
+For rejected input that publishes nothing, establish the final valid rendered
+baseline first. Do not wait for a nonexistent notification or inject an unrelated
+mutation to make a negative assertion pass. Preserve same-task gesture cases.
+Keep retry counts and assertion deadlines unchanged when fixing synchronization.
+
 ## Ideal Browser E2E
 
 Run functional tests through the repository runner. Its dedicated Playwright

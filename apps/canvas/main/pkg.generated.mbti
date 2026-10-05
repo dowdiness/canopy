@@ -4,6 +4,7 @@ package "dowdiness/canopy-canvas/main"
 import {
   "dowdiness/canopy-canvas-graph/graph_model",
   "dowdiness/canvas-spatial",
+  "moonbit-community/rabbita/dom",
   "moonbitlang/core/json",
 }
 
@@ -12,23 +13,11 @@ pub fn add_node(Int, String, Double, Double) -> Unit
 
 pub fn apply_source_graph_operation(Int, String) -> String raise Failure
 
-pub fn clear_selected_edge(Int) -> Unit
-
-pub fn clear_source_graph_edge(Int) -> Unit
-
 pub fn create_canvas() -> Int
 
 pub fn create_source_graph(String) -> Int raise Failure
 
-pub fn delete_nodes(Int, String) -> Unit
-
-pub fn delete_selection(Int) -> Bool
-
-pub fn delete_source_graph_selection(Int) -> String raise Failure
-
 pub fn destroy_source_graph(Int) -> Unit
-
-pub fn dismiss_canvas_context_menu(Int) -> Unit
 
 pub fn get_action_log(Int) -> String
 
@@ -40,17 +29,9 @@ pub fn get_source_graph_render_state(Int) -> String
 
 pub fn get_source_graph_source(Int) -> String
 
-pub fn get_workflow_node_catalog() -> String
+pub fn mount_canvas_ui(Int, @dom.Element, () -> Unit, () -> Unit) -> Unit
 
-pub fn mount_canvas_context_menu(Int, () -> Unit, (String) -> Unit) -> Unit
-
-pub fn mount_canvas_pointer_session(Int, () -> Unit) -> Unit
-
-pub fn mount_canvas_render_layer() -> Unit
-
-pub fn mount_source_demo(Int, Bool, () -> Unit, ((String, String, String) -> Unit) -> Unit) -> Unit
-
-pub fn publish_render_state(Int) -> String
+pub fn publish_render_state(Int, @dom.Element) -> String
 
 pub fn sample_graph_dsl_source() -> String
 
@@ -71,7 +52,7 @@ type ConnectingJson derive(Eq, ToJson, @json.FromJson)
 
 type EdgeJson derive(Eq, ToJson, @json.FromJson)
 
-type InspectorNodeJson derive(Eq, ToJson)
+type InspectorNodeJson derive(Eq, ToJson, @json.FromJson)
 
 type LoweredCanvas derive(Eq)
 

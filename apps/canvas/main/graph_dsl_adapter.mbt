@@ -784,31 +784,6 @@ fn SourceBackedGraph::disconnect_edge(
 }
 
 ///|
-fn SourceBackedGraph::delete_selection(
-  self : SourceBackedGraph,
-) -> SourceGraphOperationResultJson? raise Failure {
-  match self.selected_edge {
-    Some(edge_id) => Some(self.disconnect_edge(edge_id))
-    None => {
-      let nodes = self.interaction.selected_nodes
-      if nodes.length() == 0 {
-        None
-      } else {
-        let result = self.apply_operation(GraphOperation(DeleteNodes(nodes)))
-        Some({
-          ..result,
-          message: if result.applied {
-            Some("Deleted selected nodes through graph-dsl source.")
-          } else {
-            result.message
-          },
-        })
-      }
-    }
-  }
-}
-
-///|
 fn SourceBackedGraph::rename_selection_token(
   self : SourceBackedGraph,
   old : NodeId,
@@ -1067,6 +1042,7 @@ fn SourceBackedGraph::zoom(
   ctrl_key : Bool,
   cx : Double,
   cy : Double,
+  is_mac_like~ : Bool,
 ) -> Unit {
   let before = source_graph_base_canvas_state(self)
   guard !before.interaction.pointer_down else { return }
@@ -1079,7 +1055,7 @@ fn SourceBackedGraph::zoom(
       delta_y,
       delta_mode,
       ctrl_key,
-      canvas_pointer_is_mac_like(),
+      is_mac_like,
       min_scale=CANVAS_MIN_SCALE,
       max_scale=CANVAS_MAX_SCALE,
     ) {
@@ -1357,33 +1333,6 @@ fn source_graph_pointer_interrupt(handle : Int) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_interrupt()
     None => ()
-  }
-}
-
-///|
-pub fn clear_source_graph_edge(handle : Int) -> Unit {
-  match source_graph_by_handle(handle) {
-    Some(graph) => graph.clear_selected_edge()
-    None => ()
-  }
-}
-
-///|
-pub fn delete_source_graph_selection(handle : Int) -> String raise Failure {
-  match source_graph_by_handle(handle) {
-    Some(graph) =>
-      match graph.delete_selection() {
-        Some(result) => ToJson::to_json(result).stringify()
-        None => "null"
-      }
-    None =>
-      source_graph_operation_result(
-        false,
-        "",
-        [],
-        0,
-        Some("source graph handle not found"),
-      )
   }
 }
 

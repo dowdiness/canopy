@@ -2,81 +2,26 @@ import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
 import * as cmCommands from '@codemirror/commands';
 import * as cmState from '@codemirror/state';
 import * as cmView from '@codemirror/view';
+import * as canvasModule from '@moonbit/canopy-canvas';
 import {
   GraphAdapter,
   type CanvasModule,
-  type NodeData,
-  type NodeParamData,
   type RenderState,
-  type SourceGraphOperationResult,
-  type SourceNoticeOperation,
-  type SourceNoticeReporter,
 } from './graph-adapter';
 
 export { GraphAdapter } from './graph-adapter';
 export type {
   GraphOperation,
   RenderState,
-  SourceGraphOperationResult,
 } from './graph-adapter';
-
-type LibraryItem = {
-  key: string;
-  label: string;
-  description: string;
-};
-
-type SourceDemoModule = CanvasModule &
-  Required<
-    Pick<
-      CanvasModule,
-      'sample_graph_dsl_source' |
-      'mount_source_demo' |
-      'mount_canvas_context_menu' |
-      'dismiss_canvas_context_menu' |
-      'mount_canvas_pointer_session'
-    >
-  >;
 
 let adapter: GraphAdapter;
 let rafPending = false;
-let sourceNoticeReporter: SourceNoticeReporter | null = null;
 
-const root       = document.getElementById('canvas-root') as HTMLDivElement;
-const search     = document.getElementById('node-search') as HTMLInputElement;
-const libraryEl  = document.getElementById('node-library') as HTMLDivElement;
+const renderTarget = document.getElementById('canvas-render-layer') as HTMLDivElement;
 const validation = document.getElementById('validation-list') as HTMLDivElement;
-const inspectorNode = document.getElementById('inspector-node') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
-let libraryCatalog: LibraryItem[] = [];
-
-
-// Event admission can run before the deferred RAF render. Read the model
-// synchronously so geometry is checked against the state that will consume it.
-function currentRenderState(): RenderState {
-  return adapter.renderState();
-}
-
-function screenToWorld(
-  point: [number, number],
-  state: RenderState,
-): [number, number] | null {
-  const { x, y, scale } = state.viewport;
-  if (
-    !point.every(Number.isFinite) ||
-    !Number.isFinite(x) ||
-    !Number.isFinite(y) ||
-    !Number.isFinite(scale) ||
-    scale <= 0
-  ) {
-    return null;
-  }
-  const worldPoint: [number, number] = [
-    (point[0] - x) / scale,
-    (point[1] - y) / scale,
-  ];
-  return worldPoint.every(Number.isFinite) ? worldPoint : null;
-}
+const validationTargets: { button: HTMLButtonElement; nodeId: string }[] = [];
 
 // ─── RAF render loop ─────────────────────────────────────────────────────────
 
@@ -88,14 +33,14 @@ function scheduleRender(): void {
 
 function render(): void {
   rafPending = false;
-  const state = adapter.publishRenderState();
+  const state = adapter.publishRenderState(renderTarget);
   renderValidation(state);
-  renderInspector(state);
 }
 
 function renderValidation(state: RenderState): void {
   actionStat.textContent = `${state.action_count} action${state.action_count === 1 ? '' : 's'} logged`;
   validation.replaceChildren();
+  validationTargets.length = 0;
   if (state.validation.length === 0) {
     const ok = document.createElement('div');
     ok.className = 'validation-ok';
@@ -109,271 +54,37 @@ function renderValidation(state: RenderState): void {
     item.type = 'button';
     item.textContent = message.message;
     if (message.node_id != null) {
-      item.addEventListener('click', () => focusNode(message.node_id as string));
+      validationTargets.push({ button: item, nodeId: message.node_id });
     }
     validation.appendChild(item);
   }
 }
 
-function commitSourceRename(nodeId: string, currentName: string, nextName: string): void {
-  const trimmed = nextName.trim();
-  if (trimmed === currentName || trimmed.length === 0) return;
-  const result = adapter.renameNode(nodeId, trimmed);
-  if (!result) return;
-  reportSourceOperation('rename', '', result);
-  adapter.clearSelectedEdge();
-  scheduleRender();
-}
-
-function commitSourceParam(
-  nodeId: string,
-  param: NodeParamData,
-  nextValue: string,
-): void {
-  const trimmed = nextValue.trim();
-  if (trimmed === param.value || trimmed.length === 0) return;
-  const result = adapter.setNodeParam(nodeId, param.name, trimmed);
-  if (!result) return;
-  reportSourceOperation('set-param', param.name, result);
-  adapter.clearSelectedEdge();
-  scheduleRender();
-}
-
-function bindCommitOnChange(
-  input: HTMLInputElement,
-  originalValue: string,
-  commit: (value: string) => void,
-): void {
-  let committed = false;
-  const commitOnce = () => {
-    if (committed) return;
-    committed = true;
-    commit(input.value);
-  };
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitOnce();
-      input.blur();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      committed = true;
-      input.value = originalValue;
-      input.blur();
-    }
-  });
-  input.addEventListener('change', commitOnce);
-}
-
-function safeParamInputId(paramName: string): string {
-  return `node-param-${paramName.replace(/[^a-z0-9_-]/gi, '-')}`;
-}
-
-function renderSourceNodeEditor(node: NodeData): HTMLDivElement {
-  const editor = document.createElement('div');
-  editor.className = 'inspector-source-editor';
-
-  const bindingLabel = document.createElement('label');
-  bindingLabel.className = 'inspector-field';
-  bindingLabel.htmlFor = 'node-rename-input';
-  const bindingText = document.createElement('span');
-  bindingText.textContent = 'Binding';
-  const bindingInput = document.createElement('input');
-  bindingInput.id = 'node-rename-input';
-  bindingInput.type = 'text';
-  bindingInput.value = node.title;
-  bindingInput.autocomplete = 'off';
-  bindingInput.spellcheck = false;
-  bindingInput.setAttribute('aria-label', 'Node binding');
-  bindCommitOnChange(bindingInput, node.title, (value) => {
-    commitSourceRename(node.id, node.title, value);
-  });
-  bindingLabel.replaceChildren(bindingText, bindingInput);
-  editor.appendChild(bindingLabel);
-
-  const params = node.params ?? [];
-  if (params.length === 0) return editor;
-
-  const paramList = document.createElement('div');
-  paramList.className = 'inspector-param-list';
-  for (const param of params) {
-    const row = document.createElement('label');
-    row.className = `inspector-field param ${param.editable ? 'editable' : 'readonly'}`;
-    const id = safeParamInputId(param.name);
-    row.htmlFor = id;
-    const name = document.createElement('span');
-    name.textContent = param.name;
-    if (param.editable) {
-      const input = document.createElement('input');
-      input.id = id;
-      input.type = 'text';
-      input.inputMode = 'decimal';
-      input.value = param.value;
-      input.autocomplete = 'off';
-      input.spellcheck = false;
-      input.setAttribute('aria-label', `Parameter ${param.name}`);
-      bindCommitOnChange(input, param.value, (value) => {
-        commitSourceParam(node.id, param, value);
-      });
-      if (param.unit) {
-        const unit = document.createElement('span');
-        unit.className = 'param-unit';
-        unit.textContent = param.unit;
-        row.replaceChildren(name, input, unit);
-      } else {
-        row.replaceChildren(name, input);
-      }
-    } else {
-      const value = document.createElement('span');
-      value.className = 'param-readonly-value';
-      value.textContent = param.unit ? `${param.value}${param.unit}` : param.value;
-      row.replaceChildren(name, value);
-    }
-    paramList.appendChild(row);
+// Called by the MoonBit render host after its DOM patch, never by a click handler.
+function connectValidationTargets(): undefined {
+  for (const { button, nodeId } of validationTargets) {
+    const node = renderTarget.querySelector<HTMLElement>(
+      `.canvas-node[data-node-id="${CSS.escape(nodeId)}"]`,
+    );
+    button.onclick = node ? () => focusNode(node) : null;
   }
-  editor.appendChild(paramList);
-  return editor;
+  return undefined;
 }
 
-function renderInspector(state: RenderState): void {
-  inspectorNode.replaceChildren();
-  const selectedNodeId = state.selected ?? state.selected_nodes?.[0];
-  const selectedNode = selectedNodeId != null
-    ? state.nodes.find((candidate) => candidate.id === selectedNodeId)
-    : undefined;
-  const inspector = state.inspector ?? (
-    adapter.isSourceBacked && selectedNode
-      ? {
-          id: selectedNode.id,
-          title: selectedNode.title,
-          subtitle: selectedNode.subtitle,
-          configured: selectedNode.configured,
-          input_count: selectedNode.inputs.length,
-          output_count: selectedNode.outputs.length,
-          source: 'selected',
-        }
-      : undefined
-  );
-  if (!inspector) {
-    const empty = document.createElement('div');
-    empty.className = 'inspector-empty';
-    empty.textContent = 'Select or hover a node to inspect its sparse derived details.';
-    inspectorNode.appendChild(empty);
-    return;
-  }
-
-  const item = inspector;
-  const status = item.configured ? 'Configured' : 'Needs config';
-  const source = item.source === 'selected' ? 'Selected node' : 'Hovered node';
-
-  const eyebrow = document.createElement('div');
-  eyebrow.className = 'inspector-eyebrow';
-  eyebrow.textContent = source;
-  const title = document.createElement('div');
-  title.className = 'inspector-title';
-  title.textContent = item.title;
-  const subtitle = document.createElement('div');
-  subtitle.className = 'inspector-subtitle';
-  subtitle.textContent = item.subtitle;
-  const meta = document.createElement('div');
-  meta.className = 'inspector-meta';
-  const statusSpan = document.createElement('span');
-  statusSpan.textContent = status;
-  const portsSpan = document.createElement('span');
-  portsSpan.textContent = `${item.input_count} in · ${item.output_count} out`;
-  meta.replaceChildren(statusSpan, portsSpan);
-
-  const children: HTMLElement[] = [eyebrow, title, subtitle, meta];
-  if (adapter.isSourceBacked && item.source === 'selected') {
-    const node = state.nodes.find((candidate) => candidate.id === item.id);
-    if (node) children.push(renderSourceNodeEditor(node));
-  }
-  inspectorNode.replaceChildren(...children);
-}
-
-function focusNode(nodeId: string): void {
-  const node = root.querySelector<HTMLElement>(
-    `.canvas-node[data-node-id="${CSS.escape(nodeId)}"]`,
-  );
-  if (!node) return;
+function focusNode(node: HTMLElement): void {
   node.animate([
     { boxShadow: '0 0 0 2px rgba(255,255,255,.9), 0 0 0 8px rgba(130,80,223,.35)' },
     { boxShadow: '' },
   ], { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
 }
 
-function addNodeAt(kindKey: string, point: [number, number]): void {
-  if (!adapter.isSourceBacked) {
-    if (!screenToWorld(point, currentRenderState())) return;
-  }
-  adapter.clearSelectedEdge();
-  if (adapter.isSourceBacked) {
-    const result = adapter.insertUniqueNode(kindKey, kindKey);
-    reportSourceOperation('insert', kindKey, result);
-  } else {
-    adapter.addNode(kindKey, point[0], point[1]);
-  }
-  scheduleRender();
-}
-
-function editableKeyboardTarget(target: EventTarget | null): boolean {
-  const element = target instanceof HTMLElement ? target : null;
-  if (!element) return false;
-  if (element.isContentEditable) return true;
-  const editable = element.closest('input, textarea, select, [contenteditable="true"]');
-  return editable != null;
-}
-
-function reportSourceOperation(
-  operation: SourceNoticeOperation,
-  detail: string,
-  result: SourceGraphOperationResult,
-): void {
-  sourceNoticeReporter?.(operation, detail, JSON.stringify(result));
-}
-
-function renderLibrary(filter = ''): void {
-  const lower = filter.trim().toLowerCase();
-  libraryEl.replaceChildren();
-  for (const item of libraryCatalog) {
-    if (lower && !`${item.label} ${item.description}`.toLowerCase().includes(lower)) continue;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'library-item';
-    button.innerHTML = `<strong>${item.label}</strong><span>${item.description}</span>`;
-    button.title = item.description;
-    button.addEventListener('click', () => addNodeAt(item.key, [root.clientWidth * 0.52, root.clientHeight * 0.48]));
-    libraryEl.appendChild(button);
-  }
-}
-
 document.addEventListener('keydown', (e: KeyboardEvent) => {
-  if (
-    (e.key === 'Delete' || e.key === 'Backspace') &&
-    !e.metaKey &&
-    !e.ctrlKey &&
-    !e.altKey &&
-    !editableKeyboardTarget(e.target)
-  ) {
-    const result = adapter.deleteSelection();
-    const sourceResult = result.sourceResult;
-    if (result.handled) {
-      if (adapter.isSourceBacked && sourceResult) {
-        reportSourceOperation('delete', '', sourceResult);
-      }
-      adapter.dismissContextMenu();
-      e.preventDefault();
-      scheduleRender();
-    }
-    return;
-  }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'l') {
     e.preventDefault();
     console.table(adapter.actionLog());
   }
 });
 
-search.addEventListener('input', () => renderLibrary(search.value));
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -381,27 +92,6 @@ function sourceDemoRequested(searchParams = window.location.search): boolean {
   return new URLSearchParams(searchParams).get('source') === '1';
 }
 
-function requireSourceDemoModule(mb: CanvasModule): SourceDemoModule {
-  if (typeof mb.sample_graph_dsl_source !== 'function') {
-    throw new Error('Canvas module is missing source demo export: sample_graph_dsl_source');
-  }
-  if (typeof mb.mount_source_demo !== 'function') {
-    throw new Error('Canvas module is missing source demo export: mount_source_demo');
-  }
-  if (typeof mb.get_workflow_node_catalog !== 'function') {
-    throw new Error('Canvas module is missing workflow catalog export: get_workflow_node_catalog');
-  }
-  if (typeof mb.mount_canvas_context_menu !== 'function') {
-    throw new Error('Canvas module is missing context menu export: mount_canvas_context_menu');
-  }
-  if (typeof mb.dismiss_canvas_context_menu !== 'function') {
-    throw new Error('Canvas module is missing context menu export: dismiss_canvas_context_menu');
-  }
-  if (typeof mb.mount_canvas_pointer_session !== 'function') {
-    throw new Error('Canvas module is missing pointer session export: mount_canvas_pointer_session');
-  }
-  return mb as SourceDemoModule;
-}
 
 // The source-panel CodeMirror editor loads via `mount(source="global:…")`,
 // so bundle the CM6 namespace and publish it before the MoonBit module mounts.
@@ -410,54 +100,26 @@ const canopyGlobal = globalThis as typeof globalThis & {
   __canopy_codemirror?: Record<string, unknown>;
 };
 
-async function init(): Promise<void> {
+function init(): void {
   canopyGlobal.__canopy_codemirror = { ...cmState, ...cmView, ...cmCommands };
-  const raw = await import('@moonbit/canopy-canvas');
-  const mod: CanvasModule = adaptMoonBitModule(raw, {
+  const mod: CanvasModule = adaptMoonBitModule(canvasModule, {
     createFunctions: ['create_source_graph'],
     destroyFunctions: ['destroy_source_graph'],
     tryDestroyFunctions: ['try_destroy_source_graph'],
   });
-  const sourceDemoModule = requireSourceDemoModule(mod);
   const sourceMode = sourceDemoRequested();
   adapter = sourceMode
-    ? GraphAdapter.createSourceBacked(mod, sourceDemoModule.sample_graph_dsl_source())
+    ? GraphAdapter.createSourceBacked(mod, mod.sample_graph_dsl_source())
     : GraphAdapter.create(mod);
-  libraryCatalog = JSON.parse(
-    sourceDemoModule.get_workflow_node_catalog(),
-  ) as LibraryItem[];
-  sourceDemoModule.mount_canvas_context_menu(
+  mod.mount_canvas_ui(
     adapter.handleId,
+    renderTarget,
     () => {
       scheduleRender();
       return undefined;
     },
-    resultJson => {
-      sourceNoticeReporter?.('context', '', resultJson);
-      return undefined;
-    },
+    connectValidationTargets,
   );
-  sourceDemoModule.mount_canvas_render_layer();
-  sourceDemoModule.mount_source_demo(
-    adapter.handleId,
-    sourceMode,
-    () => {
-      scheduleRender();
-      return undefined;
-    },
-    reporter => {
-      sourceNoticeReporter = reporter;
-      return undefined;
-    },
-  );
-  sourceDemoModule.mount_canvas_pointer_session(
-    adapter.handleId,
-    () => {
-      scheduleRender();
-      return undefined;
-    },
-  );
-  renderLibrary();
   render();
 }
 

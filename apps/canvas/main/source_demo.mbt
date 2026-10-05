@@ -5,25 +5,35 @@ using @rabbita {type Cmd, type Emit, type Html}
 using @html {a, aside, button, div, h2, nothing, p, span, text}
 
 ///|
+/// URL encoding stays with the browser; the source-mode policy stays in MoonBit.
 #cfg(target="js")
-extern "js" fn js_source_mode_url(enabled : Bool) -> String =
-  #|((enabled) => {
-  #|  const url = new URL(window.location.href);
-  #|  if (enabled) {
-  #|    url.searchParams.set('source', '1');
-  #|  } else {
-  #|    url.searchParams.delete('source');
-  #|  }
-  #|  return url.toString();
-  #|})
+extern "js" fn browser_url_with_query(
+  href : String,
+  key : String,
+  value : String,
+) -> String =
+  #| (href, key, value) => {
+  #|   const url = new URL(href);
+  #|   url.searchParams.set(key, value);
+  #|   return url.toString();
+  #| }
 
 ///|
-#cfg(not(target="js"))
-fn js_source_mode_url(enabled : Bool) -> String {
+#cfg(target="js")
+extern "js" fn browser_url_without_query(href : String, key : String) -> String =
+  #| (href, key) => {
+  #|   const url = new URL(href);
+  #|   url.searchParams.delete(key);
+  #|   return url.toString();
+  #| }
+
+///|
+#cfg(target="js")
+fn source_mode_url(href : String, enabled : Bool) -> String {
   if enabled {
-    "?source=1"
+    browser_url_with_query(href, "source", "1")
   } else {
-    "/"
+    browser_url_without_query(href, "source")
   }
 }
 
@@ -38,8 +48,9 @@ fn js_source_mode_url(enabled : Bool) -> String {
 /// package is pinned to `supported_targets = "js"`, so widening that target set
 /// must first provide a defer primitive with this post-mutation ordering.
 #cfg(target="js")
-extern "js" fn defer_sync(run : () -> Unit) -> Unit =
-  #|((run) => { queueMicrotask(() => run()); })
+fn defer_sync(run : () -> Unit) -> Unit {
+  @dom.window().queue_microtask(run)
+}
 
 ///|
 struct SourceDemoModel {
@@ -55,6 +66,7 @@ struct SourceDemoModel {
   status : String
   status_tone : @status.Tone
   on_change : () -> Unit
+  on_terminal : () -> Unit
 }
 
 ///|
@@ -101,17 +113,15 @@ enum SourceDemoMsg {
   SyncFromGraph
   Mounted
   MountFailed(String)
-  ExternalOperation(SourceNoticeOperation, SourceGraphOperationResultJson)
-  InvalidExternalOperation
+  CanvasOperation(CanvasSourceMessage)
 }
 
 ///|
-fn source_toggle_view(enabled : Bool) -> Html {
-  let next_enabled = !enabled
+fn source_toggle_view(enabled : Bool, href : String) -> Html {
   a(
     id="source-mode-toggle",
     class="mode-toggle",
-    href=js_source_mode_url(next_enabled),
+    href~,
     title=if enabled {
       "Reload the demo with the local canvas runtime adapter"
     } else {
@@ -169,29 +179,6 @@ fn source_demo_status_from_result(
     }
     (failure_prefix + ": " + detail, @status.Error)
   }
-}
-
-///|
-fn decode_source_notice(
-  operation : String,
-  detail : String,
-  result_json : String,
-) -> SourceDemoMsg {
-  let operation : SourceNoticeOperation = match (operation, detail) {
-    ("rename", "") => Renamed
-    ("set-param", parameter) => ParameterUpdated(parameter)
-    ("insert", constructor_name) => Inserted(constructor_name)
-    ("delete", "") => Deleted
-    ("context", "") => ContextOperation
-    _ => return InvalidExternalOperation
-  }
-  let json = @json.parse(result_json) catch {
-    _ => return InvalidExternalOperation
-  }
-  let result : SourceGraphOperationResultJson = @json.from_json(json) catch {
-    _ => return InvalidExternalOperation
-  }
-  ExternalOperation(operation, result)
 }
 
 ///|
@@ -271,6 +258,7 @@ fn source_demo_update_healthy(
 ) -> (Cmd, SourceDemoModel) raise Failure {
   match msg {
     EditorSynced(source) => (@rabbita.none, { ..model, editor: source, })
+    CanvasOperation(ParserStopped) => raise Failure("graph parser stopped")
     SourceChanged(changes) => {
       // The editor is the source of truth for text. Lower the change
       // incrementally, passing the editor's post-change buffer (`model.editor`,
@@ -347,30 +335,29 @@ fn source_demo_update_healthy(
         dirty_on_reject=model.dirty,
       )
     }
-    ExternalOperation(operation, result) => {
-      let (status, status_tone) = source_demo_external_status(result, operation)
-      // A delayed notice must not replace newer invalid editor text.
-      // Only editor-originated operations may resolve that dirty state.
-      if model.dirty && result.applied {
-        return (source_demo_notify(model), { ..model, status, status_tone, })
-      }
-      source_demo_result_step(
-        model,
-        result,
-        status,
-        status_tone,
-        dirty_on_reject=model.dirty,
+    CanvasOperation(Completed(operation, result)) =>
+      source_demo_canvas_result(model, operation, result)
+    CanvasOperation(Request(request, reply)) => {
+      let (operation, result) = apply_canvas_source_request(
+        model.handle,
+        request,
+      )
+      let (command, next) = source_demo_canvas_result(model, operation, result)
+      (
+        @rabbita.batch([
+          command,
+          canvas_source_reply_cmd(
+            reply,
+            if result.applied {
+              Applied
+            } else {
+              Rejected
+            },
+          ),
+        ]),
+        next,
       )
     }
-    InvalidExternalOperation =>
-      (
-        @rabbita.none,
-        {
-          ..model,
-          status: "Source operation notification could not be decoded.",
-          status_tone: @status.Error,
-        },
-      )
     SyncFromGraph => {
       // Like external operation notices, graph synchronization must preserve
       // invalid editor text until an editor-originated operation resolves it.
@@ -409,6 +396,26 @@ fn source_demo_update_healthy(
 }
 
 ///|
+fn source_demo_canvas_result(
+  model : SourceDemoModel,
+  operation : SourceNoticeOperation,
+  result : SourceGraphOperationResultJson,
+) -> (Cmd, SourceDemoModel) {
+  let (status, status_tone) = source_demo_external_status(result, operation)
+  // Delayed canvas results must not replace newer invalid editor text.
+  if model.dirty && result.applied {
+    return (source_demo_notify(model), { ..model, status, status_tone, })
+  }
+  source_demo_result_step(
+    model,
+    result,
+    status,
+    status_tone,
+    dirty_on_reject=model.dirty,
+  )
+}
+
+///|
 /// Keep a Loom parser Failure distinct from graph syntax rejection. The source
 /// text remains editable and synchronized in the model, but every operation
 /// touching the terminal attachment is stopped.
@@ -420,13 +427,22 @@ fn source_demo_update(
   if model.parser_failed {
     return match msg {
       EditorSynced(source) => (@rabbita.none, { ..model, editor: source, })
+      CanvasOperation(Request(_, reply)) =>
+        (canvas_source_reply_cmd(reply, ParserStopped), model)
       _ => (@rabbita.none, model)
     }
   }
   source_demo_update_healthy(emit, msg, model) catch {
     Failure::Failure(_) =>
       (
-        @rabbita.none,
+        @rabbita.batch([
+          @rabbita.effect(() => (model.on_terminal)()),
+          match msg {
+            CanvasOperation(Request(_, reply)) =>
+              canvas_source_reply_cmd(reply, ParserStopped)
+            _ => @rabbita.none
+          },
+        ]),
         {
           ..model,
           dirty: true,
@@ -488,9 +504,10 @@ fn source_graph_change_sub_loader(
       // sync actually runs, so a multi-range edit or large paste schedules just
       // one `SyncFromGraph` instead of one per delta.
       let mut sync_pending = false
+      let mut active = true
       match
         source_graph_subscribe(handle, fn() {
-          guard !sync_pending else { return }
+          guard active && !sync_pending else { return }
           sync_pending = true
           // Deliver on a microtask: the settle ping fires *inside* the
           // attachment mutation, before `SourceBackedGraph.source` (what
@@ -505,12 +522,17 @@ fn source_graph_change_sub_loader(
           // already coalesced into this one run.
           defer_sync(fn() {
             sync_pending = false
-            scheduler.add(current_tagger(()))
+            if active {
+              scheduler.add(current_tagger(()))
+            }
           })
         }) {
         Some(subscription) =>
           Some({
-            unload: fn(_) { subscription.unsubscribe() },
+            unload: fn(_) {
+              active = false
+              subscription.unsubscribe()
+            },
             update_tagger: fn(payload) {
               guard payload is GraphChanged(_, new_tagger) else { return }
               current_tagger = new_tagger
@@ -524,43 +546,44 @@ fn source_graph_change_sub_loader(
 }
 
 ///|
-priv suberror SourceNoticeSub {
-  SourceNoticeBinding(
-    ((String, String, String) -> Unit) -> Unit,
-    @rabbita.Emit[SourceDemoMsg]
+priv suberror CanvasSourceSub {
+  CanvasSourceBinding(
+    ((CanvasSourceMessage) -> Unit) -> Unit,
+    @rabbita.Emit[CanvasSourceMessage]
   )
 }
 
 ///|
-fn source_notice_sub(
-  register : ((String, String, String) -> Unit) -> Unit,
-  tagger : @rabbita.Emit[SourceDemoMsg],
+fn canvas_source_sub(
+  register : ((CanvasSourceMessage) -> Unit) -> Unit,
+  tagger : @rabbita.Emit[CanvasSourceMessage],
 ) -> @sub.Sub {
   @sub.custom_sub(
-    "source_demo.external_operation",
+    "source_demo.canvas",
     @sub.Scope::Local,
-    SourceNoticeBinding(register, tagger),
-    @sub.SubLoader(source_notice_sub_loader),
+    CanvasSourceBinding(register, tagger),
+    @sub.SubLoader(canvas_source_sub_loader),
   )
 }
 
 ///|
-fn source_notice_sub_loader(
+fn canvas_source_sub_loader(
   payload : Error,
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    SourceNoticeBinding(register, tagger) => {
+    CanvasSourceBinding(register, tagger) => {
       let mut current_tagger = tagger
-      register(fn(operation, detail, result_json) {
-        scheduler.add(
-          current_tagger(decode_source_notice(operation, detail, result_json)),
-        )
+      let mut active = true
+      register(fn(message) {
+        if active {
+          scheduler.add(current_tagger(message))
+        }
       })
       Some({
-        unload: fn(_) { () },
+        unload: fn(_) { active = false },
         update_tagger: fn(payload) {
-          guard payload is SourceNoticeBinding(_, new_tagger) else { return }
+          guard payload is CanvasSourceBinding(_, new_tagger) else { return }
           current_tagger = new_tagger
         },
       })
@@ -573,16 +596,21 @@ fn source_notice_sub_loader(
 fn source_demo_subscriptions(
   model : SourceDemoModel,
   emit : Emit[SourceDemoMsg],
-  register_source_notice : ((String, String, String) -> Unit) -> Unit,
+  register : ((CanvasSourceMessage) -> Unit) -> Unit,
 ) -> @sub.Sub {
-  let notice = source_notice_sub(register_source_notice, emit)
-  // CodeMirror and graph synchronization need the editor to exist. External
-  // operation reporting does not, so its subscription remains active while
-  // mount readiness is pending.
-  guard model.mounted else { return notice }
+  let ingress = canvas_source_sub(
+    register,
+    emit.map(message => CanvasOperation(message)),
+  )
+  // Canvas requests are independent of CodeMirror mount readiness.
+  guard model.mounted else { return ingress }
   @sub.batch([
-    notice,
-    source_graph_change_sub(model.handle, emit.map(_ => SyncFromGraph)),
+    ingress,
+    if model.parser_failed {
+      @sub.none
+    } else {
+      source_graph_change_sub(model.handle, emit.map(_ => SyncFromGraph))
+    },
     @codemirror.listen(
       SOURCE_CM_EDITOR_ID,
       doc=emit.map(source => EditorSynced(source)),
@@ -643,13 +671,15 @@ fn source_demo_view(
 ///|
 #warnings("-alert_unstable")
 #cfg(target="js")
-pub fn mount_source_demo(
+fn mount_source_demo(
   handle : Int,
   enabled : Bool,
   on_change : () -> Unit,
-  register_source_notice : ((String, String, String) -> Unit) -> Unit,
+  register : ((CanvasSourceMessage) -> Unit) -> Unit,
+  on_terminal : () -> Unit,
 ) -> Unit {
-  @rabbita.new(() => @rabbita.Val::constant(source_toggle_view(enabled))).mount(
+  let href = source_mode_url(@dom.window().current_url(), !enabled)
+  @rabbita.new(() => @rabbita.Val::constant(source_toggle_view(enabled, href))).mount(
     "source-mode-root",
   )
   guard enabled else { return }
@@ -663,6 +693,7 @@ pub fn mount_source_demo(
       status: "Source mode active: operations lower into graph-dsl text.",
       status_tone: @status.Info,
       on_change,
+      on_terminal,
     }
     let (cell, emit) = @rabbita.create_state_with_init(
       init=fn(emit) { (model, mount_source_cm_cmd(emit, model)) },
@@ -671,7 +702,7 @@ pub fn mount_source_demo(
         (next, command)
       },
       subscriptions=fn(model, emit) {
-        source_demo_subscriptions(model, emit, register_source_notice)
+        source_demo_subscriptions(model, emit, register)
       },
     )
     cell.view(model => source_demo_view(emit, model))

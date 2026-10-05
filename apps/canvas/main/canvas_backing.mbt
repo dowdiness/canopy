@@ -132,10 +132,13 @@ fn CanvasBacking::zoom(
   ctrl_key : Bool,
   cx : Double,
   cy : Double,
+  is_mac_like~ : Bool,
 ) -> Unit {
   match self {
-    Runtime(runtime) => runtime.zoom(delta_y, delta_mode, ctrl_key, cx, cy)
-    Source(graph) => graph.zoom(delta_y, delta_mode, ctrl_key, cx, cy)
+    Runtime(runtime) =>
+      runtime.zoom(delta_y, delta_mode, ctrl_key, cx, cy, is_mac_like~)
+    Source(graph) =>
+      graph.zoom(delta_y, delta_mode, ctrl_key, cx, cy, is_mac_like~)
   }
 }
 

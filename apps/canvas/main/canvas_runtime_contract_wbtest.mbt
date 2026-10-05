@@ -148,7 +148,7 @@ test "runtime contract: panning logs viewport only on pointerup" {
 ///|
 test "runtime contract: zoom logs one viewport operation immediately" {
   let runtime = CanvasRuntime::CanvasRuntime()
-  runtime.zoom(-120.0, 0, false, 500.0, 400.0)
+  runtime.zoom(-120.0, 0, false, 500.0, 400.0, is_mac_like=false)
   let after = runtime.render_state()
   let operations = contract_runtime_operations(runtime)
   assert_eq(after.action_count, 1)

@@ -63,11 +63,13 @@ consumer. For navigation messages, call `Model::update`; when
 `Msg::requests_focus()` is true, return `Model::focus_cmd()` after updating the
 model.
 
-`Model::focus_cmd_within(root_id=...)` only scopes active-item focus through the
-same lookup strategy as `modules/rabbita-menu`. It does not make the full context-menu flow
-shadow-root-ready: `position_cmd()` and `subscriptions()` still resolve the panel
-from `document.getElementById(self.id)`, so context-menu panels should remain
-document-visible until scoped positioning and dismissal APIs exist.
+`Model::focus_cmd_within(root_id=...)` scopes active-item focus to the supplied
+container or its open shadow root, consistent with `modules/rabbita-menu`.
+Positioning and dismissal connect after render by resolving the configured panel
+ID once at that connection point; the resulting element is used for measurement
+and dismissal checks. Those APIs still require the panel to be document-visible;
+scoped active-item focus does not give positioning or dismissal support for
+panels inside a shadow root.
 
 Pass the subscriptions function to `create_state(..., subscriptions~)`.
 Rabbita calls it with `(model, emit)` and maintains its lifetime as state changes.
@@ -92,6 +94,13 @@ measure the rendered panel after render and apply `Positioning` options:
 - `viewport_margin` controls the minimum gap from viewport edges.
 - `collision=ClampToViewport` keeps the measured panel visible; use
   `NoCollisionHandling` to keep raw anchor positioning.
+
+The browser shell measures and styles the acquired panel. Numeric positioning
+decisions run in pure MoonBit, including negative-margin normalization,
+non-finite measured-size fallback, and oversized-panel clamping. Dismissal
+listeners retain the connected panel rather than resolving its ID for each
+event. Unload revokes a pending after-render connection and removes any installed
+listeners from their captured target.
 
 ## State and action ownership
 

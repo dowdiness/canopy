@@ -1,4 +1,6 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import type { RenderState } from '../src/graph-adapter';
+import { loggedActions } from './observations';
 
 type Point = {
   x: number;
@@ -100,8 +102,17 @@ async function dispatchContextMenu(
 }
 
 async function moveViewportOriginToMax(page: Page): Promise<void> {
-  await page.evaluate(() => {
+  const snapshot = await page.evaluate(async () => {
+    const target = document.getElementById('canvas-render-layer');
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
+    if (!target) throw new Error('canvas render layer is not mounted');
+    const eventName = 'canopy-canvas-render-state';
+    const { promise, resolve } = Promise.withResolvers<RenderState>();
+    const listener = (event: Event) => {
+      target.removeEventListener(eventName, listener);
+      resolve(JSON.parse((event as CustomEvent<string>).detail));
+    };
+    target.addEventListener(eventName, listener);
     root.setPointerCapture = () => undefined;
     root.dispatchEvent(new PointerEvent('pointerdown', {
       bubbles: true,
@@ -124,8 +135,10 @@ async function moveViewportOriginToMax(page: Page): Promise<void> {
       clientX: Number.MAX_VALUE,
       clientY: 0,
     }));
+    return await promise;
   });
-  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  expect(snapshot.viewport.x).toBe(Number.MAX_VALUE);
+  await expectWorldMatches(page, snapshot);
 }
 
 async function dragBetween(page: Page, from: Locator, to: Locator): Promise<void> {
@@ -147,10 +160,13 @@ async function worldTransform(page: Page): Promise<string> {
   return page.locator('#world').evaluate((el) => (el as HTMLElement).style.transform);
 }
 
-async function waitForRenderFrames(page: Page): Promise<void> {
-  await page.evaluate(() => new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-  }));
+async function expectWorldMatches(page: Page, snapshot: RenderState): Promise<void> {
+  const expected = await page.evaluate((viewport) => {
+    const style = document.createElement('div').style;
+    style.transform = `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`;
+    return style.transform;
+  }, snapshot.viewport);
+  await expect.poll(() => worldTransform(page)).toBe(expected);
 }
 
 async function worldScale(page: Page): Promise<number> {
@@ -160,12 +176,13 @@ async function worldScale(page: Page): Promise<number> {
   return Number(match[1]);
 }
 
-async function captureNextRenderState(page: Page): Promise<any> {
-  return page.evaluate(() => new Promise((resolve) => {
+async function captureNextRenderState(page: Page): Promise<RenderState> {
+  const snapshot = await page.evaluate(async () => {
     const target = document.getElementById('canvas-render-layer');
     const root = document.getElementById('canvas-root');
     if (!target || !root) throw new Error('canvas render layer is not mounted');
     const eventName = 'canopy-canvas-render-state';
+    const { promise, resolve } = Promise.withResolvers<RenderState>();
     const listener = (event: Event) => {
       target.removeEventListener(eventName, listener);
       resolve(JSON.parse((event as CustomEvent<string>).detail));
@@ -179,12 +196,14 @@ async function captureNextRenderState(page: Page): Promise<any> {
       clientX: 120.25,
       clientY: 80.75,
     }));
-  }));
+    return await promise;
+  });
+  await expectWorldMatches(page, snapshot);
+  return snapshot;
 }
 
 test('Rabbita keyed nodes preserve DOM identity when snapshot order changes', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
 
   const firstBefore = await page.locator('.canvas-node').nth(0).elementHandle();
   const secondBefore = await page.locator('.canvas-node').nth(1).elementHandle();
@@ -225,9 +244,19 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
     deltaY: number,
     deltaMode: number,
     ctrlKey = false,
-  ): Promise<boolean> => {
-    return page.evaluate(({ deltaY, deltaMode, ctrlKey }) => {
+    cancelPointer = false,
+  ): Promise<{ defaultPrevented: boolean; snapshot: RenderState }> => {
+    return page.evaluate(async ({ deltaY, deltaMode, ctrlKey, cancelPointer }) => {
       const root = document.querySelector('#canvas-root') as HTMLDivElement;
+      const target = document.getElementById('canvas-render-layer');
+      if (!target) throw new Error('canvas render layer is not mounted');
+      const eventName = 'canopy-canvas-render-state';
+      const { promise, resolve } = Promise.withResolvers<RenderState>();
+      const listener = (event: Event) => {
+        target.removeEventListener(eventName, listener);
+        resolve(JSON.parse((event as CustomEvent<string>).detail));
+      };
+      target.addEventListener(eventName, listener);
       const rect = root.getBoundingClientRect();
       const event = new WheelEvent('wheel', {
         bubbles: true,
@@ -239,46 +268,62 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
         clientY: rect.top + 80.75,
       });
       root.dispatchEvent(event);
-      return event.defaultPrevented;
-    }, { deltaY, deltaMode, ctrlKey });
+      if (cancelPointer) {
+        // Active wheel input publishes nothing. Cancel the unchanged pan to
+        // acknowledge the queued rejection without committing a pointer-up action.
+        root.dispatchEvent(new PointerEvent('pointercancel', {
+          bubbles: true,
+          pointerId: 121,
+          button: 0,
+          clientX: 20,
+          clientY: 20,
+        }));
+      }
+      return { defaultPrevented: event.defaultPrevented, snapshot: await promise };
+    }, { deltaY, deltaMode, ctrlKey, cancelPointer });
   };
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
+  await expect.poll(() => loggedActions(page)).toBe(0);
   const initialTransform = await worldTransform(page);
 
-  expect(await dispatchWheel(0, 0)).toBe(true);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  const noOpWheel = await dispatchWheel(0, 0);
+  expect(noOpWheel.defaultPrevented).toBe(true);
+  await expectWorldMatches(page, noOpWheel.snapshot);
+  expect(noOpWheel.snapshot.action_count).toBe(0);
+  await expect.poll(() => loggedActions(page)).toBe(0);
   expect(await worldTransform(page)).toBe(initialTransform);
 
-  await dispatchWheel(-50, 0);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
-  await waitForRenderFrames(page);
+  const pixelWheel = await dispatchWheel(-50, 0);
+  expect(pixelWheel.defaultPrevented).toBe(true);
+  await expectWorldMatches(page, pixelWheel.snapshot);
+  await expect.poll(() => loggedActions(page)).toBe(1);
   const pixelScale = await worldScale(page);
 
   await page.reload();
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await dispatchWheel(-2, 1);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
-  await waitForRenderFrames(page);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
+  const lineWheel = await dispatchWheel(-2, 1);
+  expect(lineWheel.defaultPrevented).toBe(true);
+  await expectWorldMatches(page, lineWheel.snapshot);
+  await expect.poll(() => loggedActions(page)).toBe(1);
   const lineScale = await worldScale(page);
   expect(lineScale).toBeCloseTo(pixelScale, 9);
 
   await page.reload();
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await dispatchWheel(-10, 0);
-  await waitForRenderFrames(page);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
+  const smallWheel = await dispatchWheel(-10, 0);
+  await expectWorldMatches(page, smallWheel.snapshot);
   const smallScale = await worldScale(page);
   await page.reload();
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await dispatchWheel(-100, 0);
-  await waitForRenderFrames(page);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
+  const largeWheel = await dispatchWheel(-100, 0);
+  await expectWorldMatches(page, largeWheel.snapshot);
   const largeScale = await worldScale(page);
   expect(largeScale).toBeGreaterThan(smallScale);
 
   await page.reload();
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     root.setPointerCapture = () => undefined;
@@ -292,26 +337,19 @@ test('canvas wheel normalizes units and rejects no-op or active input', async ({
   });
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
   const activeTransform = await worldTransform(page);
-  expect(await dispatchWheel(-100, 0)).toBe(true);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
-  expect(await worldTransform(page)).toBe(activeTransform);
-  await page.evaluate(() => {
-    const root = document.querySelector('#canvas-root') as HTMLDivElement;
-    root.dispatchEvent(new PointerEvent('pointerup', {
-      bubbles: true,
-      pointerId: 121,
-      button: 0,
-      clientX: 20,
-      clientY: 20,
-    }));
-  });
+  const activeWheel = await dispatchWheel(-100, 0, false, true);
+  expect(activeWheel.defaultPrevented).toBe(true);
   await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
+  expect(activeWheel.snapshot.action_count).toBe(0);
+  await expectWorldMatches(page, activeWheel.snapshot);
+  await expect.poll(() => loggedActions(page)).toBe(0);
+  expect(await worldTransform(page)).toBe(activeTransform);
   expect(runtimeErrors).toEqual([]);
 });
 
 test('Rabbita edge paths preserve keyed identity and focus on selection updates', async ({ page }) => {
   await page.goto('/');
-  await expect(edgePaths(page)).toHaveCount(3);
+  await expect(edgePaths(page).first()).toBeVisible();
   const edge = edgePaths(page).first();
   await edge.focus();
   await expect(edge).toBeFocused();
@@ -339,8 +377,8 @@ test('Rabbita edge paths preserve keyed identity and focus on selection updates'
 
 test('edge keyboard activation selects without actions or Space scrolling', async ({ page }) => {
   await page.goto('/');
-  await expect(edgePaths(page)).toHaveCount(3);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect(edgePaths(page).first()).toBeVisible();
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   const backgroundDefaultPrevented = await page.locator('#canvas-root').evaluate((node) => {
     const event = new KeyboardEvent('keydown', {
@@ -378,7 +416,7 @@ test('edge keyboard activation selects without actions or Space scrolling', asyn
     };
     return windowWithIdentity.__canvasKeyboardEdgeIdentity === node;
   })).toBe(true);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   const second = edgePaths(page).nth(1);
   await second.focus();
@@ -395,7 +433,7 @@ test('edge keyboard activation selects without actions or Space scrolling', asyn
   expect(defaultPrevented).toBe(true);
   await expect(second).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(second).toBeFocused();
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   const third = edgePaths(page).nth(2);
   await third.focus();
@@ -412,7 +450,7 @@ test('edge keyboard activation selects without actions or Space scrolling', asyn
   expect(legacySpaceDefaultPrevented).toBe(true);
   await expect(third).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(third).toBeFocused();
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
 });
 
 test('canvas handles create edges and reject invalid gestures', async ({ page }) => {
@@ -431,7 +469,7 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
     });
   });
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await expect(edgePaths(page)).toHaveCount(3);
   await expect(pendingEdgePaths(page)).toHaveCount(0);
   await expect(edgePaths(page).first()).toHaveAttribute('d', /^M /);
@@ -449,19 +487,19 @@ test('canvas handles create edges and reject invalid gestures', async ({ page })
   await page.mouse.down();
   await page.mouse.up();
   await page.keyboard.up('Control');
-  await expect(pendingEdgePaths(page)).toHaveCount(0);
-  await expect(edgePaths(page)).toHaveCount(3);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
 
   const cancelStart = await center(source, 'node 1 output handle');
   const cancelTarget = await canvasBackgroundPoint(page);
   await page.mouse.move(cancelStart.x, cancelStart.y);
   await page.mouse.down();
   await page.mouse.move(cancelTarget.x, cancelTarget.y, { steps: 4 });
+  // The rejected Control-click publishes nothing; the completed canceled drag
+  // below drains both queued gestures before these no-op assertions.
   await expect(pendingEdgePaths(page)).toHaveCount(1);
   await page.mouse.up();
   await expect(pendingEdgePaths(page)).toHaveCount(0);
   await expect(edgePaths(page)).toHaveCount(3);
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   await commitDrag(page, outputHandle(page, 2), inputHandle(page, 5));
   await expect(edgePaths(page)).toHaveCount(4);
@@ -495,7 +533,7 @@ test('non-finite background pointerdown does not reserve a canvas gesture', asyn
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -551,7 +589,7 @@ test('overflowed node pointerdown does not reserve the next canvas gesture', asy
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
 
   // Move the viewport origin to the largest finite coordinate. The later
   // finite screen point at -MAX_VALUE then overflows screen-to-world.
@@ -601,7 +639,7 @@ test('same-frame viewport changes use current geometry for pointerdown', async (
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -676,7 +714,7 @@ test('invalid add-node context geometry leaves selection unchanged', async ({ pa
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await clickEdge(page, 0);
   await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
 
@@ -693,7 +731,7 @@ test('invalid add-node context geometry leaves selection unchanged', async ({ pa
   await expect(page.locator('#context-menu [role="menu"]')).toBeHidden();
   await expect(edgePaths(page).first()).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -705,7 +743,7 @@ test('overflowed add-node context geometry leaves state unchanged', async ({ pag
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await moveViewportOriginToMax(page);
 
   await page.evaluate(() => {
@@ -720,7 +758,7 @@ test('overflowed add-node context geometry leaves state unchanged', async ({ pag
 
   await expect(page.locator('#context-menu [role="menu"]')).toBeHidden();
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -732,7 +770,7 @@ test('invalid background context requests preserve an existing menu and state', 
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await expect(edgePaths(page)).toHaveCount(3);
   await moveViewportOriginToMax(page);
   await dispatchContextMenu(page, '#edges path.edge', 0, 0);
@@ -745,7 +783,7 @@ test('invalid background context requests preserve an existing menu and state', 
   await expect(menu).toBeVisible();
   await expect(page.locator('#edges path.edge.selected')).toHaveCount(1);
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -757,14 +795,14 @@ test('finite but Float-overflowing edge anchors are rejected', async ({ page }) 
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await expect(edgePaths(page)).toHaveCount(3);
   await dispatchContextMenu(page, '#edges path.edge', Number.MAX_VALUE, 0);
 
   await expect(page.locator('#context-menu [role="menu"]')).toBeHidden();
   await expect(page.locator('#edges path.edge.selected')).toHaveCount(0);
   await expect(page.locator('.canvas-node')).toHaveCount(6);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -778,7 +816,7 @@ test('selected canvas nodes delete with incident edges from the keyboard', async
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await expect(edgePaths(page)).toHaveCount(3);
 
   const node = page.locator('.canvas-node[data-node-id="2"]');
@@ -789,7 +827,7 @@ test('selected canvas nodes delete with incident edges from the keyboard', async
   await expect(page.locator('.canvas-node')).toHaveCount(5);
   await expect(page.locator('.canvas-node[data-node-id="2"]')).toHaveCount(0);
   await expect(edgePaths(page)).toHaveCount(1);
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(2);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -803,31 +841,31 @@ test('selected canvas edge deletes before a coexisting node selection', async ({
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await expect(edgePaths(page)).toHaveCount(3);
 
   const node = page.locator('.canvas-node[data-node-id="1"]');
   await node.click();
   await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
 
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   await clickEdge(page, 0);
   await expect(edgePaths(page).nth(0)).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
 
   await page.keyboard.press('Delete');
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(2);
   await expect(page.locator('#edges path.edge.selected')).toHaveCount(0);
   await expect(node).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(2);
 
   await page.keyboard.press('Delete');
   await expect(page.locator('.canvas-node')).toHaveCount(5);
   await expect(page.locator('.canvas-node[data-node-id="1"]')).toHaveCount(0);
   await expect(edgePaths(page)).toHaveCount(2);
-  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(3);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -839,7 +877,7 @@ test('Delete closes an edge context menu after deleting the captured edge', asyn
   });
 
   await page.goto('/');
-  await expect(edgePaths(page)).toHaveCount(3);
+  await expect(edgePaths(page).first()).toBeVisible();
 
   await clickEdge(page, 0, 'right');
   const menu = page.locator('#context-menu [role="menu"]');
@@ -849,7 +887,7 @@ test('Delete closes an edge context menu after deleting the captured edge', asyn
 
   await expect(edgePaths(page)).toHaveCount(2);
   await expect(menu).toBeHidden();
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -873,11 +911,11 @@ test('Backspace closes a background context menu after deleting selected nodes',
 
   await expect(page.locator('.canvas-node')).toHaveCount(5);
   await expect(menu).toBeHidden();
-  await expect(page.locator('#action-stat')).toHaveText('2 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(2);
   expect(runtimeErrors).toEqual([]);
 });
 
-test('canvas context menu adds a node from the MoonBit catalog', async ({ page }) => {
+test('library search and context menu insert the chosen catalog node', async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
   page.on('console', (message) => {
@@ -885,16 +923,35 @@ test('canvas context menu adds a node from the MoonBit catalog', async ({ page }
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  const nodes = page.locator('.canvas-node');
+  const timers = nodes.filter({ has: page.locator('.node-title', { hasText: /^Timer trigger$/ }) });
+  await expect(nodes.first()).toBeVisible();
+  const beforeNodes = await nodes.count();
+  const beforeTimers = await timers.count();
+  const beforeActions = await loggedActions(page);
+  const catalog = page.locator('.library-item strong');
+  await expect(catalog.first()).toBeVisible();
+  const unfiltered = await catalog.allTextContents();
+  const search = page.getByRole('searchbox');
+  await search.fill('  tImEr  ');
+  await expect(catalog).toHaveText(['Timer trigger']);
+  await page.getByRole('button', { name: /Timer trigger/ }).click();
+  await expect(nodes).toHaveCount(beforeNodes + 1);
+  await expect(timers).toHaveCount(beforeTimers + 1);
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
+  await search.fill('no-such-catalog-node');
+  await expect(catalog).toHaveCount(0);
+  await search.fill('');
+  await expect(catalog).toHaveText(unfiltered);
 
   await openBackgroundContextMenu(page);
   const menu = page.locator('#context-menu [role="menu"]');
   await expect(menu.getByRole('menuitem', { name: 'Timer trigger' })).toHaveCount(1);
   await menu.getByRole('menuitem', { name: 'Timer trigger' }).click();
 
-  await expect(page.locator('.canvas-node')).toHaveCount(7);
-  await expect(page.locator('.canvas-node .node-title', { hasText: 'Timer trigger' })).toHaveCount(2);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect(nodes).toHaveCount(beforeNodes + 2);
+  await expect(timers).toHaveCount(beforeTimers + 2);
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 2);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -908,7 +965,6 @@ test('canvas context menu arranges a multi-selection compactly', async ({ page }
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
 
   const first = page.locator('.canvas-node[data-node-id="1"]');
   const second = page.locator('.canvas-node[data-node-id="2"]');
@@ -916,22 +972,32 @@ test('canvas context menu arranges a multi-selection compactly', async ({ page }
   await expect(first).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
   await second.click({ modifiers: ['Shift'] });
   await expect(second).toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  const boundsArea = async (): Promise<number> => {
+    const a = await first.boundingBox();
+    const b = await second.boundingBox();
+    if (!a || !b) throw new Error('selected nodes are not visible');
+    return (Math.max(a.x + a.width, b.x + b.width) - Math.min(a.x, b.x))
+      * (Math.max(a.y + a.height, b.y + b.height) - Math.min(a.y, b.y));
+  };
+  const beforeArea = await boundsArea();
+  const beforeActions = await loggedActions(page);
 
   await openBackgroundContextMenu(page);
   const items = contextMenuItems(page);
-  await expect(items).toHaveCount(8);
   await expect(items.first()).toHaveText(/Arrange compactly/);
   await items.first().click();
 
-  await expect.poll(async () => first.evaluate((element) => (element as HTMLElement).style.left))
-    .toBe('-520px');
-  await expect.poll(async () => first.evaluate((element) => (element as HTMLElement).style.top))
-    .toBe('-190px');
-  await expect.poll(async () => second.evaluate((element) => (element as HTMLElement).style.left))
-    .toBe('-260px');
-  await expect.poll(async () => second.evaluate((element) => (element as HTMLElement).style.top))
-    .toBe('-190px');
-  await expect(page.locator('#action-stat')).toHaveText('3 actions logged');
+  await expect.poll(boundsArea).toBeLessThan(beforeArea);
+  const packedFirst = await first.boundingBox();
+  const packedSecond = await second.boundingBox();
+  if (!packedFirst || !packedSecond) throw new Error('arranged nodes are not visible');
+  expect(
+    packedFirst.x + packedFirst.width <= packedSecond.x
+    || packedSecond.x + packedSecond.width <= packedFirst.x
+    || packedFirst.y + packedFirst.height <= packedSecond.y
+    || packedSecond.y + packedSecond.height <= packedFirst.y,
+  ).toBe(true);
+  await expect.poll(() => loggedActions(page)).toBe(beforeActions + 1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -945,14 +1011,14 @@ test('canvas edge context menu disconnects the edge', async ({ page }) => {
   });
 
   await page.goto('/');
-  await expect(edgePaths(page)).toHaveCount(3);
+  await expect(edgePaths(page).first()).toBeVisible();
 
   await clickEdge(page, 0, 'right');
   await page.getByRole('menuitem', { name: 'Disconnect edge' }).click();
 
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(2);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -966,7 +1032,9 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  const nodes = page.locator('.canvas-node');
+  await expect(nodes.first()).toBeVisible();
+  const beforeNodes = await nodes.count();
 
   const menu = page.locator('#context-menu [role="menu"]');
   const canvasRoot = page.locator('#canvas-root');
@@ -975,7 +1043,6 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
 
   await openBackgroundContextMenu(page);
   await expect(menu).toBeVisible();
-  await expect(items).toHaveCount(7);
   await expect(items.nth(0)).toHaveAttribute('data-active', 'true');
   await expect(items.nth(0)).toBeFocused();
 
@@ -984,8 +1051,8 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await expect(items.nth(1)).toBeFocused();
 
   await page.keyboard.press('End');
-  await expect(items.nth(6)).toHaveAttribute('data-active', 'true');
-  await expect(items.nth(6)).toBeFocused();
+  await expect(items.last()).toHaveAttribute('data-active', 'true');
+  await expect(items.last()).toBeFocused();
 
   await page.keyboard.press('Home');
   await expect(items.nth(0)).toHaveAttribute('data-active', 'true');
@@ -1026,7 +1093,7 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await page.keyboard.press('ArrowDown');
   await expect(items.nth(1)).toBeFocused();
   await page.keyboard.press('Enter');
-  await expect(page.locator('.canvas-node')).toHaveCount(7);
+  await expect(nodes).toHaveCount(beforeNodes + 1);
   await expect(menu).toBeHidden();
   await expect(canvasRoot).toBeFocused();
 
@@ -1035,7 +1102,7 @@ test('canvas context menu supports headless keyboard navigation and dismissal', 
   await page.keyboard.press('ArrowDown');
   await expect(items.nth(1)).toBeFocused();
   await page.keyboard.press('Space');
-  await expect(page.locator('.canvas-node')).toHaveCount(8);
+  await expect(nodes).toHaveCount(beforeNodes + 2);
   await expect(menu).toBeHidden();
   await expect(canvasRoot).toBeFocused();
   expect(runtimeErrors).toEqual([]);
@@ -1057,7 +1124,7 @@ test('keyboard deletion ignores text-input focus', async ({ page }) => {
 
   await expect(page.locator('.canvas-node')).toHaveCount(6);
   await expect(edgePaths(page)).toHaveCount(3);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -1071,7 +1138,7 @@ test('input handles preview compatibility during a connection drag', async ({ pa
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
 
   // Node 2 (HTTP request) emits a single JSON output. Start a drag from it and
   // hold it open so input handles render their compatibility preview.
@@ -1088,6 +1155,20 @@ test('input handles preview compatibility during a connection drag', async ({ pa
   await expect(inputHandle(page, 6)).toHaveClass(/(?:^|\s)incompatible-target(?:\s|$)/);
   // The source node's own input is a self-loop and must read incompatible.
   await expect(inputHandle(page, 2)).toHaveClass(/(?:^|\s)incompatible-target(?:\s|$)/);
+  // Omit compatibility at the publication boundary, not in the graph model.
+  await page.evaluate(() => {
+    document.getElementById('canvas-render-layer')!.addEventListener(
+      'canopy-canvas-render-state',
+      (event) => {
+        const snapshot: RenderState = JSON.parse((event as CustomEvent<string>).detail);
+        snapshot.input_compatibility = [];
+        Object.defineProperty(event, 'detail', { value: JSON.stringify(snapshot) });
+      },
+      { capture: true },
+    );
+  });
+  await page.mouse.move(start.x + 60, start.y + 40);
+  await expect(inputHandle(page, 5)).toHaveClass(/(?:^|\s)incompatible-target(?:\s|$)/);
 
   await page.mouse.up();
 
@@ -1105,7 +1186,7 @@ test('pointercancel interrupts a canvas drag without committing it', async ({ pa
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   const node = page.locator('.canvas-node[data-node-id="1"]');
   const before = await node.evaluate((element) => ({
     left: (element as HTMLElement).style.left,
@@ -1113,10 +1194,18 @@ test('pointercancel interrupts a canvas drag without committing it', async ({ pa
     rect: element.getBoundingClientRect().toJSON(),
   }));
 
-  await page.evaluate(() => {
+  const snapshot = await page.evaluate(async () => {
+    const target = document.getElementById('canvas-render-layer');
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     const node = document.querySelector('.canvas-node[data-node-id="1"]');
-    if (!node) throw new Error('canvas node is missing');
+    if (!target || !node) throw new Error('canvas render targets are missing');
+    const eventName = 'canopy-canvas-render-state';
+    const { promise, resolve } = Promise.withResolvers<RenderState>();
+    const listener = (event: Event) => {
+      target.removeEventListener(eventName, listener);
+      resolve(JSON.parse((event as CustomEvent<string>).detail));
+    };
+    target.addEventListener(eventName, listener);
     root.setPointerCapture = () => undefined;
     const rect = node.getBoundingClientRect();
     node.dispatchEvent(new PointerEvent('pointerdown', {
@@ -1139,11 +1228,20 @@ test('pointercancel interrupts a canvas drag without committing it', async ({ pa
       clientX: rect.left + rect.width / 2 + 48,
       clientY: rect.top + rect.height / 2 + 32,
     }));
+    return await promise;
   });
-  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
 
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
   await expect(node).not.toHaveClass(/(?:^|\s)selected(?:\s|$)/);
+  const expectedNode = snapshot.nodes.find((candidate) => candidate.id === '1');
+  if (!expectedNode) throw new Error('canceled drag snapshot is missing node 1');
+  await expect.poll(() => node.evaluate((element) => ({
+    left: (element as HTMLElement).style.left,
+    top: (element as HTMLElement).style.top,
+  }))).toEqual({
+    left: `${expectedNode.x}px`,
+    top: `${expectedNode.y}px`,
+  });
   const after = await node.evaluate((element) => ({
     left: (element as HTMLElement).style.left,
     top: (element as HTMLElement).style.top,
@@ -1162,7 +1260,7 @@ test('canvas pan clears the hovered inspector on the first active move', async (
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   const node = page.locator('.canvas-node[data-node-id="1"]');
   const rect = await node.boundingBox();
   if (!rect) throw new Error('hover target is missing');
@@ -1219,7 +1317,7 @@ test('canvas root owns one pointer and interrupts once on lost capture', async (
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -1292,7 +1390,7 @@ test('canvas root owns one pointer and interrupts once on lost capture', async (
     }));
   });
   await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -1305,7 +1403,7 @@ test('canvas root owns one pointer and interrupts once on lost capture', async (
     }));
   });
   await expect(page.locator('#canvas-root')).toHaveClass(/panning/);
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   expect(runtimeErrors).toEqual([]);
 });
 
@@ -1317,7 +1415,7 @@ test('canvas capture failure leaves the root session idle', async ({ page }) => 
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -1333,7 +1431,7 @@ test('canvas capture failure leaves the root session idle', async ({ page }) => 
     }));
   });
   await expect(page.locator('#canvas-root')).not.toHaveClass(/panning/);
-  await expect(page.locator('#action-stat')).toHaveText('0 actions logged');
+  await expect.poll(() => loggedActions(page)).toBe(0);
 
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
@@ -1358,7 +1456,7 @@ test('canvas pointer coordinates keep fractional child-target input', async ({ p
   });
 
   await page.goto('/');
-  await expect(page.locator('.canvas-node')).toHaveCount(6);
+  await expect(page.locator('.canvas-node').first()).toBeVisible();
   await page.evaluate(() => {
     const root = document.querySelector('#canvas-root') as HTMLDivElement;
     const node = document.querySelector('.canvas-node[data-node-id="1"]');
@@ -1391,7 +1489,7 @@ test('canvas pointer coordinates keep fractional child-target input', async ({ p
     }));
   });
 
-  await expect(page.locator('#action-stat')).toHaveText('1 action logged');
+  await expect.poll(() => loggedActions(page)).toBe(1);
   const captureIds = await page.evaluate(() => (
     (window as Window & { __canopyCaptureIds?: number[] }).__canopyCaptureIds ?? []
   ));

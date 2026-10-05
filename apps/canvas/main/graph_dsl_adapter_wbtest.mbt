@@ -1160,7 +1160,7 @@ test "invalid source keeps last-good canvas graph available" {
 }
 
 ///|
-test "source-backed edge selection is ephemeral and edge-first" {
+test "source-backed edge disconnection preserves ephemeral node selection" {
   let handle = create_source_graph("osc = sine(freq: 440Hz)\nmeter = scope()")
   let graph = match source_graph_by_handle(handle) {
     Some(graph) => graph
@@ -1187,12 +1187,12 @@ test "source-backed edge selection is ephemeral and edge-first" {
       "\"selected_edge\":\"" + edge.id.to_string() + "\"",
     ),
   )
-  assert_true(graph.delete_selection() is Some(_))
+  assert_true(graph.disconnect_edge(edge.id).applied)
   assert_eq(graph.selected_edge, None)
   @debug.assert_eq(graph.interaction.selected_nodes, [osc])
   assert_eq(graph.action_log.length(), 2)
 
-  assert_true(graph.delete_selection() is Some(_))
+  assert_true(graph.apply_operation(GraphOperation(DeleteNodes([osc]))).applied)
   assert_eq(graph.action_log.length(), 3)
   destroy_source_graph(handle)
 }
