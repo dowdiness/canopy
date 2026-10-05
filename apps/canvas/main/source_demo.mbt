@@ -5,25 +5,35 @@ using @rabbita {type Cmd, type Emit, type Html}
 using @html {a, aside, button, div, h2, nothing, p, span, text}
 
 ///|
+/// URL encoding stays with the browser; the source-mode policy stays in MoonBit.
 #cfg(target="js")
-extern "js" fn js_source_mode_url(enabled : Bool) -> String =
-  #|((enabled) => {
-  #|  const url = new URL(window.location.href);
-  #|  if (enabled) {
-  #|    url.searchParams.set('source', '1');
-  #|  } else {
-  #|    url.searchParams.delete('source');
-  #|  }
-  #|  return url.toString();
-  #|})
+extern "js" fn browser_url_with_query(
+  href : String,
+  key : String,
+  value : String,
+) -> String =
+  #| (href, key, value) => {
+  #|   const url = new URL(href);
+  #|   url.searchParams.set(key, value);
+  #|   return url.toString();
+  #| }
 
 ///|
-#cfg(not(target="js"))
-fn js_source_mode_url(enabled : Bool) -> String {
+#cfg(target="js")
+extern "js" fn browser_url_without_query(href : String, key : String) -> String =
+  #| (href, key) => {
+  #|   const url = new URL(href);
+  #|   url.searchParams.delete(key);
+  #|   return url.toString();
+  #| }
+
+///|
+#cfg(target="js")
+fn source_mode_url(href : String, enabled : Bool) -> String {
   if enabled {
-    "?source=1"
+    browser_url_with_query(href, "source", "1")
   } else {
-    "/"
+    browser_url_without_query(href, "source")
   }
 }
 
@@ -38,8 +48,9 @@ fn js_source_mode_url(enabled : Bool) -> String {
 /// package is pinned to `supported_targets = "js"`, so widening that target set
 /// must first provide a defer primitive with this post-mutation ordering.
 #cfg(target="js")
-extern "js" fn defer_sync(run : () -> Unit) -> Unit =
-  #|((run) => { queueMicrotask(() => run()); })
+fn defer_sync(run : () -> Unit) -> Unit {
+  @dom.window().queue_microtask(run)
+}
 
 ///|
 struct SourceDemoModel {
@@ -106,12 +117,11 @@ enum SourceDemoMsg {
 }
 
 ///|
-fn source_toggle_view(enabled : Bool) -> Html {
-  let next_enabled = !enabled
+fn source_toggle_view(enabled : Bool, href : String) -> Html {
   a(
     id="source-mode-toggle",
     class="mode-toggle",
-    href=js_source_mode_url(next_enabled),
+    href~,
     title=if enabled {
       "Reload the demo with the local canvas runtime adapter"
     } else {
@@ -668,7 +678,8 @@ fn mount_source_demo(
   register : ((CanvasSourceMessage) -> Unit) -> Unit,
   on_terminal : () -> Unit,
 ) -> Unit {
-  @rabbita.new(() => @rabbita.Val::constant(source_toggle_view(enabled))).mount(
+  let href = source_mode_url(@dom.window().current_url(), !enabled)
+  @rabbita.new(() => @rabbita.Val::constant(source_toggle_view(enabled, href))).mount(
     "source-mode-root",
   )
   guard enabled else { return }

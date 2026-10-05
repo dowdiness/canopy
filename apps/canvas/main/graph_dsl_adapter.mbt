@@ -1042,6 +1042,7 @@ fn SourceBackedGraph::zoom(
   ctrl_key : Bool,
   cx : Double,
   cy : Double,
+  is_mac_like~ : Bool,
 ) -> Unit {
   let before = source_graph_base_canvas_state(self)
   guard !before.interaction.pointer_down else { return }
@@ -1054,7 +1055,7 @@ fn SourceBackedGraph::zoom(
       delta_y,
       delta_mode,
       ctrl_key,
-      canvas_pointer_is_mac_like(),
+      is_mac_like,
       min_scale=CANVAS_MIN_SCALE,
       max_scale=CANVAS_MAX_SCALE,
     ) {

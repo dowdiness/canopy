@@ -1,5 +1,6 @@
 ///|
 priv struct CanvasLibraryBinding {
+  root : @dom.Element
   handle : Int
   on_change : () -> Unit
   send_source : (CanvasSourceMessage) -> Unit
@@ -36,15 +37,16 @@ fn canvas_library_request_insert(
   }
   match canvas_backing(binding.handle) {
     Some(Runtime(runtime)) => {
-      let root = @dom.document().get_element_by_id("canvas-root").unwrap()
       let state = runtime.state_peek()
-      let position = try {
-        let screen = ScreenPoint::from_xy(
-          x=root.get_client_width() * 0.52,
-          y=root.get_client_height() * 0.48,
-        )
-        state.viewport.screen_to_world(screen)
-      } catch {
+      let screen = match
+        canvas_library_screen_point(
+          binding.root.get_client_width(),
+          binding.root.get_client_height(),
+        ) {
+        Some(screen) => screen
+        None => return
+      }
+      let position = state.viewport.screen_to_world(screen) catch {
         @spatial.CoordinateError::NonFinite => return
       }
       runtime.clear_selected_edge()
@@ -79,7 +81,7 @@ fn canvas_library_update(
 ///|
 #cfg(target="js")
 priv suberror CanvasLibrarySub {
-  Search(@rabbita.Emit[CanvasLibraryMsg])
+  Search(@dom.HTMLInputElement, @rabbita.Emit[CanvasLibraryMsg])
 }
 
 ///|
@@ -89,22 +91,17 @@ fn canvas_library_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasLibrarySub::Search(emit) => {
+    CanvasLibrarySub::Search(input, emit) => {
       let tagger = @ref.Ref(emit)
-      let input = @dom.document().get_element_by_id("node-search").unwrap()
       let target = input.as_event_target()
       let listener : @dom.Listener = _ => {
-        scheduler.add(
-          (tagger.val)(
-            SearchChanged(input.to_html_input_element().unwrap().value()),
-          ),
-        )
+        scheduler.add((tagger.val)(SearchChanged(input.value())))
       }
       target.add_event_listener("input", listener)
       Some({
         unload: _ => target.remove_event_listener("input", listener),
         update_tagger: next => {
-          guard next is CanvasLibrarySub::Search(new_emit) else { return }
+          guard next is CanvasLibrarySub::Search(_, new_emit) else { return }
           tagger.val = new_emit
         },
       })
@@ -116,12 +113,13 @@ fn canvas_library_sub_loader(
 ///|
 #cfg(target="js")
 fn canvas_library_subscriptions(
+  search : @dom.HTMLInputElement,
   emit : @rabbita.Emit[CanvasLibraryMsg],
 ) -> @sub.Sub {
   @sub.custom_sub(
     "canvas.library.search",
     @sub.Scope::Local,
-    CanvasLibrarySub::Search(emit),
+    CanvasLibrarySub::Search(search, emit),
     canvas_library_sub_loader,
   )
 }
@@ -154,12 +152,15 @@ fn canvas_library_view(
 ///|
 #cfg(target="js")
 fn mount_canvas_library(
+  root : @dom.Element,
+  search : @dom.HTMLInputElement,
   handle : Int,
   on_change : () -> Unit,
   send_source : (CanvasSourceMessage) -> Unit,
   can_mutate : () -> Bool,
 ) -> Unit {
   let binding : CanvasLibraryBinding = {
+    root,
     handle,
     on_change,
     send_source,
@@ -169,7 +170,7 @@ fn mount_canvas_library(
     let (model, emit) = @rabbita.create_state(
       { filter: "", },
       update=(model, msg, _) => canvas_library_update(binding, model, msg),
-      subscriptions=(_, emit) => canvas_library_subscriptions(emit),
+      subscriptions=(_, emit) => canvas_library_subscriptions(search, emit),
     )
     model.map(model => canvas_library_view(emit, model))
   }).mount("node-library")

@@ -601,6 +601,7 @@ fn CanvasRuntime::zoom(
   ctrl_key : Bool,
   cx : Double,
   cy : Double,
+  is_mac_like~ : Bool,
 ) -> Unit {
   let before = self.state_peek()
   guard !before.interaction.pointer_down else { return }
@@ -613,7 +614,7 @@ fn CanvasRuntime::zoom(
       delta_y,
       delta_mode,
       ctrl_key,
-      canvas_pointer_is_mac_like(),
+      is_mac_like,
       min_scale=CANVAS_MIN_SCALE,
       max_scale=CANVAS_MAX_SCALE,
     ) {

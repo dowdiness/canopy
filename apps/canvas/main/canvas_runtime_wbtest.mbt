@@ -160,14 +160,14 @@ test "runtime pointer admission rejects missing nodes without mutation" {
 test "runtime wheel rejects zero and active gesture input" {
   let runtime = CanvasRuntime::CanvasRuntime()
   let before = runtime.state_peek()
-  runtime.zoom(0.0, 0, false, 10.0, 10.0)
+  runtime.zoom(0.0, 0, false, 10.0, 10.0, is_mac_like=false)
   let zero = runtime.state_peek()
   assert_eq(zero.viewport, before.viewport)
   assert_eq(zero.action_log.length(), before.action_log.length())
 
   ignore(runtime.pointer_down(None, 10.0, 10.0))
   let active = runtime.state_peek()
-  runtime.zoom(-100.0, 0, false, 20.0, 20.0)
+  runtime.zoom(-100.0, 0, false, 20.0, 20.0, is_mac_like=false)
   let during = runtime.state_peek()
   assert_eq(during.viewport, active.viewport)
   assert_eq(during.action_log.length(), active.action_log.length())
@@ -181,7 +181,7 @@ test "runtime wheel rejects zero and active gesture input" {
     ),
   })
   let at_max = runtime.state_peek()
-  runtime.zoom(-100.0, 0, false, 100.0, 100.0)
+  runtime.zoom(-100.0, 0, false, 100.0, 100.0, is_mac_like=false)
   let repeated = runtime.state_peek()
   assert_eq(repeated.viewport, at_max.viewport)
   assert_eq(repeated.action_log.length(), at_max.action_log.length())

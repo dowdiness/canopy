@@ -264,24 +264,25 @@ fn parse_menu_request(
   }
   let client_x = mouse.get_client_x()
   let client_y = mouse.get_client_y()
-  let anchor_x = Float::from_double(client_x)
-  let anchor_y = Float::from_double(client_y)
-  guard !anchor_x.is_nan() &&
-    !anchor_x.is_inf() &&
-    !anchor_y.is_nan() &&
-    !anchor_y.is_inf() else {
-    return Err(Rejected("The menu position is outside the supported range."))
+  let anchor = match context_menu_anchor(client_x, client_y) {
+    Some(anchor) => anchor
+    None =>
+      return Err(Rejected("The menu position is outside the supported range."))
   }
   let target = match
     canvas_pointer_hit_from_element(event.target().to_element()) {
     CanvasPointerHit::Edge(edge_id) => CanvasContextTarget::Edge(edge_id)
     _ => {
       let rect = canvas_root.get_bounding_client_rect()
-      let insert_at = ScreenPoint::from_xy(
-        x=client_x - rect.get_left(),
-        y=client_y - rect.get_top(),
-      ) catch {
-        @spatial.CoordinateError::NonFinite =>
+      let insert_at = match
+        canvas_relative_screen_point(
+          client_x,
+          client_y,
+          rect.get_left(),
+          rect.get_top(),
+        ) {
+        Some(point) => point
+        None =>
           return Err(
             Rejected("The canvas position is outside the supported range."),
           )
@@ -289,19 +290,13 @@ fn parse_menu_request(
       CanvasContextTarget::Background(insert_at~)
     }
   }
-  Ok({ anchor: @context_menu.Point(x=anchor_x, y=anchor_y), target, })
+  Ok({ anchor, target, })
 }
 
 ///|
 #cfg(target="js")
 priv suberror CanvasContextMenuSub {
-  ContextMenuEvent(Int, @rabbita.Emit[CanvasContextMenuMsg])
-}
-
-///|
-#cfg(target="js")
-fn context_menu_event_target() -> @dom.EventTarget {
-  @dom.document().get_element_by_id(CANVAS_ROOT_ID).unwrap().as_event_target()
+  ContextMenuEvent(@dom.Element, Int, @rabbita.Emit[CanvasContextMenuMsg])
 }
 
 ///|
@@ -311,10 +306,9 @@ fn context_menu_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasContextMenuSub::ContextMenuEvent(handle, emit) => {
+    CanvasContextMenuSub::ContextMenuEvent(root, handle, emit) => {
       let tagger = @ref.Ref(emit)
-      let root = @dom.document().get_element_by_id(CANVAS_ROOT_ID).unwrap()
-      let target = context_menu_event_target()
+      let target = root.as_event_target()
       let dismiss = () => {
         scheduler.add((tagger.val)(DismissAfterExternalMutation))
       }
@@ -332,7 +326,7 @@ fn context_menu_sub_loader(
           context_menu_dismissers.remove(handle)
         },
         update_tagger: next => {
-          guard next is CanvasContextMenuSub::ContextMenuEvent(_, new_emit) else {
+          guard next is CanvasContextMenuSub::ContextMenuEvent(_, _, new_emit) else {
             return
           }
           tagger.val = new_emit
@@ -346,6 +340,7 @@ fn context_menu_sub_loader(
 ///|
 #cfg(target="js")
 fn context_menu_subscriptions(
+  root : @dom.Element,
   handle : Int,
   model : CanvasContextMenuModel,
   emit : @rabbita.Emit[CanvasContextMenuMsg],
@@ -354,7 +349,7 @@ fn context_menu_subscriptions(
     @sub.custom_sub(
       "canvas.context-menu",
       @sub.Scope::Local,
-      CanvasContextMenuSub::ContextMenuEvent(handle, emit),
+      CanvasContextMenuSub::ContextMenuEvent(root, handle, emit),
       context_menu_sub_loader,
     ),
     model.context_menu.subscriptions(emit.map(msg => menu_intent(model, msg))),
@@ -373,6 +368,7 @@ fn dismiss_canvas_context_menu(handle : Int) -> Unit {
 ///|
 #cfg(target="js")
 fn mount_canvas_context_menu(
+  root : @dom.Element,
   handle : Int,
   on_change : () -> Unit,
   on_source_result : (SourceGraphOperationResultJson) -> Unit,
@@ -391,7 +387,7 @@ fn mount_canvas_context_menu(
         context_menu_update(binding, model, msg, emit)
       },
       subscriptions=(model, emit) => {
-        context_menu_subscriptions(handle, model, emit)
+        context_menu_subscriptions(root, handle, model, emit)
       },
     )
     model.map(model => context_menu_view(emit, model))

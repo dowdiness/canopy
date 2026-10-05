@@ -2,8 +2,21 @@
 /// Mount the fixed-page UI once. Each receiver is installed by its receiving
 /// host's subscription and queues only on that host's scheduler.
 #cfg(target="js")
-pub fn mount_canvas_ui(handle : Int, on_change : () -> Unit) -> Unit {
+pub fn mount_canvas_ui(
+  handle : Int,
+  render_target : @dom.Element,
+  on_change : () -> Unit,
+  on_rendered : () -> Unit,
+) -> Unit {
   guard canvas_backing(handle) is Some(backing) else { return }
+  let document = @dom.document()
+  let root = document.get_element_by_id(CANVAS_ROOT_ID).unwrap()
+  let inspector = document.get_element_by_id(CANVAS_INSPECTOR_ID).unwrap()
+  let search = document
+    .get_element_by_id("node-search")
+    .unwrap()
+    .to_html_input_element()
+    .unwrap()
   let source_backed = backing is Source(_)
   let mut source_receiver : ((CanvasSourceMessage) -> Unit)? = None
   let mut inspector_receiver : ((CanvasInspectorMsg) -> Unit)? = None
@@ -28,7 +41,7 @@ pub fn mount_canvas_ui(handle : Int, on_change : () -> Unit) -> Unit {
       Runtime(_) => true
     })
   }
-  mount_canvas_inspector(source_backed, send_source, receiver => {
+  mount_canvas_inspector(inspector, source_backed, send_source, receiver => {
     inspector_receiver = Some(receiver)
   })
   mount_source_demo(
@@ -41,11 +54,14 @@ pub fn mount_canvas_ui(handle : Int, on_change : () -> Unit) -> Unit {
       send_inspector(CanvasInspectorMsg::ParserStopped)
     },
   )
-  mount_canvas_render_layer(snapshot => {
-    send_inspector(CanvasInspectorMsg::Snapshot(snapshot))
-  })
-  mount_canvas_library(handle, notify, send_source, can_mutate)
+  mount_canvas_render_layer(
+    render_target,
+    snapshot => send_inspector(CanvasInspectorMsg::Snapshot(snapshot)),
+    on_rendered,
+  )
+  mount_canvas_library(root, search, handle, notify, send_source, can_mutate)
   mount_canvas_context_menu(
+    root,
     handle,
     notify,
     fn(result) {
@@ -54,6 +70,12 @@ pub fn mount_canvas_ui(handle : Int, on_change : () -> Unit) -> Unit {
     },
     can_mutate,
   )
-  mount_canvas_keyboard(handle, notify, send_source, can_mutate)
-  mount_canvas_pointer_session(handle, notify)
+  mount_canvas_keyboard(
+    document.as_event_target(),
+    handle,
+    notify,
+    send_source,
+    can_mutate,
+  )
+  mount_canvas_pointer_session(root, handle, notify)
 }

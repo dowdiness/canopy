@@ -1,7 +1,12 @@
 export type CanvasModule = {
   create_canvas: () => number;
-  mount_canvas_ui: (h: number, onChange: () => undefined) => undefined;
-  publish_render_state: (h: number) => string;
+  mount_canvas_ui: (
+    h: number,
+    renderTarget: Element,
+    onChange: () => undefined,
+    onRendered: () => undefined,
+  ) => undefined;
+  publish_render_state: (h: number, target: Element) => string;
   get_render_state: (h: number) => string;
   get_action_log: (h: number) => string;
   create_source_graph?: (source: string) => number;
@@ -187,10 +192,10 @@ export class GraphAdapter {
     return state;
   }
 
-  publishRenderState(): RenderState {
+  publishRenderState(target: Element): RenderState {
     this.assertLive();
     const state = JSON.parse(
-      this.mb.publish_render_state(this.handle),
+      this.mb.publish_render_state(this.handle, target),
     ) as RenderState;
     this.emitOperationsThrough(state.action_count);
     return state;

@@ -18,9 +18,10 @@ export type {
 let adapter: GraphAdapter;
 let rafPending = false;
 
-const root       = document.getElementById('canvas-root') as HTMLDivElement;
+const renderTarget = document.getElementById('canvas-render-layer') as HTMLDivElement;
 const validation = document.getElementById('validation-list') as HTMLDivElement;
 const actionStat = document.getElementById('action-stat') as HTMLSpanElement;
+const validationTargets: { button: HTMLButtonElement; nodeId: string }[] = [];
 
 // ─── RAF render loop ─────────────────────────────────────────────────────────
 
@@ -32,13 +33,14 @@ function scheduleRender(): void {
 
 function render(): void {
   rafPending = false;
-  const state = adapter.publishRenderState();
+  const state = adapter.publishRenderState(renderTarget);
   renderValidation(state);
 }
 
 function renderValidation(state: RenderState): void {
   actionStat.textContent = `${state.action_count} action${state.action_count === 1 ? '' : 's'} logged`;
   validation.replaceChildren();
+  validationTargets.length = 0;
   if (state.validation.length === 0) {
     const ok = document.createElement('div');
     ok.className = 'validation-ok';
@@ -52,18 +54,24 @@ function renderValidation(state: RenderState): void {
     item.type = 'button';
     item.textContent = message.message;
     if (message.node_id != null) {
-      item.addEventListener('click', () => focusNode(message.node_id as string));
+      validationTargets.push({ button: item, nodeId: message.node_id });
     }
     validation.appendChild(item);
   }
 }
 
+// Called by the MoonBit render host after its DOM patch, never by a click handler.
+function connectValidationTargets(): undefined {
+  for (const { button, nodeId } of validationTargets) {
+    const node = renderTarget.querySelector<HTMLElement>(
+      `.canvas-node[data-node-id="${CSS.escape(nodeId)}"]`,
+    );
+    button.onclick = node ? () => focusNode(node) : null;
+  }
+  return undefined;
+}
 
-function focusNode(nodeId: string): void {
-  const node = root.querySelector<HTMLElement>(
-    `.canvas-node[data-node-id="${CSS.escape(nodeId)}"]`,
-  );
-  if (!node) return;
+function focusNode(node: HTMLElement): void {
   node.animate([
     { boxShadow: '0 0 0 2px rgba(255,255,255,.9), 0 0 0 8px rgba(130,80,223,.35)' },
     { boxShadow: '' },
@@ -103,10 +111,15 @@ function init(): void {
   adapter = sourceMode
     ? GraphAdapter.createSourceBacked(mod, mod.sample_graph_dsl_source())
     : GraphAdapter.create(mod);
-  mod.mount_canvas_ui(adapter.handleId, () => {
-    scheduleRender();
-    return undefined;
-  });
+  mod.mount_canvas_ui(
+    adapter.handleId,
+    renderTarget,
+    () => {
+      scheduleRender();
+      return undefined;
+    },
+    connectValidationTargets,
+  );
   render();
 }
 

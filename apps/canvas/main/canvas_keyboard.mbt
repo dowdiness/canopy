@@ -89,7 +89,7 @@ fn canvas_keyboard_update(
 ///|
 #cfg(target="js")
 priv suberror CanvasKeyboardSub {
-  Keydown(Int, @rabbita.Emit[CanvasKeyboardMsg], () -> Bool)
+  Keydown(@dom.EventTarget, Int, @rabbita.Emit[CanvasKeyboardMsg], () -> Bool)
 }
 
 ///|
@@ -111,9 +111,8 @@ fn canvas_keyboard_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasKeyboardSub::Keydown(handle, emit, can_mutate) => {
+    CanvasKeyboardSub::Keydown(target, handle, emit, can_mutate) => {
       let tagger = @ref.Ref(emit)
-      let target = @dom.document().as_event_target()
       let listener : @dom.Listener = event => {
         match event.to_keyboard_event() {
           None => ()
@@ -141,9 +140,7 @@ fn canvas_keyboard_sub_loader(
       Some({
         unload: _ => target.remove_event_listener("keydown", listener),
         update_tagger: next => {
-          guard next is CanvasKeyboardSub::Keydown(_, new_emit, _) else {
-            return
-          }
+          guard next is CanvasKeyboardSub::Keydown(_, _, new_emit, _) else {  }
           tagger.val = new_emit
         },
       })
@@ -155,6 +152,7 @@ fn canvas_keyboard_sub_loader(
 ///|
 #cfg(target="js")
 fn canvas_keyboard_subscriptions(
+  target : @dom.EventTarget,
   handle : Int,
   emit : @rabbita.Emit[CanvasKeyboardMsg],
   can_mutate : () -> Bool,
@@ -162,7 +160,7 @@ fn canvas_keyboard_subscriptions(
   @sub.custom_sub(
     "canvas.keyboard.delete",
     @sub.Scope::Local,
-    CanvasKeyboardSub::Keydown(handle, emit, can_mutate),
+    CanvasKeyboardSub::Keydown(target, handle, emit, can_mutate),
     canvas_keyboard_sub_loader,
   )
 }
@@ -170,6 +168,7 @@ fn canvas_keyboard_subscriptions(
 ///|
 #cfg(target="js")
 fn mount_canvas_keyboard(
+  target : @dom.EventTarget,
   handle : Int,
   on_change : () -> Unit,
   send_source : (CanvasSourceMessage) -> Unit,
@@ -191,7 +190,7 @@ fn mount_canvas_keyboard(
         }
       },
       subscriptions=(_, emit) => {
-        canvas_keyboard_subscriptions(handle, emit, can_mutate)
+        canvas_keyboard_subscriptions(target, handle, emit, can_mutate)
       },
     )
     model.map(_ => @html.nothing)

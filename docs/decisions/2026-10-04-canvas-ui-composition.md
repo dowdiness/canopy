@@ -21,10 +21,13 @@ the same edit, while Escape must not suppress an edit after the next focus.
 ## Decision
 
 The executable's app-private entrypoint is
-`mount_canvas_ui(handle, on_change)`. MoonBit determines the backing, mounts the
-fixed UI roots, and wires their private typed receivers. `on_change` schedules
-TS publication; it carries no operation result. This is a page-lifetime
-composition, not a public reusable mount/unmount or multi-canvas API.
+`mount_canvas_ui(handle, render_target, on_change, on_rendered)`. MoonBit determines
+the backing, connects the fixed UI roots, and wires their private typed receivers.
+The browser shell supplies the already acquired render target. `on_change`
+schedules TS publication; it carries no operation result. `on_rendered` connects
+the surviving TS validation controls after the render host patches its DOM.
+This is a page-lifetime composition, not a public reusable mount/unmount or
+multi-canvas API.
 
 MoonBit owns the complete Inspector subtree, library rendering/search/insertion,
 and keyboard Delete/Backspace admission and execution. Source owns source-backed
@@ -56,6 +59,42 @@ mounting the MoonBit UI; native editor mounting may still complete asynchronousl
   Runtime uses the published selection-before-hover summary. Source only
   synthesizes selected-node details from the decoded nodes; it gains no hover
   or nonnumeric editing semantics.
+
+### DOM actions and the functional core
+
+Follow the repository's [functional-core / imperative-shell boundary](../architecture/functional-core-imperative-shell.md):
+DOM reads are actions, not calculations.
+
+- Resolve fixed DOM roots at startup and pass typed elements/event targets into
+  subscriptions. Resolve dynamic Inspector inputs and menu panels at explicit
+  after-render connection points. Measurement, dismissal listeners, restoration,
+  and focus use acquired elements rather than repeatedly resolving IDs.
+- Cache elements, not geometry. The shell reads current rectangles/client sizes
+  at event admission and retains live pointer-release hit testing. Pure
+  `canvas_geometry.mbt` functions receive numbers, reuse spatial validation, and
+  preserve fractional coordinates and Double-to-Float overflow rejection.
+  Context-menu viewport clamping also runs in pure MoonBit, including its
+  non-finite-size and oversized-panel behavior.
+- Inspector transitions return immutable state and one typed effect. The shell
+  executes Source requests and native finalization without delaying them until
+  another paint; only element connection and inactive-field synchronization need
+  the after-render boundary. Deferred synchronization uses the current state so
+  an intervening editing session is not overwritten. Unload revokes the receiver
+  and clears acquired field references.
+- `publish_render_state(handle, target)` dispatches to the supplied element.
+  Render-layer listeners retain their supplied target through unsubscription.
+  Validation buttons connect to rendered nodes after the DOM patch; their click
+  handlers receive the node itself and perform no selector lookup.
+- Prefer Rabbita's typed DOM and scheduling APIs. Remaining JS FFI exposes
+  browser primitives with typed inputs/outputs: platform text, URL query
+  operations, and focusing an acquired element. Platform classification and
+  Source-mode query policy live in MoonBit. Capture platform/location at startup;
+  pass the platform decision into wheel normalization instead of reading browser
+  globals in graph mutation code.
+
+Reuse `ScreenPoint::from_xy`, the existing wheel normalization core,
+`@cmd.after_render`, and native subscription teardown. Do not add a global DOM
+registry, observer framework, raw-value FFI bag, or another publication protocol.
 
 ### Native editing and completion
 
