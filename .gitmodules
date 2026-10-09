@@ -22,3 +22,6 @@
 [submodule "choreo"]
 	path = deps/choreo
 	url = https://github.com/informalsystems/choreo.git
+[submodule "loomark-local-tabs-egw"]
+	path = deps/loomark-local-tabs-egw
+	url = https://github.com/dowdiness/event-graph-walker.git

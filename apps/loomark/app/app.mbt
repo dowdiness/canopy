@@ -147,6 +147,9 @@ fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
 ///|
 /// Prototype: manage and switch Loomark documents inside RUI Sidebar.
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
+  if @local_tabs.enabled() {
+    return @local_tabs.app()
+  }
   let editor = @editor.MarkdownEditor::MarkdownEditor(EDITOR_TEXT_ID)
   let initial_compact = compact_viewport(@browser.viewport_width())
   // Resolve stable browser handles once at the composition boundary.
