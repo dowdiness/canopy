@@ -4,7 +4,7 @@ members = [
   "../../../../modules/rabbita-markdown",
   "../../../../deps/rabbita/rabbita",
   "../../../../deps/rabbita/rui",
-  "../../../../../egw-trial",
+  "../../../../deps/loomark-local-tabs-egw",
   "../../../../deps/loom/diagnostic",
   "../../../../deps/loom/examples/markdown",
   "../../../../deps/loom/loom",

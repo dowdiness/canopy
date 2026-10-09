@@ -30,12 +30,13 @@ Migration tracking: [#1458](https://github.com/dowdiness/canopy/issues/1458).
 ## Build and run
 
 Use the repository's pinned submodules, MoonBit/compiler core 0.10.14+7d59c7ec9,
-Node 24.11.1 and installed Chrome. The independent EGW checkout must be a sibling
-of the Canopy checkout, named `egw-trial`, at commit
-3bd8aaf2365ec330581fbc1dfe4b331b8ddef032 (manifest version 0.8.0).
-This includes PR134, experimental PR135, and the API migration in PR136.
-No submodule pointers are changed by this trial. The `moon.work` here isolates
-this override from the ordinary root workspace.
+Node 24.11.1 and installed Chrome. Initialize dependencies from the repository
+root with `git submodule update --init --recursive`.
+
+This experiment pins EGW at merged commit
+`ff5afaf9d155d97d05d48e29fae59938bfb7e0b6` in `deps/loomark-local-tabs-egw`.
+Its nested `moon.work` selects that dependency; the ordinary workspace's
+`deps/event-graph-walker` pin is unchanged. No sibling checkout is needed.
 
 `npm run build` checks the app binding and Worker package, then builds and copies
 three separate assets: `loomark.js`, `worker.js` and `fixture.js`. The Windows

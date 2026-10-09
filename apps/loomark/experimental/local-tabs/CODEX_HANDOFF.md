@@ -148,11 +148,9 @@ reconcile any movement. PR #1421 is a separate Worker Preview experiment; its
 only overlapping file with this handoff is `apps/loomark/app/app.mbt`. Preserve
 both entry/lifecycle responsibilities rather than merging that branch wholesale.
 
-Use the official pinned MoonBit/compiler core `0.10.14+7d59c7ec9`, Node
-`24.11.1`, recursive repository submodules, and a sibling `egw-trial` checkout at
-`07a6a833ed9442eee26d463375f589864539b864` (manifest version 0.8.0).
-Verify dependency identity and reachability; do not change submodule pointers
-to make this isolated trial compile. The nested `moon.work` owns this override.
+Use the dependency setup in the [current README](README.md#build-and-run).
+The nested `moon.work` selects the experiment's pinned EGW submodule without
+changing the ordinary workspace's dependency.
 
 On the documented Windows/Chrome setup, from this directory:
 
