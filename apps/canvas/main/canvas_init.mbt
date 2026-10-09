@@ -6,9 +6,8 @@ pub fn create_canvas() -> Int {
 }
 
 ///|
-/// Add a workflow node from the library/context menu at canvas-local screen
-/// coordinates. `kind_key` is intentionally string-based at the FFI boundary;
-/// MoonBit converts it to an extensible `WorkflowNodeKind` inside the model.
+/// App-private handle operation retained for backing-contract tests.
+/// UI insertion uses the typed library/context path; this is not a JS export.
 pub fn add_node(
   handle : Int,
   kind_key : String,
@@ -17,42 +16,6 @@ pub fn add_node(
 ) -> Unit {
   match canvas_runtime_for_public(handle) {
     Some(runtime) => runtime.add_node(kind_key, sx, sy)
-    None => ()
-  }
-}
-
-///|
-fn decode_node_ids(json_text : String) -> Array[NodeId] {
-  let json = @json.parse(json_text) catch { _ => return [] }
-  @json.from_json(json) catch {
-    _ => []
-  }
-}
-
-///|
-pub fn clear_selected_edge(handle : Int) -> Unit {
-  match canvas_runtime_for_public(handle) {
-    Some(runtime) => runtime.clear_selected_edge()
-    None => ()
-  }
-}
-
-///|
-pub fn delete_selection(handle : Int) -> Bool {
-  match canvas_runtime_for_public(handle) {
-    Some(runtime) => runtime.delete_selection()
-    None => false
-  }
-}
-
-///|
-pub fn delete_nodes(handle : Int, node_ids_json : String) -> Unit {
-  let node_ids = decode_node_ids(node_ids_json)
-  if node_ids.length() == 0 {
-    return
-  }
-  match canvas_runtime_for_public(handle) {
-    Some(runtime) => runtime.delete_nodes(node_ids)
     None => ()
   }
 }
@@ -126,7 +89,7 @@ struct InspectorNodeJson {
   input_count : Int
   output_count : Int
   source : String
-} derive(Eq, ToJson)
+} derive(Eq, ToJson, FromJson)
 
 ///|
 fn render_viewport_to_json(viewport : Viewport) -> Json {

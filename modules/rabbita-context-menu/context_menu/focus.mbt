@@ -1,11 +1,8 @@
 ///|
 #cfg(target="js")
-extern "js" fn focus_element_by_id(id : String) -> Unit =
-  #| (id) => {
-  #|   const el = document.getElementById(id);
-  #|   if (el && typeof el.focus === "function") {
-  #|     el.focus();
-  #|   }
+extern "js" fn focus_element(element : @dom.Element) -> Unit =
+  #| element => {
+  #|   if (typeof element.focus === "function") element.focus();
   #| }
 
 ///|
@@ -14,7 +11,16 @@ extern "js" fn focus_element_by_id(id : String) -> Unit =
 pub fn[T] Model::close_focus_cmd(self : Model[T]) -> @rabbita.Cmd {
   match self.close_focus_id {
     Some(id) =>
-      @cmd.custom_cmd(_ => focus_element_by_id(id), kind=@cmd.after_render)
+      @cmd.custom_cmd(
+        _ => {
+          match @dom.document().get_element_by_id(id).to_option() {
+            Some(element) if element.get_is_connected() =>
+              focus_element(element)
+            _ => ()
+          }
+        },
+        kind=@cmd.after_render,
+      )
     None => @rabbita.none
   }
 }

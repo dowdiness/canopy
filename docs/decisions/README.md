@@ -65,3 +65,6 @@ Exploratory proposals are listed separately in
   — orders Recent documents by persisted Change order, permits empty repository
   snapshots, and coordinates Delete through pure per-document persistence lanes
   without blocking unrelated editing.
+- [Canvas UI composition and Inspector ownership](2026-10-04-canvas-ui-composition.md)
+  — moves Inspector, library/search, and keyboard deletion into independent
+  MoonBit hosts with typed receivers; removes the TS Source-notice transport.

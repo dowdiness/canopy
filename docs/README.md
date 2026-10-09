@@ -58,6 +58,8 @@ Resolve conflicting applicable requirements before relying on them; follow
   separately labelled design explorations.
 - [Decision index](decisions/README.md) — architectural decisions; inspect their
   accepted or superseded scope before applying them.
+- [Canvas UI composition](decisions/2026-10-04-canvas-ui-composition.md) —
+  accepted Inspector, library/search, keyboard, and Source ownership boundaries.
 - [GitHub Issues](https://github.com/dowdiness/canopy/issues) — active backlog
   and work status. [Plans](plans/) contain unfinished implementation specifications;
   delete or archive each plan when implementation completes.
@@ -65,6 +67,8 @@ Resolve conflicting applicable requirements before relying on them; follow
 - [Performance reports](performance/) — measurements tied to dates and conditions.
 - [Archive](archive/) — historical material; read or search only when historical
   context is requested.
+  - [Completed Canvas UI migration](archive/completed-phases/2026-10-04-canvas-ui-composition-inspector.md) —
+    historical design and validation evidence.
 
 `AGENTS.md` contains the general agent principles and points here. `CLAUDE.md`
 is its compatibility symlink and should not be edited directly.

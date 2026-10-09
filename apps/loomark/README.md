@@ -19,6 +19,48 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 - **Editing & Preview:** Native `<textarea>` inputs flow into `modules/rabbita-markdown/text_area`, which produces minimal `TextChange` diffs and drives the incremental preview without lag.
 - **Local Storage:** `apps/loomark/app/internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
 - **Demand-Driven Sidebar:** Recent documents extract a lightweight `DocumentLead` (the first meaningful heading or line) on the fly, rendering rows only when the sidebar opens.
+- **Mobile Viewport:** Loomark uses Rabbita's typed `@dom.VisualViewport`
+  for native viewport access and resize/scroll events. The subscription owns
+  listener removal, layout updates, frame batching, and zoom policy.
+  Only the missing `scale` getter uses a private accessor in `app/viewport_dom.mbt`.
+  The entry page requests `interactive-widget=resizes-content`, so supporting
+  browsers resize the layout rather than leave an exposed document strip above
+  the keyboard. Other browsers retain the visual-viewport path.
+  Available height is `visualViewport.height * visualViewport.scale`: zoom alone
+  preserves layout height, but resizing must continue while zoomed. Zoom panning
+  retains the last layout offset, bounded by the remaining layout height.
+  With content resizing, bottom-bar visibility is estimated from the largest
+  observed layout height, adjusted by changes in `window.outerHeight`. A deficit
+  greater than 100 CSS pixels hides the bar; this threshold never changes the
+  editor's height. Width changes reset the estimate. Small/floating keyboards,
+  rotation with the keyboard open, and startup without an unobscured sample can
+  leave the bar visible. Large browser-UI changes can also resemble a keyboard.
+  Text and Preview share the same softened edges beneath the fixed controls.
+  The bars own their decorative backgrounds, and the layout wrapper is transparent;
+  no independent editor overlay remains when the bottom bar is hidden.
+  Textarea `scroll-padding` keeps native caret navigation clear of the controls
+  and fades without per-input DOM measurement; manual reading scrolls remain
+  browser-owned.
+- **Element Resizing:** Loomark uses Rabbita's typed `@dom.ResizeObserver`
+  to observe the current textarea after rendering. Creation and registration
+  stay inside `@js.try_sync`, preserving the existing error path when the
+  browser API is unavailable. The subscription disconnects the observer when
+  that node is replaced. Width and height changes trigger caret measurement,
+  independently of VisualViewport events.
+  `app/viewport_policy.mbt` contains pure CSS numeric parsing and calculations
+  for caret scrolling, viewport placement, the next keyboard baseline,
+  bottom-bar visibility, and Split scroll alignment. It neither reads nor
+  mutates retained state. CSS values come from Rabbita's `get_property_value`;
+  MoonBit's `StringView` and `@string.parse_double` parse resolved pixel values,
+  preserving NaN for nonnumeric keywords such as `normal`.
+  `app/viewport.mbt` and `app/split_scroll.mbt` perform typed DOM operations in
+  MoonBit; the viewport shell retains previous numeric samples and owns frames
+  and cleanup. `app/viewport_dom.mbt` contains only missing native DOM accessors,
+  with no parsing, application policy, or scheduling.
+  `app/app.mbt` resolves elements at startup or after rendering. Split connects
+  directly to the resolved scroll owner and releases that connection on document,
+  mode, owner, or breakpoint changes. An initial sync catches scrolling that
+  occurred before the after-render connection.
 
 ---
 

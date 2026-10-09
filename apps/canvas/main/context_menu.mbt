@@ -34,7 +34,8 @@ priv struct CanvasContextMenuModel {
 priv struct CanvasContextMenuBinding {
   handle : Int
   on_change : () -> Unit
-  on_source_result : (String) -> Unit
+  on_source_result : (SourceGraphOperationResultJson) -> Unit
+  can_mutate : () -> Bool
 }
 
 ///|
@@ -101,6 +102,11 @@ fn context_menu_update(
           (
             next,
             @rabbita.perform(result => emit(Prepared(result)), () => {
+              guard (binding.can_mutate)() else {
+                return Err(
+                  Rejected("The graph parser stopped. Reload to recover."),
+                )
+              }
               build_context_menu(binding.handle, request)
             }),
           )
@@ -137,6 +143,11 @@ fn context_menu_update(
         model.close(),
         @rabbita.batch([
           @rabbita.perform(result => emit(Completed(result)), () => {
+            guard (binding.can_mutate)() else {
+              return Failed(
+                Rejected("The graph parser stopped. Reload to recover."),
+              )
+            }
             apply_menu_operation(operation)
           }),
           model.context_menu.close_focus_cmd(),
@@ -157,13 +168,14 @@ fn context_menu_update(
       )
     }
     Completed(outcome) => {
-      let (problem, notify) = match outcome {
+      let (problem, notify) : (CanvasContextProblem?, @rabbita.Cmd) = match
+        outcome {
         RuntimeApplied => (None, @rabbita.effect(() => (binding.on_change)()))
         SourceApplied(result) =>
           (
             None,
             @rabbita.effect(() => {
-              (binding.on_source_result)(ToJson::to_json(result).stringify())
+              (binding.on_source_result)(result)
               (binding.on_change)()
             }),
           )
@@ -175,7 +187,7 @@ fn context_menu_update(
               ),
             ),
             @rabbita.effect(() => {
-              (binding.on_source_result)(ToJson::to_json(result).stringify())
+              (binding.on_source_result)(result)
               // on_change invalidates rendering; this is an ephemeral selection
               // change, not a successful source edit (result.applied is false).
               if selection_changed {
@@ -252,24 +264,25 @@ fn parse_menu_request(
   }
   let client_x = mouse.get_client_x()
   let client_y = mouse.get_client_y()
-  let anchor_x = Float::from_double(client_x)
-  let anchor_y = Float::from_double(client_y)
-  guard !anchor_x.is_nan() &&
-    !anchor_x.is_inf() &&
-    !anchor_y.is_nan() &&
-    !anchor_y.is_inf() else {
-    return Err(Rejected("The menu position is outside the supported range."))
+  let anchor = match context_menu_anchor(client_x, client_y) {
+    Some(anchor) => anchor
+    None =>
+      return Err(Rejected("The menu position is outside the supported range."))
   }
   let target = match
     canvas_pointer_hit_from_element(event.target().to_element()) {
     CanvasPointerHit::Edge(edge_id) => CanvasContextTarget::Edge(edge_id)
     _ => {
       let rect = canvas_root.get_bounding_client_rect()
-      let insert_at = ScreenPoint::from_xy(
-        x=client_x - rect.get_left(),
-        y=client_y - rect.get_top(),
-      ) catch {
-        @spatial.CoordinateError::NonFinite =>
+      let insert_at = match
+        canvas_relative_screen_point(
+          client_x,
+          client_y,
+          rect.get_left(),
+          rect.get_top(),
+        ) {
+        Some(point) => point
+        None =>
           return Err(
             Rejected("The canvas position is outside the supported range."),
           )
@@ -277,19 +290,13 @@ fn parse_menu_request(
       CanvasContextTarget::Background(insert_at~)
     }
   }
-  Ok({ anchor: @context_menu.Point(x=anchor_x, y=anchor_y), target, })
+  Ok({ anchor, target, })
 }
 
 ///|
 #cfg(target="js")
 priv suberror CanvasContextMenuSub {
-  ContextMenuEvent(Int, @rabbita.Emit[CanvasContextMenuMsg])
-}
-
-///|
-#cfg(target="js")
-fn context_menu_event_target() -> @dom.EventTarget {
-  @dom.document().get_element_by_id(CANVAS_ROOT_ID).unwrap().as_event_target()
+  ContextMenuEvent(@dom.Element, Int, @rabbita.Emit[CanvasContextMenuMsg])
 }
 
 ///|
@@ -299,10 +306,9 @@ fn context_menu_sub_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasContextMenuSub::ContextMenuEvent(handle, emit) => {
+    CanvasContextMenuSub::ContextMenuEvent(root, handle, emit) => {
       let tagger = @ref.Ref(emit)
-      let root = @dom.document().get_element_by_id(CANVAS_ROOT_ID).unwrap()
-      let target = context_menu_event_target()
+      let target = root.as_event_target()
       let dismiss = () => {
         scheduler.add((tagger.val)(DismissAfterExternalMutation))
       }
@@ -320,7 +326,7 @@ fn context_menu_sub_loader(
           context_menu_dismissers.remove(handle)
         },
         update_tagger: next => {
-          guard next is CanvasContextMenuSub::ContextMenuEvent(_, new_emit) else {
+          guard next is CanvasContextMenuSub::ContextMenuEvent(_, _, new_emit) else {
             return
           }
           tagger.val = new_emit
@@ -334,6 +340,7 @@ fn context_menu_sub_loader(
 ///|
 #cfg(target="js")
 fn context_menu_subscriptions(
+  root : @dom.Element,
   handle : Int,
   model : CanvasContextMenuModel,
   emit : @rabbita.Emit[CanvasContextMenuMsg],
@@ -342,7 +349,7 @@ fn context_menu_subscriptions(
     @sub.custom_sub(
       "canvas.context-menu",
       @sub.Scope::Local,
-      CanvasContextMenuSub::ContextMenuEvent(handle, emit),
+      CanvasContextMenuSub::ContextMenuEvent(root, handle, emit),
       context_menu_sub_loader,
     ),
     model.context_menu.subscriptions(emit.map(msg => menu_intent(model, msg))),
@@ -351,7 +358,7 @@ fn context_menu_subscriptions(
 
 ///|
 #cfg(target="js")
-pub fn dismiss_canvas_context_menu(handle : Int) -> Unit {
+fn dismiss_canvas_context_menu(handle : Int) -> Unit {
   match context_menu_dismissers.get(handle) {
     Some(dismiss) => dismiss()
     None => ()
@@ -360,15 +367,18 @@ pub fn dismiss_canvas_context_menu(handle : Int) -> Unit {
 
 ///|
 #cfg(target="js")
-pub fn mount_canvas_context_menu(
+fn mount_canvas_context_menu(
+  root : @dom.Element,
   handle : Int,
   on_change : () -> Unit,
-  on_source_result : (String) -> Unit,
+  on_source_result : (SourceGraphOperationResultJson) -> Unit,
+  can_mutate : () -> Bool,
 ) -> Unit {
   let binding : CanvasContextMenuBinding = {
     handle,
     on_change,
     on_source_result,
+    can_mutate,
   }
   @rabbita.new(() => {
     let (model, emit) = @rabbita.create_state(
@@ -377,7 +387,7 @@ pub fn mount_canvas_context_menu(
         context_menu_update(binding, model, msg, emit)
       },
       subscriptions=(model, emit) => {
-        context_menu_subscriptions(handle, model, emit)
+        context_menu_subscriptions(root, handle, model, emit)
       },
     )
     model.map(model => context_menu_view(emit, model))

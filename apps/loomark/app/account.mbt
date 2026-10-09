@@ -74,7 +74,7 @@ fn account_controls(
     return @html.div(class="flex flex-col gap-2", [
       @html.p(
         class="m-0 text-xs leading-relaxed text-lm-muted",
-        "Sign-in status is unavailable. You can keep editing documents on this device.",
+        "Couldn’t check sign-in status.",
       ),
       @html.button(
         type_="button",
@@ -89,7 +89,7 @@ fn account_controls(
     | PreparingLogin(attempt)
     | PreparedLogin(attempt, _) =>
       ("Cancel sign-in", false, emit(LoginCancelled(attempt)))
-    Redirecting(_) => ("Opening Google…", true, @cmd.none)
+    Redirecting(_) => ("Signing in…", true, @cmd.none)
     Stable | LoginFailed(_) =>
       match input.session {
         NoAccount =>
@@ -97,7 +97,7 @@ fn account_controls(
             if input.departure is LoginFailed(_) {
               "Retry sign-in"
             } else {
-              "Sign in with Google"
+              "Login with Google"
             },
             !input.can_login,
             emit(LoginRequested),
@@ -105,14 +105,17 @@ fn account_controls(
         Current(_, _) => ("Sign out", false, emit(LogoutRequested))
         Revoking(_) => ("Signing out…", true, @cmd.none)
         LogoutUnconfirmed(_) => ("Retry sign-out", false, emit(LogoutRequested))
-        Resolving(_) | SessionUnavailable => return @html.nothing
+        Resolving(_) => ("Checking account…", true, @cmd.none)
+        SessionUnavailable => return @html.nothing
       }
   }
   let progress = match input.departure {
-    SavingBeforeLogin(_) => "Saving before sign-in…"
-    PreparingLogin(_) | PreparedLogin(_, _) => "Opening Google…"
+    SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _) =>
+      "Signing in…"
     _ => ""
   }
+  let google_sign_in = input.session is NoAccount &&
+    input.departure is (Stable | LoginFailed(_) | Redirecting(_))
   @html.div(class="flex min-w-0 flex-wrap items-center gap-1", [
     @html.span(
       hidden=progress == "",
@@ -120,12 +123,39 @@ fn account_controls(
       attrs=@html.Attrs::build().role("status"),
       @html.text(progress),
     ),
+    match input.session {
+      Current(_, name) =>
+        @html.span(class="min-w-0 flex-1 break-words text-sm text-lm-ink", name)
+      Revoking(attempt) | LogoutUnconfirmed(attempt) =>
+        @html.span(
+          class="min-w-0 flex-1 break-words text-sm text-lm-ink",
+          attempt.name(),
+        )
+      Resolving(_) | NoAccount | SessionUnavailable => @html.nothing
+    },
     @html.button(
       type_="button",
-      class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-ink hover:bg-lm-foundation focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent disabled:cursor-default disabled:opacity-60 max-[641px]:min-h-11",
+      class=if google_sign_in {
+        "flex min-h-11 w-full min-w-0 cursor-pointer items-center justify-center gap-2.5 rounded-full border border-lm-rule bg-white px-4 py-2 text-sm font-medium text-lm-ink hover:bg-lm-foundation active:bg-lm-foundation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent disabled:cursor-default disabled:opacity-60"
+      } else {
+        "min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-ink hover:bg-lm-foundation focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent disabled:cursor-default disabled:opacity-60 max-[641px]:min-h-11"
+      },
       disabled~,
       on_click=command,
-      @html.text(label),
+      [
+        if google_sign_in {
+          @html.img(
+            src="./google-g.svg",
+            alt="",
+            width=18,
+            height=18,
+            class="shrink-0",
+          )
+        } else {
+          @html.nothing
+        },
+        @html.text(label),
+      ],
     ),
   ])
 }
@@ -134,13 +164,12 @@ fn account_controls(
 fn account_notice(input : AccountControlsInput) -> @rabbita.Html {
   let message = match input.departure {
     LoginFailed(SaveFailed(_)) =>
-      "Changes could not be saved. Retry sign-in to save again. You have not left this page."
+      "Couldn’t save changes. You have not left this page. Retry sign-in to save again."
     LoginFailed(AuthenticationFailed) =>
-      "Google sign-in did not complete. Try again. Your documents remain in this browser."
+      "Couldn’t sign in with Google. Your documents remain on this device."
     _ =>
       match input.session {
-        LogoutUnconfirmed(_) =>
-          "Sign-out could not be confirmed. Retry sign-out or check your account."
+        LogoutUnconfirmed(_) => "Couldn’t confirm sign-out. Retry sign-out."
         _ => return @html.nothing
       }
   }

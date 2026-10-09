@@ -102,18 +102,40 @@
   margin-bottom: 0;
 }
 
-.loomark-source-frame {
-  /* Native caret scrolling uses the textarea viewport, not its document padding. */
-  padding-block: 56px 64px;
+/* Keyboard resizing may leave dvh unchanged; the browser binding supplies the
+   visible viewport. Override the Sidebar provider's inline layout minimum. */
+.loomark-viewport {
+  --rui-sidebar-wrapper-background: transparent;
+  --loomark-bottom-space: 64px;
+  --loomark-content-bottom: calc(16px + var(--loomark-bottom-space));
+  position: fixed !important;
+  top: var(--loomark-viewport-top, 0px);
+  inset-inline: 0;
+  height: var(--loomark-viewport-height, 100dvh);
+  min-height: 0 !important;
 }
 
-#loomark-editor:has(> .loomark-footer ~ [role="alert"]) .loomark-source-frame {
-  /* These notices already reserve the footer space in normal flow. */
-  padding-bottom: 0;
+/* Keep bottom controls out of the writing area while the visible height is
+   reduced. display:none removes the controls and their decorative background. */
+[data-loomark-bottom-obscured] .loomark-viewport {
+  --loomark-bottom-space: 0px;
+  --loomark-content-bottom: 0px;
+}
+[data-loomark-bottom-obscured] .loomark-footer {
+  display: none;
+}
+
+#loomark-editor:has(> .loomark-footer ~ [role="alert"]) .loomark-source {
+  /* Notices already keep the caret clear of the footer. */
+  padding-bottom: 16px;
+  scroll-padding-bottom: 16px;
 }
 
 .loomark-source {
-  padding: 14px max(28px, calc((100% - 760px) / 2)) 16px;
+  /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
+     only element resizing needs the existing measured-caret correction. */
+  padding: 70px max(28px, calc((100% - 760px) / 2)) var(--loomark-content-bottom);
+  scroll-padding-block: 70px var(--loomark-content-bottom);
   line-height: 1.85;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -125,14 +147,21 @@
   opacity: 1;
 }
 
+/* Keep the original Preview edge treatment shared by both scroll surfaces. */
+.loomark-source,
 #loomark-preview-scroll {
   mask-image: linear-gradient(to bottom, transparent, black 52px, black calc(100% - 56px), transparent);
+}
+
+[data-loomark-bottom-obscured] .loomark-source,
+[data-loomark-bottom-obscured] #loomark-preview-scroll {
+  mask-image: linear-gradient(to bottom, transparent, black 52px);
 }
 
 #loomark-preview-scroll .rmd-preview-content {
   width: 100%;
   max-width: none;
-  padding: 70px max(28px, calc((100% - 720px) / 2)) 80px;
+  padding: 70px max(28px, calc((100% - 720px) / 2)) var(--loomark-content-bottom);
   font-size: 16px;
   line-height: 1.85;
 }
@@ -157,21 +186,24 @@
 }
 
 .loomark-topbar { position: absolute; inset: 0 0 auto; z-index: 30; }
-#loomark-editor::before, #loomark-editor::after {
+/* Keep the existing edge treatment behind each bar's controls. Hiding a bar
+   also removes its decoration; the editor has no independent overlay. */
+.loomark-topbar::before, .loomark-footer::before {
   content: "";
   position: absolute;
   inset-inline: 0;
-  z-index: 10;
+  z-index: -1;
   pointer-events: none;
+  -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }
-#loomark-editor::before {
+.loomark-topbar::before {
   top: 0;
   height: 56px;
   background: linear-gradient(to bottom, color-mix(in srgb, var(--color-lm-paper) 70%, transparent), transparent);
   mask-image: linear-gradient(to bottom, black, transparent);
 }
-#loomark-editor::after {
+.loomark-footer::before {
   bottom: 0;
   height: 64px;
   background: linear-gradient(to top, var(--color-lm-paper), transparent);
@@ -206,7 +238,7 @@
   z-index: 60;
   display: flex;
   width: 250px;
-  max-height: calc(100dvh - 61px);
+  max-height: calc(var(--loomark-viewport-height, 100dvh) - 61px);
   overflow-y: auto;
   flex-direction: column;
   gap: 6px;
@@ -218,7 +250,6 @@
   font-size: 12px;
 }
 .loomark-menu > * { flex-shrink: 0; }
-.loomark-menu-status > div { flex-wrap: wrap; justify-content: flex-start; }
 .loomark-save-status {
   width: 168px;
   gap: 6px;
@@ -241,22 +272,27 @@
     justify-content: center;
   }
 }
-.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: 5px !important; background: var(--color-lm-paper); }
+.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: transparent; }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
 .loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
 .loomark-footer ~ [role="alert"] { position: relative; z-index: 20; }
-.loomark-footer ~ [role="alert"]:last-child { margin-bottom: 64px; }
+.loomark-footer ~ [role="alert"]:last-child { margin-bottom: var(--loomark-bottom-space); }
 
 @media (max-width: 720px) {
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }
   /* Override RUI inline sizes to retain a writing line when notices reduce height. */
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text-pane { min-height: 112px !important; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) [data-side="second"] { flex-shrink: 1 !important; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame { padding-bottom: 0; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 12px 24px 16px; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px 80px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 68px 24px 16px; scroll-padding-block: 68px 16px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px var(--loomark-content-bottom); }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source {
+    mask-image: linear-gradient(to bottom, transparent, black 52px);
+  }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
     mask-image: linear-gradient(to bottom, black calc(100% - 56px), transparent);
+  }
+  [data-loomark-bottom-obscured] #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-preview-scroll {
+    mask-image: none;
   }
 }
 @media (max-width: 800px) {
@@ -264,8 +300,8 @@
   #loomark-preview-scroll .rmd-preview-content { padding-inline: 32px; }
 }
 @media (max-width: 520px) {
-  .loomark-source { padding: 12px 24px 16px; }
-  #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px 80px; }
+  .loomark-source { padding-top: 68px; padding-inline: 24px; scroll-padding-top: 68px; }
+  #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px var(--loomark-content-bottom); }
   .loomark-menu { right: 12px; top: 49px; }
 }
 

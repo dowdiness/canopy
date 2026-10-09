@@ -6,28 +6,65 @@ priv suberror DismissableLayerSub {
 
 ///|
 #cfg(target="js")
-extern "js" fn event_target_is_inside_element_id(
-  id : String,
+fn event_target_is_inside_element(
+  panel : @dom.Element,
   event : @dom.Event,
-) -> Bool =
-  #| (id, event) => {
-  #|   const root = document.getElementById(id);
-  #|   const target = event && event.target;
-  #|   return !!(root && target instanceof Node && root.contains(target));
-  #| }
+) -> Bool {
+  match event.target().to_node() {
+    Some(target) => panel.contains(target)
+    None => false
+  }
+}
 
 ///|
 #cfg(target="js")
-extern "js" fn event_is_undismissed_escape(
-  id : String,
+fn event_is_undismissed_escape(
+  panel : @dom.Element,
   event : @dom.Event,
-) -> Bool =
-  #| (id, event) => {
-  #|   if (!event || event.key !== "Escape" || event.defaultPrevented) return false;
-  #|   const root = document.getElementById(id);
-  #|   const target = event.target;
-  #|   return !(root && target instanceof Node && root.contains(target));
-  #| }
+) -> Bool {
+  if event.get_default_prevented() {
+    false
+  } else {
+    match event.to_keyboard_event() {
+      Some(keyboard) =>
+        keyboard.key() == "Escape" &&
+        !event_target_is_inside_element(panel, event)
+      None => false
+    }
+  }
+}
+
+///|
+#cfg(target="js")
+fn connect_dismissal_layer(
+  id : String,
+  active : @ref.Ref[Bool],
+  listeners : @ref.Ref[(@dom.EventTarget, @dom.Listener, @dom.Listener)?],
+  emit : @ref.Ref[@rabbita.Emit[Msg]],
+  scheduler : &@cmd.Scheduler,
+) -> Unit {
+  if active.val {
+    match @dom.document().get_element_by_id(id).to_option() {
+      Some(panel) if panel.get_is_connected() => {
+        let target = @dom.document().as_event_target()
+        let pointer_listener : @dom.Listener = event => {
+          if active.val && !event_target_is_inside_element(panel, event) {
+            scheduler.add((emit.val)(Dismiss(PointerOutside)))
+          }
+        }
+        let key_listener : @dom.Listener = event => {
+          if active.val && event_is_undismissed_escape(panel, event) {
+            scheduler.add((emit.val)(Dismiss(EscapeKey)))
+          }
+        }
+        target.add_event_listener("pointerdown", pointer_listener)
+        target.add_event_listener("keydown", key_listener)
+        listeners.val = Some((target, pointer_listener, key_listener))
+      }
+      _ => ()
+    }
+  }
+}
 
 ///|
 #cfg(target="js")
@@ -37,24 +74,32 @@ fn dismissable_layer_loader(
 ) -> @sub.RunningSub? {
   match payload {
     DismissableLayer(id, emit) => {
+      let active = @ref.Ref(true)
+      let listeners : @ref.Ref[
+        (@dom.EventTarget, @dom.Listener, @dom.Listener)?,
+      ] = @ref.Ref(None)
       let tagger = @ref.Ref(emit)
-      let target = @dom.document().as_event_target()
-      let pointer_listener : @dom.Listener = event => {
-        if !event_target_is_inside_element_id(id, event) {
-          scheduler.add((tagger.val)(Dismiss(PointerOutside)))
-        }
-      }
-      let key_listener : @dom.Listener = event => {
-        if event_is_undismissed_escape(id, event) {
-          scheduler.add((tagger.val)(Dismiss(EscapeKey)))
-        }
-      }
-      target.add_event_listener("pointerdown", pointer_listener)
-      target.add_event_listener("keydown", key_listener)
+      scheduler.add(
+        @cmd.custom_cmd(
+          custom_scheduler => {
+            connect_dismissal_layer(
+              id, active, listeners, tagger, custom_scheduler,
+            )
+          },
+          kind=@cmd.after_render,
+        ),
+      )
       Some({
         unload: _ => {
-          target.remove_event_listener("pointerdown", pointer_listener)
-          target.remove_event_listener("keydown", key_listener)
+          active.val = false
+          match listeners.val {
+            Some((target, pointer_listener, key_listener)) => {
+              target.remove_event_listener("pointerdown", pointer_listener)
+              target.remove_event_listener("keydown", key_listener)
+              listeners.val = None
+            }
+            None => ()
+          }
         },
         update_tagger: payload => {
           guard payload is DismissableLayer(_, new_emit) else { return }

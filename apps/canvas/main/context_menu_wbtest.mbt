@@ -43,9 +43,9 @@ fn test_context_open(
 fn test_context_binding(
   handle : Int,
   on_change? : () -> Unit = () => (),
-  on_source_result? : (String) -> Unit = _ => (),
+  on_source_result? : (SourceGraphOperationResultJson) -> Unit = _ => (),
 ) -> CanvasContextMenuBinding {
-  { handle, on_change, on_source_result, }
+  { handle, on_change, on_source_result, can_mutate: () => true, }
 }
 
 ///|
@@ -124,7 +124,7 @@ test "insertion preserves the world point captured before viewport changes" {
   let screen = try! ScreenPoint::from_xy(x=400.0, y=300.0)
   let expected = try! runtime.state_peek().viewport.screen_to_world(screen)
   let prepared = test_context_prepare(handle, Background(insert_at=screen))
-  runtime.zoom(-200.0, 0, false, 100.0, 100.0)
+  runtime.zoom(-200.0, 0, false, 100.0, 100.0, is_mac_like=false)
   guard apply_menu_operation(prepared.items[0].operation) is RuntimeApplied else {
     fail("expected insertion")
   }

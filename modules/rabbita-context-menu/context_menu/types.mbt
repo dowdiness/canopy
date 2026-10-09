@@ -45,15 +45,6 @@ pub fn Positioning::default() -> Positioning {
 }
 
 ///|
-#cfg(target="js")
-fn CollisionStrategy::code(self : CollisionStrategy) -> Int {
-  match self {
-    NoCollisionHandling => 0
-    ClampToViewport => 1
-  }
-}
-
-///|
 /// Headless context-menu behavior state.
 ///
 /// The model owns the copied items while open, the client-space anchor, and

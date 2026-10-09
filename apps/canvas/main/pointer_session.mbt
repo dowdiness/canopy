@@ -16,6 +16,7 @@ priv enum CanvasPointerSession {
 ///|
 priv struct CanvasPointerState {
   handle : Int
+  is_mac_like : Bool
   session : CanvasPointerSession
 } derive(Eq)
 
@@ -37,6 +38,7 @@ priv enum CanvasHandleSide {
 priv struct CanvasPointerInput {
   event : @dom.PointerEvent
   root : @dom.Element
+  document : @dom.Document
   screen : ScreenPoint?
   hit : CanvasPointerHit
 }
@@ -64,53 +66,41 @@ priv enum CanvasPointerMsg {
 ///|
 #cfg(target="js")
 priv suberror CanvasPointerSubscription {
-  Event(String, @rabbita.Emit[CanvasPointerMsg])
+  Event(String, @dom.Element, @dom.Document, @rabbita.Emit[CanvasPointerMsg])
 }
 
 ///|
 #cfg(target="js")
-extern "js" fn canvas_pointer_is_mac_like() -> Bool = "() => /Mac|iPhone|iPad|iPod/.test(navigator.platform)"
+extern "js" fn canvas_pointer_platform() -> String = "() => navigator.platform"
 
 ///|
-fn canvas_pointer_root() -> @dom.Element {
-  @dom.document().get_element_by_id("canvas-root").unwrap()
+fn canvas_pointer_is_mac_like(platform : String) -> Bool {
+  platform.contains("Mac") ||
+  platform.contains("iPhone") ||
+  platform.contains("iPad") ||
+  platform.contains("iPod")
 }
 
 ///|
 fn canvas_pointer_input(
   event : @dom.PointerEvent,
   root : @dom.Element,
+  document : @dom.Document,
 ) -> CanvasPointerInput {
   {
     event,
     root,
-    screen: canvas_pointer_screen_point(event),
-    hit: canvas_pointer_hit(event),
-  }
-}
-
-///|
-fn canvas_pointer_current_target(event : @dom.PointerEvent) -> @dom.Element? {
-  match event.current_target().to_option() {
-    Some(target) => target.to_element()
-    None => None
-  }
-}
-
-///|
-fn canvas_pointer_screen_point(event : @dom.PointerEvent) -> ScreenPoint? {
-  match canvas_pointer_current_target(event) {
-    None => None
-    Some(root) => {
+    document,
+    screen: {
       let rect = root.get_bounding_client_rect()
-      let point = ScreenPoint::from_xy(
-        x=event.get_client_x() - rect.get_left(),
-        y=event.get_client_y() - rect.get_top(),
-      ) catch {
-        @spatial.CoordinateError::NonFinite => return None
-      }
-      Some(point)
-    }
+      canvas_relative_screen_point(
+        event.get_client_x(),
+        event.get_client_y(),
+        rect.get_left(),
+        rect.get_top(),
+      )
+    },
+    hit: canvas_pointer_hit(event),
   }
 }
 
@@ -162,13 +152,11 @@ fn canvas_pointer_hit(event : @dom.PointerEvent) -> CanvasPointerHit {
 ///|
 fn canvas_pointer_release_hit(
   root : @dom.Element,
+  document : @dom.Document,
   event : @dom.PointerEvent,
 ) -> CanvasPointerHit {
   match
-    @dom.document().element_from_point(
-      event.get_client_x(),
-      event.get_client_y(),
-    ) {
+    document.element_from_point(event.get_client_x(), event.get_client_y()) {
     Some(element) if root.contains(element.as_node()) =>
       canvas_pointer_hit_from_element(Some(element))
     _ => Background
@@ -291,9 +279,7 @@ fn canvas_pointer_start(
   let event = input.event
   guard model.session is Idle else { return model }
   guard event.get_button() == 0 else { return model }
-  guard !(canvas_pointer_is_mac_like() && event.get_ctrl_key()) else {
-    return model
-  }
+  guard !(model.is_mac_like && event.get_ctrl_key()) else { return model }
   let screen = match input.screen {
     Some(screen) => screen
     None => return model
@@ -451,7 +437,7 @@ fn canvas_pointer_finish(
       if pointer_id != event.get_pointer_id() {
         return model
       }
-      let hit = canvas_pointer_release_hit(input.root, event)
+      let hit = canvas_pointer_release_hit(input.root, input.document, event)
       canvas_pointer_set_panning(input.root, false)
       let next = { ..model, session: Idle, }
       let node_id = canvas_pointer_node_id(hit, down_node_id)
@@ -468,7 +454,7 @@ fn canvas_pointer_finish(
       if pointer_id != event.get_pointer_id() {
         return model
       }
-      let hit = canvas_pointer_release_hit(input.root, event)
+      let hit = canvas_pointer_release_hit(input.root, input.document, event)
       canvas_pointer_set_panning(input.root, false)
       let next = { ..model, session: Idle, }
       canvas_pointer_complete_source_connection(
@@ -526,6 +512,7 @@ fn canvas_pointer_message(
   event_name : String,
   event : @dom.Event,
   root : @dom.Element,
+  document : @dom.Document,
 ) -> CanvasPointerMsg? {
   match event_name {
     "wheel" =>
@@ -538,23 +525,13 @@ fn canvas_pointer_message(
           let delta_y = wheel.get_delta_y()
           let delta_mode = wheel.get_delta_mode()
           let ctrl_key = wheel.get_ctrl_key()
-          let screen : ScreenPoint? = match wheel.current_target().to_option() {
-            None => None
-            Some(target) =>
-              match target.to_element() {
-                None => None
-                Some(root) => {
-                  let rect = root.get_bounding_client_rect()
-                  let point = ScreenPoint::from_xy(
-                    x=wheel.get_client_x() - rect.get_left(),
-                    y=wheel.get_client_y() - rect.get_top(),
-                  ) catch {
-                    @spatial.CoordinateError::NonFinite => return None
-                  }
-                  Some(point)
-                }
-              }
-          }
+          let rect = root.get_bounding_client_rect()
+          let screen = canvas_relative_screen_point(
+            wheel.get_client_x(),
+            wheel.get_client_y(),
+            rect.get_left(),
+            rect.get_top(),
+          )
           Some(Wheel({ delta_y, delta_mode, ctrl_key, screen, }))
         }
       }
@@ -581,7 +558,7 @@ fn canvas_pointer_message(
       match event.to_pointer_event() {
         None => None
         Some(pointer) => {
-          let input = canvas_pointer_input(pointer, root)
+          let input = canvas_pointer_input(pointer, root, document)
           match event_name {
             "pointerdown" => Some(PointerDown(input))
             "pointermove" => Some(PointerMove(input))
@@ -603,12 +580,11 @@ fn canvas_pointer_subscription_loader(
   scheduler : &@cmd.Scheduler,
 ) -> @sub.RunningSub? {
   match payload {
-    CanvasPointerSubscription::Event(event_name, emit) => {
+    CanvasPointerSubscription::Event(event_name, root, document, emit) => {
       let tagger = @ref.Ref(emit)
-      let root = canvas_pointer_root()
       let target = root.as_event_target()
       let listener : @dom.Listener = event => {
-        match canvas_pointer_message(event_name, event, root) {
+        match canvas_pointer_message(event_name, event, root, document) {
           Some(message) => scheduler.add((tagger.val)(message))
           None => ()
         }
@@ -625,7 +601,8 @@ fn canvas_pointer_subscription_loader(
       Some({
         unload: _ => target.remove_event_listener(event_name, listener),
         update_tagger: next => {
-          guard next is CanvasPointerSubscription::Event(next_name, new_emit) else {
+          guard next
+            is CanvasPointerSubscription::Event(next_name, _, _, new_emit) else {
             return
           }
           guard next_name == event_name else { return }
@@ -641,12 +618,14 @@ fn canvas_pointer_subscription_loader(
 #cfg(target="js")
 fn canvas_pointer_subscription(
   event_name : String,
+  root : @dom.Element,
+  document : @dom.Document,
   emit : @rabbita.Emit[CanvasPointerMsg],
 ) -> @sub.Sub {
   @sub.custom_sub(
     "canvas.pointer." + event_name,
     @sub.Scope::Local,
-    CanvasPointerSubscription::Event(event_name, emit),
+    CanvasPointerSubscription::Event(event_name, root, document, emit),
     @sub.SubLoader(canvas_pointer_subscription_loader),
   )
 }
@@ -654,18 +633,20 @@ fn canvas_pointer_subscription(
 ///|
 #cfg(target="js")
 fn canvas_pointer_subscriptions(
+  root : @dom.Element,
+  document : @dom.Document,
   emit : @rabbita.Emit[CanvasPointerMsg],
 ) -> @sub.Sub {
   @sub.batch([
-    canvas_pointer_subscription("click", emit),
-    canvas_pointer_subscription("keydown", emit),
-    canvas_pointer_subscription("pointerdown", emit),
-    canvas_pointer_subscription("pointermove", emit),
-    canvas_pointer_subscription("pointerup", emit),
-    canvas_pointer_subscription("pointercancel", emit),
-    canvas_pointer_subscription("pointerleave", emit),
-    canvas_pointer_subscription("lostpointercapture", emit),
-    canvas_pointer_subscription("wheel", emit),
+    canvas_pointer_subscription("click", root, document, emit),
+    canvas_pointer_subscription("keydown", root, document, emit),
+    canvas_pointer_subscription("pointerdown", root, document, emit),
+    canvas_pointer_subscription("pointermove", root, document, emit),
+    canvas_pointer_subscription("pointerup", root, document, emit),
+    canvas_pointer_subscription("pointercancel", root, document, emit),
+    canvas_pointer_subscription("pointerleave", root, document, emit),
+    canvas_pointer_subscription("lostpointercapture", root, document, emit),
+    canvas_pointer_subscription("wheel", root, document, emit),
   ])
 }
 
@@ -703,6 +684,7 @@ fn canvas_pointer_update(
             input.ctrl_key,
             screen.x(),
             screen.y(),
+            is_mac_like=model.is_mac_like,
           )
           on_change()
           model
@@ -727,17 +709,22 @@ fn canvas_pointer_view(_model : CanvasPointerState) -> @rabbita.Html {
 
 ///|
 #cfg(target="js")
-pub fn mount_canvas_pointer_session(
+fn mount_canvas_pointer_session(
+  root : @dom.Element,
   handle : Int,
   on_change : () -> Unit,
 ) -> Unit {
+  let document = @dom.document()
+  let is_mac_like = canvas_pointer_is_mac_like(canvas_pointer_platform())
   @rabbita.new(fn() {
     let (model, _emit) = @rabbita.create_state(
-      { handle, session: Idle, },
+      { handle, is_mac_like, session: Idle, },
       update=fn(model, message, _emit) {
         (canvas_pointer_update(model, message, on_change), @rabbita.none)
       },
-      subscriptions=fn(_model, emit) { canvas_pointer_subscriptions(emit) },
+      subscriptions=fn(_model, emit) {
+        canvas_pointer_subscriptions(root, document, emit)
+      },
     )
     model.map(canvas_pointer_view)
   }).mount("canvas-pointer-session-root")

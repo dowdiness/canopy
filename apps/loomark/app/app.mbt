@@ -1,4 +1,126 @@
 ///|
+priv suberror TextAreaResizeSubscription {
+  RevealResizedCaret
+}
+
+///|
+/// Both the activation key and the responsive panel branch can replace the
+/// textarea. Resolve its node after rendering and release the old observation.
+fn text_area_resize_subscription(activation : Int, compact : Bool) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark.text-area-resize(\{activation},\{compact})",
+    @sub.Scope::Local,
+    TextAreaResizeSubscription::RevealResizedCaret,
+    (_, scheduler) => {
+      let mut active = true
+      let mut stop : (() -> Unit)? = None
+      scheduler.add(
+        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+          guard active &&
+            @dom.document().get_element_by_id(EDITOR_TEXT_ID).to_option()
+            is Some(element) &&
+            element.to_html_text_area_element() is Some(area) else {
+            return
+          }
+          stop = Some(
+            observe_text_area_resize(area) catch {
+              @js.JsError(error) => {
+                @js.global()
+                .get("console")
+                .call("error", [
+                  @js.any("Loomark could not observe the text area:"),
+                  error,
+                ])
+                |> ignore
+                return
+              }
+            },
+          )
+        }),
+      )
+      Some({
+        unload: _ => {
+          active = false
+          if stop is Some(stop) {
+            stop()
+          }
+        },
+        update_tagger: _ => (),
+      })
+    },
+  )
+}
+
+///|
+priv suberror SplitScrollSubscription {
+  Follow(@editor.EditorState)
+}
+
+///|
+/// Resolve this render's pair once. Activation and breakpoint changes replace
+/// nodes; mode and scroll-owner changes also release the old connection.
+fn split_scroll_subscription(
+  source : String,
+  target : String,
+  activation : Int,
+  compact : Bool,
+  preview : @editor.EditorState,
+) -> @sub.Sub {
+  @sub.custom_sub(
+    "loomark.split-scroll(\{source},\{target},\{activation},\{compact})",
+    @sub.Scope::Local,
+    SplitScrollSubscription::Follow(preview),
+    (payload, scheduler) => {
+      guard payload is SplitScrollSubscription::Follow(preview) else {
+        return None
+      }
+      let mut active = true
+      let mut previous_preview = preview
+      let mut connection : (() -> Unit, () -> Unit)? = None
+      fn sync_after_render() {
+        scheduler.add(
+          @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+            guard active && connection is Some((sync, _)) else { return }
+            sync()
+          }),
+        )
+      }
+      scheduler.add(
+        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+          guard active &&
+            @dom.document().get_element_by_id(source).to_option() is Some(from) &&
+            @dom.document().get_element_by_id(target).to_option() is Some(to) else {
+            return
+          }
+          let connected = connect_split_scroll(from, to, sync_after_render)
+          connection = Some(connected)
+          // A scroll can precede this after-render connection when its owner
+          // changes. Catch up from live geometry once the listener is attached.
+          let (sync, _) = connected
+          sync()
+        }),
+      )
+      Some({
+        unload: _ => {
+          active = false
+          if connection is Some((_, stop)) {
+            stop()
+          }
+          connection = None
+        },
+        update_tagger: payload => {
+          guard payload is SplitScrollSubscription::Follow(next) else { return }
+          if previous_preview != next {
+            previous_preview = next
+            sync_after_render()
+          }
+        },
+      })
+    },
+  )
+}
+
+///|
 const LEAD_DELAY_MS : Int = 250
 
 ///|
@@ -30,11 +152,29 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   }
   let editor = @editor.MarkdownEditor::MarkdownEditor(EDITOR_TEXT_ID)
   let initial_compact = compact_viewport(@browser.viewport_width())
+  // Resolve stable browser handles once at the composition boundary.
+  let window = @dom.window()
+  let viewport_subscription = if window.get_visual_viewport() is Some(viewport) &&
+    @dom.document().get_document_element() is Some(root) &&
+    root.to_html_element() is Some(root) {
+    visual_viewport_subscription(window, viewport, root)
+  } else {
+    @sub.none
+  }
   let (model, emit) = @rabbita.create_state_with_init(
     init=emit => initial_state(emit, initial_compact),
     update=(model, msg, emit) => update(model, msg, emit, editor),
     subscriptions=(current, emit) => {
       @sub.batch([
+        viewport_subscription,
+        match current.page {
+          Editing(editing) =>
+            text_area_resize_subscription(
+              editing.activation.generation,
+              editing.compact,
+            )
+          _ => @sub.none
+        },
         @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
         @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
         @sub.on_key_down(key => {
@@ -54,6 +194,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   "loomark-text",
                   "loomark-preview-scroll",
                   editing.activation.generation,
+                  editing.compact,
                   editing.preview,
                 )
               PreviewPane =>
@@ -61,6 +202,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   "loomark-preview-scroll",
                   "loomark-text",
                   editing.activation.generation,
+                  editing.compact,
                   editing.preview,
                 )
             }
@@ -208,9 +350,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let document_remote = model.map(document_remote_state)
   let document_activity = model.map(document_sync_activity)
   let selection = model.map(selection_activity)
-  let account_view = account.view(account => {
-    account_status_section(account, emit)
-  })
+  let account_view = account.view(account => account_status_view(account, emit))
   let durability_view = durability.view(durability => {
     local_durability_option_view(durability)
   })
@@ -223,9 +363,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let document_remote_view = document_remote.view(remote => {
     remote_state_option_view(remote, emit)
   })
-  let document_activity_view = document_activity.view(activity => {
-    activity_option_view(activity, emit)
-  })
+  let document_activity_view = document_activity.view2(durability, (
+    activity,
+    durability,
+  ) => activity_option_view(activity, durability, emit))
   let selection_view = selection.view(activity => {
     selection_activity_view(activity, emit)
   })
@@ -246,7 +387,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
             AcceptRemote(action),
             emit,
           )
-        Some(@documents.RemoteState::Diverged) => sync_status_label("Conflict")
+        Some(@documents.RemoteState::Diverged) =>
+          sync_status_label("Conflicting changes")
         Some(@documents.RemoteState::DeletedRemotely) =>
           sync_status_label("Deletion pending")
         _ =>
@@ -331,7 +473,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   @sidebar.sidebar_provider_with_state(
     state=sidebar_state,
     input=layout_input,
-    class="h-dvh min-h-0 [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
+    class="loomark-viewport [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
     (sidebar, layout) => {
       let (
         (
