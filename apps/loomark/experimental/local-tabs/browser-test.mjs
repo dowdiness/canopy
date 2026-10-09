@@ -178,8 +178,8 @@ try{
     await a.close();await b.close();
   });
   await record('whole malformed/schema/resource packets rejected with unchanged state',async()=>{
-    const a=await page('admission','safe');
-    const outcome=await a.evaluate(()=>trial.test('test-admission'));
+    const a=await page('apply-changes','safe');
+    const outcome=await a.evaluate(()=>trial.test('test-apply-changes'));
     assert.equal(outcome.errors.length,3);assert.equal(outcome.before.version,outcome.after.version);assert.equal(outcome.after.text,'safe');
     assert.match(outcome.errors[2],/LimitExceeded/);
     await a.close();return {rejected:outcome.errors.length,limitError:outcome.errors[2]};

@@ -65,7 +65,7 @@ priv enum Command {
   Durable
   Inject(String)
   TestReplay
-  TestAdmission
+  TestApplyChanges
   Invalid(String)
 }
 
@@ -221,7 +221,7 @@ fn decode_command(raw : @js.Value) -> Command raise {
     "durable" => Durable
     "inject" => Inject(field_string(raw, "payload"))
     "test-replay" => TestReplay
-    "test-admission" => TestAdmission
+    "test-apply-changes" => TestApplyChanges
     _ => Invalid("Unknown Worker request")
   }
 }

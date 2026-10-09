@@ -32,9 +32,10 @@ Migration tracking: [#1458](https://github.com/dowdiness/canopy/issues/1458).
 Use the repository's pinned submodules, MoonBit/compiler core 0.10.14+7d59c7ec9,
 Node 24.11.1 and installed Chrome. The independent EGW checkout must be a sibling
 of the Canopy checkout, named `egw-trial`, at commit
-07a6a833ed9442eee26d463375f589864539b864 (manifest version 0.8.0). This includes
-PR134 and experimental PR135. No submodule pointers are changed by this trial.
-The `moon.work` here isolates this override from the ordinary root workspace.
+3bd8aaf2365ec330581fbc1dfe4b331b8ddef032 (manifest version 0.8.0).
+This includes PR134, experimental PR135, and the API migration in PR136.
+No submodule pointers are changed by this trial. The `moon.work` here isolates
+this override from the ordinary root workspace.
 
 `npm run build` checks the app binding and Worker package, then builds and copies
 three separate assets: `loomark.js`, `worker.js` and `fixture.js`. The Windows
@@ -77,11 +78,11 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
   Worker start, immutable operation union in IndexedDB, receipt deduplication.
   BroadcastChannel carries hints only; polling/focus/pageshow catches up.
 - EGW remains in the Worker after restore. Two replicas retain the main display
-  basis and the admitted merged union. This costs extra Worker restore time and
+  basis and the merged operation union. This costs extra Worker restore time and
   memory; no second CRDT is rebuilt on the main thread.
 - No editing until restore verifies Version/pending and returns text. Native
   input then changes the textarea immediately and queues every exact intent.
-  An already admitted terminal input retains its native text and original basis
+  An already accepted terminal input retains its native text and original basis
   even if recovery or a blocked save has since made the editor read-only.
   Blocked queues remain Not saved until explicit Retry succeeds.
   Remote projection requires matching local revision/basis with no composition
@@ -95,15 +96,15 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
   writer handles newly generated operations. Unload warns while work is unsaved;
   abrupt browser/process loss before commit is not claimed durable.
 - The Worker watchdog measures 15 seconds without progress, not total replay
-  time. Completed replica restores and whole-packet admissions renew only the
+  time. Completed replica restores and whole-packet applications renew only the
   matching request's deadline. Progress never acknowledges an edit or a save.
   A silent Worker exit still triggers recovery with the same retained packet.
 - Switching synthetic documents retains each session and its pending lane; old
   response IDs/epochs/document IDs cannot mutate another document. Workers are
   terminated at actual Rabbita local-scope disposal. No general cache/GC added.
   Disposal cancels unfinished native composition/editing state owned by the old
-  textarea, but retains admitted intents and unsaved packets for remount recovery.
-- Schema2 admission/resource limits remain. Compact seed max100k accepted ops;
+  textarea, but retains accepted intents and unsaved packets for remount recovery.
+- Schema2 validation/resource limits remain. Compact seed max100k accepted ops;
   Version512KiB/global4096 intervals. Journal budget200k, conservative union500KiB.
   Capacity failure retains text and operations and displays Not saved. Whole
   packets remain intact even if accumulated missed history exceeds100k ops.
@@ -152,7 +153,7 @@ row, and approximate selection metadata after a large rewrite/Undo.
 
 
 `browser-test.mjs` includes separated-hunk ReplaceAll Undo/Redo alongside the
-two-tab, Unicode, selection, save and admission boundaries. `fault-test.mjs`
+two-tab, Unicode, selection, save and change-application boundaries. `fault-test.mjs`
 adds terminal composition during Worker loss and a blocked transaction failure,
 Saved→termination, missing edit reply, delayed remote projection, transaction
 fault phases, readonly restore, A→B→A, unresolved Undo, and >100k missed ops.
@@ -161,7 +162,7 @@ for full verification. Fault injection belongs only to experimental assets.
 
 `lifecycle-test.mjs` exercises actual Rabbita unmount/remount while ready,
 opening, accepting an edit, or composing. The composition case cancels unfinished
-native input while retaining an earlier admitted edit, then checks new input,
+native input while retaining an earlier accepted edit, then checks new input,
 saving and reload. `normal-mode-test.mjs` checks isolation without experimental
 assets or storage and creates its own evidence directory when run independently.
 

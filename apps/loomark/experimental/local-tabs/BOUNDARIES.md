@@ -18,12 +18,12 @@ Source/DocumentReplica schema, account enrollment and cloud sync are unchanged.
 | Close/reload | Only committed union advertised Saved; pending text stays exportable and unload guarded |
 | Duplicate/reordered hints | Hints carry no operations; poll IDB, validate original whole packets |
 | Undo/Redo | One group per native intent, including separated ReplaceAll hunks; only local edits recorded; known concurrent-delete revival unchanged; restart clears Undo explicitly |
-| Resource failure | Keep native draft and packets, show not saved, never slice admission or evict history |
+| Resource failure | Keep native draft and packets, show not saved, never apply a sliced packet or evict history |
 | Disposal | Actual Rabbita local subscription terminates Worker/listeners, rejects callbacks |
 
 Reference: Canopy #1421 at af1859e004a05df5cabb78be5a0ca43b252e3592,
 worker_transport.mbt (epoch/request fences, errors, timeout, disposal),
-worker_client.mbt (generation/sequence admission), worker regression/lifecycle
+worker_client.mbt (generation/sequence validation), worker regression/lifecycle
 tests. No whole-branch merge. Preview's latest-only work dropping is NOT reused:
 every local intent and accepted operation packet remains queued until ack.
 
@@ -31,16 +31,16 @@ Reuse: existing public EGW TextState/SyncSession/apply_transition/UndoManager,
 existing local-tabs proof-of-concept immutable IDB journal and pure UTF16/
 selection helpers; real MarkdownEditor input_view/admit; Rabbita after_render
 command and Local subscription cleanup. Worker owns mutable EGW and IDB effects;
-pure protocol admission and selection transformations are separately tested.
+pure protocol validation and selection transformations are separately tested.
 
 The MoonBit Worker calls `UndoManager::stop_capturing()` once before applying
 a native intent's prepared replacements. EGW's existing timestamp-based capture
 groups that intent's hunks; no public EGW API or submodule change is needed.
-Binding-admitted input is retained independently of the Worker's execution
+Binding-accepted input is retained independently of the Worker's execution
 gate; read-only UI prevents new edits without discarding an in-flight commit.
 
 The Worker keeps an editing replica matching the main display's accepted basis
-and a merged replica admitting durable remote packets. Main accepts a remote
+and a merged replica applying durable remote packets. Main accepts a remote
 offer only without intervening input; then Worker advances the editing replica.
 Optimistic edits always execute on their original basis. Both replicas stay in
 the Worker after restore. Double restore/memory overhead is measured, not hidden.

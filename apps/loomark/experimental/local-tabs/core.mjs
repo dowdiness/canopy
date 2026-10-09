@@ -2,7 +2,7 @@ import { diffChars } from './node_modules/diff/libesm/diff/character.js';
 
 export const MAX_BYTES = 16 * 1024 * 1024;
 export const MAX_OPS = 100000;
-export const MAX_JOURNAL_OPS = 200000; // trial admission budget; no eviction
+export const MAX_JOURNAL_OPS = 200000; // trial change-application budget; no eviction
 export const key = id => JSON.stringify([id.replica_id, id.sequence]);
 
 export function scalarAt(text, utf16) {
@@ -92,7 +92,7 @@ export function boundedPacket(payload) {
   if(typeof payload !== 'string' || payload.length > MAX_BYTES || new TextEncoder().encode(payload).length > MAX_BYTES) throw Error('Whole packet exceeds encoded limit');
   const packet=JSON.parse(payload);
   if(!Array.isArray(packet.operations) || packet.operations.length > MAX_OPS) throw Error('Whole packet exceeds operation limit');
-  return packet; // structural/schema admission remains EGW-owned
+  return packet; // structural/schema validation before applying changes remains EGW-owned
 }
 export function knowledge(version) {
   return Object.fromEntries(JSON.parse(version).ranges.map(r=>[r.replica_id,r.ranges]));

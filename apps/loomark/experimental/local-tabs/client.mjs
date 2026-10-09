@@ -92,7 +92,7 @@ async function pump(s){
   else{s.failure=String(error.message||error);if(!s.packets.length||s.queue.length)s.blocked=s.failure;}
  }finally{s.running=false;paint();if(!disposed&&!s.ready&&!s.failure)queueMicrotask(()=>void pump(s));}
 }
-// Binding admission already happened. Readonly blocks new input, not the
+// Binding acceptance already happened. Readonly blocks new input, not the
 // terminal event of an input begun before failure; retain it on its old basis.
 function onChange(change){const s=active;if(!s.basisVersion)return;const start=performance.now();const before=s.text,after=element.value;s.text=after;s.revision++;s.queue.push({type:'edit',command:`${sessionId}:${s.documentId}:${++s.serial}`,commandSeq:s.serial,input:change,before,after,createdAt:performance.timeOrigin+(s.inputStarted||start)});paint();mark('local-input',s.inputStarted||start,{document:s.documentId});void pump(s);}
 function onComposing(value){const s=active;s.composing=value;if(!value){s.editing=false;s.needPull=true;void pump(s);}paint();}
@@ -125,7 +125,7 @@ function mount(target){
  const size=Number(params.get('size')||0);if(![0,10000,100000].includes(size))throw Error('Unsupported synthetic fixture size');
  switchDocument(params.get('doc')||'synthetic-demo',size?'0123456789'.repeat(size/10):(params.get('seed')||'# Shared synthetic note\n\nalpha beta gamma\n'));
 }
-// The disposed element cannot finish its native input; admitted intents stay queued.
+// The disposed element cannot finish its native input; accepted intents stay queued.
 function dispose(){disposed=true;activation++;clearInterval(timer);channel?.close();localTabs.controller?.abort();observer.disconnect();for(const s of sessions.values()){s.composing=false;s.editing=false;s.ready=false;s.client.stop();}}
 globalThis.localTabs={mount,onChange,onComposing,dispose};
 // Explicit experiment only. Deterministic fault hooks never ship in normal mode.

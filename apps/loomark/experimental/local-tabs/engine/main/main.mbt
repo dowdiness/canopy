@@ -77,7 +77,7 @@ fn decode_message(
 }
 
 ///|
-fn admit(replica : Replica, message : @text.SyncMessage) -> Unit raise {
+fn apply_changes(replica : Replica, message : @text.SyncMessage) -> Unit raise {
   let report = replica.state.sync().apply(message)
   if report.pending_operations() != 0 {
     raise Failure("Durable operation union is not causally closed")
@@ -160,19 +160,19 @@ async fn open_request(
   let mut cursor = 0.0
   for row in rows {
     let message = decode_message(api, row.packet.payload)
-    admit(merged, message)
+    apply_changes(merged, message)
     checkpoint(request, "merged-replayed")
     if basis is None || packet_in_basis(api, known, row.packet.payload) {
-      admit(editor, message)
+      apply_changes(editor, message)
       checkpoint(request, "editor-replayed")
     }
     cursor = row.cursor
   }
   for packet in retained {
     let message = decode_message(api, packet.payload)
-    admit(editor, message)
+    apply_changes(editor, message)
     checkpoint(request, "editor-retained")
-    admit(merged, message)
+    apply_changes(merged, message)
     checkpoint(request, "merged-retained")
   }
   let restored = info(editor)
@@ -311,8 +311,8 @@ fn edit_request(
   let message = editor.state.sync().export_since(before_version)
   let payload = message.to_json_string()
   ignore(bounded_packet(api, payload))
-  admit(editor, message)
-  admit(session.merged, message)
+  apply_changes(editor, message)
+  apply_changes(session.merged, message)
   let packet = if message.is_empty() {
     None
   } else {
@@ -340,7 +340,7 @@ async fn save_request(
   packet : Packet,
   fault : SaveFault,
 ) -> @js.Value {
-  admit(session.merged, decode_message(api, packet.payload))
+  apply_changes(session.merged, decode_message(api, packet.payload))
   let options = save_options(fault.abort, fault.hold, fault.before_commit, () => {
     checkpoint(request, "before-commit")
   })
@@ -367,7 +367,7 @@ async fn pull_request(
   let rows = read_rows(api, session.db, session.document, session.cursor)
   session.history_rows.append(rows)
   for row in rows {
-    admit(session.merged, decode_message(api, row.packet.payload))
+    apply_changes(session.merged, decode_message(api, row.packet.payload))
     session.cursor = row.cursor
     checkpoint(request, "pulled-packet")
   }
@@ -411,7 +411,7 @@ fn project_request(
     raise Failure("Stale projection acknowledgement")
   }
   for payload in offer.payloads {
-    admit(session.editor, decode_message(api, payload))
+    apply_changes(session.editor, decode_message(api, payload))
     checkpoint(request, "projected-packet")
   }
   let current = info(session.editor)
@@ -432,7 +432,7 @@ fn inject_request(
     .sync()
     .apply_transition(decode_message(api, payload))
   let effects = @js.JsArray::new()
-  let availability = match transition.availability() {
+  let availability = match transition.effect_availability() {
     Exact(exact) => {
       for effect in exact {
         effects.push(
@@ -459,7 +459,7 @@ fn inject_request(
   }
   let before = transition.version_before().to_json_string()
   let after = transition.version_after().to_json_string()
-  let report = transition.finish()
+  let report = transition.report()
   if report.pending_operations() != 0 {
     raise Failure("Durable operation union is not causally closed")
   }
@@ -511,7 +511,7 @@ async fn test_replay(api : NativeModule, session : Session) -> @js.Value {
 }
 
 ///|
-fn test_admission(api : NativeModule, session : Session) -> @js.Value raise {
+fn test_apply_changes(api : NativeModule, session : Session) -> @js.Value raise {
   let before = info(session.editor)
   let temporary = replica(uuid(api), "", "")
   let empty = temporary.state.version()
@@ -597,7 +597,7 @@ async fn execute(worker : WorkerState, request : Request) -> @js.Value {
         }
         Inject(payload) => inject_request(api, session, payload)
         TestReplay => test_replay(api, session)
-        TestAdmission => test_admission(api, session)
+        TestApplyChanges => test_apply_changes(api, session)
         Open(_, _, _) | Invalid(_) => abort("handled above")
       }
     }
