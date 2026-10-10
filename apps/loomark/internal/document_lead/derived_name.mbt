@@ -60,7 +60,9 @@ fn certify_reusable_name_prefix(
   candidate : @markdown.MarkdownIR,
 ) -> Int? {
   let origin = candidate.origin()
-  guard diagnostics.is_empty() &&
+  // Paragraphs and lists can continue on later lines and change earlier inline text.
+  guard candidate.view() is @markdown.Heading(..) &&
+    diagnostics.is_empty() &&
     candidate.diagnostics().is_empty() &&
     root.first_child() is Some(first) &&
     first.start() == origin.start() &&

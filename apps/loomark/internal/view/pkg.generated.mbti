@@ -9,7 +9,7 @@ import {
 // Values
 pub fn download_icon(String) -> @html.Html
 
-pub fn failure_notice(String, String, @cmd.Cmd) -> @html.Html
+pub fn failure_notice(String, String, on_action~ : @cmd.Cmd?) -> @html.Html
 
 pub fn folder_icon(String) -> @html.Html
 

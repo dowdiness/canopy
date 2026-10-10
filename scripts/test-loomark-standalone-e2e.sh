@@ -85,3 +85,6 @@ SIDEBAR_DIST="$LOOMARK_ROOT/.sidebar-e2e-dist"
 LOOMARK_STANDALONE_DIST="$SIDEBAR_DIST" \
   LOOMARK_PLAYWRIGHT_CONFIG=playwright.sidebar.config.ts \
   PLAYWRIGHT_HTML_OPEN=never npm test
+
+# Keep the performance gate after the independent correctness suites.
+PLAYWRIGHT_HTML_OPEN=never npm run test:performance
