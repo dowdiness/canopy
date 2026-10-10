@@ -1,5 +1,5 @@
 ///|
-let caret_mirror_properties : FixedArray[String] = [
+let caret_layout_properties : FixedArray[String] = [
   "font-family", "font-size", "font-weight", "font-style", "font-stretch", "font-variant",
   "line-height", "letter-spacing", "word-spacing", "tab-size", "text-indent", "text-transform",
   "text-align", "direction", "word-break", "padding-top", "padding-right", "padding-bottom",
@@ -7,31 +7,56 @@ let caret_mirror_properties : FixedArray[String] = [
 ]
 
 ///|
-/// Measurement is an action. Mirror lifetime and typed DOM calls stay in
-/// MoonBit; the callback receives numeric geometry, never a live node.
-fn measure_caret(
+priv struct CaretLayout {
+  element : @dom.HTMLElement
+  before_caret : @dom.Node
+  caret : @dom.Element
+  after_caret : @dom.Node
+  window : @dom.Window
+}
+
+///|
+fn CaretLayout::CaretLayout(document : @dom.Document) -> CaretLayout {
+  let element = document.create_element("div").to_html_element().unwrap()
+  element.set_attribute("aria-hidden", "true")
+  element.set_inert(true)
+  let style = element.get_style()
+  style.set_property("position", "fixed")
+  style.set_property("visibility", "hidden")
+  style.set_property("pointer-events", "none")
+  style.set_property("top", "0")
+  style.set_property("left", "0")
+  style.set_property("box-sizing", "border-box")
+  style.set_property("white-space", "pre-wrap")
+  style.set_property("overflow-wrap", "break-word")
+  let before_caret = document.create_text_node("").as_node()
+  let caret = document.create_element("span")
+  let after_caret = document.create_text_node("").as_node()
+  caret.append_child(after_caret)
+  element.append_child(before_caret)
+  element.append_child(caret.as_node())
+  {
+    element,
+    before_caret,
+    caret,
+    after_caret,
+    window: document_window(document),
+  }
+}
+
+///|
+fn CaretLayout::measure(
+  self : CaretLayout,
   area : @dom.HTMLTextAreaElement,
   measured : (Double, Double, Double, Double, Double, Double) -> Unit,
 ) -> Unit {
   guard area.get_client_height() > 0.0 else { return }
-  let document = element_document(area.as_element())
-  guard document.get_body() is Some(body) else { return }
-  let style = document_window(document).get_computed_style(area.as_element())
-  let mirror = document.create_element("div").to_html_element().unwrap()
-  mirror.set_attribute("aria-hidden", "true")
-  let mirror_style = mirror.get_style()
-  for property in caret_mirror_properties {
-    mirror_style.set_property(property, style.get_property_value(property))
+  let style = self.window.get_computed_style(area.as_element())
+  let layout_style = self.element.get_style()
+  for property in caret_layout_properties {
+    layout_style.set_property(property, style.get_property_value(property))
   }
-  mirror_style.set_property("position", "fixed")
-  mirror_style.set_property("visibility", "hidden")
-  mirror_style.set_property("pointer-events", "none")
-  mirror_style.set_property("top", "0")
-  mirror_style.set_property("left", "0")
-  mirror_style.set_property("width", "\{area.get_client_width()}px")
-  mirror_style.set_property("box-sizing", "border-box")
-  mirror_style.set_property("white-space", "pre-wrap")
-  mirror_style.set_property("overflow-wrap", "break-word")
+  layout_style.set_property("width", "\{area.get_client_width()}px")
   let endpoint = if area.get_selection_direction() == "backward" {
     area.get_selection_start()
   } else {
@@ -39,23 +64,24 @@ fn measure_caret(
   }
   let text = area.get_value()
   // Browser selection offsets are UTF-16 code units, including split surrogates.
-  mirror.append_child(
-    document
-    .create_text_node(text.unsafe_substring(start=0, end=endpoint))
-    .as_node(),
+  self.before_caret.set_node_value(
+    @dom_js.Nullable::from_option(
+      Some(text.unsafe_substring(start=0, end=endpoint)),
+    ),
   )
-  let marker = document.create_element("span")
   let remainder = text.unsafe_substring(start=endpoint, end=text.length())
-  marker.append_child(
-    document
-    .create_text_node(if remainder.is_empty() { "." } else { remainder })
-    .as_node(),
+  self.after_caret.set_node_value(
+    @dom_js.Nullable::from_option(
+      Some(if remainder.is_empty() { "." } else { remainder }),
+    ),
   )
-  mirror.append_child(marker.as_node())
-  body.append_child(mirror.as_node())
-  defer body.remove_child(mirror.as_node())
-  let top = marker.get_client_rects().item(0.0).to_option().unwrap().get_top() -
-    mirror.get_bounding_client_rect().get_top()
+  let top = self.caret
+    .get_client_rects()
+    .item(0.0)
+    .to_option()
+    .unwrap()
+    .get_top() -
+    self.element.get_bounding_client_rect().get_top()
   measured(
     top,
     parse_css_number(style.get_property_value("line-height")),
@@ -87,11 +113,18 @@ fn observe_text_area_resize(
     }
   }
   @js.try_sync(() => {
+    let document = element_document(area.as_element())
+    let body = document.get_body().unwrap()
+    let layout = CaretLayout(document)
     let observer = @dom.ResizeObserver::new((_, _) => {
-      measure_caret(area, apply_measurement)
+      layout.measure(area, apply_measurement)
     })
     observer.observe(area.as_element())
-    @js.any(() => observer.disconnect())
+    body.append_child(layout.element.as_node())
+    @js.any(() => {
+      observer.disconnect()
+      body.remove_child(layout.element.as_node())
+    })
   }).cast()
 }
 

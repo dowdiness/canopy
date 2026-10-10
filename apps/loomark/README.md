@@ -17,6 +17,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 ```
 
 - **Editing & Preview:** Native `<textarea>` inputs flow into `modules/rabbita-markdown/text_area`, which produces minimal `TextChange` diffs and drives the incremental preview without lag.
+- **Writing Focus:** While writing, surrounding paragraphs fade to 50%; the active paragraph and selection stay clear. Leaving the editor restores full readability.
 - **Local Storage:** `apps/loomark/app/internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
 - **Demand-Driven Sidebar:** Recent documents extract a lightweight `DocumentLead` (the first meaningful heading or line) on the fly, rendering rows only when the sidebar opens.
 - **Mobile Viewport:** Loomark uses Rabbita's typed `@dom.VisualViewport`
@@ -108,6 +109,7 @@ For release and end-to-end browser validation, see [Production and Validation](d
 
 - **Text is truth:** Documents are stored simply as `(document_id, text)`. There is no hidden AST metadata, no proprietary JSON blob, and no lossy serialization.
 - **Non-blocking autosave:** Pending text becomes eligible for saving after 250 ms of quiet, when its non-restarting 2,000 ms maximum-wait timer can be processed, or on page hide. IME composition defers persistence until committed. These are eligibility conditions, not deadlines for storage acknowledgment. Hidden-page saves are best effort and do not automatically retry failed saves.
+- **Native Undo:** Save-status and retry notices preserve the textarea's native Undo/Redo grouping.
 - **Clean import & export:** Import decodes strict UTF-8, strips BOMs, normalizes line breaks (`\n`), and never alters your characters. Export downloads the current text in memory on demand.
 - **Offline-first sync:** You can write freely without an internet connection. When connected, changes sync via causal replica state machines with atomic conflict recovery (`Fork` on divergence).
 

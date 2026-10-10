@@ -11,7 +11,18 @@ Run the complete boundary from the repository root:
 ```
 
 The script builds the production release, rejects unexpected JavaScript or
-removed Worker artifacts, type-checks the test, and runs the Playwright suite.
+removed Worker artifacts, type-checks the tests, and runs correctness suites
+before the separate long-document performance gate.
+
+To run only the performance gate against an existing production build:
+
+```bash
+npm --prefix apps/loomark/examples/vanilla run test:performance
+```
+
+It uses one Chromium worker at 1280 × 900 and retains the 10 ms input budget.
+`test-results/performance.json` contains the results and measurement attachments,
+including raw samples and timing breakdowns, even when a budget assertion fails.
 
 After that build, run the slower explicit-GC retention boundary when changing
 Preview parsing, semantic ownership, or lazy subtree reuse:
