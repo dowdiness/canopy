@@ -97,6 +97,7 @@ jobs:
               - 'scripts/check-loomark-production.mjs'
               - 'scripts/test-loomark-release.mjs'
               - 'scripts/test-loomark-standalone-e2e.sh'
+              - 'scripts/build-loomark-standalone.sh'
               - 'scripts/test-loomark-sync-e2e.sh'
               - 'scripts/moon-update.sh'
             run_prove:

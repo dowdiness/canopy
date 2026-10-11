@@ -120,6 +120,7 @@ pub(all) enum RepositoryChange {
 ///|
 pub struct SavedDocuments {
   documents : Array[Document]
+  // Catalog entries share the documents' lexical identity order.
   catalog_value : Catalog
   issues_value : Array[RepositoryIssue]
   observed_source_keys : Array[String]
@@ -361,46 +362,74 @@ pub fn SavedDocuments::apply(
   self : Self,
   change : RepositoryChange,
 ) -> SavedDocuments? {
-  let documents = self.documents.copy()
-  let observed = self.observed_source_keys.copy()
   match change {
     Stored(document) => {
-      let mut replaced = false
-      for i = 0; i < documents.length(); i = i + 1 {
-        if documents[i].id() == document.id() {
-          documents[i] = document
-          replaced = true
+      let index = self.documents
+        .exact_view()
+        .search_by(existing => {
+          document.id().value().lexical_compare(existing.id().value()) <= 0
+        })
+        .unwrap_or(self.documents.length())
+      let documents = self.documents.copy()
+      let catalog_entries = self.catalog_value.0.copy()
+      match self.documents.get(index) {
+        Some(previous) if previous.id() == document.id() => {
+          documents[index] = document
+          if previous.text() != document.text() {
+            let entry = catalog_entries[index]
+            catalog_entries[index] = {
+              ..entry,
+              derived_name: entry.derived_name.update(document.text()),
+            }
+          }
+        }
+        _ => {
+          documents.insert(index, document)
+          catalog_entries.insert(index, {
+            document_id: document.id(),
+            derived_name: @document_lead.derive_name(document.text()),
+          })
         }
       }
-      if !replaced {
-        documents.push(document)
-      }
       let key = source_key(document.id())
-      if !observed.contains(key) {
-        observed.push(key)
+      let observed_source_keys = if self.observed(key) {
+        self.observed_source_keys
+      } else {
+        let keys = self.observed_source_keys.copy()
+        let insertion = keys
+          .exact_view()
+          .search_by(existing => key.lexical_compare(existing) < 0)
+          .unwrap_or(keys.length())
+        keys.insert(insertion, key)
+        keys
       }
-      Some(
-        rebuild_saved_documents(
-          documents,
-          self.issues_value,
-          observed,
-          self.replicas,
-          self.observed_replica_keys,
-        ),
-      )
+      Some({
+        ..self,
+        documents,
+        catalog_value: Catalog(catalog_entries),
+        observed_source_keys,
+      })
     }
     Deleted(id) => {
-      guard self.find(id) is Some(_) else { return None }
+      guard self.documents
+        .exact_view()
+        .search_by(document => document.id() == id)
+        is Some(index) else {
+        return None
+      }
+      let documents = self.documents.copy()
+      let catalog_entries = self.catalog_value.0.copy()
+      ignore(documents.remove(index))
+      ignore(catalog_entries.remove(index))
       let key = source_key(id)
-      Some(
-        rebuild_saved_documents(
-          documents.filter(document => document.id() != id),
-          self.issues_value,
-          observed.filter(observed_key => observed_key != key),
-          self.replicas,
-          self.observed_replica_keys,
-        ),
-      )
+      Some({
+        ..self,
+        documents,
+        catalog_value: Catalog(catalog_entries),
+        observed_source_keys: self.observed_source_keys.filter(observed => {
+          observed != key
+        }),
+      })
     }
   }
 }

@@ -125,7 +125,7 @@
   display: none;
 }
 
-#loomark-editor:has(> .loomark-footer ~ [role="alert"]) .loomark-source {
+#loomark-editor:has(> .loomark-footer ~ [role="alert"]:not([hidden])) .loomark-source {
   /* Notices already keep the caret clear of the footer. */
   padding-bottom: 16px;
   scroll-padding-bottom: 16px;
@@ -136,15 +136,57 @@
      only element resizing needs the existing measured-caret correction. */
   padding: 70px max(28px, calc((100% - 760px) / 2)) var(--loomark-content-bottom);
   scroll-padding-block: 70px var(--loomark-content-bottom);
-  line-height: 1.85;
+  line-height: 1.875;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--color-lm-rule) transparent;
 }
 
+.loomark-source-frame {
+  position: relative;
+  isolation: isolate;
+}
+
+.loomark-writing-dimming {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+}
+
+.loomark-writing-shade {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  background: var(--color-lm-paper);
+}
+
+.loomark-writing-measure {
+  position: fixed;
+  top: 0;
+  left: -100000px;
+  box-sizing: border-box;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style paint;
+}
+
+.loomark-writing-measure > div {
+  min-height: 1lh;
+}
+
+@media (forced-colors: active) {
+  .loomark-writing-dimming { display: none; }
+}
+
 .loomark-source::placeholder {
   color: var(--color-lm-muted);
   opacity: 1;
+}
+
+.loomark-source-frame[data-new-document-hint="false"] .loomark-source::placeholder {
+  opacity: 0;
 }
 
 /* Keep the original Preview edge treatment shared by both scroll surfaces. */
@@ -258,6 +300,11 @@
   font-size: 12px;
   white-space: nowrap;
 }
+.loomark-save-status:has(.loomark-save-caption:empty) {
+  width: 0;
+  gap: 0;
+  padding-inline: 0;
+}
 .loomark-save-status[title="Not saved"] { color: var(--color-lm-danger); }
 .loomark-save-status > [aria-hidden="true"] { flex-shrink: 0; }
 .loomark-save-caption { min-width: 0; white-space: normal; }
@@ -265,8 +312,18 @@
 .loomark-sync-attention > span { display: block; }
 .loomark-sync-attention > button { max-width: 100%; white-space: normal; }
 @media (max-width: 641px) {
-  .loomark-footer-status:has(.loomark-sync-attention > *) .loomark-save-caption { display: none; }
-  .loomark-footer-status:has(.loomark-sync-attention > *) .loomark-save-status {
+  .loomark-footer-status:has(.loomark-sync-attention > :not([hidden])) .loomark-save-caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+  .loomark-footer-status:has(.loomark-sync-attention > :not([hidden])) .loomark-save-status {
     width: 36px;
     padding-inline: 0;
     justify-content: center;

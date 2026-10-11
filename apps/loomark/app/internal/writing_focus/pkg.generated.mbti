@@ -1,0 +1,90 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/app/internal/writing_focus"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double?, animate~ : Bool) -> ArrayView[(Range, Fade)]
+
+pub fn calculate_fade(Double, Double, ActiveFade?, Double?, animate~ : Bool) -> Fade
+
+pub fn calculate_visible_range(Range, Range) -> Range?
+
+pub fn focus_boundaries(LineRange, Int, Int, (Int, Double)?, (Int, Double)?) -> (Boundary, Boundary)
+
+// Errors
+pub suberror InvalidRange {
+  UnorderedEndpoints(start~ : Double, end~ : Double)
+}
+
+// Types and methods
+pub(all) enum ActiveFade {
+  Pending(FadeTiming, current_time_ms~ : Double?, playback_rate~ : Double)
+  Running(FadeTiming, start_time_ms~ : Double, current_time_ms~ : Double, playback_rate~ : Double)
+}
+pub fn ActiveFade::timing(Self) -> FadeTiming
+
+pub(all) enum Boundary {
+  Position(Double)
+  LineStart(Int)
+  LineEnd(Int)
+} derive(Eq, @debug.Debug)
+pub fn Boundary::equal(Self, Self) -> Bool
+pub fn Boundary::not_equal(Self, Self) -> Bool
+pub fn Boundary::to_repr(Self) -> @debug.Repr
+
+pub enum Fade {
+  Continue(ActiveFade)
+  Start(FadeTiming)
+  SetOpacity(Double)
+}
+
+pub(all) struct FadeTiming {
+  from_opacity : Double
+  to_opacity : Double
+  duration_ms : Double
+  easing : String
+}
+
+pub struct LineRange {
+  first : Int
+  last : Int
+}
+
+pub struct LineReplacement {
+  text_lines : TextLines
+  first : Int
+  removed : Int
+  inserted : ArrayView[String]
+}
+
+pub(all) enum OpacitySample {
+  Still(Double)
+  Animating(Double, ActiveFade)
+}
+
+pub struct Range {
+  start : Double
+  end : Double
+}
+pub fn Range::Range(Double, Double) -> Self raise InvalidRange
+pub fn Range::intersection(Self, Self) -> Self?
+
+pub enum SelectionError {
+  OutsideText(start~ : Int, end~ : Int, length~ : Int)
+}
+
+pub struct TextLines {
+  // private fields
+}
+pub fn TextLines::TextLines(String) -> Self
+pub fn TextLines::focus_lines(Self, Int, Int) -> Result[LineRange, SelectionError]
+pub fn TextLines::lines(Self) -> ArrayView[String]
+pub fn TextLines::replace_text(Self, String) -> LineReplacement?
+pub fn TextLines::text(Self) -> String
+
+// Type aliases
+
+// Traits

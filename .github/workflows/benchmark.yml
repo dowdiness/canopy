@@ -19,6 +19,7 @@ jobs:
     outputs:
       run_moon_benchmarks: ${{ steps.filter.outputs.run_moon_benchmarks }}
       run_editor_response: ${{ steps.filter.outputs.run_editor_response }}
+      run_loomark_writing: ${{ steps.filter.outputs.run_loomark_writing }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -54,6 +55,23 @@ jobs:
               - '.github/actions/setup-moonbit/**'
               - '.github/workflows/benchmark.yml'
               - 'scripts/moon-update.sh'
+            run_loomark_writing:
+              - 'apps/loomark/**'
+              - 'modules/rabbita-markdown/**'
+              - 'modules/js-ffi/**'
+              - 'modules/worker-platform/**'
+              - 'deps/loom'
+              - 'deps/loom/**'
+              - 'deps/rabbita'
+              - 'deps/rabbita/**'
+              - 'moon.work'
+              - '.moonbit-toolchain'
+              - '.github/actions/setup-moonbit/**'
+              - '.github/workflows/benchmark.yml'
+              - 'scripts/build-loomark-standalone.sh'
+              - 'scripts/install-local-warren.sh'
+              - 'scripts/moon-update.sh'
+              - 'scripts/moon-toolchain.sh'
 
   benchmark-pr:
     name: Benchmark PR Branch
@@ -431,3 +449,80 @@ jobs:
           # FAILS on a uniform ~2x paint regression.
           EDITOR_RESPONSE_TRIMMED_MEAN_BUDGET_MS: 130
         run: npm run test:perf
+
+  loomark-writing-benchmark:
+    name: Loomark Writing Benchmark
+    needs: benchmark-gate
+    if: needs.benchmark-gate.outputs.run_loomark_writing == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Checkout baseline
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.repository.default_branch }}
+          path: .benchmark-baseline
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up MoonBit
+        uses: ./.github/actions/setup-moonbit
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            apps/loomark/package-lock.json
+            apps/loomark/examples/vanilla/package-lock.json
+            .benchmark-baseline/apps/loomark/package-lock.json
+
+      - name: Build both production releases
+        run: |
+          ./scripts/build-loomark-standalone.sh
+          ./scripts/build-loomark-standalone.sh "$GITHUB_WORKSPACE/.benchmark-baseline"
+
+      - name: Install benchmark dependencies
+        working-directory: apps/loomark/examples/vanilla
+        run: |
+          npm ci
+          npm run typecheck
+          npm run test:benchmark-report
+          npx playwright install --with-deps chromium
+
+      - name: Compare writing on the same runner
+        working-directory: apps/loomark/examples/vanilla
+        run: |
+          npm run benchmark:writing -- \
+            --baseline "$GITHUB_WORKSPACE/.benchmark-baseline/apps/loomark/dist" \
+            --candidate "$GITHUB_WORKSPACE/apps/loomark/dist" \
+            --baseline-revision "$(git -C "$GITHUB_WORKSPACE/.benchmark-baseline" rev-parse HEAD)" \
+            --candidate-revision "$(git rev-parse HEAD)" \
+            --output "$RUNNER_TEMP/loomark-writing-benchmark"
+
+      - name: Publish writing benchmark summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/loomark-writing-benchmark/summary.md" ]; then
+            cat "$RUNNER_TEMP/loomark-writing-benchmark/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Loomark writing benchmark did not produce results." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload writing benchmark measurements
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: loomark-writing-benchmark
+          path: ${{ runner.temp }}/loomark-writing-benchmark/
+          retention-days: 30

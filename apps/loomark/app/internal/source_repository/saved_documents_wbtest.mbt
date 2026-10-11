@@ -103,23 +103,75 @@ test "apply inserts and deletes while retaining lexical order" {
 }
 
 ///|
+test "catalog follows insertion replacement and deletion by document identity" {
+  let initial = SavedDocuments::from_documents([doc("b", "# Bee\n")]).unwrap()
+  let inserted = [doc("c", "# Sea\n"), doc("a", "# Aye\n")].fold(init=initial, (
+    saved,
+    document,
+  ) => saved.apply(Stored(document)).unwrap())
+  let renamed = inserted.apply(Stored(doc("b", "# Renamed\n"))).unwrap()
+  let deleted = renamed.apply(Deleted(test_document_id("a"))).unwrap()
+  assert_eq(
+    inserted
+    .catalog()
+    .entries()
+    .map(entry => (entry.document_id(), entry.name())),
+    [
+      (test_document_id("a"), "Aye"),
+      (test_document_id("b"), "Bee"),
+      (test_document_id("c"), "Sea"),
+    ],
+  )
+  assert_eq(
+    deleted
+    .catalog()
+    .entries()
+    .map(entry => (entry.document_id(), entry.name())),
+    [(test_document_id("b"), "Renamed"), (test_document_id("c"), "Sea")],
+  )
+  assert_eq(initial.catalog().entries().map(entry => entry.name()), ["Bee"])
+}
+
+///|
+test "catalog updates names affected by reference definitions after the first line" {
+  let initial = SavedDocuments::from_documents([doc("a", "# [Name]\n")]).unwrap()
+  let resolved = initial
+    .apply(Stored(doc("a", "# [Name]\n\n[Name]: /destination\n")))
+    .unwrap()
+  let removed = resolved.apply(Stored(doc("a", "# [Name]\n\nBody\n"))).unwrap()
+  assert_eq(initial.catalog().entries()[0].name(), "[Name]")
+  assert_eq(resolved.catalog().entries()[0].name(), "Name")
+  assert_eq(removed.catalog().entries()[0].name(), "[Name]")
+}
+
+///|
+test "catalog reinterprets an unfinished inline when its paragraph continues" {
+  let initial = SavedDocuments::from_documents([doc("a", "*Name\n")]).unwrap()
+  let continued = initial
+    .apply(Stored(doc("a", "*Name\ncontinued*\n")))
+    .unwrap()
+  assert_eq(initial.catalog().entries()[0].name(), "*Name")
+  assert_eq(continued.catalog().entries()[0].name(), "Name")
+}
+
+///|
+test "saving a changed body retains its name and exact new text" {
+  let original = doc("a", "# Stable\n\nOld body\n")
+  let edited = original.update("# Stable\n\nNew body 日本語\n")
+  let initial = SavedDocuments::from_documents([original]).unwrap()
+  let saved = initial.apply(Stored(edited)).unwrap()
+  assert_eq(saved.catalog().entries()[0].name(), "Stable")
+  assert_eq(saved.find(original.id()), Some(edited))
+  assert_eq(initial.find(original.id()), Some(original))
+}
+
+///|
 test "from_documents keeps lexical order without startup selection state" {
   let saved = SavedDocuments::from_documents([doc("b", "b"), doc("a", "a")]).unwrap()
   assert_eq(saved.all().map(document => document.id()), [
     test_document_id("a"),
     test_document_id("b"),
   ])
-}
-
-///|
-test "replica updates preserve document projections without rebuilding them" {
-  let saved = SavedDocuments::from_documents([doc("local", "# Local\n")]).unwrap()
-  let sentinel = { ..saved, catalog_value: Catalog([]), }
-  let replica = DocumentReplica(test_account(), doc("remote", "remote"))
-  let updated = sentinel.apply_replica(replica)
-  assert_eq(updated.all(), sentinel.all())
-  assert_eq(updated.catalog(), sentinel.catalog())
-  assert_eq(updated.issues(), sentinel.issues())
 }
 
 ///|

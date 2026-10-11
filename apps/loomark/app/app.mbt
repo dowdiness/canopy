@@ -165,6 +165,14 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       @sub.batch([
         viewport_subscription,
         match current.page {
+          Editing(editing) if editing.mode != Preview =>
+            writing_focus_subscription(
+              editing.activation.generation,
+              editing.preview,
+            )
+          _ => @sub.none
+        },
+        match current.page {
           Editing(editing) =>
             text_area_resize_subscription(
               editing.activation.generation,
@@ -214,12 +222,11 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
       Editing(editing) =>
         Some({
           activation: editing.activation,
-          placeholder: if local_durability(editing, editing.activation.key)
-            is Some(NotStarted) {
-            Some("Start writing…")
-          } else {
-            None
-          },
+          show_new_document_hint: local_durability(
+            editing,
+            editing.activation.key,
+          )
+          is Some(NotStarted),
           disabled: editing.creation is Creating(_) ||
           model.departure.editor_disabled(),
           read_only: editing.deletion_blocks_document_changes(),
@@ -273,7 +280,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
                   emit,
                   editor,
                   input.activation,
-                  placeholder?=input.placeholder,
+                  show_new_document_hint=input.show_new_document_hint,
                   disabled=input.disabled,
                   read_only=input.read_only,
                 ),
@@ -375,31 +382,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     replica_persistence,
     document_activity,
     (remote, persistence, activity) => {
-      let attention = match remote {
-        Some(@documents.RemoteState::UpdateAvailable(action)) =>
-          sync_status_button("Open update", AcceptRemote(action), emit)
-        Some(@documents.RemoteState::DeletionAvailable(action)) =>
-          sync_status_button(
-            "Remove deleted document",
-            AcceptRemote(action),
-            emit,
-          )
-        Some(@documents.RemoteState::Diverged) =>
-          sync_status_label("Conflicting changes")
-        Some(@documents.RemoteState::DeletedRemotely) =>
-          sync_status_label("Deletion pending")
-        _ =>
-          match persistence {
-            Some(@replica_persistence.Status::Retryable(action, _)) =>
-              sync_status_button("Retry saving", RetrySaving(action), emit)
-            _ =>
-              match activity {
-                Some(@sync.Activity::Retryable(action)) =>
-                  sync_status_button("Retry sync", RetrySync(action), emit)
-                _ => @html.nothing
-              }
-          }
-      }
+      let attention = sync_attention_view(remote, persistence, activity, emit)
       (attention, persistence)
     },
   )

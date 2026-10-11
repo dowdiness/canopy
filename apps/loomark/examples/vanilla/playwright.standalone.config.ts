@@ -7,7 +7,7 @@ const port = Number.parseInt(environment?.LOOMARK_STANDALONE_PORT ?? "4317", 10)
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "standalone.spec.ts",
+  testMatch: ["standalone.spec.ts", "writing-focus.spec.ts"],
   timeout: 30_000,
   fullyParallel: false,
   reporter: [["list"]],

@@ -56,19 +56,20 @@ fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
 
 ///|
 fn sync_status_label(text : String) -> @rabbita.Html {
-  @html.span(class="min-w-0 px-1.5 py-1", text)
+  @html.span(hidden=text.is_empty(), class="min-w-0 px-1.5 py-1", text)
 }
 
 ///|
 fn sync_status_button(
   text : String,
-  message : Msg,
+  message : Msg?,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
   @html.button(
     type_="button",
+    hidden=message is None,
     class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
-    on_click=emit(message),
+    on_click?=message.map(message => emit(message)),
     text,
   )
 }
@@ -86,7 +87,7 @@ fn account_status_view(
     | SignOutUnconfirmed(_)
     | Unavailable => @html.nothing
     SyncUnavailable =>
-      sync_status_button("Retry document connection", RetryAccount, emit)
+      sync_status_button("Retry document connection", Some(RetryAccount), emit)
   }
 }
 
@@ -104,7 +105,15 @@ fn save_indicator(
   persistence : @replica_persistence.Status?,
 ) -> @rabbita.Html {
   let (label, icon) = match durability {
-    None | Some(NotStarted) => return @html.nothing
+    None | Some(NotStarted) =>
+      (
+        "",
+        @html.span(
+          hidden=true,
+          attrs=@html.Attrs::build().aria_hidden("true"),
+          @html.nothing,
+        ),
+      )
     Some(NotStored) => ("Not saved", @view.unsaved_icon("block size-4"))
     Some(Saving) if persistence is Some(Retryable(_, _)) =>
       ("Not saved", @view.unsaved_icon("block size-4"))
@@ -114,7 +123,11 @@ fn save_indicator(
   @html.span(
     class="loomark-save-status inline-flex h-9 shrink-0 items-center",
     title=label,
-    attrs=@html.Attrs::build().role("status").aria_label(label),
+    attrs=@html.Attrs::build()
+      .role("status")
+      .aria_live("polite")
+      .aria_atomic("true")
+      .aria_label(label),
     [icon, @html.span(class="loomark-save-caption", label)],
   )
 }
@@ -130,9 +143,13 @@ fn remote_state_view(
     Diverged => sync_status_label("Conflicting changes")
     DeletedRemotely => sync_status_label("Deletion pending")
     UpdateAvailable(action) =>
-      sync_status_button("Open update", AcceptRemote(action), emit)
+      sync_status_button("Open update", Some(AcceptRemote(action)), emit)
     DeletionAvailable(action) =>
-      sync_status_button("Remove deleted document", AcceptRemote(action), emit)
+      sync_status_button(
+        "Remove deleted document",
+        Some(AcceptRemote(action)),
+        emit,
+      )
     Unavailable => @html.nothing
   }
 }
@@ -147,7 +164,7 @@ fn replica_persistence_view(
     Retryable(action, _) =>
       @html.div(class="flex flex-col items-start gap-1", [
         sync_status_label("Sync information was not saved on this device."),
-        sync_status_button("Retry saving", RetrySaving(action), emit),
+        sync_status_button("Retry saving", Some(RetrySaving(action)), emit),
       ])
   }
 }
@@ -169,7 +186,7 @@ fn activity_view(
             "Sync failed."
           },
         ),
-        sync_status_button("Retry sync", RetrySync(action), emit),
+        sync_status_button("Retry sync", Some(RetrySync(action)), emit),
       ])
     Blocked => sync_status_label("Sync paused")
   }
@@ -183,7 +200,7 @@ fn selection_activity_view(
   match activity {
     @sync.SelectionActivity::Idle | Working => @html.nothing
     Retryable(action) =>
-      sync_status_button("Retry opening", RetrySelection(action), emit)
+      sync_status_button("Retry opening", Some(RetrySelection(action)), emit)
   }
 }
 
@@ -194,7 +211,8 @@ fn render_document_sync(
 ) -> @rabbita.Html {
   match sync {
     DeviceOnly | Unavailable | Linking | Linked => @html.nothing
-    SyncAvailable(action) => sync_status_button("Sync", StartSync(action), emit)
+    SyncAvailable(action) =>
+      sync_status_button("Sync", Some(StartSync(action)), emit)
   }
 }
 
@@ -407,12 +425,20 @@ fn text_area_view(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
   activation : Activation,
-  placeholder? : String,
+  show_new_document_hint~ : Bool,
   disabled? : Bool,
   read_only? : Bool,
 ) -> @rabbita.Html {
   @html.div(
     class="loomark-source-frame h-full min-h-0 w-full min-w-0",
+    attrs=@html.Attrs::build().data_set(
+      "new-document-hint",
+      if show_new_document_hint {
+        "true"
+      } else {
+        "false"
+      },
+    ),
     Map([
       (
         "activation-\{activation.generation}",
@@ -429,9 +455,19 @@ fn text_area_view(
           disabled?,
           read_only?,
           rows=24,
-          placeholder?,
+          // Changing this attribute splits Chromium's native typing undo group.
+          placeholder="Start writing…",
           autofocus=true,
           class="loomark-source m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent font-lm-mono text-base text-lm-ink caret-lm-accent outline-0 [tab-size:2]",
+        ),
+      ),
+      (
+        "writing-focus",
+        @html.div(
+          id=WRITING_FOCUS_LAYER_ID,
+          class="loomark-writing-dimming",
+          attrs=@html.Attrs::build().aria_hidden("true").inert(true),
+          ([] : Array[@rabbita.Html]),
         ),
       ),
     ]),
@@ -443,7 +479,7 @@ fn import_failure_view(emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
   failure_notice(
     "The Markdown file could not be imported.",
     "Dismiss",
-    emit(DismissImportFailure),
+    on_action=Some(emit(DismissImportFailure)),
   )
 }
 
@@ -459,7 +495,7 @@ fn creation_failure_view(
   failure_notice(
     "A new document could not be created. " + reason,
     "Retry creating",
-    emit(CreateRequested),
+    on_action=Some(emit(CreateRequested)),
   )
 }
 
@@ -477,7 +513,7 @@ fn example_creation_failure_view(
   failure_notice(
     "The example document could not be created. " + reason,
     "Try again",
-    emit(ExampleSelected(activation, text)),
+    on_action=Some(emit(ExampleSelected(activation, text))),
   )
 }
 
@@ -529,28 +565,35 @@ fn delete_persistence_failure_view(
   failure_notice(
     "The deletion was not saved. " + reason,
     "Try again",
-    emit(RetryDelete(document_id)),
+    on_action=Some(emit(RetryDelete(document_id))),
   )
 }
 
 ///|
 fn save_failure_view(
-  failure : @source_repository.SaveFailure,
+  failure : @source_repository.SaveFailure?,
   emit : @rabbita.Emit[Msg],
 ) -> @rabbita.Html {
-  let reason = match failure {
-    @source_repository.SaveFailure::InvalidSource =>
-      " The document identity is invalid."
-    @source_repository.SaveFailure::StorageUnavailable =>
-      " Browser storage is unavailable."
-    @source_repository.SaveFailure::QuotaExceeded => " Browser storage is full."
-    @source_repository.SaveFailure::WriteFailed =>
-      " Browser storage failed while writing the document."
+  let message = match failure {
+    None => ""
+    Some(failure) => {
+      let reason = match failure {
+        @source_repository.SaveFailure::InvalidSource =>
+          " The document identity is invalid."
+        @source_repository.SaveFailure::StorageUnavailable =>
+          " Browser storage is unavailable."
+        @source_repository.SaveFailure::QuotaExceeded =>
+          " Browser storage is full."
+        @source_repository.SaveFailure::WriteFailed =>
+          " Browser storage failed while writing the document."
+      }
+      "Changes are not saved in this browser." + reason
+    }
   }
   failure_notice(
-    "Changes are not saved in this browser." + reason,
+    message,
     "Retry saving",
-    emit(RetrySave),
+    on_action=failure.map(_ => emit(RetrySave)),
   )
 }
 
@@ -595,6 +638,12 @@ fn view(
         Editing(editing) => {
           let editor_inert = editing.compact &&
             !@sidebar.sidebar_is_collapsed(sidebar)
+          let save_failure = match
+            editing.documents.save_status(editing.activation.key) {
+            Some(@documents.SaveStatus::SaveFailed(failure)) if !(account.departure
+              is LoginFailed(SaveFailed(_))) => Some(failure)
+            _ => None
+          }
           @html.div(
             class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
             [
@@ -658,14 +707,9 @@ fn view(
                       ),
                     ],
                   ),
-                  match
-                    (
-                      editing.documents.save_status(editing.activation.key),
-                      editing.creation,
-                    ) {
-                    (Some(@documents.SaveStatus::SaveFailed(failure)), _) if !(account.departure
-                      is LoginFailed(SaveFailed(_))) =>
-                      save_failure_view(failure, emit)
+                  save_failure_view(save_failure, emit),
+                  match (save_failure, editing.creation) {
+                    (Some(_), _) => @html.nothing
                     (_, CreationFailed(failure)) =>
                       creation_failure_view(failure, emit)
                     (_, ExampleCreationFailed(text, failure)) =>
