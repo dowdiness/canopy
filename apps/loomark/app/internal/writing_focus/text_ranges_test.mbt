@@ -1,4 +1,51 @@
 ///|
+test "quote-only lines separate focused paragraphs" {
+  let text = "> first\n>\n> second"
+  let lines = @writing_focus.TextLines(text)
+  let first = lines.focus_lines(0, 0).unwrap()
+  let second = lines.focus_lines(text.length(), text.length()).unwrap()
+  assert_eq(first.first, 0)
+  assert_eq(first.last, 0)
+  assert_eq(second.first, 2)
+  assert_eq(second.last, 2)
+}
+
+///|
+test "nested quoted paragraphs exclude leading and trailing empty quote lines" {
+  let lines = @writing_focus.TextLines("> >\n> > first\n> >\n> > second\n> >")
+  let first = lines.focus_lines(4, 4).unwrap()
+  let second = lines.focus_lines(18, 18).unwrap()
+  assert_eq(first.first, 1)
+  assert_eq(first.last, 1)
+  assert_eq(second.first, 3)
+  assert_eq(second.last, 3)
+}
+
+///|
+test "quoted fences keep internal blanks but not the following paragraph" {
+  let text = "> ```\n> first\n>\n> second\n> ```\n>\n> next"
+  let lines = @writing_focus.TextLines(text)
+  let code = lines.focus_lines(0, 0).unwrap()
+  let following = lines.focus_lines(text.length(), text.length()).unwrap()
+  assert_eq(code.first, 0)
+  assert_eq(code.last, 4)
+  assert_eq(following.first, 6)
+  assert_eq(following.last, 6)
+}
+
+///|
+test "quoted indented code keeps internal blanks but not the following paragraph" {
+  let text = ">     >\n>\n>     second\n>\n> next"
+  let lines = @writing_focus.TextLines(text)
+  let code = lines.focus_lines(0, 0).unwrap()
+  let following = lines.focus_lines(text.length(), text.length()).unwrap()
+  assert_eq(code.first, 0)
+  assert_eq(code.last, 2)
+  assert_eq(following.first, 4)
+  assert_eq(following.last, 4)
+}
+
+///|
 test "empty lines inside fenced code remain in one writing group" {
   let text = "```moonbit\nfirst\n\nsecond\n```\n\nnext"
   let lines = @writing_focus.TextLines(text)

@@ -50,10 +50,9 @@ fn without_quote_prefix(text : StringView) -> StringView {
 }
 
 ///|
-fn parse_fence(text : String) -> FenceLine? {
-  let source = without_quote_prefix(text.view())
-  let marker_text = source.trim_start(chars=" ")
-  guard source.length() - marker_text.length() <= 3 else { return None }
+fn parse_fence(content : StringView) -> FenceLine? {
+  let marker_text = content.trim_start(chars=" ")
+  guard content.length() - marker_text.length() <= 3 else { return None }
   let (character, repeated) : (Char, StringView) = match marker_text {
     ['`', ..] => ('`', "`")
     ['~', ..] => ('~', "~")
@@ -83,26 +82,27 @@ fn next_fence(open : FenceMarker?, line : FenceLine?) -> FenceMarker? {
 }
 
 ///|
-fn has_code_indent(text : String) -> Bool {
-  text.has_prefix("    ") || text.has_prefix("\t")
+fn has_code_indent(content : StringView) -> Bool {
+  content.has_prefix("    ") || content.has_prefix("\t")
 }
 
 ///|
 fn find_group_end(lines : ArrayView[String], first : Int) -> Int {
-  let indented = has_code_indent(lines[first])
+  let indented = has_code_indent(without_quote_prefix(lines[first].view()))
   for end = first, fence = None; end < lines.length(); {
-    let text = lines[end]
-    if fence is None && text.trim().is_empty() {
+    let content = without_quote_prefix(lines[end].view())
+    if fence is None && content.trim().is_empty() {
       let next_content = lines[end + 1:].search_by(line => {
-        !line.trim().is_empty()
+        !without_quote_prefix(line.view()).trim().is_empty()
       })
       match next_content {
-        Some(offset) if indented && has_code_indent(lines[end + 1 + offset]) =>
+        Some(offset) if indented &&
+          has_code_indent(without_quote_prefix(lines[end + 1 + offset].view())) =>
           continue end + 1 + offset, fence
         _ => break end
       }
     }
-    continue end + 1, next_fence(fence, parse_fence(text))
+    continue end + 1, next_fence(fence, parse_fence(content))
   } nobreak {
     lines.length()
   }
@@ -112,7 +112,7 @@ fn find_group_end(lines : ArrayView[String], first : Int) -> Int {
 fn group_lines(lines : ArrayView[String]) -> ArrayView[LineRange] {
   let groups : Array[LineRange] = []
   for first = 0; first < lines.length(); {
-    if lines[first].trim().is_empty() {
+    if without_quote_prefix(lines[first].view()).trim().is_empty() {
       continue first + 1
     }
     let end = find_group_end(lines, first)

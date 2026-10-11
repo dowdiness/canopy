@@ -33,6 +33,19 @@ test("typing intent dims other writing groups and blur restores reading", async 
   await expect(text).toHaveValue(documentText)
 })
 
+test("focus moves between quoted paragraphs separated by a quote-only line", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("> first\n>\n> second")
+  await text.press("Control+Home")
+  await expect.poll(() => dimmingAtLine(page, 2)).toBe(0.5)
+  expect(await dimmingAtLine(page, 0)).toBe(0)
+  await text.press("ArrowDown")
+  await text.press("ArrowDown")
+  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  await expect.poll(() => dimmingAtLine(page, 2)).toBe(0)
+})
+
 test("responsive reflow preserves the active writing paragraph", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
