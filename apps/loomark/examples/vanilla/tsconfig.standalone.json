@@ -6,7 +6,8 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
     "allowJs": false
   },
-  "include": ["playwright.standalone.config.ts", "tests/standalone.spec.ts", "playwright.sidebar.config.ts", "tests/sidebar.spec.ts", "playwright.focus.config.ts", "tests/writing-focus.spec.ts", "playwright.performance.config.ts", "tests/long-document-performance.spec.ts"]
+  "include": ["playwright.standalone.config.ts", "tests/standalone.spec.ts", "playwright.sidebar.config.ts", "tests/sidebar.spec.ts", "playwright.focus.config.ts", "tests/writing-focus.spec.ts", "benchmarks/*.ts"]
 }

@@ -3,3 +3,4 @@
 .env.development
 .env.production
 .sidebar-e2e-dist/
+examples/vanilla/benchmark-results/
