@@ -487,10 +487,6 @@ jobs:
             apps/loomark/examples/vanilla/package-lock.json
             .benchmark-baseline/apps/loomark/package-lock.json
 
-      - name: Bootstrap baseline dependencies
-        working-directory: .benchmark-baseline
-        run: ./scripts/moon-update.sh
-
       - name: Build both production releases
         run: |
           ./scripts/build-loomark-standalone.sh
