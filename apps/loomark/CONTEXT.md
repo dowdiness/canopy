@@ -122,6 +122,9 @@ _Avoid_: layout, workspace
 
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
+The writing area disables browser spellchecking so dictionary suggestions do not
+mark document text with red underlines. Autocomplete and autocorrect remain off;
+native IME composition is unchanged.
 Text and Preview share the same edge fade and subtle blur beneath the fixed top
 and bottom controls in every editor mode. Each bar owns its blurred background;
 the editor has no separate decorative overlay. Document spacing stays inside the

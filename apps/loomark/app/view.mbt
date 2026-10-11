@@ -431,14 +431,16 @@ fn text_area_view(
 ) -> @rabbita.Html {
   @html.div(
     class="loomark-source-frame h-full min-h-0 w-full min-w-0",
-    attrs=@html.Attrs::build().data_set(
-      "new-document-hint",
-      if show_new_document_hint {
-        "true"
-      } else {
-        "false"
-      },
-    ),
+    attrs=@html.Attrs::build()
+      .spellcheck(false)
+      .data_set(
+        "new-document-hint",
+        if show_new_document_hint {
+          "true"
+        } else {
+          "false"
+        },
+      ),
     Map([
       (
         "activation-\{activation.generation}",
