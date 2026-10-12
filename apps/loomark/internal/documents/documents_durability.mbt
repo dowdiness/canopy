@@ -1,14 +1,14 @@
 ///|
 /// Recovery of accepted local intent, independent of remote synchronization.
-pub enum DepartureStatus {
+pub enum LocalDurability {
   AwaitingInput
   Saving
-  Failed(DepartureFailure)
-  Ready
+  Failed(LocalSaveFailure)
+  Durable
 } derive(Eq)
 
 ///|
-pub enum DepartureFailure {
+pub enum LocalSaveFailure {
   Save(Key, @source_repository.SaveFailure)
   Delete(Key, @source_repository.DeleteFailure)
   Replica(Key, @source_repository.ReplicaFailure)
@@ -17,7 +17,7 @@ pub enum DepartureFailure {
 ///|
 /// Flush accepted edits and retry failed document operations once. The root
 /// also retries persistence lanes that have no live document projection.
-pub fn State::prepare_departure(self : Self) -> (Self, Array[Action]) {
+pub fn State::save_changes(self : Self) -> (Self, Array[Action]) {
   let mut next = self
   let actions : Array[Action] = []
   for record in self.records {
@@ -86,38 +86,41 @@ fn replica_write_recoverable(
 }
 
 ///|
-fn DepartureStatus::combine(self : Self, next : Self) -> Self {
+fn LocalDurability::combine(self : Self, next : Self) -> Self {
   match (self, next) {
     (Failed(_), _) => self
     (_, Failed(_)) => next
     (AwaitingInput, _) | (_, AwaitingInput) => AwaitingInput
     (Saving, _) | (_, Saving) => Saving
-    (Ready, Ready) => Ready
+    (Durable, Durable) => Durable
   }
 }
 
 ///|
-fn State::record_departure(self : Self, record : Record) -> DepartureStatus {
+fn State::record_local_durability(
+  self : Self,
+  record : Record,
+) -> LocalDurability {
   let key = record.key()
   if is_composing(record.edit) {
     return AwaitingInput
   }
   match record.persistence {
     Source(_, SourceDeletePhase::Failed(_, failure)) =>
-      Failed(DepartureFailure::Delete(key, failure))
+      Failed(LocalSaveFailure::Delete(key, failure))
     Source(_, SourceDeletePhase::Waiting(_) | SourceDeletePhase::Deleting(_)) =>
       Saving
     Source(origin, SourceDeletePhase::Available) => {
       match record.save {
-        Waiting(_) | Saving(_, _) => return DepartureStatus::Saving
+        Waiting(_) | Saving(_, _) => return LocalDurability::Saving
         Failed(failure) if self.saved.find(record.document.id()) !=
           Some(record.document) =>
-          return DepartureStatus::Failed(DepartureFailure::Save(key, failure))
+          return LocalDurability::Failed(LocalSaveFailure::Save(key, failure))
         Saved | Failed(_) => ()
       }
       if origin is EphemeralNew ||
         self.saved.find(record.document.id()) == Some(record.document) {
-        Ready
+        Durable
       } else {
         Saving
       }
@@ -129,7 +132,7 @@ fn State::record_departure(self : Self, record : Record) -> DepartureStatus {
         .map(replica => replica.document() == Some(record.document))
         .unwrap_or(false)
       if ready {
-        Ready
+        Durable
       } else {
         Saving
       }
@@ -148,22 +151,22 @@ fn State::record_departure(self : Self, record : Record) -> DepartureStatus {
           }
       }
       if ready {
-        return Ready
+        return Durable
       }
       match phase {
         ReplicaFailed(failure) =>
-          Failed(DepartureFailure::Replica(key, failure))
+          Failed(LocalSaveFailure::Replica(key, failure))
         ReplicaAvailable | ReplicaPending =>
           match record.save {
             Failed(failure) =>
-              DepartureStatus::Failed(DepartureFailure::Save(key, failure))
+              LocalDurability::Failed(LocalSaveFailure::Save(key, failure))
             _ => Saving
           }
       }
     }
     Forking(ownership) =>
       if self.saved.find(ownership.recovery.id()) == Some(record.document) {
-        Ready
+        Durable
       } else {
         Saving
       }
@@ -171,24 +174,24 @@ fn State::record_departure(self : Self, record : Record) -> DepartureStatus {
 }
 
 ///|
-pub fn State::departure_status(
+pub fn State::local_durability(
   self : Self,
   persistence : @replica_persistence.State,
-) -> DepartureStatus {
-  let mut status : DepartureStatus = Ready
+) -> LocalDurability {
+  let mut status : LocalDurability = Durable
   for record in self.records {
-    status = status.combine(self.record_departure(record))
+    status = status.combine(self.record_local_durability(record))
   }
   // Include in-flight AND queued candidates. Even when the latest queued text
   // equals durable text, an older write can overwrite it before the queue drains.
   for write in persistence.pending_writes() {
     if !replica_write_recoverable(self.saved, write) {
       let replica = write.replica()
-      let next : DepartureStatus = match
+      let next : LocalDurability = match
         persistence.status(replica.account(), replica.document_id()) {
         Retryable(_, failure) =>
           Failed(
-            DepartureFailure::Replica(
+            LocalSaveFailure::Replica(
               Key::replica(replica.account(), replica.document_id()),
               failure,
             ),
@@ -202,7 +205,7 @@ pub fn State::departure_status(
 }
 
 ///|
-pub extend DepartureFailure with Eq::{equal, not_equal}
+pub extend LocalSaveFailure with Eq::{equal, not_equal}
 
 ///|
-pub extend DepartureStatus with Eq::{equal, not_equal}
+pub extend LocalDurability with Eq::{equal, not_equal}

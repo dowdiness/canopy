@@ -53,14 +53,6 @@ fn page_restore_subscription(command : @cmd.Cmd) -> @sub.Sub {
 fn account_controls_input(model : Model) -> AccountControlsInput {
   {
     session: model.sync().session(),
-    departure: model.departure,
-    can_login: match model.page {
-      Editing(editing) =>
-        !(editing.creation is Creating(_)) &&
-        editing.imports_pending == 0 &&
-        editing.deletion == NoDeletion &&
-        !editing.documents.is_composing(editing.activation.key)
-      _ => false
-    },
+    sign_in: model.sign_in.view(sign_in_readiness(model)),
   }
 }

@@ -8,7 +8,7 @@ import {
 }
 
 // Values
-pub fn prepare_login(@cmd.Emit[LoginResult]) -> @cmd.Cmd
+pub fn request_authorization_url(@cmd.Emit[GoogleAuthorizationUrl?]) -> @cmd.Cmd
 
 pub fn resolve(@cmd.Emit[@sync.AccountResult]) -> @cmd.Cmd
 
@@ -22,16 +22,9 @@ pub struct GoogleAuthorizationUrl {
 } derive(Eq, @debug.Debug)
 pub fn GoogleAuthorizationUrl::equal(Self, Self) -> Bool
 pub fn GoogleAuthorizationUrl::not_equal(Self, Self) -> Bool
+pub fn GoogleAuthorizationUrl::parse(String) -> Self?
 pub fn GoogleAuthorizationUrl::to_repr(Self) -> @debug.Repr
 pub fn GoogleAuthorizationUrl::value(Self) -> String
-
-pub(all) enum LoginResult {
-  Prepared(GoogleAuthorizationUrl)
-  Unavailable
-} derive(Eq, @debug.Debug)
-pub fn LoginResult::equal(Self, Self) -> Bool
-pub fn LoginResult::not_equal(Self, Self) -> Bool
-pub fn LoginResult::to_repr(Self) -> @debug.Repr
 
 pub(all) enum LogoutResult {
   SignedOut

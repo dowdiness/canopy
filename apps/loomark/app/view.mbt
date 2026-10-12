@@ -16,7 +16,7 @@ fn view(
           )
           is Some(NotStarted),
           disabled: editing.creation is Creating(_) ||
-          model.departure.editor_disabled(),
+          model.sign_in.blocks_editing(),
           read_only: editing.deletion_blocks_document_changes(),
           mode: editing.mode,
           preview: editing.preview,
@@ -59,8 +59,7 @@ fn view(
   let on_account : @rabbita.Emit[AccountIntent] = emit.map(intent => {
     match intent {
       RetryAccount => Msg::RetryAccount
-      LoginRequested => Msg::LoginRequested
-      LoginCancelled(attempt) => Msg::LoginCancelled(attempt)
+      SignIn(action) => Msg::SignIn(@sign_in.Invoke(action))
       LogoutRequested => Msg::LogoutRequested
     }
   })
@@ -152,7 +151,7 @@ fn view(
     can_create=model.map(model => {
       match model.page {
         Editing(editing) =>
-          editing.can_activate() && !model.departure.editor_disabled()
+          editing.can_activate() && !model.sign_in.blocks_editing()
         _ => false
       }
     }),
@@ -302,8 +301,8 @@ fn document_tools_input(model : Model) -> DocumentToolsInput? {
   Some({
     activation: editing.activation,
     examples_disabled: editing.creation is Creating(_) ||
-    model.departure.editor_disabled(),
-    import_disabled: model.departure.editor_disabled(),
+    model.sign_in.blocks_editing(),
+    import_disabled: model.sign_in.blocks_editing(),
   })
 }
 
@@ -311,9 +310,9 @@ fn document_tools_input(model : Model) -> DocumentToolsInput? {
 fn toolbar_input(model : Model) -> ToolbarInput? {
   guard model.page is Editing(editing) else { return None }
   Some({
-    can_create: editing.can_activate() && !model.departure.editor_disabled(),
+    can_create: editing.can_activate() && !model.sign_in.blocks_editing(),
     menu_open: editing.menu_open,
-    import_disabled: model.departure.editor_disabled(),
+    import_disabled: model.sign_in.blocks_editing(),
   })
 }
 
@@ -322,8 +321,8 @@ fn notices_input(model : Model) -> NoticesInput {
   guard model.page is Editing(editing) else {
     return { failure: None, import_failed: false, }
   }
-  let sign_in_reports_save_failure = model.departure
-    is LoginFailed(SaveFailed(_))
+  let sign_in_reports_save_failure = account_controls_input(model).sign_in
+    is @sign_in.Failed(@sign_in.Save(_), ..)
   let failure : DocumentFailure? = match
     editing.documents.save_status(editing.activation.key) {
     Some(@documents.SaveStatus::SaveFailed(failure)) if !sign_in_reports_save_failure =>

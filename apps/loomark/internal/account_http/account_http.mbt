@@ -9,10 +9,16 @@ pub fn GoogleAuthorizationUrl::value(self : Self) -> String {
 }
 
 ///|
-pub(all) enum LoginResult {
-  Prepared(GoogleAuthorizationUrl)
-  Unavailable
-} derive(Eq, Debug)
+pub fn GoogleAuthorizationUrl::parse(value : String) -> GoogleAuthorizationUrl? {
+  let parsed = @url.parse(value) catch { _ => return None }
+  let normalized = value.to_lower()
+  guard normalized.has_prefix("https://accounts.google.com/") &&
+    parsed is { protocol: @url.Protocol::Https, host, port: None, .. } &&
+    host.to_lower() == "accounts.google.com" else {
+    return None
+  }
+  Some(GoogleAuthorizationUrl::{ value, })
+}
 
 ///|
 pub(all) enum LogoutResult {
@@ -34,7 +40,7 @@ priv struct AuthorizationResponse {
 ///|
 extenum @cmd.Extension += {
   ResolveAccount((@sync.AccountResult) -> @cmd.Cmd)
-  PrepareLogin((LoginResult) -> @cmd.Cmd)
+  RequestAuthorizationUrl((GoogleAuthorizationUrl?) -> @cmd.Cmd)
   SignOut((LogoutResult) -> @cmd.Cmd)
 }
 
@@ -55,19 +61,12 @@ fn account_result(status : Int, body : String) -> @sync.AccountResult {
 }
 
 ///|
-fn authorization_url(body : String) -> LoginResult {
+fn parse_authorization_url(body : String) -> GoogleAuthorizationUrl? {
   try {
     let response : AuthorizationResponse = @json.from_json(@json.parse(body))
-    let parsed = @url.parse(response.url)
-    let normalized = response.url.to_lower()
-    guard normalized.has_prefix("https://accounts.google.com/") &&
-      parsed is { protocol: @url.Protocol::Https, host, port: None, .. } &&
-      host.to_lower() == "accounts.google.com" else {
-      return Unavailable
-    }
-    Prepared(GoogleAuthorizationUrl::{ value: response.url, })
+    GoogleAuthorizationUrl::parse(response.url)
   } catch {
-    _ => Unavailable
+    _ => None
   }
 }
 
@@ -84,7 +83,9 @@ async fn resolve_request(origin : String) -> @sync.AccountResult noraise {
 }
 
 ///|
-async fn login_request(origin : String) -> LoginResult noraise {
+async fn authorization_request(
+  origin : String,
+) -> GoogleAuthorizationUrl? noraise {
   try {
     let body = "{\"provider\":\"google\",\"callbackURL\":\"/\",\"errorCallbackURL\":\"/\",\"disableRedirect\":true}"
     let (response, response_body) = @async_http.post(
@@ -93,12 +94,12 @@ async fn login_request(origin : String) -> LoginResult noraise {
       headers={ "content-type": "application/json" },
     )
     if response.code is (200..<300) {
-      authorization_url(@utf8.decode(response_body.binary()[:]))
+      parse_authorization_url(@utf8.decode(response_body.binary()[:]))
     } else {
-      Unavailable
+      None
     }
   } catch {
-    _ => Unavailable
+    _ => None
   } noraise {
     result => result
   }
@@ -129,8 +130,8 @@ let op : @cmd.Op = @cmd.Op()..on_invoke((extension, context) => {
   match extension {
     ResolveAccount(done) =>
       @cmd.Async(() => done(resolve_request(context.get_origin())))
-    PrepareLogin(done) =>
-      @cmd.Async(() => done(login_request(context.get_origin())))
+    RequestAuthorizationUrl(done) =>
+      @cmd.Async(() => done(authorization_request(context.get_origin())))
     SignOut(done) =>
       @cmd.Async(() => done(logout_request(context.get_origin())))
     _ => raise @cmd.Unhandled
@@ -143,8 +144,10 @@ pub fn resolve(emit : @cmd.Emit[@sync.AccountResult]) -> @cmd.Cmd {
 }
 
 ///|
-pub fn prepare_login(emit : @cmd.Emit[LoginResult]) -> @cmd.Cmd {
-  op.request(PrepareLogin(result => emit(result)))
+pub fn request_authorization_url(
+  emit : @cmd.Emit[GoogleAuthorizationUrl?],
+) -> @cmd.Cmd {
+  op.request(RequestAuthorizationUrl(result => emit(result)))
 }
 
 ///|
@@ -157,12 +160,6 @@ pub extend GoogleAuthorizationUrl with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend GoogleAuthorizationUrl with Eq::{equal, not_equal}
-
-///|
-pub extend LoginResult with @moonbitlang/core/debug.Debug::{to_repr}
-
-///|
-pub extend LoginResult with Eq::{equal, not_equal}
 
 ///|
 pub extend LogoutResult with @moonbitlang/core/debug.Debug::{to_repr}
