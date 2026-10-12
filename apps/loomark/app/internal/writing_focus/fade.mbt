@@ -61,7 +61,7 @@ fn ActiveFade::elapsed_ms(
 }
 
 ///|
-pub fn calculate_fade(
+fn calculate_fade(
   current_opacity : Double,
   target_opacity : Double,
   previous : ActiveFade?,

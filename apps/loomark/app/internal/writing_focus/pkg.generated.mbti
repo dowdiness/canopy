@@ -1,22 +1,18 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/loomark/app/internal/writing_focus"
 
-import {
-  "moonbitlang/core/debug",
-}
-
 // Values
 pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double?, animate~ : Bool) -> ArrayView[(Range, Fade)]
 
-pub fn calculate_fade(Double, Double, ActiveFade?, Double?, animate~ : Bool) -> Fade
-
 pub fn calculate_visible_range(Range, Range) -> Range?
-
-pub fn focus_boundaries(LineRange, Int, Int, (Int, Double)?, (Int, Double)?) -> (Boundary, Boundary)
 
 // Errors
 pub suberror InvalidRange {
   UnorderedEndpoints(start~ : Double, end~ : Double)
+}
+
+pub suberror InvalidSelection {
+  OutsideText(start~ : Int, end~ : Int, length~ : Int)
 }
 
 // Types and methods
@@ -26,14 +22,25 @@ pub(all) enum ActiveFade {
 }
 pub fn ActiveFade::timing(Self) -> FadeTiming
 
-pub(all) enum Boundary {
-  Position(Double)
-  LineStart(Int)
-  LineEnd(Int)
-} derive(Eq, @debug.Debug)
-pub fn Boundary::equal(Self, Self) -> Bool
-pub fn Boundary::not_equal(Self, Self) -> Bool
-pub fn Boundary::to_repr(Self) -> @debug.Repr
+pub struct Boundary {
+  line : Int
+  layout_sync : LayoutSync
+  // private fields
+}
+pub fn Boundary::at(Self, Double) -> (Range, Layout) raise InvalidRange
+
+pub enum Bounds {
+  Known(Range)
+  Lines(LineBounds)
+  LineStart(Boundary)
+  LineEnd(Boundary)
+}
+
+pub enum Dimming {
+  Unchanged
+  Immediate(Range)
+  Animated(Range)
+}
 
 pub enum Fade {
   Continue(ActiveFade)
@@ -48,16 +55,48 @@ pub(all) struct FadeTiming {
   easing : String
 }
 
-pub struct LineRange {
-  first : Int
-  last : Int
+pub enum Focus {
+  Document(Range)
+  Lines(LineFocus)
 }
 
-pub struct LineReplacement {
-  text_lines : TextLines
+pub struct Layout {
+  // private fields
+}
+pub fn Layout::Layout(TextLines) -> Self
+pub fn Layout::edit_from(Self, TextLines) -> LineEdit?
+pub fn Layout::focus(Self, Int, Int) -> Focus raise InvalidSelection
+pub fn Layout::replace_text(Self, String) -> Self?
+pub fn Layout::source(Self) -> TextLines
+
+pub enum LayoutSync {
+  Reuse
+  CopyStyles(Double)
+}
+
+pub struct LineBounds {
+  lines : LineRange
+  layout_sync : LayoutSync
+  // private fields
+}
+pub fn LineBounds::between(Self, Double, Double) -> (Range, Layout) raise InvalidRange
+
+pub struct LineEdit {
+  source : TextLines
   first : Int
   removed : Int
   inserted : ArrayView[String]
+}
+
+pub struct LineFocus {
+  lines : LineRange
+  // private fields
+}
+pub fn LineFocus::bounds(Self, Double) -> Bounds raise InvalidRange
+
+pub struct LineRange {
+  first : Int
+  last : Int
 }
 
 pub(all) enum OpacitySample {
@@ -65,24 +104,24 @@ pub(all) enum OpacitySample {
   Animating(Double, ActiveFade)
 }
 
+pub(all) struct Presentation {
+  range : Range
+  engaged : Bool
+  reduced_motion : Bool
+}
+pub fn Presentation::dimming(Self, Self?, geometry_changed~ : Bool) -> Dimming
+
 pub struct Range {
   start : Double
   end : Double
 }
 pub fn Range::Range(Double, Double) -> Self raise InvalidRange
-pub fn Range::intersection(Self, Self) -> Self?
-
-pub enum SelectionError {
-  OutsideText(start~ : Int, end~ : Int, length~ : Int)
-}
 
 pub struct TextLines {
   // private fields
 }
 pub fn TextLines::TextLines(String) -> Self
-pub fn TextLines::focus_lines(Self, Int, Int) -> Result[LineRange, SelectionError]
 pub fn TextLines::lines(Self) -> ArrayView[String]
-pub fn TextLines::replace_text(Self, String) -> LineReplacement?
 pub fn TextLines::text(Self) -> String
 
 // Type aliases

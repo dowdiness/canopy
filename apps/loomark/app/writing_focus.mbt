@@ -1,28 +1,8 @@
 ///|
 priv suberror WritingFocusError {
-  InvalidSelection(@writing_focus.SelectionError)
   InvalidAnimationClock
   UnsupportedAnimationState(String)
   MissingFocusElement(String)
-}
-
-///|
-priv enum GeometryRefresh {
-  Selection
-  Source
-  Layout
-}
-
-///|
-fn merge_geometry_refresh(
-  current : GeometryRefresh,
-  requested : GeometryRefresh,
-) -> GeometryRefresh {
-  match (current, requested) {
-    (Layout, _) | (_, Layout) => Layout
-    (Source, _) | (_, Source) => Source
-    _ => Selection
-  }
 }
 
 ///|
@@ -30,13 +10,6 @@ priv enum WritingIntent {
   Reading
   Writing
   TabNavigation
-}
-
-///|
-priv struct WritingPresentation {
-  range : @writing_focus.Range
-  engaged : Bool
-  reduced_motion : Bool
 }
 
 ///|
@@ -50,9 +23,8 @@ priv struct WritingFocusSession {
   text_layout : TextLayout
   cleanup : Array[() -> Unit]
   mut frame : Double?
-  mut refresh : GeometryRefresh
   mut intent : WritingIntent
-  mut presentation : WritingPresentation?
+  mut presentation : @writing_focus.Presentation?
   shades : Array[WritingShade]
 }
 
@@ -69,9 +41,7 @@ priv struct WritingFocus {
 
 ///|
 fn draw_writing_focus(session : WritingFocusSession) -> Unit raise {
-  let refresh = session.refresh
-  session.refresh = Selection
-  let (range, geometry_changed) = session.text_layout.locate_focus(refresh)
+  let (range, geometry_changed) = session.text_layout.locate_focus()
   if session.intent is TabNavigation {
     session.intent = if session.text_area.matches(":focus") {
       Writing
@@ -79,63 +49,49 @@ fn draw_writing_focus(session : WritingFocusSession) -> Unit raise {
       Reading
     }
   }
-  let engaged = session.intent is Writing
-  let reduced_motion = session.reduced_motion.get_matches()
+  let presentation : @writing_focus.Presentation = {
+    range,
+    engaged: session.intent is Writing,
+    reduced_motion: session.reduced_motion.get_matches(),
+  }
   let scroll_top = session.text_area.get_scroll_top()
   let viewport_range = @writing_focus.Range(
     scroll_top,
     scroll_top + session.text_area.get_client_height(),
   )
-  let retarget = match session.presentation {
-    None => true
-    Some(previous) =>
-      geometry_changed ||
-      previous.engaged != engaged ||
-      previous.reduced_motion != reduced_motion ||
-      (
-        engaged &&
-        (previous.range.start != range.start || previous.range.end != range.end)
-      )
-  }
-  if retarget {
-    let animate = match session.presentation {
-      None => false
-      Some(previous) =>
-        !reduced_motion && (!geometry_changed || previous.engaged != engaged)
-    }
-    let samples = if animate {
-      session.shades.filter_map(shade => {
-        sample_writing_shade(session.window, shade)
-      })
-    } else {
-      []
-    }
-    let focus_range = if engaged {
-      range
-    } else {
-      @writing_focus.Range(0.0, @double.infinity)
-    }
-    let fades = @writing_focus.calculate_dimming_ranges(
-      focus_range,
-      samples[:],
-      document_timeline_time(session.document).to_option(),
-      animate~,
-    )
-    render_writing_fades(
-      session.document,
-      session.dimming_layer,
-      session.shades,
-      viewport_range,
-      fades,
-    )
-  } else {
-    for shade in session.shades {
-      if shade.content is Visible(range, _) {
-        position_writing_shade(shade.element, range, viewport_range)
+  let dimming = presentation.dimming(session.presentation, geometry_changed~)
+  match dimming {
+    Unchanged =>
+      for shade in session.shades {
+        if shade.content is Visible(range, _) {
+          position_writing_shade(shade.element, range, viewport_range)
+        }
       }
+    Immediate(focus_range) | Animated(focus_range) => {
+      let animate = dimming is Animated(_)
+      let samples = if animate {
+        session.shades.filter_map(shade => {
+          sample_writing_shade(session.window, shade)
+        })
+      } else {
+        []
+      }
+      let fades = @writing_focus.calculate_dimming_ranges(
+        focus_range,
+        samples[:],
+        document_timeline_time(session.document).to_option(),
+        animate~,
+      )
+      render_writing_fades(
+        session.document,
+        session.dimming_layer,
+        session.shades,
+        viewport_range,
+        fades,
+      )
     }
   }
-  session.presentation = Some({ range, engaged, reduced_motion, })
+  session.presentation = Some(presentation)
 }
 
 ///|
@@ -165,14 +121,10 @@ fn report_writing_focus_error(error : @js.Any) -> Unit {
 }
 
 ///|
-fn schedule_writing_focus(
-  focus : WritingFocus,
-  refresh : GeometryRefresh,
-) -> Unit {
+fn schedule_writing_focus(focus : WritingFocus) -> Unit {
   match focus.lifetime {
     Removed => ()
-    Attached(session) => {
-      session.refresh = merge_geometry_refresh(session.refresh, refresh)
+    Attached(session) =>
       if session.frame is None {
         session.frame = Some(
           session.window.request_animation_frame(_ => {
@@ -201,7 +153,6 @@ fn schedule_writing_focus(
           }),
         )
       }
-    }
   }
 }
 
@@ -211,7 +162,7 @@ fn set_writing_intent(focus : WritingFocus, intent : WritingIntent) -> Unit {
     Removed => ()
     Attached(session) => {
       session.intent = intent
-      schedule_writing_focus(focus, Selection)
+      schedule_writing_focus(focus)
     }
   }
 }
@@ -248,7 +199,6 @@ fn add_writing_focus(
       text_layout,
       cleanup: [],
       frame: None,
-      refresh: Layout,
       intent: Reading,
       presentation: None,
       shades: [],
@@ -258,9 +208,9 @@ fn add_writing_focus(
   let focus : WritingFocus = { lifetime: Attached(session), }
   errdefer remove_writing_focus(focus)
   @js.try_sync(() => {
-    let changed : @dom.Listener = _ => schedule_writing_focus(focus, Source)
-    let selected : @dom.Listener = _ => schedule_writing_focus(focus, Selection)
-    let resized : @dom.Listener = _ => schedule_writing_focus(focus, Layout)
+    let changed : @dom.Listener = _ => refresh_writing_focus(focus)
+    let selected : @dom.Listener = _ => schedule_writing_focus(focus)
+    let resized : @dom.Listener = _ => writing_focus_layout_changed(focus)
     let activate : @dom.Listener = _ => set_writing_intent(focus, Writing)
     let deactivate : @dom.Listener = _ => set_writing_intent(focus, Reading)
     let source = text_area.as_event_target()
@@ -308,11 +258,11 @@ fn add_writing_focus(
       selected,
     )
     let resize = @dom.ResizeObserver::new((_, _) => {
-      schedule_writing_focus(focus, Layout)
+      writing_focus_layout_changed(focus)
     })
     session.cleanup.push(() => resize.disconnect())
     resize.observe(text_area.as_element())
-    schedule_writing_focus(focus, Layout)
+    schedule_writing_focus(focus)
     @js.any(())
   })
   |> ignore
@@ -321,5 +271,27 @@ fn add_writing_focus(
 
 ///|
 fn refresh_writing_focus(focus : WritingFocus) -> Unit {
-  schedule_writing_focus(focus, Source)
+  match focus.lifetime {
+    Removed => ()
+    Attached(session) => {
+      session.text_layout.source_pending = true
+      schedule_writing_focus(focus)
+    }
+  }
+}
+
+///|
+fn writing_focus_layout_changed(focus : WritingFocus) -> Unit {
+  match focus.lifetime {
+    Removed => ()
+    Attached(session) => {
+      let layout = session.text_layout
+      layout.context = {
+        geometry: @writing_focus.Layout(layout.context.geometry.source()),
+        first_observation: true,
+      }
+      layout.source_pending = true
+      schedule_writing_focus(focus)
+    }
+  }
 }

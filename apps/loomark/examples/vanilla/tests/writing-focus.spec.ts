@@ -2,21 +2,32 @@ import { expect, test, type Locator, type Page } from "@playwright/test"
 
 const documentText = "# Heading\n\nFirst thought\n\nSecond thought\n\nThird thought"
 
-async function dimmingAtLine(page: Page, line: number) {
-  return page.getByRole("textbox", { name: "Text" }).evaluate((element, line) => {
+async function dimmingAtLines(page: Page, lines: number[]) {
+  return page.getByRole("textbox", { name: "Text" }).evaluate((element, lines) => {
     const textarea = element as HTMLTextAreaElement
     const bounds = textarea.getBoundingClientRect()
     const style = getComputedStyle(textarea)
     const x = bounds.left + Number.parseFloat(style.paddingLeft) + 4
-    const y = bounds.top + Number.parseFloat(style.paddingTop)
-      + (line + 0.5) * Number.parseFloat(style.lineHeight) - textarea.scrollTop
-    return [...document.querySelectorAll<HTMLElement>(".loomark-writing-shade")]
-      .reduce((opacity, shade) => {
-        const range = shade.getBoundingClientRect()
+    const shades = [...document.querySelectorAll<HTMLElement>(".loomark-writing-shade")]
+      .map(shade => ({
+        bounds: shade.getBoundingClientRect(),
+        opacity: Number(getComputedStyle(shade).opacity),
+      }))
+    return lines.map(line => {
+      const y = bounds.top + Number.parseFloat(style.paddingTop)
+        + (line + 0.5) * Number.parseFloat(style.lineHeight) - textarea.scrollTop
+      return shades.reduce((opacity, shade) => {
+        const range = shade.bounds
         const coversText = range.left <= x && x < range.right && range.top <= y && y < range.bottom
-        return coversText ? 1 - (1 - opacity) * (1 - Number(getComputedStyle(shade).opacity)) : opacity
+        return coversText ? 1 - (1 - opacity) * (1 - shade.opacity) : opacity
       }, 0)
-  }, line)
+    })
+  }, lines)
+}
+
+async function dimmingAtLine(page: Page, line: number) {
+  const [opacity] = await dimmingAtLines(page, [line])
+  return opacity
 }
 
 test("typing intent dims other writing groups and blur restores reading", async ({ page }) => {
@@ -219,8 +230,7 @@ test("layout changes relocate focus after unmeasured tail edits", async ({ page 
     area.style.lineHeight = "1.5"
   })
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect.poll(() => dimmingAtLine(page, 4)).toBe(0)
-  expect(await dimmingAtLine(page, 2)).toBe(0.5)
+  await expect.poll(() => dimmingAtLines(page, [0, 2, 4])).toEqual([0.5, 0.5, 0])
   await expect(text).toHaveValue("# Heading\n\nFirst\n\nLast revised")
 })
 
@@ -275,4 +285,55 @@ test("font changes during whole-text focus invalidate earlier line measurements"
   await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
   expect(await dimmingAtLine(page, 2)).toBe(0)
   expect(await dimmingAtLine(page, 4)).toBe(0.5)
+})
+
+test("a layout notification during measurement cannot commit geometry into the new layout", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("Before\n\nWriting\n\nAfter")
+  await expect.poll(() => dimmingAtLine(page, 2)).toBe(0.5)
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const mirror = document.querySelector<HTMLElement>(".loomark-writing-measure")!
+    const measure = mirror.getBoundingClientRect
+    mirror.getBoundingClientRect = function () {
+      delete (mirror as Partial<HTMLElement>).getBoundingClientRect
+      area.style.lineHeight = "60px"
+      document.fonts.dispatchEvent(new Event("loadingdone"))
+      return measure.call(mirror)
+    }
+    area.setSelectionRange(8, 8)
+  })
+  await expect.poll(() => dimmingAtLines(page, [0, 2, 4])).toEqual([0.5, 0, 0.5])
+  expect(await text.evaluate(element => getComputedStyle(element).lineHeight)).toBe("60px")
+})
+
+test("native composition retains its text, selection and focus through reflow", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(documentText)
+  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  const original = await text.elementHandle()
+  const browser = await page.context().newCDPSession(page)
+  await browser.send("Input.imeSetComposition", {
+    text: "変換中",
+    selectionStart: 3,
+    selectionEnd: 3,
+  })
+  await expect(text).toHaveValue(documentText + "変換中")
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  await expect.poll(() => dimmingAtLine(page, 6)).toBe(0)
+  expect(await text.evaluate((element, original) => element === original, original)).toBe(true)
+  expect(await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    return [area.selectionStart, area.selectionEnd]
+  })).toEqual([documentText.length + 3, documentText.length + 3])
+  await browser.send("Input.insertText", { text: "確定" })
+  await expect(text).toHaveValue(documentText + "確定")
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  expect(await dimmingAtLine(page, 6)).toBe(0)
+  await browser.detach()
+  await original?.dispose()
 })
