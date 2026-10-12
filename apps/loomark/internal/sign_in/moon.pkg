@@ -1,0 +1,11 @@
+import {
+  "dowdiness/loomark/internal/documents",
+  "dowdiness/loomark/internal/account_http",
+}
+
+import {
+  "dowdiness/loomark/internal/source_repository",
+  "dowdiness/loomark/internal/replica_persistence",
+} for "wbtest"
+
+supported_targets = "js"

@@ -7,6 +7,43 @@ fn signed_out_model(editing : EditingState) -> Model {
 }
 
 ///|
+fn start_sign_in(model : Model) -> (Model, @cmd.Cmd) {
+  let action = match account_controls_input(model).sign_in {
+    @sign_in.Available(action) | Failed(_, retry=Some(action)) => action
+    _ => abort("sign-in is not offered")
+  }
+  test_root_update(model, SignIn(@sign_in.Invoke(action)))
+}
+
+///|
+fn cancel_sign_in_action(model : Model) -> @sign_in.Action {
+  guard account_controls_input(model).sign_in is @sign_in.InProgress(action) else {
+    abort("sign-in is not in progress")
+  }
+  action
+}
+
+///|
+fn sign_in_request(model : Model) -> @sign_in.Request {
+  guard model.sign_in is @sign_in.Connecting(request~, ..) else {
+    abort("authorization URL was not requested")
+  }
+  request
+}
+
+///|
+fn redirecting_model() -> Model {
+  let (model, _) = start_sign_in(signed_out_model(test_editing()))
+  let url = @account_http.GoogleAuthorizationUrl::parse(
+    "https://accounts.google.com/o/oauth2/auth?state=test",
+  ).unwrap()
+  test_root_update(
+    model,
+    SignIn(@sign_in.AuthorizationReceived(sign_in_request(model), Some(url))),
+  ).0
+}
+
+///|
 test "sign-in advances on the final local save completion" {
   let initial = test_editing()
   let key = initial.activation.key
@@ -19,18 +56,15 @@ test "sign-in advances on the final local save completion" {
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
-  let (waiting, _) = test_root_update(
-    signed_out_model({ ..initial, documents, }),
-    LoginRequested,
-  )
-  assert_true(waiting.departure is SavingBeforeLogin(_))
+  let (waiting, _) = start_sign_in(signed_out_model({ ..initial, documents, }))
+  assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
   let (ready, _) = test_root_update(
     waiting,
     DocumentsLifecycle(
       @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
     ),
   )
-  assert_true(ready.departure is PreparingLogin(_))
+  assert_true(ready.sign_in is @sign_in.Connecting(..))
   assert_eq(
     ready.page
     .saved_documents()
@@ -55,20 +89,20 @@ test "local save failure releases editing and sign-in retries the failed save" {
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
-  let (waiting, _) = test_root_update(
-    signed_out_model({ ..initial, documents, }),
-    LoginRequested,
-  )
+  let (waiting, _) = start_sign_in(signed_out_model({ ..initial, documents, }))
   let (failed, _) = test_root_update(
     waiting,
     DocumentsLifecycle(
       @documents.Feedback::SaveCompleted(operation, SaveFailed(WriteFailed)),
     ),
   )
-  assert_true(failed.departure is LoginFailed(SaveFailed(_)))
-  assert_false(failed.departure.editor_disabled())
-  let (retrying, _) = test_root_update(failed, LoginRequested)
-  assert_true(retrying.departure is SavingBeforeLogin(_))
+  assert_true(
+    account_controls_input(failed).sign_in
+    is @sign_in.Failed(@sign_in.Save(_), ..),
+  )
+  assert_false(failed.sign_in.blocks_editing())
+  let (retrying, _) = start_sign_in(failed)
+  assert_true(retrying.sign_in is @sign_in.SavingChanges(..))
   guard retrying.page is Editing(editing) else {
     fail("editing remains available")
   }
@@ -126,8 +160,8 @@ test "signed-out replica edits enter persistence synchronously during sign-in" {
     signed_out_model(editing),
     TextChanged(0, @text_change.TextChange::ReplaceAll("offline change")),
   )
-  let (waiting, _) = test_root_update(edited, LoginRequested)
-  assert_true(waiting.departure is SavingBeforeLogin(_))
+  let (waiting, _) = start_sign_in(edited)
+  assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
   assert_eq(
     waiting.replication
     .pending(account, document_id("one"))
@@ -140,23 +174,18 @@ test "signed-out replica edits enter persistence synchronously during sign-in" {
 }
 
 ///|
-test "racing text cancels departure and fences provider completion" {
-  let (preparing, _) = test_root_update(
-    signed_out_model(test_editing()),
-    LoginRequested,
-  )
-  guard preparing.departure is PreparingLogin(attempt) else {
-    fail("local copy already durable")
-  }
+test "racing text cancels sign-in and fences provider completion" {
+  let (connecting, _) = start_sign_in(signed_out_model(test_editing()))
+  let request = sign_in_request(connecting)
   let (edited, _) = test_root_update(
-    preparing,
+    connecting,
     TextChanged(0, @text_change.TextChange::ReplaceAll("racing text")),
   )
   let (late, _) = test_root_update(
     edited,
-    LoginPrepared(attempt, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(request, None)),
   )
-  assert_true(late.departure is Stable)
+  assert_true(account_controls_input(late).sign_in is @sign_in.Available(_))
   guard late.page is Editing(editing) else { fail("editing") }
   assert_eq(editing.documents.text(editing.activation.key), Some("racing text"))
 }
@@ -195,55 +224,50 @@ test "uncertain logout can retry without duplicate root session state" {
 
 ///|
 test "a joined sign-in consumes the physical result and stale results cannot release its retry" {
-  let (first, _) = test_root_update(
-    signed_out_model(test_editing()),
-    LoginRequested,
-  )
-  guard first.departure is PreparingLogin(physical) else {
-    fail("first request")
-  }
+  let (first, _) = start_sign_in(signed_out_model(test_editing()))
+  let physical = sign_in_request(first)
+  let first_cancel = cancel_sign_in_action(first)
   let (canceled, _) = test_root_update(
     first,
     TextChanged(0, @text_change.TextChange::ReplaceAll("one")),
   )
-  let (joined, _) = test_root_update(canceled, LoginRequested)
-  guard joined.departure is PreparingLogin(current) else {
-    fail("joined request")
-  }
-  assert_true(current != physical)
+  let (joined, _) = start_sign_in(canceled)
+  assert_true(cancel_sign_in_action(joined) != first_cancel)
+  assert_true(sign_in_request(joined) == physical)
   let (failed, _) = test_root_update(
     joined,
-    LoginPrepared(physical, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(physical, None)),
   )
-  assert_true(failed.departure is LoginFailed(AuthenticationFailed))
-  assert_false(failed.departure.editor_disabled())
-  let (retrying, _) = test_root_update(failed, LoginRequested)
-  guard retrying.departure is PreparingLogin(next) else {
-    fail("explicit retry")
-  }
+  assert_true(
+    account_controls_input(failed).sign_in
+    is @sign_in.Failed(Authentication, ..),
+  )
+  assert_false(failed.sign_in.blocks_editing())
+  let (retrying, _) = start_sign_in(failed)
+  let next = sign_in_request(retrying)
   assert_true(next != physical)
   let (stale, _) = test_root_update(
     retrying,
-    LoginPrepared(physical, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(physical, None)),
   )
-  assert_true(stale.departure is PreparingLogin(_))
+  assert_true(sign_in_request(stale) == next)
   let (completed, _) = test_root_update(
     stale,
-    LoginPrepared(next, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(next, None)),
   )
-  assert_true(completed.departure is LoginFailed(AuthenticationFailed))
+  assert_true(
+    account_controls_input(completed).sign_in
+    is @sign_in.Failed(Authentication, ..),
+  )
 }
 
 ///|
-test "account resolution cancels departure without releasing its physical request" {
-  let (preparing, _) = test_root_update(
-    signed_out_model(test_editing()),
-    LoginRequested,
-  )
-  guard preparing.departure is PreparingLogin(physical) else { fail("request") }
-  let (sync, lookup) = preparing.sync().begin_lookup()
+test "account resolution cancels sign-in without releasing its physical request" {
+  let (connecting, _) = start_sign_in(signed_out_model(test_editing()))
+  let physical = sign_in_request(connecting)
+  let (sync, lookup) = connecting.sync().begin_lookup()
   let (signed_in, _) = test_root_update(
-    preparing.with_sync(sync),
+    connecting.with_sync(sync),
     Sync(
       AccountResolved(
         lookup,
@@ -251,109 +275,114 @@ test "account resolution cancels departure without releasing its physical reques
       ),
     ),
   )
-  assert_false(signed_in.departure.editor_disabled())
+  assert_false(signed_in.sign_in.blocks_editing())
   let (sync, lookup) = signed_in.sync().begin_lookup()
   let (signed_out, _) = test_root_update(
     signed_in.with_sync(sync),
     Sync(AccountResolved(lookup, @sync.SignedOut)),
   )
-  let (joined, _) = test_root_update(signed_out, LoginRequested)
+  let (joined, _) = start_sign_in(signed_out)
   let (completed, _) = test_root_update(
     joined,
-    LoginPrepared(physical, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(physical, None)),
   )
-  assert_true(completed.departure is LoginFailed(AuthenticationFailed))
+  assert_true(
+    account_controls_input(completed).sign_in
+    is @sign_in.Failed(Authentication, ..),
+  )
 }
 
 ///|
 test "physical completion during a newer save cannot bypass local persistence" {
   let initial = test_editing()
-  let (preparing, _) = test_root_update(
-    signed_out_model(initial),
-    LoginRequested,
-  )
-  guard preparing.departure is PreparingLogin(physical) else { fail("request") }
+  let (connecting, _) = start_sign_in(signed_out_model(initial))
+  let physical = sign_in_request(connecting)
   let (edited, _) = test_root_update(
-    preparing,
+    connecting,
     TextChanged(0, @text_change.TextChange::ReplaceAll("new text")),
   )
-  let (_, actions) = edited.page.documents_state().unwrap().prepare_departure()
+  let (_, actions) = edited.page.documents_state().unwrap().save_changes()
   guard actions is [@documents.Action::PersistSource(operation)] else {
     fail("latest source persistence")
   }
-  let (saving, _) = test_root_update(edited, LoginRequested)
-  assert_true(saving.departure is SavingBeforeLogin(_))
+  let (saving, _) = start_sign_in(edited)
+  assert_true(saving.sign_in is @sign_in.SavingChanges(..))
   let (waiting, _) = test_root_update(
     saving,
-    LoginPrepared(physical, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(physical, None)),
   )
-  assert_true(waiting.departure is SavingBeforeLogin(_))
+  assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
   let (ready, _) = test_root_update(
     waiting,
     DocumentsLifecycle(
       @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
     ),
   )
-  guard ready.departure is PreparingLogin(next) else {
-    fail("fresh request after save")
-  }
+  let next = sign_in_request(ready)
   assert_true(next != physical)
   let (failed, _) = test_root_update(
     ready,
-    LoginPrepared(next, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(next, None)),
   )
-  assert_true(failed.departure is LoginFailed(AuthenticationFailed))
+  assert_true(
+    account_controls_input(failed).sign_in
+    is @sign_in.Failed(Authentication, ..),
+  )
 }
 
 ///|
 test "a visibility account lookup suspends rather than cancels sign-in" {
-  let (preparing, _) = test_root_update(
-    signed_out_model(test_editing()),
-    LoginRequested,
-  )
-  guard preparing.departure is PreparingLogin(physical) else { fail("request") }
-  let (resolving, _) = test_root_update(preparing, VisibilityChanged(false))
+  let (connecting, _) = start_sign_in(signed_out_model(test_editing()))
+  let physical = sign_in_request(connecting)
+  let (resolving, _) = test_root_update(connecting, VisibilityChanged(false))
   guard resolving.sync().session() is @sync.Session::Resolving(lookup) else {
     fail("account lookup")
   }
-  assert_true(resolving.departure is PreparingLogin(_))
+  assert_true(sign_in_request(resolving) == physical)
   let (signed_out, _) = test_root_update(
     resolving,
     Sync(AccountResolved(lookup, @sync.SignedOut)),
   )
   let (failed, _) = test_root_update(
     signed_out,
-    LoginPrepared(physical, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(physical, None)),
   )
-  assert_true(failed.departure is LoginFailed(AuthenticationFailed))
+  assert_true(
+    account_controls_input(failed).sign_in
+    is @sign_in.Failed(Authentication, ..),
+  )
 }
 
 ///|
 test "explicit cancellation retains the physical request and fences stale cancellations" {
-  let (preparing, _) = test_root_update(
-    signed_out_model(test_editing()),
-    LoginRequested,
+  let (connecting, _) = start_sign_in(signed_out_model(test_editing()))
+  let physical = sign_in_request(connecting)
+  let cancel = cancel_sign_in_action(connecting)
+  let (canceled, _) = test_root_update(
+    connecting,
+    SignIn(@sign_in.Invoke(cancel)),
   )
-  guard preparing.departure is PreparingLogin(physical) else { fail("request") }
-  let (canceled, _) = test_root_update(preparing, LoginCancelled(physical))
-  assert_false(canceled.departure.editor_disabled())
-  let (joined, _) = test_root_update(canceled, LoginRequested)
-  guard joined.departure is PreparingLogin(current) else { fail("joined") }
-  assert_true(current != physical)
-  let (still_joined, _) = test_root_update(joined, LoginCancelled(physical))
-  assert_true(still_joined.departure == PreparingLogin(current))
+  assert_false(canceled.sign_in.blocks_editing())
+  let (joined, _) = start_sign_in(canceled)
+  let current_cancel = cancel_sign_in_action(joined)
+  assert_true(current_cancel != cancel)
+  let (still_joined, _) = test_root_update(
+    joined,
+    SignIn(@sign_in.Invoke(cancel)),
+  )
+  assert_true(cancel_sign_in_action(still_joined) == current_cancel)
   let (completed, _) = test_root_update(
     still_joined,
-    LoginPrepared(physical, @account_http.Unavailable),
+    SignIn(@sign_in.AuthorizationReceived(physical, None)),
   )
-  assert_true(completed.departure is LoginFailed(AuthenticationFailed))
   assert_true(
-    Departure::Redirecting(current).cancel(current) == Redirecting(current),
+    account_controls_input(completed).sign_in
+    is @sign_in.Failed(Authentication, ..),
   )
 }
 
 ///|
-test "canceling departure leaves its save alive and preserves subsequent editing" {
+test "canceling sign-in leaves its save alive and preserves subsequent editing" {
   let initial = test_editing()
   let key = initial.activation.key
   let (documents, _) = initial.documents.reduce(
@@ -365,13 +394,10 @@ test "canceling departure leaves its save alive and preserves subsequent editing
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
-  let (waiting, _) = test_root_update(
-    signed_out_model({ ..initial, documents, }),
-    LoginRequested,
-  )
-  guard waiting.departure is SavingBeforeLogin(attempt) else { fail("saving") }
-  let (canceled, _) = test_root_update(waiting, LoginCancelled(attempt))
-  assert_false(canceled.departure.editor_disabled())
+  let (waiting, _) = start_sign_in(signed_out_model({ ..initial, documents, }))
+  let cancel = cancel_sign_in_action(waiting)
+  let (canceled, _) = test_root_update(waiting, SignIn(@sign_in.Invoke(cancel)))
+  assert_false(canceled.sign_in.blocks_editing())
   let (edited, _) = test_root_update(
     canceled,
     TextChanged(0, @text_change.TextChange::ReplaceAll("newer text")),
@@ -382,7 +408,9 @@ test "canceling departure leaves its save alive and preserves subsequent editing
       @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
     ),
   )
-  assert_true(completed.departure is Stable)
+  assert_true(
+    account_controls_input(completed).sign_in is @sign_in.Available(_),
+  )
   assert_eq(
     completed.page.documents_state().unwrap().text(key),
     Some("newer text"),
@@ -400,14 +428,13 @@ test "canceling departure leaves its save alive and preserves subsequent editing
 
 ///|
 test "queued input cannot cancel an already dispatched redirect" {
-  let initial = signed_out_model(test_editing())
-  let redirecting = { ..initial, departure: Redirecting(LoginAttempt(1)), }
+  let redirecting = redirecting_model()
   let (after_input, _) = test_root_update(
     redirecting,
     TextChanged(0, @text_change.TextChange::ReplaceAll("queued text")),
   )
-  assert_true(after_input.departure is Redirecting(_))
-  assert_true(after_input.departure.editor_disabled())
+  assert_true(account_controls_input(after_input).sign_in is @sign_in.Leaving)
+  assert_true(after_input.sign_in.blocks_editing())
   assert_eq(
     after_input.page
     .documents_state()
@@ -420,19 +447,16 @@ test "queued input cannot cancel an already dispatched redirect" {
     after_input.with_sync(sync),
     Sync(AccountResolved(lookup, @sync.AccountUnavailable)),
   )
-  assert_true(after_lookup.departure is Redirecting(_))
+  assert_true(after_lookup.sign_in.blocks_editing())
 }
 
 ///|
 test "BFCache restoration releases redirecting and fences the old account lookup" {
-  let initial = signed_out_model(test_editing())
+  let initial = redirecting_model()
   let (sync, old_lookup) = initial.sync().begin_lookup()
-  let redirecting = {
-    ..initial.with_sync(sync),
-    departure: Redirecting(LoginAttempt(1)),
-  }
+  let redirecting = initial.with_sync(sync)
   let (restored, _) = test_root_update(redirecting, PageRestored)
-  assert_false(restored.departure.editor_disabled())
+  assert_false(restored.sign_in.blocks_editing())
   guard restored.sync().session() is Resolving(lookup) else {
     fail("restoration checks the current account")
   }
@@ -459,8 +483,68 @@ test "BFCache restoration releases redirecting and fences the old account lookup
 ///|
 test "page restoration does not cancel sign-in before navigation" {
   let initial = signed_out_model(test_editing())
-  let (preparing, _) = test_root_update(initial, LoginRequested)
-  assert_true(preparing.departure is PreparingLogin(_))
-  let (restored, _) = test_root_update(preparing, PageRestored)
-  assert_true(restored == preparing)
+  let (connecting, _) = start_sign_in(initial)
+  let physical = sign_in_request(connecting)
+  let (restored, _) = test_root_update(connecting, PageRestored)
+  assert_true(sign_in_request(restored) == physical)
+  assert_true(
+    cancel_sign_in_action(restored) == cancel_sign_in_action(connecting),
+  )
+}
+
+///|
+test "an offered sign-in waits for composition accepted before the click is processed" {
+  let initial = signed_out_model(test_editing())
+  guard account_controls_input(initial).sign_in is @sign_in.Available(start) else {
+    fail("sign-in offered")
+  }
+  let (composing, _) = test_root_update(initial, CompositionStarted(0))
+  assert_true(account_controls_input(composing).sign_in is @sign_in.Unavailable)
+  let (waiting, _) = test_root_update(composing, SignIn(@sign_in.Invoke(start)))
+  assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
+  let (ready, _) = test_root_update(waiting, CompositionEnded(0))
+  assert_true(ready.sign_in is @sign_in.Connecting(..))
+}
+
+///|
+test "an offered sign-in cannot restart authentication after the account changes" {
+  let initial = signed_out_model(test_editing())
+  guard account_controls_input(initial).sign_in is @sign_in.Available(start) else {
+    fail("sign-in offered")
+  }
+  let signed_in = initial.with_sync(
+    current_sync(sync_test_account("signed-in")),
+  )
+  let (unchanged, _) = test_root_update(
+    signed_in,
+    SignIn(@sign_in.Invoke(start)),
+  )
+  assert_false(unchanged.sign_in.blocks_editing())
+  assert_true(unchanged.sync().session() is @sync.Current(_, _))
+}
+
+///|
+test "authentication return retains a pending request and its failure notice during account lookup failure" {
+  let (connecting, _) = start_sign_in(signed_out_model(test_editing()))
+  let request = sign_in_request(connecting)
+  let (failed, _) = test_root_update(connecting, AuthenticationReturned(true))
+  assert_true(
+    account_controls_input(failed).sign_in
+    is @sign_in.Failed(Authentication, ..),
+  )
+  let (retrying, _) = start_sign_in(failed)
+  assert_true(sign_in_request(retrying) == request)
+  let (failed, _) = test_root_update(
+    retrying,
+    SignIn(@sign_in.AuthorizationReceived(request, None)),
+  )
+  let (sync, lookup) = failed.sync().begin_lookup()
+  let (unavailable, _) = test_root_update(
+    failed.with_sync(sync),
+    Sync(AccountResolved(lookup, @sync.AccountUnavailable)),
+  )
+  assert_true(
+    account_controls_input(unavailable).sign_in
+    is @sign_in.Failed(Authentication, retry=None),
+  )
 }

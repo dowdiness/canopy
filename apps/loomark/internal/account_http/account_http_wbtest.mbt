@@ -18,49 +18,48 @@ test "account response distinguishes signed out from unavailable" {
 }
 
 ///|
-test "login adapter admits only Google HTTPS authorization URLs" {
-  guard authorization_url(
+test "authorization response decoding returns validated URLs or unavailable" {
+  assert_true(
+    parse_authorization_url(
       "{\"url\":\"https://accounts.google.com/o/oauth2/auth?client=ok\"}",
     )
-    is Prepared(url) else {
-    fail("Google URL should be prepared")
-  }
-  assert_true(url.value().has_prefix("https://accounts.google.com/"))
-  assert_true(
-    authorization_url("{\"url\":\"https://accounts.google.com.evil.test/\"}")
-    is Unavailable,
+    is Some(_),
   )
-  assert_true(
-    authorization_url("{\"url\":\"http://accounts.google.com/\"}")
-    is Unavailable,
-  )
+  assert_true(parse_authorization_url("{}") is None)
+  assert_true(parse_authorization_url("not JSON") is None)
 }
 
 ///|
-test "login adapter accepts browser-normalized Google host casing" {
+test "Google authorization URL parser validates HTTPS origin" {
   assert_true(
-    authorization_url("{\"url\":\"https://ACCOUNTS.GOOGLE.COM/oauth2/auth\"}")
-    is Prepared(_),
-  )
-}
-
-///|
-test "login adapter rejects hostile Google lookalike origins" {
-  assert_true(
-    authorization_url("{\"url\":\"https://accounts.google.com:443/\"}")
-    is Unavailable,
-  )
-  assert_true(
-    authorization_url(
-      "{\"url\":\"https://accounts.google.com.evil.test/path\"}",
+    GoogleAuthorizationUrl::parse(
+      "https://accounts.google.com/o/oauth2/auth?client=ok",
     )
-    is Unavailable,
+    is Some(_),
   )
   assert_true(
-    authorization_url("{\"url\":\"https://user@accounts.google.com/path\"}")
-    is Unavailable,
+    GoogleAuthorizationUrl::parse("https://ACCOUNTS.GOOGLE.COM/oauth2/auth")
+    is Some(_),
   )
   assert_true(
-    authorization_url("{\"url\":\"//accounts.google.com/path\"}") is Unavailable,
+    GoogleAuthorizationUrl::parse("http://accounts.google.com/") is None,
+  )
+}
+
+///|
+test "Google authorization URL parser rejects hostile lookalike origins" {
+  assert_true(
+    GoogleAuthorizationUrl::parse("https://accounts.google.com:443/") is None,
+  )
+  assert_true(
+    GoogleAuthorizationUrl::parse("https://accounts.google.com.evil.test/path")
+    is None,
+  )
+  assert_true(
+    GoogleAuthorizationUrl::parse("https://user@accounts.google.com/path")
+    is None,
+  )
+  assert_true(
+    GoogleAuthorizationUrl::parse("//accounts.google.com/path") is None,
   )
 }

@@ -1,35 +1,35 @@
 ///|
-test "untouched new document is departure-ready" {
+test "untouched new document is locally durable" {
   let documents = State::State(documents_test_snapshot())
   let (documents, _) = documents.reduce(New(document_id("new")))
   assert_true(
-    documents.departure_status(@replica_persistence.State::State())
-    is DepartureStatus::Ready,
+    documents.local_durability(@replica_persistence.State::State())
+    is LocalDurability::Durable,
   )
 }
 
 ///|
-test "imported blank document is not departure-ready before persistence" {
+test "imported blank document is not durable before persistence" {
   let documents = State::State(documents_test_snapshot())
   let (documents, _) = documents.reduce(Imported(document_id("new"), ""))
   assert_true(
-    documents.departure_status(@replica_persistence.State::State())
-    is DepartureStatus::Saving,
+    documents.local_durability(@replica_persistence.State::State())
+    is LocalDurability::Saving,
   )
 }
 
 ///|
-test "composition requires input before departure" {
+test "composition requires input before local durability" {
   let documents = State::State(documents_test_snapshot())
   let (documents, _) = documents.reduce(CompositionStarted(source_key("one")))
   assert_true(
-    documents.departure_status(@replica_persistence.State::State())
-    is DepartureStatus::AwaitingInput,
+    documents.local_durability(@replica_persistence.State::State())
+    is LocalDurability::AwaitingInput,
   )
 }
 
 ///|
-test "hidden replica candidates are not committed text and failures unblock departure" {
+test "hidden replica candidates are not committed text and failures unblock saving" {
   let replica = @source_repository.DocumentReplica(
     account_id("hidden"),
     documents_test_document("replica", "durable"),
@@ -41,15 +41,17 @@ test "hidden replica candidates are not committed text and failures unblock depa
   let (persistence, attempt) = @replica_persistence.State().submit(write)
   let documents = State(saved)
   assert_true(
-    documents.departure_status(persistence) is DepartureStatus::Saving,
+    documents.local_durability(persistence) is LocalDurability::Saving,
   )
   let (failed, _) = persistence.complete(
     attempt.unwrap(),
     Err(@source_repository.ReplicaFailure::StorageUnavailable),
   )
-  assert_true(documents.departure_status(failed) is DepartureStatus::Failed(_))
+  assert_true(documents.local_durability(failed) is LocalDurability::Failed(_))
   let committed = State(saved.apply_replica_write(write))
-  assert_true(committed.departure_status(persistence) is DepartureStatus::Ready)
+  assert_true(
+    committed.local_durability(persistence) is LocalDurability::Durable,
+  )
 }
 
 ///|
@@ -70,7 +72,7 @@ test "queued return to durable text still waits for older in-flight write" {
   let (persistence, _) = @replica_persistence.State().submit(older)
   let (persistence, _) = persistence.submit(newer)
   assert_true(
-    State(saved).departure_status(persistence) is DepartureStatus::Saving,
+    State(saved).local_durability(persistence) is LocalDurability::Saving,
   )
 }
 
@@ -85,11 +87,11 @@ test "replica deletion waits for local intent but not durable remote delivery" {
   let deletion = replica.request_deletion()
   let (persistence, _) = @replica_persistence.State().submit(deletion)
   assert_true(
-    State(saved).departure_status(persistence) is DepartureStatus::Saving,
+    State(saved).local_durability(persistence) is LocalDurability::Saving,
   )
   let durable = saved.apply_replica_write(deletion)
   assert_true(
-    State(durable).departure_status(persistence) is DepartureStatus::Ready,
+    State(durable).local_durability(persistence) is LocalDurability::Durable,
   )
 }
 
@@ -101,11 +103,11 @@ test "promotion waits for ownership commit and newer accepted text" {
   let (persistence, _) = @replica_persistence.State().submit(write)
   let documents = State(documents_test_snapshot())
   assert_true(
-    documents.departure_status(persistence) is DepartureStatus::Saving,
+    documents.local_durability(persistence) is LocalDurability::Saving,
   )
   let committed = documents.saved.apply_replica_write(write)
   assert_true(
-    State(committed).departure_status(persistence) is DepartureStatus::Ready,
+    State(committed).local_durability(persistence) is LocalDurability::Durable,
   )
   let pending = {
     ..documents,
@@ -116,7 +118,7 @@ test "promotion waits for ownership commit and newer accepted text" {
       document: source.update("newer accepted text"),
     }),
   }
-  assert_true(pending.departure_status(persistence) is DepartureStatus::Saving)
+  assert_true(pending.local_durability(persistence) is LocalDurability::Saving)
 }
 
 ///|
@@ -142,13 +144,13 @@ test "fork recovery commit does not cover text accepted after forking" {
     ],
   }
   assert_true(
-    documents.departure_status(@replica_persistence.State())
-    is DepartureStatus::Saving,
+    documents.local_durability(@replica_persistence.State())
+    is LocalDurability::Saving,
   )
 }
 
 ///|
-test "imported blank save failure releases departure instead of waiting forever" {
+test "imported blank save failure releases local durability instead of waiting forever" {
   let documents = State(documents_test_snapshot())
   let (documents, actions) = documents.reduce(
     Imported(document_id("blank"), ""),
@@ -167,13 +169,13 @@ test "imported blank save failure releases departure instead of waiting forever"
     ),
   )
   assert_true(
-    documents.departure_status(@replica_persistence.State())
-    is DepartureStatus::Failed(_),
+    documents.local_durability(@replica_persistence.State())
+    is LocalDurability::Failed(_),
   )
 }
 
 ///|
-test "departure retries failed replica deletion without retaining stale failure" {
+test "saving retries failed replica deletion without retaining stale failure" {
   let replica = @source_repository.DocumentReplica::receive(
     account_id("account"),
     documents_test_document("replica", "durable"),
@@ -192,6 +194,8 @@ test "departure retries failed replica deletion without retaining stale failure"
     ),
   )
   let (retrying, _) = @replica_persistence.State().submit(write)
-  let (prepared, _) = documents.prepare_departure()
-  assert_true(prepared.departure_status(retrying) is DepartureStatus::Saving)
+  let (saved_after_changes, _) = documents.save_changes()
+  assert_true(
+    saved_after_changes.local_durability(retrying) is LocalDurability::Saving,
+  )
 }

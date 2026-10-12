@@ -160,7 +160,7 @@ fn activate_open(
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
   guard model.page is Editing(editing) &&
-    !model.departure.editor_disabled() &&
+    !model.sign_in.blocks_editing() &&
     editing.can_activate() &&
     model.page.saved_documents() is Some(saved) else {
     return (model, command)
@@ -703,16 +703,6 @@ fn Page::saved_documents(self : Self) -> @source_repository.SavedDocuments? {
 }
 
 ///|
-fn Page::documents_state(self : Self) -> @documents.State? {
-  match self {
-    Editing(editing) => Some(editing.documents)
-    PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
-      Some(preparing.documents)
-    Loading(_) | Recovery(_, _) => None
-  }
-}
-
-///|
 fn Page::begin_fork(
   self : Self,
   write : @source_repository.ReplicaWrite,
@@ -1110,9 +1100,7 @@ fn initial_state(
     {
       page,
       replication: @replication.State(),
-      departure: Stable,
-      login_prepare: None,
-      next_login_id: 0,
+      sign_in: @sign_in.SignIn(),
       scroll_owner: TextPane,
     },
     @cmd.batch([
@@ -1143,128 +1131,6 @@ fn update_documents(
     emit,
   )
   (model, @cmd.batch([page_command, action_command]))
-}
-
-///|
-fn begin_login(
-  model : Model,
-  emit : @rabbita.Emit[Msg],
-) -> (Model, @rabbita.Cmd) {
-  guard model.page is Editing(editing) &&
-    model.sync().session() is @sync.Session::NoAccount &&
-    !model.departure.editor_disabled() else {
-    return (model, @cmd.none)
-  }
-  let (documents, actions) = editing.documents.prepare_departure()
-  for write in model.replication.persistence().pending_writes() {
-    let replica = write.replica()
-    if model.replication
-      .persistence()
-      .status(replica.account(), replica.document_id())
-      is @replica_persistence.Status::Retryable(_, _) {
-      actions.push(
-        @documents.Action::RetryReplica(
-          replica.account(),
-          replica.document_id(),
-        ),
-      )
-    }
-  }
-  let id = model.next_login_id + 1
-  apply_document_actions(
-    {
-      ..model,
-      page: Editing({ ..editing, documents, }),
-      departure: SavingBeforeLogin(LoginAttempt(id)),
-      next_login_id: id,
-    },
-    actions,
-    emit,
-  )
-}
-
-///|
-fn settle_departure(
-  model : Model,
-  emit : @rabbita.Emit[Msg],
-) -> (Model, @rabbita.Cmd) {
-  match model.sync().session() {
-    @sync.Session::NoAccount => ()
-    Resolving(_) => return (model, @cmd.none)
-    _ =>
-      if model.departure
-        is (SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _)) {
-        return ({ ..model, departure: Stable, }, @cmd.none)
-      } else {
-        return (model, @cmd.none)
-      }
-  }
-  guard model.departure is (SavingBeforeLogin(_) | PreparedLogin(_, _)) else {
-    return (model, @cmd.none)
-  }
-  guard model.page.documents_state() is Some(documents) else {
-    return (model, @cmd.none)
-  }
-  if model.page is Editing(editing) &&
-    (editing.creation is Creating(_) || editing.imports_pending > 0) {
-    return (model, @cmd.none)
-  }
-  match documents.departure_status(model.replication.persistence()) {
-    @documents.DepartureStatus::Ready =>
-      match model.departure {
-        SavingBeforeLogin(attempt) =>
-          match model.login_prepare {
-            Some(_) =>
-              ({ ..model, departure: PreparingLogin(attempt), }, @cmd.none)
-            None =>
-              (
-                {
-                  ..model,
-                  departure: PreparingLogin(attempt),
-                  login_prepare: Some(attempt),
-                },
-                @account_http.prepare_login(
-                  emit.map(result => LoginPrepared(attempt, result)),
-                ),
-              )
-          }
-        PreparedLogin(attempt, url) =>
-          (
-            { ..model, departure: Redirecting(attempt), },
-            @cmd.custom_cmd(_ => load_url(url.value())),
-          )
-        _ => (model, @cmd.none)
-      }
-    Failed(failure) =>
-      ({ ..model, departure: LoginFailed(SaveFailed(failure)), }, @cmd.none)
-    AwaitingInput | Saving => (model, @cmd.none)
-  }
-}
-
-///|
-fn handle_login_prepared(
-  model : Model,
-  attempt : LoginAttempt,
-  result : @account_http.LoginResult,
-) -> (Model, @rabbita.Cmd) {
-  // Clearing the physical slot is independent of whether departure survived.
-  guard model.login_prepare == Some(attempt) else { return (model, @cmd.none) }
-  let model = { ..model, login_prepare: None, }
-  let departure = match (model.departure, model.sync().session(), result) {
-    (
-      PreparingLogin(current),
-      @sync.Session::NoAccount
-      | Resolving(_),
-      Prepared(url),
-    ) => PreparedLogin(current, url)
-    (PreparingLogin(_), @sync.Session::NoAccount | Resolving(_), Unavailable) =>
-      LoginFailed(AuthenticationFailed)
-    (PreparingLogin(_), _, _) => Stable
-    // A canceled intent does not cache the URL. A still-saving intent may
-    // prepare again only after this physical request has completed.
-    _ => model.departure
-  }
-  ({ ..model, departure, }, @cmd.none)
 }
 
 ///|
@@ -1338,9 +1204,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | ExampleCreateCompleted(_, _, _)
     | RetryDelete(_)
     | DismissDeleteFailure(_)
-    | LoginRequested
-    | LoginCancelled(_)
-    | LoginPrepared(_, _)
+    | SignIn(_)
     | LogoutCompleted(_, _)
     | AuthenticationReturned(_)
     | Sync(_) => false
@@ -1370,37 +1234,11 @@ fn reduce(
     ModeSelected(Preview) => { ..model, scroll_owner: PreviewPane, }
     _ => model
   }
-  let model = if model.departure
-    is (SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _)) &&
-    is_user_mutating(msg) {
-    { ..model, departure: Stable, }
-  } else {
-    model
-  }
+  let model = interrupt_sign_in(model, msg)
   match msg {
     ScrollClaimed(pane) => ({ ..model, scroll_owner: pane, }, @cmd.none)
-    AuthenticationReturned(true) =>
-      ({ ..model, departure: LoginFailed(AuthenticationFailed), }, @cmd.none)
-    AuthenticationReturned(false) => (model, @cmd.none)
-    PageRestored => {
-      guard model.departure is Redirecting(_) else { return (model, @cmd.none) }
-      begin_account_lookup({ ..model, departure: Stable, }, emit)
-    }
-    LoginRequested => begin_login(model, emit)
-    LoginCancelled(attempt) => {
-      let departure = model.departure.cancel(attempt)
-      guard departure != model.departure else { return (model, @cmd.none) }
-      (
-        // Cancel only this intent; pending storage and HTTP keep their owners.
-        { ..model, departure, },
-        match model.page {
-          Editing(editing) => focus_after_render(editor_focus_id(editing.mode))
-          _ => @cmd.none
-        },
-      )
-    }
-    LoginPrepared(attempt, result) =>
-      handle_login_prepared(model, attempt, result)
+    AuthenticationReturned(_) | PageRestored | SignIn(_) =>
+      update_sign_in(model, msg, emit)
     LogoutRequested => begin_logout(model, emit)
     LogoutCompleted(attempt, result) => {
       let confirmed = match result {
@@ -1901,8 +1739,12 @@ fn update(
 ) -> (Model, @rabbita.Cmd) {
   let (model, command) = reduce(model, msg, emit, editor)
   let (model, command) = activate_open(model, command, emit, editor)
-  let (model, departure_command) = settle_departure(model, emit)
-  (model, @cmd.batch([command, departure_command]))
+  let (model, sign_in_command) = update_sign_in(
+    model,
+    SignIn(@sign_in.Refresh),
+    emit,
+  )
+  (model, @cmd.batch([command, sign_in_command]))
 }
 
 ///|

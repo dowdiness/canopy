@@ -1,8 +1,7 @@
 ///|
 priv enum AccountIntent {
   RetryAccount
-  LoginRequested
-  LoginCancelled(LoginAttempt)
+  SignIn(@sign_in.Action)
   LogoutRequested
 }
 
@@ -25,23 +24,24 @@ fn account_controls(
       ),
     ])
   }
-  let (label, disabled, command) = match input.departure {
-    SavingBeforeLogin(attempt)
-    | PreparingLogin(attempt)
-    | PreparedLogin(attempt, _) =>
-      ("Cancel sign-in", false, emit(LoginCancelled(attempt)))
-    Redirecting(_) => ("Signing in…", true, @cmd.none)
-    Stable | LoginFailed(_) =>
+  let (label, disabled, command) = match input.sign_in {
+    @sign_in.InProgress(cancel) =>
+      ("Cancel sign-in", false, emit(SignIn(cancel)))
+    Leaving => ("Signing in…", true, @cmd.none)
+    Available(start) => ("Login with Google", false, emit(SignIn(start)))
+    Failed(_, retry=Some(retry)) =>
+      ("Retry sign-in", false, emit(SignIn(retry)))
+    Unavailable | Failed(_, retry=None) =>
       match input.session {
         NoAccount =>
           (
-            if input.departure is LoginFailed(_) {
+            if input.sign_in is @sign_in.Failed(_, ..) {
               "Retry sign-in"
             } else {
               "Login with Google"
             },
-            !input.can_login,
-            emit(LoginRequested),
+            true,
+            @cmd.none,
           )
         Current(_, _) => ("Sign out", false, emit(LogoutRequested))
         Revoking(_) => ("Signing out…", true, @cmd.none)
@@ -50,13 +50,13 @@ fn account_controls(
         SessionUnavailable => return @html.nothing
       }
   }
-  let progress = match input.departure {
-    SavingBeforeLogin(_) | PreparingLogin(_) | PreparedLogin(_, _) =>
-      "Signing in…"
-    _ => ""
+  let progress = if input.sign_in is @sign_in.InProgress(_) {
+    "Signing in…"
+  } else {
+    ""
   }
   let google_sign_in = input.session is NoAccount &&
-    input.departure is (Stable | LoginFailed(_) | Redirecting(_))
+    !(input.sign_in is @sign_in.InProgress(_))
   @html.div(class="flex min-w-0 flex-wrap items-center gap-1", [
     @html.span(
       hidden=progress == "",
@@ -103,10 +103,10 @@ fn account_controls(
 
 ///|
 fn account_notice(input : AccountControlsInput) -> @rabbita.Html {
-  let message = match input.departure {
-    LoginFailed(SaveFailed(_)) =>
+  let message = match input.sign_in {
+    @sign_in.Failed(@sign_in.Save(_), ..) =>
       "Couldn’t save changes. You have not left this page. Retry sign-in to save again."
-    LoginFailed(AuthenticationFailed) =>
+    Failed(Authentication, ..) =>
       "Couldn’t sign in with Google. Your documents remain on this device."
     _ =>
       match input.session {

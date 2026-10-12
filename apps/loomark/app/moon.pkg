@@ -1,6 +1,7 @@
 import {
   "dowdiness/js_ffi" @js,
   "dowdiness/loomark/internal/account_http",
+  "dowdiness/loomark/internal/sign_in",
   "dowdiness/loomark/internal/replica_persistence",
   "dowdiness/loomark/internal/replication",
   "dowdiness/loomark/internal/document_http",

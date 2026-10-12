@@ -11,10 +11,7 @@ priv enum Page {
 priv struct Model {
   page : Page
   replication : @replication.State
-  departure : Departure
-  // A canceled departure does not cancel or release its physical HTTP request.
-  login_prepare : LoginAttempt?
-  next_login_id : Int
+  sign_in : @sign_in.SignIn
   scroll_owner : ScrollPane
 } derive(Eq)
 
@@ -98,55 +95,9 @@ priv enum DocumentDeletion {
 } derive(Eq)
 
 ///|
-priv struct LoginAttempt(Int) derive(Eq)
-
-///|
-priv enum LoginFailure {
-  SaveFailed(@documents.DepartureFailure)
-  AuthenticationFailed
-} derive(Eq)
-
-///|
-priv enum Departure {
-  Stable
-  SavingBeforeLogin(LoginAttempt)
-  PreparingLogin(LoginAttempt)
-  PreparedLogin(LoginAttempt, @account_http.GoogleAuthorizationUrl)
-  Redirecting(LoginAttempt)
-  LoginFailed(LoginFailure)
-} derive(Eq)
-
-///|
-fn Departure::editor_disabled(self : Self) -> Bool {
-  match self {
-    SavingBeforeLogin(_)
-    | PreparingLogin(_)
-    | PreparedLogin(_, _)
-    | Redirecting(_) => true
-    Stable | LoginFailed(_) => false
-  }
-}
-
-///|
-fn Departure::cancel(self : Self, attempt : LoginAttempt) -> Self {
-  match self {
-    SavingBeforeLogin(current)
-    | PreparingLogin(current)
-    | PreparedLogin(current, _) =>
-      if current == attempt {
-        Stable
-      } else {
-        self
-      }
-    Stable | Redirecting(_) | LoginFailed(_) => self
-  }
-}
-
-///|
 priv struct AccountControlsInput {
   session : @sync.Session
-  departure : Departure
-  can_login : Bool
+  sign_in : @sign_in.View
 } derive(Eq)
 
 ///|
@@ -190,9 +141,7 @@ priv enum Msg {
   DeleteConfirmed(@documents.Key)
   RetryDelete(@documents.Key)
   DismissDeleteFailure(@documents.Key)
-  LoginRequested
-  LoginCancelled(LoginAttempt)
-  LoginPrepared(LoginAttempt, @account_http.LoginResult)
+  SignIn(@sign_in.Event)
   LogoutRequested
   LogoutCompleted(@sync.LogoutAttempt, @account_http.LogoutResult)
   Sync(SyncMsg)
