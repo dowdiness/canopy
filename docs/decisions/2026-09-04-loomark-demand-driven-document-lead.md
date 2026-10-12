@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-04
 
-**Status:** Accepted
+**Status:** Accepted; repository placement revised on 2026-10-12.
 
 **Related:** [Source-first interactive contract](2026-08-24-loomark-source-first-interactive-contract.md), [Source repository](2026-08-29-loomark-source-repository.md), [Document deletion](2026-08-31-loomark-document-deletion.md)
 
@@ -36,10 +36,10 @@ inside `source_repository`. It exposes small equality-bearing product values and
 narrow name operations rather than MarkdownIR, source origins, parser state, or
 repository types. Task recognition enables the Markdown task-list extension.
 
-Move the Source repository to `app/internal/source_repository`. MoonBit permits
-that package to be imported from `app` and its descendants, but rejects imports
-from the sibling `internal/recent_documents` feature. This placement makes the
-repository-access prohibition a compiler rule instead of a convention.
+Keep the Source repository under `internal/source_repository`, alongside the
+other Loomark-internal features. This supersedes the original app-scoped
+placement: Recent documents still receives resolved inputs rather than importing
+the repository, but that dependency rule is no longer enforced by package visibility.
 `source_repository` consumes the narrow name-analysis API from `document_lead`;
 it no longer owns Markdown traversal or exports `derive_name` to the app.
 
@@ -119,22 +119,22 @@ benchmarks and do not prove a product speedup. They do establish that repeated
 browser-target Markdown parsing can be material, so unconditional parse-on-open
 is not the simpler safe default.
 
-A separate compiler probe confirmed MoonBit's package rule: a package below
-`a/internal/` imports from `a/...`, while a sibling package is rejected during
-build planning. The repository relocation therefore enforces the intended
-negative dependency.
+The original compiler probe confirmed that app-scoped placement rejected sibling
+imports. The 2026-10-12 relocation removed that restriction; repository-independent
+Recent documents inputs remain the intended dependency contract.
 
 ## Rejected alternatives
 
 - Passing MarkdownIR to Recent documents leaks parser details, weakens equality
   with unrendered origins and metadata, and moves lead-selection policy into the
   UI.
-- Keeping `source_repository` at the current sibling path and documenting a
-  forbidden import does not satisfy compiler-enforced isolation.
+- The original app-scoped repository placement enforced isolation but split
+  Loomark's internal features across two locations; it was superseded on 2026-10-12.
 - Making `recent_documents` a renderer leaf leaves its graph topology, cache,
   lifecycle, and Delete presentation in `app`, weakening feature locality.
-- Moving the Documents reducer to an `internal/documents` package publishes a
-  broad private protocol and splits atomic application transitions.
+- Publishing more of the Documents reducer protocol merely to reorganize the
+  application would split atomic transitions. Relocating the existing package
+  does not require changing that protocol.
 - Storing Document leads or a manual cache in the root Model duplicates
   Rabbita's cache and requires explicit invalidation.
 - Parsing all leads on every visible render is simple for small data, but repeats

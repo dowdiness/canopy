@@ -1,7 +1,6 @@
 ///|
 fn examples_bar(
-  emit : @rabbita.Emit[Msg],
-  activation : Activation,
+  on_select : @rabbita.Emit[String],
   close_after_action : @rabbita.Cmd,
   disabled~ : Bool,
 ) -> @rabbita.Html {
@@ -20,7 +19,7 @@ fn examples_bar(
             "Demo: Create Markdown feature tour example document",
           ),
           on_click=@cmd.batch([
-            emit(ExampleSelected(activation, embedded_markdown_demo_source)),
+            on_select(embedded_markdown_demo_source),
             close_after_action,
           ]),
           "Demo",
@@ -31,7 +30,7 @@ fn examples_bar(
           disabled~,
           attrs=@html.Attrs::build().aria_label("Create Hello example document"),
           on_click=@cmd.batch([
-            emit(ExampleSelected(activation, embedded_hello_example_source)),
+            on_select(embedded_hello_example_source),
             close_after_action,
           ]),
           "Hello",
@@ -44,7 +43,7 @@ fn examples_bar(
             "Guide: Create Blog example document",
           ),
           on_click=@cmd.batch([
-            emit(ExampleSelected(activation, embedded_blog_example_source)),
+            on_select(embedded_blog_example_source),
             close_after_action,
           ]),
           "Guide",
@@ -55,7 +54,7 @@ fn examples_bar(
           disabled~,
           attrs=@html.Attrs::build().aria_label("Create List example document"),
           on_click=@cmd.batch([
-            emit(ExampleSelected(activation, embedded_list_example_source)),
+            on_select(embedded_list_example_source),
             close_after_action,
           ]),
           "List",
@@ -66,7 +65,7 @@ fn examples_bar(
           disabled~,
           attrs=@html.Attrs::build().aria_label("Create Code example document"),
           on_click=@cmd.batch([
-            emit(ExampleSelected(activation, embedded_code_example_source)),
+            on_select(embedded_code_example_source),
             close_after_action,
           ]),
           "Code",

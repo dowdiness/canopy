@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/app/internal/writing_focus"
+package "dowdiness/loomark/internal/writing_focus"
 
 // Values
 pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double?, animate~ : Bool) -> ArrayView[(Range, Fade)]

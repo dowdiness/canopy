@@ -1,10 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/app/internal/replication"
+package "dowdiness/loomark/internal/replication"
 
 import {
-  "dowdiness/loomark/app/internal/replica_persistence",
-  "dowdiness/loomark/app/internal/source_repository",
-  "dowdiness/loomark/app/internal/sync",
+  "dowdiness/loomark/internal/replica_persistence",
+  "dowdiness/loomark/internal/source_repository",
+  "dowdiness/loomark/internal/sync",
   "moonbitlang/core/debug",
 }
 

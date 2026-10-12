@@ -408,7 +408,7 @@ test "retry messages restart only their owned lifecycle" {
     view.persistence is Some(@replica_persistence.Status::Retryable(action, _)) else {
     fail("retry available")
   }
-  let message = RetrySaving(action)
+  let message : Msg = RetrySaving(action)
   let (retrying, _) = test_root_update(model, message)
   assert_true(
     retrying.replication.status(account, document.id())

@@ -31,7 +31,7 @@ the phone nor another connected peer may be required to recover the document.
 In:
 - `apps/loomark/app/`: account/session state, per-document sync decisions,
   account-aware Recent documents, conflict preservation, and saving feedback.
-- `apps/loomark/app/internal/source_repository/`: atomic local Replicas,
+- `apps/loomark/internal/source_repository/`: atomic local Replicas,
   remote baselines, durable pending writes/deletes, and local sync start.
 - `apps/loomark/internal/text_area/`: preserve its existing editing contract;
   change only if integration tests expose a necessary boundary adjustment.
@@ -53,11 +53,11 @@ require separate permission. Local-only operation remains supported.
 
 ## Current State
 
-- [Repository storage](../../apps/loomark/app/internal/source_repository/storage.mbt)
+- [Repository storage](../../apps/loomark/internal/source_repository/storage.mbt)
   uses one IndexedDB store and acknowledges each local transaction.
-- [Source codec](../../apps/loomark/app/internal/source_repository/source_codec.mbt)
+- [Source codec](../../apps/loomark/internal/source_repository/source_codec.mbt)
   stores exactly document identity and text. Opening isolates unsupported data.
-- [Save transitions](../../apps/loomark/app/internal/documents/documents_save.mbt)
+- [Save transitions](../../apps/loomark/internal/documents/documents_save.mbt)
   serialize local saves per document and fence delayed work.
 - [Application update](../../apps/loomark/app/update.mbt) owns activation and IME
   gating; [textarea policy](../decisions/2026-08-25-loomark-textarea-edit-boundary.md)

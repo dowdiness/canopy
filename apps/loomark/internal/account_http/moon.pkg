@@ -1,6 +1,6 @@
 import {
-  "dowdiness/loomark/app/internal/source_repository",
-  "dowdiness/loomark/app/internal/sync",
+  "dowdiness/loomark/internal/source_repository",
+  "dowdiness/loomark/internal/sync",
   "moonbit-community/rabbita/cmd",
   "moonbitlang/async/http" @async_http,
   "moonbitlang/core/encoding/utf8",

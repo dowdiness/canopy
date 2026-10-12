@@ -47,8 +47,8 @@
 
 - [Loomark README](../apps/loomark/README.md): Rabbitaのbrowser Markdown editor。Text/Preview/Split、native textarea、IndexedDBのSource保存がある。
 - [製品契約](../apps/loomark/CONTEXT.md): Document identity、Recent documents、Import/Export、IME、Document switch、削除などの現行語彙と契約。
-- [Source codec](../apps/loomark/app/internal/source_repository/source_codec.mbt): `source/v1/<id>` は厳密に `document_id` と `text` の2項目。現在のdurable authorityは本文で、CRDT履歴を保存していない。
-- [Source repository](../apps/loomark/app/internal/source_repository/): 現在の保存・open・deleteの所有箇所。起動時はstore全体から文書一覧を導出する。
+- [Source codec](../apps/loomark/internal/source_repository/source_codec.mbt): `source/v1/<id>` は厳密に `document_id` と `text` の2項目。現在のdurable authorityは本文で、CRDT履歴を保存していない。
+- [Source repository](../apps/loomark/internal/source_repository/): 現在の保存・open・deleteの所有箇所。起動時はstore全体から文書一覧を導出する。
 - [Textarea](../apps/loomark/internal/text_area/text_area.mbt): native入力をTextChangeへ変換する既存の接続箇所。
 - [Editor](../modules/canopy/editor/README.md): EGWを使うCRDT、Undo、parser、同期などがある。ただし、この統合EditorをそのままLoomarkへ入れるとText modeのlazy parser契約に影響し得る。必要な既存APIを調べて使う。
 - [sync_session](../modules/canopy/sync_session/README.md): transport非依存の同期/recovery。`SyncHost`のapply/exportと`SyncTransport`がある。現在の説明には1 MB SyncResponse上限などがある。永続保存の受領確認や大きな文書の復元を提供すると決めつけない。

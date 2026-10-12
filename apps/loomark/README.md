@@ -20,9 +20,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 - **Writing Focus:** While writing, surrounding paragraphs fade to 50%; the active paragraph—including inside block quotes—and selection stay clear. Leaving the editor restores full readability.
   The core exposes pure layout and presentation decisions; the browser layer owns
   measurement, rendering, and subscription lifetimes. See the
-  [core](app/internal/writing_focus/) and
+  [core](internal/writing_focus/) and
   [browser integration](app/writing_focus.mbt).
-- **Local Storage:** `apps/loomark/app/internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
+- **Local Storage:** `internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
 - **Demand-Driven Sidebar:** Recent documents extract a lightweight `DocumentLead` (the first meaningful heading or line) on the fly, rendering rows only when the sidebar opens.
 - **Mobile Viewport:** Loomark uses Rabbita's typed `@dom.VisualViewport`
   for native viewport access and resize/scroll events. The subscription owns
@@ -62,7 +62,8 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
   MoonBit; the viewport shell retains previous numeric samples and owns frames
   and cleanup. `app/viewport_dom.mbt` contains only missing native DOM accessors,
   with no parsing, application policy, or scheduling.
-  `app/app.mbt` resolves elements at startup or after rendering. Split connects
+  `app/app.mbt` resolves stable browser handles at startup;
+  `app/subscriptions.mbt` resolves editor elements after rendering. Split connects
   directly to the resolved scroll owner and releases that connection on document,
   mode, owner, or breakpoint changes. An initial sync catches scrolling that
   occurred before the after-render connection.

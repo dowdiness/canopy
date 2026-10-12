@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/app/internal/document_http"
+package "dowdiness/loomark/internal/document_http"
 
 import {
-  "dowdiness/loomark/app/internal/replication",
-  "dowdiness/loomark/app/internal/source_repository",
+  "dowdiness/loomark/internal/replication",
+  "dowdiness/loomark/internal/source_repository",
   "moonbit-community/rabbita/cmd",
   "moonbitlang/core/debug",
 }
