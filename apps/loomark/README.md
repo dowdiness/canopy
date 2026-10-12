@@ -18,6 +18,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 
 - **Editing & Preview:** Native `<textarea>` inputs flow into `modules/rabbita-markdown/text_area`, which produces minimal `TextChange` diffs and drives the incremental preview without lag.
 - **Writing Focus:** While writing, surrounding paragraphs fade to 50%; the active paragraph—including inside block quotes—and selection stay clear. Leaving the editor restores full readability.
+  The core exposes pure layout and presentation decisions; the browser layer owns
+  measurement, rendering, and subscription lifetimes. See the
+  [core](app/internal/writing_focus/) and
+  [browser integration](app/writing_focus.mbt).
 - **Local Storage:** `apps/loomark/app/internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
 - **Demand-Driven Sidebar:** Recent documents extract a lightweight `DocumentLead` (the first meaningful heading or line) on the fly, rendering rows only when the sidebar opens.
 - **Mobile Viewport:** Loomark uses Rabbita's typed `@dom.VisualViewport`

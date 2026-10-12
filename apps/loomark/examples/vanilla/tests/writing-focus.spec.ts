@@ -276,3 +276,55 @@ test("font changes during whole-text focus invalidate earlier line measurements"
   expect(await dimmingAtLine(page, 2)).toBe(0)
   expect(await dimmingAtLine(page, 4)).toBe(0.5)
 })
+
+test("a layout notification during measurement cannot commit geometry into the new layout", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("Before\n\nWriting\n\nAfter")
+  await expect.poll(() => dimmingAtLine(page, 2)).toBe(0.5)
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const mirror = document.querySelector<HTMLElement>(".loomark-writing-measure")!
+    const measure = mirror.getBoundingClientRect
+    mirror.getBoundingClientRect = function () {
+      delete (mirror as Partial<HTMLElement>).getBoundingClientRect
+      area.style.lineHeight = "60px"
+      document.fonts.dispatchEvent(new Event("loadingdone"))
+      return measure.call(mirror)
+    }
+    area.setSelectionRange(8, 8)
+  })
+  await expect.poll(() => dimmingAtLine(page, 2)).toBe(0)
+  expect(await dimmingAtLine(page, 0)).toBe(0.5)
+  expect(await dimmingAtLine(page, 4)).toBe(0.5)
+})
+
+test("native composition retains its text, selection and focus through reflow", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(documentText)
+  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  const original = await text.elementHandle()
+  const browser = await page.context().newCDPSession(page)
+  await browser.send("Input.imeSetComposition", {
+    text: "変換中",
+    selectionStart: 3,
+    selectionEnd: 3,
+  })
+  await expect(text).toHaveValue(documentText + "変換中")
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  await expect.poll(() => dimmingAtLine(page, 6)).toBe(0)
+  expect(await text.evaluate((element, original) => element === original, original)).toBe(true)
+  expect(await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    return [area.selectionStart, area.selectionEnd]
+  })).toEqual([documentText.length + 3, documentText.length + 3])
+  await browser.send("Input.insertText", { text: "確定" })
+  await expect(text).toHaveValue(documentText + "確定")
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  expect(await dimmingAtLine(page, 6)).toBe(0)
+  await browser.detach()
+  await original?.dispose()
+})

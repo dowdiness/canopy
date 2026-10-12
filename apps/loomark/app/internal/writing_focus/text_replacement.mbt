@@ -1,5 +1,5 @@
 ///|
-pub struct LineReplacement {
+priv struct LineReplacement {
   text_lines : TextLines
   first : Int
   removed : Int
@@ -55,10 +55,7 @@ fn replacement_bounds(before : String, after : String) -> (Int, Int, Int) {
 
 ///|
 /// Returns a new index without changing `self`; unchanged text returns `None`.
-pub fn TextLines::replace_text(
-  self : TextLines,
-  text : String,
-) -> LineReplacement? {
+fn TextLines::replace_text(self : TextLines, text : String) -> LineReplacement? {
   if text == self.text {
     return None
   }

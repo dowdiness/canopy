@@ -16,7 +16,7 @@ pub fn Range::Range(start : Double, end : Double) -> Range raise InvalidRange {
 }
 
 ///|
-pub fn Range::intersection(self : Range, other : Range) -> Range? {
+fn Range::intersection(self : Range, other : Range) -> Range? {
   let start = if self.start > other.start { self.start } else { other.start }
   let end = if self.end < other.end { self.end } else { other.end }
   if start < end {

@@ -16,10 +16,9 @@ fn TextLineElement::TextLineElement(
 }
 
 ///|
-priv struct MeasuredLayout {
-  width : Double
-  start : (Int, Double)?
-  end : (Int, Double)?
+priv struct TextLayoutContext {
+  mut geometry : @writing_focus.Layout
+  mut first_observation : Bool
 }
 
 ///|
@@ -31,10 +30,10 @@ priv struct TextLayout {
   dimming_layer : @dom.HTMLElement
   element : @dom.HTMLElement
   mut rendered_lines : @writing_focus.TextLines
-  mut pending_text : @writing_focus.LineReplacement?
   mut lines : Array[TextLineElement]
   retired_lines : Array[TextLineElement]
-  mut measurements : MeasuredLayout?
+  mut context : TextLayoutContext
+  mut source_pending : Bool
 }
 
 ///|
@@ -66,79 +65,83 @@ fn TextLayout::TextLayout(
     dimming_layer,
     element,
     rendered_lines,
-    pending_text: None,
     lines,
     retired_lines: [],
-    measurements: None,
+    context: {
+      geometry: @writing_focus.Layout(rendered_lines),
+      first_observation: true,
+    },
+    source_pending: true,
   }
 }
 
 ///|
 fn TextLayout::locate_focus(
   self : TextLayout,
-  refresh : GeometryRefresh,
 ) -> (@writing_focus.Range, Bool) raise {
-  let text_changed = match refresh {
-    Selection => false
-    Source | Layout => self.set_source(self.text_area.get_value())
+  // A notification may replace self.context during a DOM read. Read and commit
+  // through the captured owner; the new context keeps its own empty cache.
+  let context = self.context
+  let context_changed = context.first_observation
+  context.first_observation = false
+  let source_pending = self.source_pending
+  self.source_pending = false
+  let text_changed = if source_pending {
+    match context.geometry.replace_text(self.text_area.get_value()) {
+      None => false
+      Some(geometry) => {
+        context.geometry = geometry
+        true
+      }
+    }
+  } else {
+    false
   }
-  if refresh is Layout {
-    self.measurements = None
-  }
-  let source_lines = self.source_lines()
-  let focused_lines = match
-    source_lines.focus_lines(
+  let focus = match
+    context.geometry.focus(
       self.text_area.get_selection_start(),
       self.text_area.get_selection_end(),
     ) {
-    Ok(lines) => lines
-    Err(error) => raise InvalidSelection(error)
+    Document(range) => return (range, text_changed || context_changed)
+    Lines(focus) => focus
   }
-  let line_count = source_lines.lines().length()
-  if focused_lines.first == 0 && focused_lines.last == line_count - 1 {
-    return (
-      @writing_focus.Range(0.0, @double.infinity),
-      text_changed || refresh is Layout,
-    )
-  }
-  let width = self.text_area.get_client_width()
-  let (layout_changed, measured_start, measured_end) = match self.measurements {
-    Some(layout) if layout.width == width => (false, layout.start, layout.end)
-    _ => (true, None, None)
-  }
-  let unchanged_prefix_lines = match self.pending_text {
-    None => line_count
-    Some(replacement) => replacement.first
-  }
-  let (start_boundary, end_boundary) = @writing_focus.focus_boundaries(
-    focused_lines, line_count, unchanged_prefix_lines, measured_start, measured_end,
-  )
-  let range = match (start_boundary, end_boundary) {
-    (Position(start), Position(end)) => @writing_focus.Range(start, end)
-    _ => {
-      self.sync_text()
-      if layout_changed {
-        self.sync_layout(width)
-      }
-      let range = self.measure_range(start_boundary, end_boundary)
-      // Document edges are derived from the source, not cached as line measurements.
-      self.measurements = Some({
-        width,
-        start: if focused_lines.first == 0 {
-          None
-        } else {
-          Some((focused_lines.first, range.start))
-        },
-        end: if focused_lines.last == line_count - 1 {
-          None
-        } else {
-          Some((focused_lines.last, range.end))
-        },
-      })
-      range
+  let bounds = focus.bounds(self.text_area.get_client_width())
+  let mut layout_synchronized = false
+  let (range, geometry) = match bounds {
+    Known(range) => return (range, text_changed)
+    Lines(pending) => {
+      layout_synchronized = pending.layout_sync is CopyStyles(_)
+      let origin = self.measure_origin(context, pending.layout_sync)
+      pending.between(
+        self.lines[pending.lines.first].element
+        .get_bounding_client_rect()
+        .get_top() -
+        origin,
+        self.lines[pending.lines.last].element
+        .get_bounding_client_rect()
+        .get_bottom() -
+        origin,
+      )
+    }
+    LineStart(pending) => {
+      layout_synchronized = pending.layout_sync is CopyStyles(_)
+      let origin = self.measure_origin(context, pending.layout_sync)
+      pending.at(
+        self.lines[pending.line].element.get_bounding_client_rect().get_top() -
+        origin,
+      )
+    }
+    LineEnd(pending) => {
+      layout_synchronized = pending.layout_sync is CopyStyles(_)
+      let origin = self.measure_origin(context, pending.layout_sync)
+      pending.at(
+        self.lines[pending.line].element.get_bounding_client_rect().get_bottom() -
+        origin,
+      )
     }
   }
-  (range, text_changed || layout_changed)
+  context.geometry = geometry
+  (range, text_changed || layout_synchronized)
 }
 
 ///|
@@ -147,26 +150,11 @@ fn TextLayout::remove(self : TextLayout) -> Unit {
 }
 
 ///|
-fn TextLayout::source_lines(self : TextLayout) -> @writing_focus.TextLines {
-  match self.pending_text {
-    None => self.rendered_lines
-    Some(replacement) => replacement.text_lines
-  }
-}
-
-///|
-fn TextLayout::set_source(self : TextLayout, text : String) -> Bool {
-  if self.source_lines().text() == text {
-    return false
-  }
-  // Keep one replacement relative to the DOM, including edits made while unmeasured.
-  self.pending_text = self.rendered_lines.replace_text(text)
-  true
-}
-
-///|
-fn TextLayout::sync_text(self : TextLayout) -> Unit {
-  match self.pending_text {
+fn TextLayout::sync_text(
+  self : TextLayout,
+  geometry : @writing_focus.Layout,
+) -> Unit {
+  match geometry.edit_from(self.rendered_lines) {
     None => ()
     Some(replacement) => {
       let document = self.document
@@ -202,6 +190,7 @@ fn TextLayout::sync_text(self : TextLayout) -> Unit {
           @dom_js.Nullable::from_option(following),
         )
       } else {
+        // Keep these nodes attached until blur to preserve the textarea's native Undo.
         for index in inserted_count..<replacement.removed {
           let line = self.lines[replacement.first + index]
           line.element.set_attribute("hidden", "")
@@ -224,8 +213,7 @@ fn TextLayout::sync_text(self : TextLayout) -> Unit {
           },
         )
       }
-      self.rendered_lines = replacement.text_lines
-      self.pending_text = None
+      self.rendered_lines = replacement.source
     }
   }
 }
@@ -293,29 +281,15 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
 }
 
 ///|
-fn TextLayout::measure_range(
+fn TextLayout::measure_origin(
   self : TextLayout,
-  start : @writing_focus.Boundary,
-  end : @writing_focus.Boundary,
-) -> @writing_focus.Range raise @writing_focus.InvalidRange {
-  let origin = self.element.get_bounding_client_rect().get_top()
-  @writing_focus.Range(
-    self.boundary_position(start, origin),
-    self.boundary_position(end, origin),
-  )
-}
-
-///|
-fn TextLayout::boundary_position(
-  self : TextLayout,
-  boundary : @writing_focus.Boundary,
-  origin : Double,
+  context : TextLayoutContext,
+  layout_sync : @writing_focus.LayoutSync,
 ) -> Double {
-  match boundary {
-    Position(position) => position
-    LineStart(line) =>
-      self.lines[line].element.get_bounding_client_rect().get_top() - origin
-    LineEnd(line) =>
-      self.lines[line].element.get_bounding_client_rect().get_bottom() - origin
+  self.sync_text(context.geometry)
+  match layout_sync {
+    Reuse => ()
+    CopyStyles(width) => self.sync_layout(width)
   }
+  self.element.get_bounding_client_rect().get_top()
 }

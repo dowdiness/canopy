@@ -13,11 +13,6 @@ pub struct TextLines {
 }
 
 ///|
-pub enum SelectionError {
-  OutsideText(start~ : Int, end~ : Int, length~ : Int)
-}
-
-///|
 priv struct FenceMarker {
   character : Char
   length : Int
@@ -175,20 +170,18 @@ fn group_at(groups : ArrayView[LineRange], line : Int) -> LineRange? {
 }
 
 ///|
-pub fn TextLines::focus_lines(
+fn TextLines::focus_lines(
   self : TextLines,
   selection_start : Int,
   selection_end : Int,
-) -> Result[LineRange, SelectionError] {
+) -> LineRange raise InvalidSelection {
   guard 0 <= selection_start &&
     selection_start <= selection_end &&
     selection_end <= self.text.length() else {
-    return Err(
-      OutsideText(
-        start=selection_start,
-        end=selection_end,
-        length=self.text.length(),
-      ),
+    raise OutsideText(
+      start=selection_start,
+      end=selection_end,
+      length=self.text.length(),
     )
   }
   let first_line = self.line_at(selection_start)
@@ -213,5 +206,5 @@ pub fn TextLines::focus_lines(
     Some(group) => group.last
     None => last_line
   }
-  Ok({ first, last, })
+  { first, last, }
 }
