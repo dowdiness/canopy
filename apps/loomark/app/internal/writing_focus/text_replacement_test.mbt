@@ -70,3 +70,61 @@ test "successive replacements preserve focus grouping when fences and paragraphs
   |> ignore
   assert_eq(original.source().lines().to_owned(), ["first", "", "last"])
 }
+
+///|
+test "edited layouts agree with a fresh layout across UTF-16 and newline boundaries" {
+  let sources = [
+    "", "a", "\n", "\n\n", "a\nb", "😀😃", "a\r\nb", "> a\n>\n> b", "```\na\n```\nb",
+    "    a\n\n    b",
+  ]
+  for before in sources {
+    let original = @writing_focus.TextLines(before)
+    let layout = @writing_focus.Layout(original)
+    for start in 0..<=before.length() {
+      for end in start..<=before.length() {
+        for inserted in ["", "x", "\n", "\n\n", "a\nb", "😀"] {
+          let after = before.unsafe_substring(start=0, end=start) +
+            inserted +
+            before.unsafe_substring(start=end, end=before.length())
+          let changed = layout.replace_text(after)
+          if after == before {
+            assert_true(changed is None)
+            continue
+          }
+          let changed = changed.unwrap()
+          let rebuilt = @writing_focus.Layout(@writing_focus.TextLines(after))
+          let edit = changed.edit_from(original).unwrap()
+          let reconstructed = original.lines()[:edit.first].to_owned()
+          reconstructed.append(edit.inserted)
+          reconstructed.append(original.lines()[edit.first + edit.removed:])
+          assert_eq(reconstructed.join("\n"), after)
+          assert_eq(
+            changed.source().lines().to_owned(),
+            rebuilt.source().lines().to_owned(),
+          )
+          for low in 0..<=after.length() {
+            for high in low..<=after.length() {
+              match (changed.focus(low, high), rebuilt.focus(low, high)) {
+                (Lines(actual), Lines(expected)) =>
+                  assert_eq(
+                    (actual.lines.first, actual.lines.last),
+                    (expected.lines.first, expected.lines.last),
+                  )
+                (Document(actual), Document(expected)) =>
+                  assert_eq(
+                    (actual.start, actual.end),
+                    (expected.start, expected.end),
+                  )
+                _ =>
+                  fail(
+                    "an incremental edit must preserve fresh-layout focus grouping",
+                  )
+              }
+            }
+          }
+          assert_eq(original.lines().to_owned().join("\n"), before)
+        }
+      }
+    }
+  }
+}

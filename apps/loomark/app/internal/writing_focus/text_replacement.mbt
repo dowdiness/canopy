@@ -63,16 +63,24 @@ fn TextLines::replace_text(self : TextLines, text : String) -> LineReplacement? 
   let first = self.line_at(start)
   let last = self.line_at(old_end)
   // Native selection and edit offsets may split UTF-16 surrogate pairs.
-  let replacement = self.lines[first].unsafe_substring(
-      start=0,
-      end=start - self.starts[first],
-    ) +
-    text.unsafe_substring(start~, end=new_end) +
-    self.lines[last].unsafe_substring(
-      start=old_end - self.starts[last],
-      end=self.lines[last].length(),
-    )
-  let inserted = replacement.split("\n").map(line => line.to_owned()).to_array()
+  let prefix = self.lines[first].unsafe_substring(
+    start=0,
+    end=start - self.starts[first],
+  )
+  let suffix = self.lines[last].unsafe_substring(
+    start=old_end - self.starts[last],
+    end=self.lines[last].length(),
+  )
+  // Retained line fragments contain no newline. Split only the changed text;
+  // even an empty insertion yields one fragment to join with both edges.
+  let inserted = text
+    .unsafe_substring(start~, end=new_end)
+    .split("\n")
+    .map(line => line.to_owned())
+    .to_array()
+  inserted[0] = prefix + inserted[0]
+  let final_index = inserted.length() - 1
+  inserted[final_index] = inserted[final_index] + suffix
   let removed = last - first + 1
   let line_count = self.lines.length() - removed + inserted.length()
   let lines = Array::makei(line_count, index => {
