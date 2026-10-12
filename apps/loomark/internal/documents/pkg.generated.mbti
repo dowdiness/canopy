@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "dowdiness/loomark/app/internal/documents"
+package "dowdiness/loomark/internal/documents"
 
 import {
-  "dowdiness/loomark/app/internal/replica_persistence",
-  "dowdiness/loomark/app/internal/source_repository",
+  "dowdiness/loomark/internal/replica_persistence",
+  "dowdiness/loomark/internal/source_repository",
   "moonbitlang/core/debug",
 }
 

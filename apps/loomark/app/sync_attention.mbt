@@ -3,9 +3,9 @@ fn sync_attention_view(
   remote : @documents.RemoteState?,
   persistence : @replica_persistence.Status?,
   activity : @sync.Activity?,
-  emit : @rabbita.Emit[Msg],
+  emit : @rabbita.Emit[SyncIntent],
 ) -> @rabbita.Html {
-  let (notice, action) : (String, (String, Msg)?) = match remote {
+  let (notice, action) : (String, (String, SyncIntent)?) = match remote {
     Some(@documents.RemoteState::UpdateAvailable(action)) =>
       ("", Some(("Open update", AcceptRemote(action))))
     Some(@documents.RemoteState::DeletionAvailable(action)) =>

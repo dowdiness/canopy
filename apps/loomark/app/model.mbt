@@ -84,16 +84,6 @@ priv enum EditorMode {
 } derive(Eq)
 
 ///|
-priv struct EditorPanelsInput {
-  activation : Activation
-  show_new_document_hint : Bool
-  disabled : Bool
-  read_only : Bool
-  mode : EditorMode
-  preview : @editor.EditorState
-} derive(Eq)
-
-///|
 priv enum DocumentCreation {
   Idle
   Creating(Int)
