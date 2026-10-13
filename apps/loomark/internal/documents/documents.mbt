@@ -1,152 +1,5 @@
 ///|
-pub fn State::reduce(self : Self, event : Msg) -> (Self, Array[Action]) {
-  match event {
-    New(document_id) => {
-      let key = Key::source(document_id)
-      guard find_record(self.records, key) is None else { return (self, []) }
-      let document = @source_repository.Document::create(document_id, "")
-      let record = {
-        persistence: Source(EphemeralNew, SourceDeletePhase::Available),
-        document,
-        version: 0,
-        edit: Idle,
-        save: Saved,
-        lead_source: Unlisted,
-      }
-      ({ ..self, records: prepend_record(self.records, record), }, [])
-    }
-    Imported(document_id, text) => import_document(self, document_id, text)
-    TextChanged(document_id, text) => apply_text(self, document_id, text)
-    CompositionStarted(document_id) =>
-      (
-        {
-          ..self,
-          records: replace_record(self.records, document_id, r => {
-            if delete_is_active(r.delete_phase()) {
-              r
-            } else {
-              {
-                ..r,
-                edit: match r.edit {
-                  Waiting(revision) => ComposingWaiting(revision)
-                  Idle => ComposingIdle
-                  ComposingIdle | ComposingWaiting(_) | ComposingReady => r.edit
-                },
-              }
-            }
-          }),
-        },
-        [],
-      )
-    CompositionEnded(document_id) => {
-      guard find_record(self.records, document_id) is Some(record) else {
-        return (self, [])
-      }
-      guard !delete_is_active(record.delete_phase()) else { return (self, []) }
-      let (record, decisions) = match record.edit {
-        ComposingReady => accept_pending(self.saved, record)
-        ComposingIdle =>
-          finish_composition(self.saved, { ..record, edit: Idle, })
-        ComposingWaiting(revision) =>
-          finish_composition(self.saved, { ..record, edit: Waiting(revision), })
-        Idle | Waiting(_) => return (self, [])
-      }
-      (
-        {
-          ..self,
-          records: replace_record(self.records, document_id, _ => record),
-        },
-        decisions,
-      )
-    }
-    ApplyPendingEdit(document_id, revision) =>
-      apply_pending_edit(self, document_id, revision)
-    FeedbackReceived(feedback) =>
-      match feedback {
-        MaximumElapsed(maximum) => eligible_maximum(self, maximum)
-        SaveCompleted(operation, result) => complete(self, operation, result)
-        ReplicaAdvanced(write) => advance_replica(self, write)
-        ReplicaSettled(write, mounted) => settle_replica(self, write, mounted)
-        ReplicaDeletionFailed(write, failure) =>
-          fail_replica_deletion(self, write, failure)
-        PromotionCompleted(write, result) =>
-          complete_sync_start(self, write.replica(), result)
-        DeleteCompleted(operation, result) =>
-          finish_delete(self, operation, result)
-      }
-    DeleteConfirmed(id) => confirm_or_retry_delete(self, id)
-    RetryDelete(id) => confirm_or_retry_delete(self, id)
-    DismissDeleteFailure(id) =>
-      (
-        {
-          ..self,
-          records: replace_record(self.records, id, r => {
-            match r.persistence {
-              Source(origin, SourceDeletePhase::Failed(_, _)) =>
-                {
-                  ..r,
-                  persistence: Source(origin, SourceDeletePhase::Available),
-                }
-              Source(
-                _,
-                SourceDeletePhase::Available
-                | SourceDeletePhase::Waiting(_)
-                | SourceDeletePhase::Deleting(_)
-              )
-              | StartingSync(_, _)
-              | Replica(_, _)
-              | Forking(_) => r
-            }
-          }),
-        },
-        [],
-      )
-    RetrySave(id) => {
-      guard find_record(self.records, id) is Some(record) else {
-        return (self, [])
-      }
-      match record.save {
-        Failed(_) if !is_composing(record.edit) &&
-          !delete_is_active(record.delete_phase()) => {
-          let (next, effects) = begin_save(self.saved, record)
-          (
-            { ..self, records: replace_record(self.records, id, _ => next), },
-            effects,
-          )
-        }
-        _ => (self, [])
-      }
-    }
-    VisibilityFlush(id) => {
-      guard find_record(self.records, id) is Some(record) else {
-        return (self, [])
-      }
-      let (updated, decisions) = flush_visibility(self.saved, record)
-      if updated == record {
-        (self, decisions)
-      } else {
-        (
-          { ..self, records: replace_record(self.records, id, _ => updated), },
-          decisions,
-        )
-      }
-    }
-    VisibilityFlushAll => {
-      let actions : Array[Action] = []
-      let records = self.records.map(record => {
-        let (record, effects) = flush_visibility(self.saved, record)
-        for effect in effects {
-          actions.push(effect)
-        }
-        record
-      })
-      ({ ..self, records, }, actions)
-    }
-  }
-}
-
-///|
-pub fn State::document(
+pub fn Model::document(
   self : Self,
   document_id : Key,
 ) -> @source_repository.Document? {
@@ -157,7 +10,7 @@ pub fn State::document(
 }
 
 ///|
-pub fn OpenedDocument::documents(self : Self) -> State {
+pub fn OpenedDocument::documents(self : Self) -> Model {
   self.documents
 }
 
@@ -172,7 +25,7 @@ pub fn OpenedDocument::document(self : Self) -> @source_repository.Document {
 }
 
 ///|
-pub fn State::resume_hint(
+pub fn Model::resume_hint(
   self : Self,
   key : Key,
 ) -> @source_repository.EditingDocumentHint? {
@@ -188,12 +41,12 @@ pub fn State::resume_hint(
 }
 
 ///|
-pub fn State::is_composing(self : Self, id : Key) -> Bool {
+pub fn Model::is_composing(self : Self, id : Key) -> Bool {
   find_record(self.records, id).map(r => is_composing(r.edit)).unwrap_or(false)
 }
 
 ///|
-pub fn State::sync_start(
+pub fn Model::sync_start(
   self : Self,
   id : Key,
   account : @source_repository.AccountId,
@@ -202,7 +55,7 @@ pub fn State::sync_start(
     Some(record) if record.persistence is StartingSync(owner, _) &&
       owner == account => Starting
     Some(record) if record.persistence
-      is Source(Existing, SourceDeletePhase::Available) &&
+      is Source(Existing, SourceLifecycle::Available) &&
       record.save is Saved &&
       record.edit is Idle &&
       self.saved.find(record.document.id()) == Some(record.document) &&
@@ -215,7 +68,7 @@ pub fn State::sync_start(
 ///|
 /// Project the working copy and newest observed remote head as one state. A
 /// remote action exists only when its body still matches that head exactly.
-pub fn State::remote_state(
+pub fn Model::remote_state(
   self : Self,
   replica : @source_repository.DocumentReplica,
   catalog_head : @source_repository.RemoteHead?,
@@ -256,7 +109,7 @@ pub fn State::remote_state(
 }
 
 ///|
-pub fn State::accept_remote(
+pub fn Model::accept_remote(
   self : Self,
   replica : @source_repository.DocumentReplica,
   catalog_head : @source_repository.RemoteHead?,
@@ -310,7 +163,7 @@ pub fn StartSync::document_id(self : Self) -> @source_repository.DocumentId {
 }
 
 ///|
-pub fn State::fallback_document(self : Self, excluding : Key) -> Key? {
+pub fn Model::fallback_document(self : Self, excluding : Key) -> Key? {
   self.records
   .filter(r => {
     r.key() != excluding &&
@@ -323,17 +176,17 @@ pub fn State::fallback_document(self : Self, excluding : Key) -> Key? {
 }
 
 ///|
-pub fn State::snapshot(self : Self) -> @source_repository.SavedDocuments {
+pub fn Model::snapshot(self : Self) -> @source_repository.SavedDocuments {
   self.saved
 }
 
 ///|
-pub fn State::text(self : Self, id : Key) -> String? {
+pub fn Model::text(self : Self, id : Key) -> String? {
   self.document(id).map(document => document.text())
 }
 
 ///|
-pub fn State::is_ephemeral_new(self : Self, id : Key) -> Bool {
+pub fn Model::is_ephemeral_new(self : Self, id : Key) -> Bool {
   match find_record(self.records, id) {
     Some(record) => record.persistence is Source(EphemeralNew, _)
     None => false
@@ -341,7 +194,7 @@ pub fn State::is_ephemeral_new(self : Self, id : Key) -> Bool {
 }
 
 ///|
-pub fn State::save_status(self : Self, id : Key) -> SaveStatus? {
+pub fn Model::save_status(self : Self, id : Key) -> SaveStatus? {
   find_record(self.records, id).map(r => {
     match r.persistence {
       Replica(account, _) =>
@@ -372,7 +225,7 @@ pub fn State::save_status(self : Self, id : Key) -> SaveStatus? {
 ///|
 /// Return the Replica persistence lane that currently owns this working copy.
 /// A recovery Source keeps its original owner until the atomic fork commits.
-pub fn State::replica_owner(
+pub fn Model::replica_owner(
   self : Self,
   key : Key,
 ) -> (@source_repository.AccountId, @source_repository.DocumentId)? {
@@ -389,12 +242,12 @@ pub fn State::replica_owner(
 
 ///|
 #warnings("-unused_value")
-fn State::save_phase(self : Self, id : Key) -> DocumentsSaveStatus? {
+fn Model::save_phase(self : Self, id : Key) -> DocumentsSaveStatus? {
   find_record(self.records, id).map(r => r.save)
 }
 
 ///|
-pub fn State::delete_status(self : Self, id : Key) -> DeleteStatus? {
+pub fn Model::delete_status(self : Self, id : Key) -> DeleteStatus? {
   find_record(self.records, id).map(r => {
     match r.delete_phase() {
       DocumentsDeletePhase::Unavailable => DeleteStatus::NotDeletable
@@ -412,12 +265,12 @@ pub fn State::delete_status(self : Self, id : Key) -> DeleteStatus? {
 
 ///|
 #warnings("-unused_value")
-fn State::delete_phase_status(self : Self, id : Key) -> DocumentsDeletePhase? {
+fn Model::delete_phase_status(self : Self, id : Key) -> DocumentsDeletePhase? {
   find_record(self.records, id).map(r => r.delete_phase())
 }
 
 ///|
-pub fn State::recent(
+pub fn Model::recent(
   self : Self,
 ) -> Array[(Key, String, SaveStatus, DeleteStatus)] {
   self.records.filter_map(record => {
@@ -439,7 +292,7 @@ pub fn State::recent(
 ///|
 /// Identities owned locally, including durable deleting/tombstoned Replicas
 /// that intentionally have no Recent documents row.
-pub fn State::known_keys(self : Self) -> Array[Key] {
+pub fn Model::known_keys(self : Self) -> Array[Key] {
   self.records.map(record => record.key()) +
   self.saved
   .replicas()
@@ -447,7 +300,7 @@ pub fn State::known_keys(self : Self) -> Array[Key] {
 }
 
 ///|
-pub fn State::pending_edits(self : Self) -> Array[(Key, Int)] {
+pub fn Model::pending_edits(self : Self) -> Array[(Key, Int)] {
   self.records.filter_map(record => {
     match record.edit {
       Waiting(revision) if !delete_is_active(record.delete_phase()) =>

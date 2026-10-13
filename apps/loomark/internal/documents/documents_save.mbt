@@ -1,16 +1,16 @@
 ///|
 fn import_document(
-  documents : State,
+  documents : Model,
   document_id : @source_repository.DocumentId,
   text : String,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   let key = Key::source(document_id)
   guard find_record(documents.records, key) is None else {
     return (documents, [])
   }
   let document = @source_repository.Document::create(document_id, text)
   let record = {
-    persistence: Source(ImportedNew, SourceDeletePhase::Available),
+    persistence: Source(ImportedNew, SourceLifecycle::Available),
     document,
     version: 0,
     edit: Idle,
@@ -43,10 +43,10 @@ fn acknowledged_document(
 /// Transfer the current working copy to the durable recovery identity without
 /// changing its text or editing lifecycle. The compound Replica write remains
 /// the only persistence operation until it commits.
-pub fn State::begin_fork(
+pub fn Model::begin_fork(
   self : Self,
   write : @source_repository.ReplicaWrite,
-) -> State raise ActionError {
+) -> Model raise ActionError {
   guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
     raise ExpiredAction
   }
@@ -71,10 +71,10 @@ pub fn State::begin_fork(
 
 ///|
 fn apply_text(
-  documents : State,
+  documents : Model,
   document_id : Key,
   text : String,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
@@ -163,10 +163,10 @@ fn apply_text(
 
 ///|
 fn apply_pending_edit(
-  documents : State,
+  documents : Model,
   document_id : Key,
   revision : Int,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
   }
@@ -200,9 +200,9 @@ fn apply_pending_edit(
 
 ///|
 fn eligible_maximum(
-  documents : State,
+  documents : Model,
   maximum_id : Int,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   guard documents.records
     .exact_view()
     .search_by(record => {
@@ -328,13 +328,13 @@ fn finish_composition(
 
 ///|
 fn complete_waiting_delete(
-  documents : State,
+  documents : Model,
   record : Record,
   origin : LocalDocumentOrigin,
   delete_operation : DeleteOperation,
   retained : DocumentsSaveStatus,
   saved : @source_repository.SavedDocuments,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   let document_id = record.key()
   let (deleting, decision) = issue_delete_record(
     record, origin, delete_operation, retained,
@@ -351,11 +351,11 @@ fn complete_waiting_delete(
 
 ///|
 fn complete_stored(
-  documents : State,
+  documents : Model,
   record : Record,
   pending : AutosaveWindow?,
   saved : @source_repository.SavedDocuments,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   let document_id = record.key()
   let persistence = match record.persistence {
     Source(EphemeralNew | ImportedNew, deletion) =>
@@ -365,7 +365,7 @@ fn complete_stored(
   }
   let completed = { ..record, persistence, }
   match record.persistence {
-    Source(origin, SourceDeletePhase::Waiting(delete_operation)) => {
+    Source(origin, SourceLifecycle::Waiting(delete_operation)) => {
       let retained = match pending {
         Some(replica) if acknowledged_document(saved, record.key()) !=
           Some(record.document) => DocumentsSaveStatus::Waiting(replica)
@@ -377,9 +377,9 @@ fn complete_stored(
     }
     Source(
       _,
-      SourceDeletePhase::Deleting(_)
-      | SourceDeletePhase::Available
-      | SourceDeletePhase::Failed(_, _)
+      SourceLifecycle::Deleting(_)
+      | SourceLifecycle::Available
+      | SourceLifecycle::Failed(_, _)
     )
     | StartingSync(_, _)
     | Replica(_, _)
@@ -406,14 +406,14 @@ fn complete_stored(
 
 ///|
 fn complete_failed(
-  documents : State,
+  documents : Model,
   record : Record,
   pending : AutosaveWindow?,
   failure : @source_repository.SaveFailure,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   let document_id = record.key()
   match record.persistence {
-    Source(origin, SourceDeletePhase::Waiting(delete_operation)) =>
+    Source(origin, SourceLifecycle::Waiting(delete_operation)) =>
       if acknowledged_document(documents.saved, record.key()) is Some(_) {
         complete_waiting_delete(
           documents,
@@ -434,9 +434,9 @@ fn complete_failed(
       }
     Source(
       _,
-      SourceDeletePhase::Deleting(_)
-      | SourceDeletePhase::Available
-      | SourceDeletePhase::Failed(_, _)
+      SourceLifecycle::Deleting(_)
+      | SourceLifecycle::Available
+      | SourceLifecycle::Failed(_, _)
     )
     | StartingSync(_, _)
     | Replica(_, _)
@@ -469,10 +469,10 @@ fn complete_failed(
 
 ///|
 fn complete(
-  documents : State,
+  documents : Model,
   operation : SaveOperation,
   result : @source_repository.SaveResult,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   let document_id = operation.key
   guard find_record(documents.records, document_id) is Some(record) else {
     return (documents, [])
@@ -497,11 +497,11 @@ fn complete(
 
 ///|
 fn refresh_replica_record(
-  documents : State,
+  documents : Model,
   previous : @source_repository.DocumentReplica?,
   replica : @source_repository.DocumentReplica,
   mounted : Key?,
-) -> State {
+) -> Model {
   let key = Key::replica(replica.account(), replica.document_id())
   guard replica.document() is Some(document) else {
     return { ..documents, records: remove_record(documents.records, key), }
@@ -554,10 +554,10 @@ fn refresh_replica_record(
 
 ///|
 fn fail_replica_deletion(
-  documents : State,
+  documents : Model,
   write : @source_repository.ReplicaWrite,
   failure : @source_repository.ReplicaFailure,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   let replica = write.replica()
   guard write is @source_repository.ReplicaWrite::Remove(_) ||
     replica.is_deleting() ||
@@ -584,28 +584,29 @@ fn fail_replica_deletion(
 
 ///|
 fn advance_replica(
-  documents : State,
+  documents : Model,
   write : @source_repository.ReplicaWrite,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) raise UpdateError {
+  let replica = write.replica()
   let saved = documents.saved.apply_replica_write(write) catch {
-    _ => abort("committed replica write violated repository state")
+    _ => raise UpdateError::InvalidAcknowledgment(Key::replica(replica.account(), replica.document_id()))
   }
   ({ ..documents, saved, }, [])
 }
 
 ///|
 fn settle_replica(
-  documents : State,
+  documents : Model,
   write : @source_repository.ReplicaWrite,
   mounted : Key?,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) raise UpdateError {
   let replica = write.replica()
   let previous = documents.saved.replica(
     replica.account(),
     replica.document_id(),
   )
   let saved = documents.saved.apply_replica_write(write) catch {
-    _ => abort("settled replica write violated repository state")
+    _ => raise UpdateError::InvalidAcknowledgment(Key::replica(replica.account(), replica.document_id()))
   }
   if write is @source_repository.ReplicaWrite::Remove(replica) {
     let key = Key::replica(replica.account(), replica.document_id())
@@ -638,7 +639,7 @@ fn settle_replica(
   }
   let recovered = {
     ..record,
-    persistence: Source(Existing, SourceDeletePhase::Available),
+    persistence: Source(Existing, SourceLifecycle::Available),
     save: if record.document == recovery {
       Saved
     } else {
@@ -670,10 +671,10 @@ fn settle_replica(
 }
 
 ///|
-pub fn State::start_sync(
-  documents : State,
+pub fn Model::start_sync(
+  documents : Model,
   action : StartSync,
-) -> (State, Array[Action]) raise ActionError {
+) -> (Model, Array[Action]) raise ActionError {
   guard documents.sync_start(action.key, action.account) == Ready(action) else {
     raise ExpiredAction
   }
@@ -708,10 +709,10 @@ fn finish_sync_start_record(
 
 ///|
 fn complete_sync_start(
-  documents : State,
+  documents : Model,
   replica : @source_repository.DocumentReplica,
   result : Result[Unit, @source_repository.ReplicaFailure],
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   guard replica.document() is Some(document) else { return (documents, []) }
   let source_key = Key::source(replica.document_id())
   guard find_record(documents.records, source_key) is Some(record) &&
@@ -752,7 +753,7 @@ fn complete_sync_start(
     Err(_) => {
       let restored = {
         ..record,
-        persistence: Source(Existing, SourceDeletePhase::Available),
+        persistence: Source(Existing, SourceLifecycle::Available),
       }
       let (restored, effects) = finish_sync_start_record(
         documents.saved,

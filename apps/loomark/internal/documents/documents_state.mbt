@@ -23,10 +23,10 @@ fn Record::key(self : Self) -> Key {
 ///|
 fn Record::delete_phase(self : Self) -> DocumentsDeletePhase {
   match self.persistence {
-    Source(_, SourceDeletePhase::Available) => DocumentsDeletePhase::Available
-    Source(_, SourceDeletePhase::Waiting(operation)) => Waiting(operation)
-    Source(_, SourceDeletePhase::Deleting(operation)) => Deleting(operation)
-    Source(_, SourceDeletePhase::Failed(operation, failure)) =>
+    Source(_, SourceLifecycle::Available) => DocumentsDeletePhase::Available
+    Source(_, SourceLifecycle::Waiting(operation)) => Waiting(operation)
+    Source(_, SourceLifecycle::Deleting(operation)) => Deleting(operation)
+    Source(_, SourceLifecycle::Failed(operation, failure)) =>
       Failed(operation, failure)
     Replica(_, ReplicaAvailable) => DocumentsDeletePhase::Available
     Replica(_, ReplicaPending) => ReplicaPending
@@ -95,10 +95,10 @@ fn is_composing(edit : EditState) -> Bool {
 
 ///|
 fn replace_autosave(
-  documents : State,
+  documents : Model,
   document_id : Key,
   replica : AutosaveWindow,
-) -> State {
+) -> Model {
   {
     ..documents,
     records: replace_record(documents.records, document_id, r => {
@@ -131,9 +131,6 @@ fn begin_save(
       match saved.replica(account, record.document.id()) {
         Some(durable) =>
           (
-            // The committed Replica can be older than an active persistence
-            // lane. Submit every eligible value; Replication compares it with
-            // the causal head and coalesces it when no write is needed.
             {
               ..record,
               persistence: Replica(account, ReplicaAvailable),
@@ -148,12 +145,12 @@ fn begin_save(
 }
 
 ///|
-pub fn State::State(saved : @source_repository.SavedDocuments) -> State {
+pub fn Model::Model(saved : @source_repository.SavedDocuments) -> Model {
   let sources = saved
     .all()
     .to_owned()
     .map(document => {
-      persistence: Source(Existing, SourceDeletePhase::Available),
+      persistence: Source(Existing, SourceLifecycle::Available),
       document,
       version: 0,
       edit: Idle,
@@ -191,7 +188,7 @@ fn replica_record(
 }
 
 ///|
-pub fn State::project_account(
+pub fn Model::project_account(
   self : Self,
   account : @source_repository.AccountId,
 ) -> Self {
@@ -199,7 +196,7 @@ pub fn State::project_account(
 }
 
 ///|
-pub fn State::open_replica(
+pub fn Model::open_replica(
   self : Self,
   replica : @source_repository.DocumentReplica,
 ) -> RemoteOpen {
@@ -239,12 +236,12 @@ pub fn ReplicaEdit::document(self : Self) -> @source_repository.Document {
 }
 
 ///|
-pub fn State::hide_accounts(self : Self) -> Self {
+pub fn Model::hide_accounts(self : Self) -> Self {
   { ..self, visible_account: None, }
 }
 
 ///|
-fn State::record_is_visible(self : Self, record : Record) -> Bool {
+fn Model::record_is_visible(self : Self, record : Record) -> Bool {
   match record.persistence {
     Source(_, _) | StartingSync(_, _) | Forking(_) => true
     Replica(account, _) => self.visible_account == Some(account)
@@ -252,7 +249,7 @@ fn State::record_is_visible(self : Self, record : Record) -> Bool {
 }
 
 ///|
-fn allocate_autosave(documents : State) -> (State, AutosaveWindow) {
+fn allocate_autosave(documents : Model) -> (Model, AutosaveWindow) {
   let id = documents.last_autosave_id + 1
   (
     { ..documents, last_autosave_id: id, },
@@ -270,7 +267,7 @@ fn revise_autosave(replica : AutosaveWindow) -> AutosaveWindow {
 }
 
 ///|
-fn allocate_working_copy_version(documents : State) -> (State, Int) {
+fn allocate_working_copy_version(documents : Model) -> (Model, Int) {
   let version = documents.last_working_copy_version + 1
   ({ ..documents, last_working_copy_version: version, }, version)
 }

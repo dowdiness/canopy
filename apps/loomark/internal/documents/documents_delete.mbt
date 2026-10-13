@@ -22,7 +22,7 @@ fn issue_delete_record(
     {
       ..record,
       save: retained,
-      persistence: Source(origin, SourceDeletePhase::Deleting(operation)),
+      persistence: Source(origin, SourceLifecycle::Deleting(operation)),
     },
     DeleteSource(operation),
   )
@@ -30,14 +30,14 @@ fn issue_delete_record(
 
 ///|
 fn confirm_source_delete(
-  documents : State,
+  documents : Model,
   id : Key,
   record : Record,
   origin : LocalDocumentOrigin,
-  phase : SourceDeletePhase,
-) -> (State, Array[Action]) {
-  guard phase is SourceDeletePhase::Available ||
-    phase is SourceDeletePhase::Failed(_, _) else {
+  phase : SourceLifecycle,
+) -> (Model, Array[Action]) {
+  guard phase is SourceLifecycle::Available ||
+    phase is SourceLifecycle::Failed(_, _) else {
     return (documents, [])
   }
   let request_id = documents.last_delete_request + 1
@@ -51,7 +51,7 @@ fn confirm_source_delete(
           last_delete_request: request_id,
           records: replace_record(documents.records, id, r => {
             ..r,
-            persistence: Source(origin, SourceDeletePhase::Waiting(operation)),
+            persistence: Source(origin, SourceLifecycle::Waiting(operation)),
           }),
         },
         [],
@@ -86,12 +86,12 @@ fn confirm_source_delete(
 
 ///|
 fn confirm_replica_delete(
-  documents : State,
+  documents : Model,
   id : Key,
   record : Record,
   account : @source_repository.AccountId,
   phase : ReplicaDeletePhase,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   match phase {
     ReplicaAvailable =>
       match documents.saved.replica(account, record.document.id()) {
@@ -125,9 +125,9 @@ fn confirm_replica_delete(
 
 ///|
 fn confirm_or_retry_delete(
-  documents : State,
+  documents : Model,
   id : Key,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   guard find_record(documents.records, id) is Some(record) else {
     return (documents, [])
   }
@@ -142,16 +142,16 @@ fn confirm_or_retry_delete(
 
 ///|
 fn finish_delete(
-  documents : State,
+  documents : Model,
   operation : DeleteOperation,
   result : @source_repository.DeleteResult,
-) -> (State, Array[Action]) {
+) -> (Model, Array[Action]) {
   let key = operation.key
   guard find_record(documents.records, key) is Some(record) else {
     return (documents, [])
   }
   guard record.persistence
-    is Source(origin, SourceDeletePhase::Deleting(active)) &&
+    is Source(origin, SourceLifecycle::Deleting(active)) &&
     active == operation else {
     return (documents, [])
   }
@@ -174,7 +174,7 @@ fn finish_delete(
         ..record,
         persistence: Source(
           origin,
-          SourceDeletePhase::Failed(operation, failure),
+          SourceLifecycle::Failed(operation, failure),
         ),
       }
       let (restored, decisions) = match record.save {

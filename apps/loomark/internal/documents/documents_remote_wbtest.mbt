@@ -2,7 +2,7 @@
 fn remote_fixture(
   remote : @source_repository.RemoteDocument,
 ) -> (
-  State,
+  Model,
   @source_repository.DocumentReplica,
   @source_repository.RemoteHead,
   RemoteState,
@@ -25,7 +25,7 @@ fn remote_fixture(
     .apply_replica(replica) catch {
       _ => abort("valid replica")
     }
-  let documents = State::State(saved).project_account(account)
+  let documents = Model(saved).project_account(account)
   let head = replica.remote_update().unwrap().head()
   let remote = documents.remote_state(replica, Some(head))
   (documents, replica, head, remote)
@@ -51,7 +51,12 @@ test "remote update capability expires after a local edit" {
   )
   guard remote is UpdateAvailable(action) else { fail("available update") }
   let key = Key::replica(replica.account(), replica.document_id())
-  let (documents, _) = documents.reduce(TextChanged(key, "local"))
+  guard (try documents.edit(key, "local") catch {
+    _ => abort("unexpected edit error")
+  }) is Changed(transition) else {
+    fail("local edit")
+  }
+  let documents = transition.model
   let expired = try documents.accept_remote(replica, Some(head), action) catch {
     ExpiredAction => true
   } noraise {
@@ -87,9 +92,12 @@ test "remote update capability expires when a newer revision commits" {
     fail("newer revision")
   }
   let newer = write.replica()
-  let (documents, _) = documents.reduce(
-    FeedbackReceived(ReplicaSettled(write, None)),
-  )
+  guard (try documents.update(ReplicaSettled(write, None)) catch {
+    _ => abort("unexpected update error")
+  }) is Applied(transition) else {
+    fail("current replica update")
+  }
+  let documents = transition.model
   let newer_head = newer.remote_update().unwrap().head()
   let expired = try
     documents.accept_remote(newer, Some(newer_head), action)
@@ -220,7 +228,7 @@ test "accepting a remote deletion removes the working copy without inventing tex
   let committed = documents.snapshot().apply_replica_write(write) catch {
       _ => abort("valid deletion")
     }
-  let restarted = State::State(committed).project_account(replica.account())
+  let restarted = Model(committed).project_account(replica.account())
   assert_eq(restarted.text(key), None)
 }
 
@@ -253,18 +261,34 @@ test "replica commit refreshes only an unmounted clean working copy" {
   let key = Key::replica(account, document.id())
   let write = accepted_remote_write(base, remote_revision(2.0, "remote"))
 
-  let clean = State::State(saved).project_account(account)
-  let (refreshed, _) = clean.reduce(
-    FeedbackReceived(ReplicaSettled(write, None)),
-  )
+  let clean = Model(saved).project_account(account)
+  guard (try clean.update(ReplicaSettled(write, None)) catch {
+    _ => abort("unexpected update error")
+  }) is Applied(transition) else {
+    fail("unmounted replica update")
+  }
+  let refreshed = transition.model
   assert_eq(refreshed.text(key), Some("remote"))
 
-  let (mounted, _) = clean.reduce(
-    FeedbackReceived(ReplicaSettled(write, Some(key))),
-  )
+  guard (try clean.update(ReplicaSettled(write, Some(key))) catch {
+    _ => abort("unexpected update error")
+  }) is Applied(transition) else {
+    fail("mounted replica update")
+  }
+  let mounted = transition.model
   assert_eq(mounted.text(key), Some("base"))
 
-  let (edited, _) = clean.reduce(TextChanged(key, "local"))
-  let (edited, _) = edited.reduce(FeedbackReceived(ReplicaSettled(write, None)))
+  guard (try clean.edit(key, "local") catch {
+    _ => abort("unexpected edit error")
+  }) is Changed(transition) else {
+    fail("local edit")
+  }
+  let edited = transition.model
+  guard (try edited.update(ReplicaSettled(write, None)) catch {
+    _ => abort("unexpected update error")
+  }) is Applied(transition) else {
+    fail("edited replica update")
+  }
+  let edited = transition.model
   assert_eq(edited.text(key), Some("local"))
 }

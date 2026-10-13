@@ -17,33 +17,28 @@ pub enum LocalSaveFailure {
 ///|
 /// Flush accepted edits and retry failed document operations once. The root
 /// also retries persistence lanes that have no live document projection.
-pub fn State::save_changes(self : Self) -> (Self, Array[Action]) {
+pub fn Model::save_changes(self : Self) -> (Self, Array[Action]) {
   let mut next = self
   let actions : Array[Action] = []
   for record in self.records {
     let key = record.key()
     let (updated, effects) = match record.edit {
-      Waiting(revision) => next.reduce(Msg::ApplyPendingEdit(key, revision))
+      Waiting(revision) => apply_pending_edit(next, key, revision)
       Idle | ComposingIdle | ComposingWaiting(_) | ComposingReady => (next, [])
     }
     next = updated
-    for effect in effects {
-      actions.push(effect)
-    }
-    let event = match record.persistence {
-      Source(_, SourceDeletePhase::Failed(_, _)) => Msg::RetryDelete(key)
-      Replica(_, ReplicaFailed(_)) => Msg::RetryDelete(key)
+    for effect in effects { actions.push(effect) }
+    let (updated, effects) = match record.persistence {
+      Source(_, SourceLifecycle::Failed(_, _)) | Replica(_, ReplicaFailed(_)) =>
+        confirm_or_retry_delete(next, key)
       _ =>
         match record.save {
-          Failed(_) => Msg::RetrySave(key)
-          _ => Msg::VisibilityFlush(key)
+          Failed(_) => retry_save(next, key)
+          _ => flush_one(next, key)
         }
     }
-    let (updated, effects) = next.reduce(event)
     next = updated
-    for effect in effects {
-      actions.push(effect)
-    }
+    for effect in effects { actions.push(effect) }
   }
   (next, actions)
 }
@@ -97,7 +92,7 @@ fn LocalDurability::combine(self : Self, next : Self) -> Self {
 }
 
 ///|
-fn State::record_local_durability(
+fn Model::record_local_durability(
   self : Self,
   record : Record,
 ) -> LocalDurability {
@@ -106,11 +101,11 @@ fn State::record_local_durability(
     return AwaitingInput
   }
   match record.persistence {
-    Source(_, SourceDeletePhase::Failed(_, failure)) =>
+    Source(_, SourceLifecycle::Failed(_, failure)) =>
       Failed(LocalSaveFailure::Delete(key, failure))
-    Source(_, SourceDeletePhase::Waiting(_) | SourceDeletePhase::Deleting(_)) =>
+    Source(_, SourceLifecycle::Waiting(_) | SourceLifecycle::Deleting(_)) =>
       Saving
-    Source(origin, SourceDeletePhase::Available) => {
+    Source(origin, SourceLifecycle::Available) => {
       match record.save {
         Waiting(_) | Saving(_, _) => return LocalDurability::Saving
         Failed(failure) if self.saved.find(record.document.id()) !=
@@ -174,7 +169,7 @@ fn State::record_local_durability(
 }
 
 ///|
-pub fn State::local_durability(
+pub fn Model::local_durability(
   self : Self,
   persistence : @replica_persistence.State,
 ) -> LocalDurability {

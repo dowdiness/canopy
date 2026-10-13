@@ -2,29 +2,36 @@
 
 ///|
 test "stale timers and mismatched stored records are ignored" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(
-    TextChanged(source_key("one"), "b"),
-  )
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, decisions) = match documents.edit(source_key("one"), "b")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
-  let (documents, _) = documents.reduce(TextChanged(source_key("one"), "c"))
-  let (documents, stale_max) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(99)),
-  )
+  let (documents, _) = match documents.edit(source_key("one"), "c") {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
+  let (documents, stale_max) = match documents.update(FeedbackReceived(MaximumElapsed(99)),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(stale_max.is_empty())
-  let (documents, decisions) = documents.reduce(
-    ApplyPendingEdit(
+  let (documents, decisions) = match documents.update(ApplyPendingEdit(
       source_key("one"),
       pending_revision(documents, source_key("one")),
-    ),
-  )
+    ),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard decisions is [Action::PersistSource(operation)] else {
     fail("latest quiet")
   }
   let bogus = documents_test_document("one", "not-the-operation-text")
-  let (documents, _) = documents.reduce(
-    FeedbackReceived(SaveCompleted(operation, Stored(bogus))),
-  )
+  let (documents, _) = match documents.update(FeedbackReceived(SaveCompleted(operation, Stored(bogus))),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_eq(
     documents.snapshot().find(document_id("one")).unwrap().text(),
     "one",
@@ -34,18 +41,20 @@ test "stale timers and mismatched stored records are ignored" {
 ///|
 test "page-local revision orders edits across documents" {
   let saved = documents_test_snapshot()
-  let documents = State::State(saved)
-  let (documents, first_decisions) = documents.reduce(
-    TextChanged(source_key("two"), "two!"),
-  )
+  let documents = Model::Model(saved)
+  let (documents, first_decisions) = match documents.edit(source_key("two"), "two!")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   guard first_decisions is [Action::ArmMaximum(max_two)] else {
     fail("two timers")
   }
   assert_eq(pending_revision(documents, source_key("two")), 1)
   assert_eq(max_two, 1)
-  let (documents, second_decisions) = documents.reduce(
-    TextChanged(source_key("one"), "one!"),
-  )
+  let (documents, second_decisions) = match documents.edit(source_key("one"), "one!")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   guard second_decisions is [Action::ArmMaximum(max_one)] else {
     fail("one independent timers")
   }
@@ -69,33 +78,37 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
   let saved = @source_repository.SavedDocuments::from_documents([
     documents_test_document("one", "one"),
   ]).unwrap()
-  let documents = State::State(saved)
-  let (documents, decisions) = documents.reduce(
-    TextChanged(source_key("one"), "changed"),
-  )
+  let documents = Model::Model(saved)
+  let (documents, decisions) = match documents.edit(source_key("one"), "changed")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   guard decisions is [Action::ArmMaximum(mid)] else { fail("timers") }
   assert_eq(pending_revision(documents, source_key("one")), 1)
   assert_eq(mid, 1)
   // Stale pending_revision(documents, source_key("one")) revision is ignored
-  let (documents, stale) = documents.reduce(
-    ApplyPendingEdit(source_key("one"), 99),
-  )
+  let (documents, stale) = match documents.update(ApplyPendingEdit(source_key("one"), 99),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(stale.is_empty())
   // Correct revision still arms persist
-  let (documents, decisions) = documents.reduce(
-    ApplyPendingEdit(
+  let (documents, decisions) = match documents.update(ApplyPendingEdit(
       source_key("one"),
       pending_revision(documents, source_key("one")),
-    ),
-  )
+    ),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard decisions[0] is Action::PersistSource(operation) else {
     fail("persist")
   }
   assert_eq(operation.document.text(), "changed")
   // Import with same saved still persists via page-local revision
-  let (documents, decisions) = documents.reduce(
-    Imported(document_id("imported"), "text"),
-  )
+  let (documents, decisions) = match documents.update(Imported(document_id("imported"), "text"),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard decisions is [Action::PersistSource(op2)] else {
     fail("imported persist")
   }
@@ -105,37 +118,56 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
 
 ///|
 test "delete and recreate keeps pending revisions monotonic and isolated" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, _) = documents.reduce(New(document_id("new")))
-  let (documents, _) = documents.reduce(TextChanged(source_key("new"), "first"))
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, _) = match documents.update(New(document_id("new"))) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
+  let (documents, _) = match documents.edit(source_key("new"), "first") {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   let old_revision = pending_revision(documents, source_key("new"))
-  let (documents, _) = documents.reduce(DeleteConfirmed(source_key("new")))
-  let (documents, _) = documents.reduce(New(document_id("new")))
-  let (documents, _) = documents.reduce(
-    TextChanged(source_key("new"), "second"),
-  )
+  let (documents, _) = match documents.delete((source_key("new")) {
+  Accepted(transition) => (documents, transition.effects),
+  AlreadyPending => fail("unexpected pending deletion")
+}
+  let (documents, _) = match documents.update(New(document_id("new"))) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
+  let (documents, _) = match documents.edit(source_key("new"), "second")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   let current_revision = pending_revision(documents, source_key("new"))
   assert_true(current_revision > old_revision)
-  let (documents, _) = documents.reduce(TextChanged(source_key("one"), "other"))
+  let (documents, _) = match documents.edit(source_key("one"), "other") {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   assert_true(has_pending(documents, source_key("new")))
   assert_true(has_pending(documents, source_key("one")))
 }
 
 ///|
 test "matching maximum after delete confirmation is ignored" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(
-    TextChanged(source_key("one"), "changed"),
-  )
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, decisions) = match documents.edit(source_key("one"), "changed")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   guard decisions is [ArmMaximum(maximum)] else { fail("maximum") }
-  let (documents, decisions) = documents.reduce(
-    DeleteConfirmed(source_key("one")),
-  )
+  let (documents, decisions) = match documents.delete((source_key("one"))) {
+  Accepted(transition) => (documents, transition.effects),
+  AlreadyPending => fail("unexpected pending deletion")
+}
   guard decisions is [DeleteSource(_)] else { fail("delete") }
   let before = documents
-  let (documents, decisions) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(maximum)),
-  )
+  let (documents, decisions) = match documents.update(FeedbackReceived(MaximumElapsed(maximum)),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(documents == before)
   assert_true(decisions.is_empty())
 }
@@ -144,35 +176,41 @@ test "matching maximum after delete confirmation is ignored" {
 
 ///|
 test "matching maximum during waiting deletion of in-flight save is ignored" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, decisions) = documents.reduce(
-    TextChanged(source_key("one"), "first"),
-  )
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, decisions) = match documents.edit(source_key("one"), "first")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   guard decisions is [ArmMaximum(_)] else { fail("maximum") }
-  let (documents, decisions) = documents.reduce(
-    ApplyPendingEdit(
+  let (documents, decisions) = match documents.update(ApplyPendingEdit(
       source_key("one"),
       pending_revision(documents, source_key("one")),
-    ),
-  )
+    ),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard decisions is [PersistSource(save)] else { fail("save") }
-  let (documents, decisions) = documents.reduce(
-    TextChanged(source_key("one"), "latest"),
-  )
+  let (documents, decisions) = match documents.edit(source_key("one"), "latest")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   guard decisions is [ArmMaximum(maximum)] else { fail("follow-up maximum") }
-  let (documents, decisions) = documents.reduce(
-    DeleteConfirmed(source_key("one")),
-  )
+  let (documents, decisions) = match documents.delete((source_key("one"))) {
+  Accepted(transition) => (documents, transition.effects),
+  AlreadyPending => fail("unexpected pending deletion")
+}
   assert_true(decisions.is_empty())
   let before = documents
-  let (documents, decisions) = documents.reduce(
-    FeedbackReceived(MaximumElapsed(maximum)),
-  )
+  let (documents, decisions) = match documents.update(FeedbackReceived(MaximumElapsed(maximum)),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(documents == before)
   assert_true(decisions.is_empty())
-  let (_, decisions) = documents.reduce(
-    FeedbackReceived(SaveCompleted(save, Stored(save.document))),
-  )
+  let (_, decisions) = match documents.update(FeedbackReceived(SaveCompleted(save, Stored(save.document))),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard decisions is [DeleteSource(delete)] else {
     fail("original save remains valid")
   }
@@ -183,19 +221,33 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
 
 ///|
 test "old pending callback after recreate is ignored" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, _) = documents.reduce(New(document_id("new")))
-  let (documents, _) = documents.reduce(TextChanged(source_key("new"), "first"))
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, _) = match documents.update(New(document_id("new"))) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
+  let (documents, _) = match documents.edit(source_key("new"), "first") {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   let old_revision = pending_revision(documents, source_key("new"))
-  let (documents, _) = documents.reduce(DeleteConfirmed(source_key("new")))
-  let (documents, _) = documents.reduce(New(document_id("new")))
-  let (documents, _) = documents.reduce(
-    TextChanged(source_key("new"), "second"),
-  )
+  let (documents, _) = match documents.delete((source_key("new")) {
+  Accepted(transition) => (documents, transition.effects),
+  AlreadyPending => fail("unexpected pending deletion")
+}
+  let (documents, _) = match documents.update(New(document_id("new"))) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
+  let (documents, _) = match documents.edit(source_key("new"), "second")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
   let before = documents
-  let (documents, decisions) = documents.reduce(
-    ApplyPendingEdit(source_key("new"), old_revision),
-  )
+  let (documents, decisions) = match documents.update(ApplyPendingEdit(source_key("new"), old_revision),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(documents == before)
   assert_true(decisions.is_empty())
 }
@@ -204,47 +256,65 @@ test "old pending callback after recreate is ignored" {
 
 ///|
 test "waiting delete rejects mismatched stored completion" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, _) = documents.reduce(TextChanged(source_key("one"), "first"))
-  let (documents, persist) = documents.reduce(
-    ApplyPendingEdit(
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, _) = match documents.edit(source_key("one"), "first") {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
+  let (documents, persist) = match documents.update(ApplyPendingEdit(
       source_key("one"),
       pending_revision(documents, source_key("one")),
-    ),
-  )
+    ),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard persist is [PersistSource(save)] else { fail("save") }
-  let (documents, _) = documents.reduce(
-    TextChanged(source_key("one"), "latest"),
-  )
-  let (documents, _) = documents.reduce(DeleteConfirmed(source_key("one")))
+  let (documents, _) = match documents.edit(source_key("one"), "latest")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
+  let (documents, _) = match documents.delete((source_key("one")) {
+  Accepted(transition) => (documents, transition.effects),
+  AlreadyPending => fail("unexpected pending deletion")
+}
   let before = documents
   let bogus = documents_test_document("one", "not-save")
-  let (documents, decisions) = documents.reduce(
-    FeedbackReceived(SaveCompleted(save, Stored(bogus))),
-  )
+  let (documents, decisions) = match documents.update(FeedbackReceived(SaveCompleted(save, Stored(bogus))),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(documents == before)
   assert_true(decisions.is_empty())
 }
 
 ///|
 test "duplicate save completion after delete issue is ignored" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, _) = documents.reduce(TextChanged(source_key("one"), "x"))
-  let (documents, persist) = documents.reduce(
-    ApplyPendingEdit(
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, _) = match documents.edit(source_key("one"), "x") {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
+  let (documents, persist) = match documents.update(ApplyPendingEdit(
       source_key("one"),
       pending_revision(documents, source_key("one")),
-    ),
-  )
+    ),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard persist is [PersistSource(save)] else { fail("save") }
-  let (documents, _) = documents.reduce(DeleteConfirmed(source_key("one")))
-  let (documents, first) = documents.reduce(
-    FeedbackReceived(SaveCompleted(save, Stored(save.document))),
-  )
+  let (documents, _) = match documents.delete((source_key("one")) {
+  Accepted(transition) => (documents, transition.effects),
+  AlreadyPending => fail("unexpected pending deletion")
+}
+  let (documents, first) = match documents.update(FeedbackReceived(SaveCompleted(save, Stored(save.document))),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard first is [DeleteSource(delete)] else { fail("delete") }
-  let (documents, second) = documents.reduce(
-    FeedbackReceived(SaveCompleted(save, Stored(save.document))),
-  )
+  let (documents, second) = match documents.update(FeedbackReceived(SaveCompleted(save, Stored(save.document))),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(
     documents.delete_phase_status(source_key("one")) is Some(Deleting(_)),
   )
@@ -254,27 +324,37 @@ test "duplicate save completion after delete issue is ignored" {
 
 ///|
 test "stale save completion cannot finish a replacement operation" {
-  let documents = State::State(documents_test_snapshot())
-  let (documents, _) = documents.reduce(TextChanged(source_key("one"), "first"))
-  let (documents, persist) = documents.reduce(
-    ApplyPendingEdit(
+  let documents = Model::Model(documents_test_snapshot())
+  let (documents, _) = match documents.edit(source_key("one"), "first") {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
+  let (documents, persist) = match documents.update(ApplyPendingEdit(
       source_key("one"),
       pending_revision(documents, source_key("one")),
-    ),
-  )
+    ),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard persist is [PersistSource(first)] else { fail("first save") }
-  let (documents, _) = documents.reduce(
-    TextChanged(source_key("one"), "latest"),
-  )
-  let (documents, _) = documents.reduce(VisibilityFlush(source_key("one")))
-  let (documents, retry) = documents.reduce(
-    FeedbackReceived(SaveCompleted(first, SaveFailed(WriteFailed))),
-  )
+  let (documents, _) = match documents.edit(source_key("one"), "latest")) {
+  Changed(transition) => (documents, transition.effects),
+  SameText => fail("unexpected unchanged edit")
+}
+  let (documents, _) = match documents.update(VisibilityFlush(source_key("one"))) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
+  let (documents, retry) = match documents.update(FeedbackReceived(SaveCompleted(first, SaveFailed(WriteFailed))),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   guard retry is [PersistSource(second)] else { fail("replacement save") }
   let before = documents
-  let (documents, decisions) = documents.reduce(
-    FeedbackReceived(SaveCompleted(first, Stored(first.document))),
-  )
+  let (documents, decisions) = match documents.update(FeedbackReceived(SaveCompleted(first, Stored(first.document))),) {
+  Applied(transition) => (documents, transition.effects),
+  Superseded => fail("unexpected superseded callback")
+}
   assert_true(documents == before)
   assert_true(decisions.is_empty())
   ignore(second)
