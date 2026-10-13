@@ -67,9 +67,34 @@ The Loomark codebase is structured into three distinct layers:
 
 | Layer | Directory | Responsibilities |
 |---|---|---|
-| **App & UI Shell** | `app/` | Rabbita component tree, view modes (Text, Preview, Split), viewport coordination, and DOM event subscriptions. |
-| **Domain Logic** | `internal/` | Pure document catalogs (`documents/`), local-first storage engines (`source_repository/`), writing focus algorithms (`writing_focus/`), and sign-in state machines (`sign_in/`). |
+| **App & UI Shell** | `app/` | Application Model/Msg, state updates, view projections, and selection of active feature subscriptions. |
+| **Features & Browser Integration** | `internal/` | Document transitions, persistence, synchronization, UI components, pure calculations, and browser effects in their owning packages. |
 | **Server & Sync** | `server/` | Cloudflare Worker endpoints, Google OAuth handlers, D1 database migrations, and replica conflict resolvers. |
+
+### Package ownership
+
+- `internal/documents/`, `internal/sync/`, and `internal/source_repository/`
+  own document transitions, synchronization, and browser persistence.
+- `internal/writing_focus/` owns pure writing-focus calculations;
+  `internal/writing_focus/browser/` owns measurement, animation policy, and
+  listener lifetimes. Browser implementation types stay private to that package.
+- `internal/viewport/` owns viewport placement, caret visibility, and Split
+  scroll geometry and effects. The app selects the active connections.
+- `internal/browser/` owns feature-independent browser operations and resolved
+  CSS numeric parsing. Native operations are grouped by object in `document.mbt`,
+  `element.mbt`, `window.mbt`, `visual_viewport.mbt`, `animation.mbt`, and `file.mbt`.
+  Both viewport and writing-focus browser code depend on it; writing focus does
+  not depend on viewport. Feature-specific observers and policy stay with their
+  owning features.
+- `internal/examples/` owns example selection UI, Markdown sources in
+  `documents/`, and their build-time embedding.
+- `internal/recent_documents/`, `internal/sidebar/`, and `internal/view/`
+  own the existing UI components.
+
+These are packages within the Loomark module, not separately versioned
+libraries. Dependencies point from application composition to feature packages,
+never back to `app` types. Keep app-specific account/document coordination in
+`app` rather than exposing its Model merely to split files.
 
 ---
 
@@ -94,14 +119,14 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 - **Incremental Syntax Parsing:** Changes feed into a long-lived `SyntaxParser`, re-parsing only the affected CST subtrees.
 - **Demand-Driven Preparation:** Text mode creates no syntax parser. Choosing Preview or Split creates at most one parser for the selected document. Returning to Text retains the parser and keeps it updated with committed Document text without producing hidden preview output.
 - **Quiet-Window Refresh:** Preview lowering waits for a 24 ms candidate-text quiet window so rapid keystrokes produce a single coherent syntax snapshot, lowered directly to MarkdownIR and rendered to typed HTML.
-- **Split Scroll Alignment (`app/split_scroll.mbt`):** Split mode attaches directly to the resolved scroll owner, synchronizing textarea and preview positions. The connection cleanly resets across document switches, mode changes, or layout breakpoint transitions.
+- **Split Scroll Alignment (`internal/viewport/split_scroll.mbt`):** Split mode attaches directly to the resolved scroll owner, synchronizing textarea and preview positions. The connection cleanly resets across document switches, mode changes, or layout breakpoint transitions.
 
 ### 4.2 Writing Focus
 
 While actively typing, surrounding paragraphs gently fade to 50% opacity, while the active paragraph—including block quotes—and current selection remain 100% visible:
 
 - **Core Algorithm (`internal/writing_focus/`):** Pure layout and presentation decisions calculate active block boundaries without touching the browser DOM.
-- **Browser Integration (`app/writing_focus.mbt`):** Measures DOM node rectangles, applies subtle opacity transitions, and manages subscription lifetimes. Leaving the editor instantly restores full readability across the document.
+- **Browser Integration (`internal/writing_focus/browser/`):** Measures DOM node rectangles, applies subtle opacity transitions, and manages subscription lifetimes. Leaving the editor instantly restores full readability across the document.
 
 ### 4.3 Demand-Driven Sidebar (Recent Documents)
 
@@ -130,5 +155,5 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
 
 - **ResizeObserver Integration:** Loomark uses Rabbita's typed `@dom.ResizeObserver` to observe the textarea after rendering.
 - **Safe Fallback:** Observer creation and registration run inside `@js.try_sync`, preserving safety on browsers without full modern API support. The subscription disconnects the observer when that node is replaced. Width and height changes trigger caret measurement independently of visual-viewport events.
-- **Pure Calculation Engine (`app/viewport_policy.mbt`):** Contains pure numeric CSS parsing and arithmetic for caret scrolling, viewport bounds, keyboard baselines, and split alignments. It neither reads nor mutates retained state.
-- **DOM Access Boundary (`app/viewport_dom.mbt`):** Encapsulates low-level native DOM accessors, isolating native browser calls from application logic.
+- **Pure Calculation Engine (`internal/viewport/policy.mbt`):** Contains pure arithmetic for caret scrolling, viewport bounds, keyboard baselines, and split alignments. It neither reads nor mutates retained state. Shared resolved CSS numeric parsing lives in `internal/browser/css.mbt` and preserves NaN for nonnumeric keywords such as `normal`.
+- **DOM Access Boundary (`internal/browser/`):** Encapsulates missing native DOM accessors in object-specific files, isolating native browser calls from application logic. Viewport scheduling and retained measurements remain in `internal/viewport/`.
