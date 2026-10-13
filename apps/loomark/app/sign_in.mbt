@@ -8,7 +8,7 @@ fn sign_in_readiness(model : Model) -> @sign_in.Readiness {
       guard model.page is Editing(editing) else {
         return @sign_in.EditorUnavailable
       }
-      let editor : @sign_in.Editor = if editing.creation is Creating(_) {
+      let editor : @sign_in.Editor = if creation_in_progress(editing.creation) {
         Creating
       } else if editing.imports_pending > 0 {
         Importing

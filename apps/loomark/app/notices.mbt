@@ -2,6 +2,7 @@
 priv enum DocumentFailure {
   Save(@source_repository.SaveFailure)
   Create(@source_repository.CreateFailure)
+  OpeningCreate(@source_repository.CreateFailure)
   Example(Activation, String, @source_repository.CreateFailure)
   Delete(@documents.Key, @source_repository.DeleteFailure)
   DeletePersistence(@documents.Key, @source_repository.ReplicaFailure)

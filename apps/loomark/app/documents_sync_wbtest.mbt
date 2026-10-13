@@ -56,7 +56,7 @@ test "account projection exposes local documents and only its replicas" {
   let account_a = sync_test_account("account-a")
   let account_b = sync_test_account("account-b")
   let saved = sync_test_saved()
-  let account_a_documents = @documents.State::State(saved).project_account(
+  let account_a_documents = @documents.Model(saved).project_account(
     account_a,
   )
   assert_eq(account_a_documents.text(source_key("local")), Some("local"))
@@ -79,7 +79,7 @@ test "account switch retains optimistic text under its original owner" {
   let account_b = sync_test_account("account-b")
   let token_a = sync_test_key(account_a, "shared")
   let token_b = sync_test_key(account_b, "shared")
-  let documents = @documents.State::State(sync_test_saved()).project_account(
+  let documents = @documents.Model(sync_test_saved()).project_account(
     account_a,
   )
   let (documents, _) = documents.reduce(
@@ -105,7 +105,7 @@ test "account switch retains optimistic text under its original owner" {
 ///|
 test "synced deletion hides a non-active row while its intent is persisted" {
   let account = sync_test_account("account-a")
-  let documents = @documents.State::State(sync_test_saved()).project_account(
+  let documents = @documents.Model(sync_test_saved()).project_account(
     account,
   )
   let token = sync_test_key(account, "shared")
@@ -140,7 +140,7 @@ test "synced deletion hides a non-active row while its intent is persisted" {
 ///|
 test "failed deletion persistence restores the document and exact retry" {
   let account = sync_test_account("account-a")
-  let documents = @documents.State::State(sync_test_saved()).project_account(
+  let documents = @documents.Model(sync_test_saved()).project_account(
     account,
   )
   let token = sync_test_key(account, "shared")
@@ -180,7 +180,7 @@ test "deletion intent remains isolated to its owning account" {
   let account_b = sync_test_account("account-b")
   let token_a = sync_test_key(account_a, "shared")
   let token_b = sync_test_key(account_b, "shared")
-  let documents = @documents.State::State(sync_test_saved()).project_account(
+  let documents = @documents.Model(sync_test_saved()).project_account(
     account_a,
   )
   let (pending, actions) = documents.reduce(
@@ -201,7 +201,7 @@ test "deletion intent remains isolated to its owning account" {
 ///|
 test "delete conflict restores the working copy for a new decision" {
   let account = sync_test_account("account-a")
-  let documents = @documents.State::State(sync_test_saved()).project_account(
+  let documents = @documents.Model(sync_test_saved()).project_account(
     account,
   )
   let token = sync_test_key(account, "shared")

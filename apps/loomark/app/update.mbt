@@ -41,7 +41,7 @@ fn decode_import(bytes : Bytes) -> String? {
 }
 
 ///|
-fn export_payload(editing : EditingState) -> (String, String) {
+fn export_payload(editing : EditingDocument) -> (String, String) {
   let text = editing.documents.text(editing.activation.key).unwrap_or("")
   let name = @document_lead.derive_name(text).text()
   let filename = if !name.is_empty() { name + ".md" } else { "untitled.md" }
@@ -49,7 +49,30 @@ fn export_payload(editing : EditingState) -> (String, String) {
 }
 
 ///|
-fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
+fn creation_in_progress(creation : Creation?) -> Bool {
+  match creation {
+    Some({ status: InProgress, .. }) => true
+    _ => false
+  }
+}
+
+///|
+fn creation_request_is_current(creation : Creation?, request_id : Int) -> Bool {
+  match creation {
+    Some(current) => current.request_id == request_id && current.status is InProgress
+    None => false
+  }
+}
+
+///|
+fn creation_failure(error : @source_repository.CreateFailure) -> String {
+  match error {
+    _ => "Document creation failed. Try again."
+  }
+}
+
+///|
+fn EditingDocument::deletion_blocks_document_changes(self : Self) -> Bool {
   let key = self.activation.key
   let persistence_blocks = match self.documents.delete_status(key) {
     Some(NotDeletable)
@@ -67,14 +90,14 @@ fn EditingState::deletion_blocks_document_changes(self : Self) -> Bool {
 }
 
 ///|
-fn EditingState::can_activate(self : Self) -> Bool {
-  !(self.creation is Creating(_)) &&
+fn EditingDocument::can_activate(self : Self) -> Bool {
+  !(creation_in_progress(self.creation)) &&
   !self.documents.is_composing(self.activation.key) &&
   !self.deletion_blocks_document_changes()
 }
 
 ///|
-fn EditingState::selectable_activation(
+fn EditingDocument::selectable_activation(
   self : Self,
   key : @documents.Key,
 ) -> ActivationTarget? {
@@ -93,7 +116,7 @@ fn EditingState::selectable_activation(
 
 ///|
 fn activation_target(
-  documents : @documents.State,
+  documents : @documents.Model,
   key : @documents.Key,
 ) -> ActivationTarget? {
   documents
@@ -102,7 +125,7 @@ fn activation_target(
 }
 
 ///|
-fn EditingState::can_select(self : Self, key : @documents.Key) -> Bool {
+fn EditingDocument::can_select(self : Self, key : @documents.Key) -> Bool {
   self.selectable_activation(key) is Some(_)
 }
 
@@ -124,12 +147,12 @@ fn activate_surface(
 }
 
 ///|
-fn EditingState::activate(
+fn EditingDocument::activate(
   self : Self,
   target : ActivationTarget,
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
-) -> (EditingState, @rabbita.Cmd) {
+) -> (EditingDocument, @rabbita.Cmd) {
   let document = target.document
   let activation = {
     key: target.key,
@@ -194,16 +217,65 @@ fn activate_open(
 }
 
 ///|
-fn reduce_documents(
-  editing : EditingState,
+fn install_document_transition(
+  editing : EditingDocument,
+  transition : @documents.Transition,
+  actions : Array[@documents.Action],
+) -> EditingDocument {
+  for action in transition.effects { actions.push(action) }
+  { ..editing, documents: transition.model, lifecycle_error: None, }
+}
+
+///|
+fn document_update(
+  editing : EditingDocument,
   event : @documents.Msg,
   actions : Array[@documents.Action],
-) -> EditingState {
-  let (documents, next_actions) = editing.documents.reduce(event)
-  for action in next_actions {
-    actions.push(action)
+) -> (EditingDocument, DocumentUpdateResult) {
+  match editing.documents.update(event) {
+    Applied(transition) => {
+      let next = install_document_transition(editing, transition, actions)
+      (next, Updated(transition))
+    }
+    Superseded => (editing, Obsolete)
+  } catch {
+    @documents.UpdateError::DocumentMismatch(_) =>
+      let text = "Document acknowledgment did not match the current document. The current document was retained."
+      ({ ..editing, lifecycle_error: Some(text), }, Fault(text))
+    @documents.UpdateError::DocumentAlreadyExists(_) =>
+      let text = "This document already exists. Reopen the current document to recover."
+      ({ ..editing, lifecycle_error: Some(text), }, Fault(text))
+    @documents.UpdateError::InvalidAcknowledgment(_) =>
+      let text = "Document storage returned an invalid acknowledgment. The current document was retained."
+      ({ ..editing, lifecycle_error: Some(text), }, Fault(text))
   }
-  { ..editing, documents, }
+}
+
+///|
+fn reduce_documents(
+  editing : EditingDocument,
+  event : @documents.Msg,
+  actions : Array[@documents.Action],
+) -> EditingDocument {
+  document_update(editing, event, actions).0
+}
+
+///|
+fn edit_document(
+  editing : EditingDocument,
+  key : @documents.Key,
+  text : String,
+  actions : Array[@documents.Action],
+) -> EditingDocument {
+  match editing.documents.edit(key, text) {
+    Changed(transition) => install_document_transition(editing, transition, actions)
+    SameText => { ..editing, lifecycle_error: None, }
+  } catch {
+    @documents.EditError::DocumentMissing(_) =>
+      { ..editing, lifecycle_error: Some("The document is no longer available. Reopen it to continue."), }
+    @documents.EditError::PendingDeletion(_) =>
+      { ..editing, lifecycle_error: Some("This document is being deleted and can no longer be edited."), }
+  }
 }
 
 ///|
@@ -226,10 +298,21 @@ fn update_page(
   actions : Array[@documents.Action],
 ) -> (Page, @rabbita.Cmd) {
   let (next, command) = match (model, msg) {
+    (OpeningNew(opening, creation), RetryOpeningNewCreation) =>
+      match creation.status {
+        Failed(_) => {
+          let request_id = creation.request_id + 1
+          let retry = { ..creation, request_id, status: InProgress, }
+          (OpeningNew({ ..opening, lifecycle_error: None, }, retry), @source_repository.create(
+            opening.documents.snapshot(), emit.map(result => EmptyCreateCompleted(request_id, result)),
+          ))
+        }
+        InProgress | Fault(_) => (model, @cmd.none)
+      }
     (Loading(compact), Opened(Ready(saved, initial))) =>
       match initial {
         Some(document) => {
-          let documents = @documents.State::State(saved)
+          let documents = @documents.Model(saved)
           let activation = {
             key: @documents.Key::source(document.id()),
             generation: 0,
@@ -245,7 +328,7 @@ fn update_page(
             Editing({
               activation,
               documents,
-              creation: Idle,
+              creation: None,
               deletion: NoDeletion,
               mode: Text,
               menu_open: false,
@@ -253,72 +336,47 @@ fn update_page(
               preview,
               import_failed: false,
               imports_pending: 0,
-              new_preparation_request_id: 0,
-            }),
+                    }),
             command,
           )
         }
         None => {
-          let documents = @documents.State::State(saved)
-          let preparing : PreparingNewState = {
-            documents,
-            mode: Text,
-            compact,
-            request_id: 1,
-            next_activation_generation: 0,
+          let documents = @documents.Model(saved)
+          let opening : OpeningNewContext = {
+            documents, mode: Text, compact, next_activation_generation: 0, lifecycle_error: None,
           }
-          (
-            PreparingNew(preparing),
-            @source_repository.create(
-              saved,
-              emit.map(result => EmptyCreateCompleted(1, result)),
-            ),
-          )
+          let creation : Creation = { request_id: 1, intent: NewDocument, status: InProgress, }
+          (OpeningNew(opening, creation), @source_repository.create(
+            saved, emit.map(result => EmptyCreateCompleted(1, result)),
+          ))
         }
       }
     (Loading(compact), Opened(OpenFailed(failure))) =>
       (Recovery(failure, compact), @cmd.none)
-    (PreparingNew(preparing), EmptyCreateCompleted(request_id, result)) =>
-      if preparing.request_id != request_id {
+    (OpeningNew(opening, creation), EmptyCreateCompleted(request_id, result)) =>
+      if !creation_request_is_current(Some(creation), request_id) {
         (model, @cmd.none)
       } else {
         match result {
           CreateFailed(failure) =>
-            (
-              NewPreparationFailed(preparing, creation_open_failure(failure)),
-              @cmd.none,
-            )
+            (OpeningNew(opening, { ..creation, status: Failed(failure), }), @cmd.none)
           Created(document_id) => {
-            let (documents, _) = preparing.documents.reduce(
-              @documents.Msg::New(document_id),
-            )
+            let documents = match opening.documents.update(@documents.Msg::New(document_id)) {
+              Applied(transition) => transition.model
+              Superseded => opening.documents
+            } catch {
+              _ => opening.documents
+            }
             let activation = {
               key: @documents.Key::source(document_id),
-              generation: preparing.next_activation_generation,
+              generation: opening.next_activation_generation,
             }
-            let (preview, command) = activate_surface(
-              activation,
-              "",
-              preparing.mode,
-              emit,
-              editor,
-            )
-            (
-              Editing({
-                activation,
-                documents,
-                creation: Idle,
-                deletion: NoDeletion,
-                mode: preparing.mode,
-                menu_open: false,
-                compact: preparing.compact,
-                preview,
-                import_failed: false,
-                imports_pending: 0,
-                new_preparation_request_id: preparing.request_id,
-              }),
-              command,
-            )
+            let (preview, command) = activate_surface(activation, "", opening.mode, emit, editor)
+            (Editing({
+              activation, documents, creation: None, lifecycle_error: None,
+              deletion: NoDeletion, mode: opening.mode, menu_open: false,
+              compact: opening.compact, preview, import_failed: false, imports_pending: 0, next_creation_request_id: creation.request_id + 1,
+            }), command)
           }
         }
       }
@@ -329,11 +387,11 @@ fn update_page(
         (Editing(editing), @cmd.none)
       } else {
         (
-          Editing({ ..editing, creation: Creating(owner.generation), }),
+          Editing({ ..editing, creation: Some({ request_id: editing.next_creation_request_id, intent: Example(text), status: InProgress, }), next_creation_request_id: editing.next_creation_request_id + 1, }),
           @source_repository.create(
             editing.documents.snapshot(),
             emit.map(result => {
-              ExampleCreateCompleted(owner.generation, text, result)
+              ExampleCreateCompleted(editing.next_creation_request_id, text, result)
             }),
           ),
         )
@@ -342,7 +400,7 @@ fn update_page(
       Editing(editing),
       ExampleCreateCompleted(generation, text, Created(document_id)),
     ) =>
-      if !(editing.creation is Creating(current) && current == generation) {
+      if !(creation_request_is_current(editing.creation, generation)) {
         (Editing(editing), @cmd.none)
       } else {
         let key = @documents.Key::source(document_id)
@@ -351,15 +409,11 @@ fn update_page(
           @documents.Msg::New(document_id),
           actions,
         )
-        let editing = reduce_documents(
-          editing,
-          @documents.Msg::TextChanged(key, text),
-          actions,
-        )
+        let editing = edit_document(editing, key, text, actions)
         match activation_target(editing.documents, key) {
-          None => (Editing({ ..editing, creation: Idle, }), @cmd.none)
+          None => (Editing({ ..editing, creation: None, }), @cmd.none)
           Some(target) => {
-            let ready = { ..editing, creation: Idle, }
+            let ready = { ..editing, creation: None, }
             let (next, surface) = ready.activate(target, emit, editor)
             (Editing(next), surface)
           }
@@ -369,9 +423,9 @@ fn update_page(
       Editing(editing),
       ExampleCreateCompleted(generation, text, CreateFailed(failure)),
     ) =>
-      if editing.creation is Creating(current) && current == generation {
+      if creation_request_is_current(editing.creation, generation) {
         (
-          Editing({ ..editing, creation: ExampleCreationFailed(text, failure), }),
+          Editing({ ..editing, creation: Some({ request_id: generation, intent: Example(text), status: Failed(failure), }), }),
           @cmd.none,
         )
       } else {
@@ -392,7 +446,7 @@ fn update_page(
     (Editing(editing), TextChanged(generation, change)) =>
       if generation != editing.activation.generation {
         (Editing(editing), @cmd.none)
-      } else if editing.creation is Creating(_) ||
+      } else if creation_in_progress(editing.creation) ||
         editing.deletion_blocks_document_changes() {
         (
           Editing(editing),
@@ -411,11 +465,7 @@ fn update_page(
           Some(text) if editing.documents.text(key) == Some(text) =>
             (Editing(editing), @cmd.none)
           Some(text) => {
-            let editing = reduce_documents(
-              editing,
-              @documents.Msg::TextChanged(key, text),
-              actions,
-            )
+            let editing = edit_document(editing, key, text, actions)
             if editing.documents.text(key) != Some(text) {
               (
                 Editing(editing),
@@ -436,7 +486,7 @@ fn update_page(
       }
     (Editing(editing), CompositionStarted(generation)) =>
       if generation != editing.activation.generation ||
-        editing.creation is Creating(_) ||
+        creation_in_progress(editing.creation) ||
         editing.deletion_blocks_document_changes() {
         (Editing(editing), @cmd.none)
       } else {
@@ -543,7 +593,7 @@ fn update_page(
           Some(target) => {
             let ready = {
               ..next,
-              creation: Idle,
+              creation: None,
               deletion: NoDeletion,
               import_failed: false,
             }
@@ -574,19 +624,8 @@ fn update_page(
     }
     (Loading(_), ViewportChanged(width)) =>
       (Loading(compact_viewport(width)), @cmd.none)
-    (PreparingNew(preparing), ViewportChanged(width)) =>
-      (
-        PreparingNew({ ..preparing, compact: compact_viewport(width), }),
-        @cmd.none,
-      )
-    (NewPreparationFailed(preparing, failure), ViewportChanged(width)) =>
-      (
-        NewPreparationFailed(
-          { ..preparing, compact: compact_viewport(width), },
-          failure,
-        ),
-        @cmd.none,
-      )
+    (OpeningNew(opening, creation), ViewportChanged(width)) =>
+      (OpeningNew({ ..opening, compact: compact_viewport(width), }, creation), @cmd.none)
     (Recovery(failure, _), ViewportChanged(width)) =>
       (Recovery(failure, compact_viewport(width)), @cmd.none)
     (Editing(editing), ViewportChanged(width)) => {
@@ -604,9 +643,9 @@ fn update_page(
       if !editing.can_activate() {
         (Editing(editing), @cmd.none)
       } else {
-        let generation = editing.activation.generation
+        let generation = editing.next_creation_request_id
         (
-          Editing({ ..editing, creation: Creating(generation), }),
+          Editing({ ..editing, creation: Some({ request_id: generation, intent: NewDocument, status: InProgress, }), next_creation_request_id: generation + 1, }),
           @source_repository.create(
             editing.documents.snapshot(),
             emit.map(result => CreateCompleted(generation, result)),
@@ -614,7 +653,7 @@ fn update_page(
         )
       }
     (Editing(editing), CreateCompleted(generation, Created(document_id))) =>
-      if !(editing.creation is Creating(current) && current == generation) {
+      if !(creation_request_is_current(editing.creation, generation)) {
         (Editing(editing), @cmd.none)
       } else {
         let editing = reduce_documents(
@@ -629,15 +668,15 @@ fn update_page(
           ) {
           None => (Editing(editing), @cmd.none)
           Some(target) => {
-            let ready = { ..editing, creation: Idle, }
+            let ready = { ..editing, creation: None, }
             let (next, command) = ready.activate(target, emit, editor)
             (Editing(next), command)
           }
         }
       }
     (Editing(editing), CreateCompleted(generation, CreateFailed(failure))) =>
-      if editing.creation is Creating(current) && current == generation {
-        (Editing({ ..editing, creation: CreationFailed(failure), }), @cmd.none)
+      if creation_request_is_current(editing.creation, generation) {
+        (Editing({ ..editing, creation: Some({ request_id: generation, intent: NewDocument, status: Failed(failure), }), }), @cmd.none)
       } else {
         (Editing(editing), @cmd.none)
       }
@@ -650,7 +689,7 @@ fn update_page(
         }
       }
     (Editing(editing), DeleteRequested(document_id)) =>
-      if editing.creation is Creating(_) ||
+      if creation_in_progress(editing.creation) ||
         editing.deletion != NoDeletion ||
         editing.documents.text(document_id) is None {
         (Editing(editing), @cmd.none)
@@ -696,7 +735,7 @@ fn update_page(
 fn Page::saved_documents(self : Self) -> @source_repository.SavedDocuments? {
   match self {
     Editing(editing) => Some(editing.documents.snapshot())
-    PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+    OpeningNew(preparing, _) =>
       Some(preparing.documents.snapshot())
     Loading(_) | Recovery(_, _) => None
   }
@@ -707,65 +746,27 @@ fn Page::begin_fork(
   self : Self,
   write : @source_repository.ReplicaWrite,
 ) -> Page? {
-  guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
-    return None
-  }
+  guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else { return None }
   match self {
     Editing(editing) => {
-      let documents = editing.documents.begin_fork(write) catch {
-        _ => return None
-      }
-      let original = @documents.Key::replica(
-        replica.account(),
-        replica.document_id(),
-      )
-      let activation = if editing.activation.key == original {
-        { ..editing.activation, key: @documents.Key::source(recovery.id()), }
-      } else {
-        editing.activation
-      }
+      let documents = editing.documents.begin_fork(write) catch { _ => return None }
+      let original = @documents.Key::replica(replica.account(), replica.document_id())
+      let activation = if editing.activation.key == original { { ..editing.activation, key: @documents.Key::source(recovery.id()), } } else { editing.activation }
       Some(Editing({ ..editing, documents, activation, }))
     }
-    PreparingNew(preparing) => {
-      let documents = preparing.documents.begin_fork(write) catch {
-        _ => return None
-      }
-      Some(PreparingNew({ ..preparing, documents, }))
-    }
-    NewPreparationFailed(preparing, failure) => {
-      let documents = preparing.documents.begin_fork(write) catch {
-        _ => return None
-      }
-      Some(NewPreparationFailed({ ..preparing, documents, }, failure))
+    OpeningNew(opening, creation) => {
+      let documents = opening.documents.begin_fork(write) catch { _ => return None }
+      Some(OpeningNew({ ..opening, documents, }, creation))
     }
     Loading(_) | Recovery(_, _) => None
   }
 }
 
 ///|
-fn Page::project_account(
-  self : Self,
-  account : @source_repository.AccountId,
-) -> Self {
+fn Page::project_account(self : Self, account : @source_repository.AccountId) -> Self {
   match self {
-    Editing(editing) =>
-      Editing({
-        ..editing,
-        documents: editing.documents.project_account(account),
-      })
-    PreparingNew(preparing) =>
-      PreparingNew({
-        ..preparing,
-        documents: preparing.documents.project_account(account),
-      })
-    NewPreparationFailed(preparing, failure) =>
-      NewPreparationFailed(
-        {
-          ..preparing,
-          documents: preparing.documents.project_account(account),
-        },
-        failure,
-      )
+    Editing(editing) => Editing({ ..editing, documents: editing.documents.project_account(account), })
+    OpeningNew(opening, creation) => OpeningNew({ ..opening, documents: opening.documents.project_account(account), }, creation)
     Loading(_) | Recovery(_, _) => self
   }
 }
@@ -773,18 +774,8 @@ fn Page::project_account(
 ///|
 fn Page::hide_accounts(self : Self) -> Self {
   match self {
-    Editing(editing) =>
-      Editing({ ..editing, documents: editing.documents.hide_accounts(), })
-    PreparingNew(preparing) =>
-      PreparingNew({
-        ..preparing,
-        documents: preparing.documents.hide_accounts(),
-      })
-    NewPreparationFailed(preparing, failure) =>
-      NewPreparationFailed(
-        { ..preparing, documents: preparing.documents.hide_accounts(), },
-        failure,
-      )
+    Editing(editing) => Editing({ ..editing, documents: editing.documents.hide_accounts(), })
+    OpeningNew(opening, creation) => OpeningNew({ ..opening, documents: opening.documents.hide_accounts(), }, creation)
     Loading(_) | Recovery(_, _) => self
   }
 }
@@ -881,7 +872,7 @@ fn apply_document_actions(
           commands +
           [
             @cmd.delay(
-              emit(DocumentsLifecycle(@documents.Feedback::MaximumElapsed(id))),
+              emit(DocumentMaximumElapsed(id)),
               AUTOSAVE_MAXIMUM_MS,
             ),
           ],
@@ -896,9 +887,10 @@ fn apply_document_actions(
               saved,
               operation.document,
               emit.map(result => {
-                DocumentsLifecycle(
-                  @documents.Feedback::SaveCompleted(operation, result),
-                )
+                match result {
+                  @source_repository.SaveResult::Stored(document) => DocumentSaved(operation, document)
+                  SaveFailed(failure) => DocumentSaveFailed(operation, failure)
+                }
               }),
             ),
           ],
@@ -914,9 +906,10 @@ fn apply_document_actions(
               saved,
               operation.document_id,
               emit.map(result => {
-                DocumentsLifecycle(
-                  @documents.Feedback::DeleteCompleted(operation, result),
-                )
+                match result {
+                  @source_repository.DeleteResult::Deleted(document_id) => DocumentDeleted(operation, document_id)
+                  DeleteFailed(failure) => DocumentDeleteFailed(operation, failure)
+                }
               }),
             ),
           ],
@@ -1113,6 +1106,30 @@ fn initial_state(
 }
 
 ///|
+fn update_delete(model : Model, key : @documents.Key, emit : @rabbita.Emit[Msg]) -> (Model, @rabbita.Cmd) {
+  match model.page {
+    Editing(editing) =>
+      match editing.documents.delete(key) {
+        Accepted(transition) => {
+          let actions : Array[@documents.Action] = []
+          let editing = install_document_transition(editing, transition, actions)
+          let (model, command) = apply_document_actions({ ..model, page: Editing(editing), }, actions, emit)
+          (model, command)
+        }
+        AlreadyPending => (model, @cmd.none)
+      } catch {
+        @documents.DeleteError::DocumentMissing(_) =>
+          ({ ..model, page: Editing({ ..editing, lifecycle_error: Some("The document is no longer available. Refresh the document list and try again."), }), }, @cmd.none)
+        @documents.DeleteError::OwnershipTransferInProgress(_) =>
+          ({ ..model, page: Editing({ ..editing, lifecycle_error: Some("This document is being transferred and cannot be deleted yet."), }), }, @cmd.none)
+        @documents.DeleteError::ReplicaMissing(_) =>
+          ({ ..model, page: Editing({ ..editing, lifecycle_error: Some("The synchronized document is unavailable. Retry after synchronization recovers."), }), }, @cmd.none)
+      }
+    _ => (model, @cmd.none)
+  }
+}
+
+///|
 fn update_documents(
   model : Model,
   event : @documents.Msg,
@@ -1191,7 +1208,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | PreviewEvent(_)
     | ScrollClaimed(_)
     | ViewportChanged(_)
-    | DocumentsLifecycle(_)
+    | DocumentMaximumElapsed(_) | DocumentSaved(_, _) | DocumentSaveFailed(_, _) | DocumentDeleted(_, _) | DocumentDeleteFailed(_, _) | DocumentReplicaAdvanced(_) | DocumentReplicaSettled(_, _) | DocumentReplicaDeletionFailed(_, _) | DocumentPromoted(_) | DocumentPromotionFailed(_, _)
     | ApplyPendingEdit(_, _)
     | VisibilityChanged(_)
     | PageRestored
@@ -1265,13 +1282,16 @@ fn reduce(
         emit,
         editor,
       )
-    DocumentsLifecycle(feedback) =>
-      update_documents(
-        model,
-        @documents.Msg::FeedbackReceived(feedback),
-        emit,
-        editor,
-      )
+    DocumentMaximumElapsed(id) => update_documents(model, @documents.Msg::MaximumElapsed(id), emit, editor)
+    DocumentSaved(operation, document) => update_documents(model, @documents.Msg::Saved(operation, document), emit, editor)
+    DocumentSaveFailed(operation, failure) => update_documents(model, @documents.Msg::SaveFailed(operation, failure), emit, editor)
+    DocumentDeleted(operation, document_id) => update_documents(model, @documents.Msg::Deleted(operation, document_id), emit, editor)
+    DocumentDeleteFailed(operation, failure) => update_documents(model, @documents.Msg::DeleteFailed(operation, failure), emit, editor)
+    DocumentReplicaAdvanced(write) => update_documents(model, @documents.Msg::ReplicaAdvanced(write), emit, editor)
+    DocumentReplicaSettled(write, key) => update_documents(model, @documents.Msg::ReplicaSettled(write, key), emit, editor)
+    DocumentReplicaDeletionFailed(write, failure) => update_documents(model, @documents.Msg::ReplicaDeletionFailed(write, failure), emit, editor)
+    DocumentPromoted(write) => update_documents(model, @documents.Msg::Promoted(write), emit, editor)
+    DocumentPromotionFailed(write, failure) => update_documents(model, @documents.Msg::PromotionFailed(write, failure), emit, editor)
     CompositionEnded(generation) =>
       match model.page {
         Editing(editing) if generation == editing.activation.generation =>
@@ -1286,21 +1306,10 @@ fn reduce(
     DeleteConfirmed(document_id) =>
       match model.page {
         Editing(editing) if editing.deletion == DeleteConfirmation(document_id) =>
-          update_documents(
-            { ..model, page: Editing({ ..editing, deletion: NoDeletion, }), },
-            @documents.Msg::DeleteConfirmed(document_id),
-            emit,
-            editor,
-          )
+          update_delete({ ..model, page: Editing({ ..editing, deletion: NoDeletion, lifecycle_error: None, }), }, document_id, emit)
         _ => (model, @cmd.none)
       }
-    RetryDelete(document_id) =>
-      update_documents(
-        model,
-        @documents.Msg::RetryDelete(document_id),
-        emit,
-        editor,
-      )
+    RetryDelete(document_id) => update_delete(model, document_id, emit)
     VisibilityChanged(true) =>
       match model.page {
         Editing(_) =>
@@ -1480,20 +1489,20 @@ fn reduce(
       let mounted = match model.page {
         Editing(editing) => Some(editing.activation.key)
         Loading(_)
-        | PreparingNew(_)
-        | NewPreparationFailed(_, _)
+        | OpeningNew(_, _)
+        | OpeningNew(_, _)
         | Recovery(_, _) => None
       }
-      let feedback = @documents.Feedback::from_replica_completion(
+      let document_message = @documents.Msg::from_replica_completion(
         attempt.write(),
         completion,
         mounted,
       )
-      let (page, page_actions, page_command) = match feedback {
-        Some(feedback) =>
+      let (page, page_actions, page_command) = match document_message {
+        Some(event) =>
           reduce_page_documents(
             model.page,
-            @documents.Msg::FeedbackReceived(feedback),
+            event,
             emit,
             editor,
           )
@@ -1757,48 +1766,44 @@ fn reduce_page_documents(
   match model {
     Editing(editing) => {
       let active = editing.activation
-      let (documents, actions) = editing.documents.reduce(event)
-      let editing = { ..editing, documents, }
-      let editing = match event {
-        @documents.Msg::FeedbackReceived(
-          @documents.Feedback::PromotionCompleted(write, Ok(_))
-        ) if active.key == @documents.Key::source(write.replica().document_id()) => {
+      let actions : Array[@documents.Action] = []
+      let (updated, _) = document_update(editing, event, actions)
+      let updated = match event {
+        @documents.Msg::Promoted(write) if active.key is @documents.Key::Source(id) && id == write.replica().document_id() => {
           let replica = write.replica()
-          let key = @documents.Key::replica(
-            replica.account(),
-            replica.document_id(),
-          )
-          if editing.documents.text(active.key) is None &&
-            editing.documents.text(key) is Some(_) {
-            { ..editing, activation: { ..active, key, }, }
-          } else {
-            editing
-          }
+          let key = @documents.Key::replica(replica.account(), replica.document_id())
+          if updated.documents.text(active.key) is None && updated.documents.text(key) is Some(_) {
+            { ..updated, activation: { ..active, key, }, }
+          } else { updated }
         }
-        _ => editing
+        _ => updated
       }
-      let (page, command) = reconcile_active(editing, emit, editor, @cmd.none)
+      let (page, command) = reconcile_active(updated, emit, editor, @cmd.none)
       (page, actions, command)
     }
-    PreparingNew(preparing) => {
-      let (documents, actions) = preparing.documents.reduce(event)
-      (PreparingNew({ ..preparing, documents, }), actions, @cmd.none)
-    }
-    NewPreparationFailed(preparing, failure) => {
-      let (documents, actions) = preparing.documents.reduce(event)
-      (
-        NewPreparationFailed({ ..preparing, documents, }, failure),
-        actions,
-        @cmd.none,
-      )
-    }
+    OpeningNew(opening, creation) =>
+      match opening.documents.update(event) {
+        Applied(transition) => {
+          let actions : Array[@documents.Action] = []
+          for action in transition.effects { actions.push(action) }
+          (OpeningNew({ ..opening, documents: transition.model, lifecycle_error: None, }, creation), actions, @cmd.none)
+        }
+        Superseded => (model, [], @cmd.none)
+      } catch {
+        @documents.UpdateError::DocumentMismatch(_) =>
+          (OpeningNew({ ..opening, lifecycle_error: Some("Document acknowledgment did not match the current document. The current document was retained."), }, creation), [], @cmd.none)
+        @documents.UpdateError::DocumentAlreadyExists(_) =>
+          (OpeningNew({ ..opening, lifecycle_error: Some("This document already exists. Reopen it to recover."), }, creation), [], @cmd.none)
+        @documents.UpdateError::InvalidAcknowledgment(_) =>
+          (OpeningNew({ ..opening, lifecycle_error: Some("Document storage returned an invalid acknowledgment. The current document was retained."), }, creation), [], @cmd.none)
+      }
     Loading(_) | Recovery(_, _) => (model, [], @cmd.none)
   }
 }
 
 ///|
 fn reconcile_active(
-  editing : EditingState,
+  editing : EditingDocument,
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
   prior : @rabbita.Cmd,
@@ -1817,33 +1822,21 @@ fn reconcile_active(
           }
         }
       None => {
-        let request_id = editing.new_preparation_request_id + 1
-        (
-          PreparingNew({
-            documents: editing.documents,
-            mode: editing.mode,
-            compact: editing.compact,
-            request_id,
-            next_activation_generation: editing.activation.generation + 1,
-          }),
-          @cmd.batch([
-            prior,
-            @source_repository.create(
-              editing.documents.snapshot(),
-              emit.map(result => EmptyCreateCompleted(request_id, result)),
-            ),
-          ]),
-        )
+        let request_id = editing.activation.generation + 1
+        let opening : OpeningNewContext = {
+          documents: editing.documents, mode: editing.mode, compact: editing.compact,
+          next_activation_generation: request_id, lifecycle_error: None,
+        }
+        let creation : Creation = { request_id, intent: NewDocument, status: InProgress, }
+        (OpeningNew(opening, creation), @cmd.batch([
+          prior,
+          @source_repository.create(
+            editing.documents.snapshot(),
+            emit.map(result => EmptyCreateCompleted(request_id, result)),
+          ),
+        ]))
       }
     }
   }
 }
 
-///|
-fn creation_open_failure(
-  failure : @source_repository.CreateFailure,
-) -> @source_repository.OpenFailure {
-  match failure {
-    DocumentIdentityUnavailable => StorageUnavailable
-  }
-}

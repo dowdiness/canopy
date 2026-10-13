@@ -1,5 +1,5 @@
 ///|
-fn signed_out_model(editing : EditingState) -> Model {
+fn signed_out_model(editing : EditingDocument) -> Model {
   let (sync, lookup) = @sync.State().begin_lookup() catch {
     _ => abort("fresh session lookup")
   }
@@ -119,7 +119,7 @@ test "logout fences lookup and hides account membership without discarding open 
   let saved = test_sync_snapshot(account)
   let editing = {
     ..initial,
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
     activation: { key, generation: 0, },
   }
   let (old_lookup, lookup) = current_sync(account).begin_lookup()
@@ -153,7 +153,7 @@ test "signed-out replica edits enter persistence synchronously during sign-in" {
   let key = @documents.Key::replica(account, document_id("one"))
   let editing = {
     ..test_editing(),
-    documents: @documents.State::State(test_sync_snapshot(account)),
+    documents: @documents.Model(test_sync_snapshot(account)),
     activation: { key, generation: 0, },
   }
   let (edited, _) = test_root_update(

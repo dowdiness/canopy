@@ -69,7 +69,7 @@ fn status_model(
   let saved = saved.apply_replica(replica) catch {
     _ => abort("valid test replica")
   }
-  let documents = @documents.State::State(saved).project_account(
+  let documents = @documents.Model(saved).project_account(
     replica.account(),
   )
   test_model(
@@ -472,7 +472,7 @@ test "fork persistence belongs to its recovery Source until commit" {
   let saved = @source_repository.SavedDocuments::from_documents([])
     .unwrap()
     .apply_replica(divergence)
-  let documents = @documents.State::State(saved)
+  let documents = @documents.Model(saved)
     .project_account(account)
     .begin_fork(fork) catch {
       _ => abort("forking documents")

@@ -15,15 +15,14 @@ fn view(
             editing.activation.key,
           )
           is Some(NotStarted),
-          disabled: editing.creation is Creating(_) ||
+          disabled: creation_in_progress(editing.creation) ||
           model.sign_in.blocks_editing(),
           read_only: editing.deletion_blocks_document_changes(),
           mode: editing.mode,
           preview: editing.preview,
         })
       Loading(_)
-      | PreparingNew(_)
-      | NewPreparationFailed(_, _)
+      | OpeningNew(_, _)
       | Recovery(_, _) => None
     }
   })
@@ -31,8 +30,7 @@ fn view(
   let compact = page.map(page => {
     match page {
       Loading(compact) => compact
-      PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
-        preparing.compact
+      OpeningNew(opening, _) => opening.compact
       Editing(editing) => editing.compact
       Recovery(_, compact) => compact
     }
@@ -124,8 +122,7 @@ fn view(
     match page {
       Editing(editing) => recent_document_seeds(editing, remote)
       Loading(_)
-      | PreparingNew(_)
-      | NewPreparationFailed(_, _)
+      | OpeningNew(_, _)
       | Recovery(_, _) => @vector.Vector([])
     }
   })
@@ -137,8 +134,7 @@ fn view(
           NoDeletion => None
         }
       Loading(_)
-      | PreparingNew(_)
-      | NewPreparationFailed(_, _)
+      | OpeningNew(_, _)
       | Recovery(_, _) => None
     }
   })
@@ -226,6 +222,8 @@ fn view(
         None | Some(Save(_)) => @html.nothing
         Some(Create(failure)) =>
           creation_failure_view(failure, emit(CreateRequested))
+        Some(OpeningCreate(failure)) =>
+          creation_failure_view(failure, emit(RetryOpeningNewCreation))
         Some(Example(activation, text, failure)) =>
           example_creation_failure_view(
             failure,
@@ -243,6 +241,7 @@ fn view(
       @html.fragment([
         save_failure_view(save_failure, emit(RetrySave)),
         failure,
+        input.lifecycle_error.map(error => failure_notice(error, "", on_action=None)).unwrap_or(@html.nothing),
         if input.import_failed {
           import_failure_view(emit(DismissImportFailure))
         } else {
@@ -252,9 +251,13 @@ fn view(
     })
   let phase = page.map(page => {
     match page {
-      Loading(_) | PreparingNew(_) => LoadingScreen
-      Recovery(failure, _) | NewPreparationFailed(_, failure) =>
-        RecoveryScreen(failure)
+      Loading(_) => LoadingScreen
+      OpeningNew(_, creation) =>
+        match creation.status {
+          InProgress => LoadingScreen
+          Failed(_) | Fault(_) => RecoveryScreen(StorageUnavailable)
+        }
+      Recovery(failure, _) => RecoveryScreen(failure)
       Editing(_) => EditingScreen
     }
   })
@@ -300,7 +303,7 @@ fn document_tools_input(model : Model) -> DocumentToolsInput? {
   guard model.page is Editing(editing) else { return None }
   Some({
     activation: editing.activation,
-    examples_disabled: editing.creation is Creating(_) ||
+    examples_disabled: creation_in_progress(editing.creation) ||
     model.sign_in.blocks_editing(),
     import_disabled: model.sign_in.blocks_editing(),
   })
@@ -318,8 +321,22 @@ fn toolbar_input(model : Model) -> ToolbarInput? {
 
 ///|
 fn notices_input(model : Model) -> NoticesInput {
+  let lifecycle_error = match model.page {
+    Editing(editing) => editing.lifecycle_error
+    OpeningNew(opening, _) => opening.lifecycle_error
+    _ => None
+  }
   guard model.page is Editing(editing) else {
-    return { failure: None, import_failed: false, }
+    match model.page {
+      OpeningNew(_, creation) =>
+        match creation.status {
+          Failed(failure) =>
+            return { failure: Some(OpeningCreate(failure)), import_failed: false, lifecycle_error, }
+          InProgress | Fault(_) =>
+            return { failure: None, import_failed: false, lifecycle_error, }
+        }
+      _ => return { failure: None, import_failed: false, lifecycle_error, }
+    }
   }
   let sign_in_reports_save_failure = account_controls_input(model).sign_in
     is @sign_in.Failed(@sign_in.Save(_), ..)
@@ -329,10 +346,16 @@ fn notices_input(model : Model) -> NoticesInput {
       Some(Save(failure))
     _ =>
       match editing.creation {
-        CreationFailed(failure) => Some(Create(failure))
-        ExampleCreationFailed(text, failure) =>
-          Some(Example(editing.activation, text, failure))
-        _ =>
+        Some(creation) =>
+          match creation.status {
+            Failed(failure) =>
+              match creation.intent {
+                NewDocument => Some(Create(failure))
+                Example(text) => Some(Example(editing.activation, text, failure))
+              }
+            InProgress | Fault(_) => None
+          }
+        None =>
           match editing.documents.delete_status(editing.activation.key) {
             Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
               Some(Delete(editing.activation.key, failure))
@@ -342,5 +365,5 @@ fn notices_input(model : Model) -> NoticesInput {
           }
       }
   }
-  { failure, import_failed: editing.import_failed, }
+  { failure, import_failed: editing.import_failed, lifecycle_error, }
 }

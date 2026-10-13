@@ -1,8 +1,8 @@
 ///|
-fn Page::documents_state(self : Self) -> @documents.State? {
+fn Page::documents_state(self : Self) -> @documents.Model? {
   match self {
     Editing(editing) => Some(editing.documents)
-    PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+    OpeningNew(preparing, _) =>
       Some(preparing.documents)
     Loading(_) | Recovery(_, _) => None
   }
@@ -37,7 +37,7 @@ fn documents_test_document(
 }
 
 ///|
-fn pending_revision(documents : @documents.State, key : @documents.Key) -> Int {
+fn pending_revision(documents : @documents.Model, key : @documents.Key) -> Int {
   documents
   .pending_edits()
   .search_by(item => item.0 == key)
@@ -54,9 +54,9 @@ fn test_snapshot() -> @source_repository.SavedDocuments {
 }
 
 ///|
-fn test_editing() -> EditingState {
+fn test_editing() -> EditingDocument {
   let snapshot = test_snapshot()
-  let documents = @documents.State::State(snapshot)
+  let documents = @documents.Model(snapshot)
   let (preview, _) = @editor.MarkdownEditor::MarkdownEditor("loomark-test-text").activate(
     0,
     "one",
@@ -269,7 +269,7 @@ test "account resolution schedules durable sync work" {
       key: @documents.Key::replica(account, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved),
+    documents: @documents.Model(saved),
   })
   let (resolving, lookup_id) = @sync.State().begin_lookup()
   let (resolved, _) = resolving.resolved(
@@ -300,7 +300,7 @@ test "delivery receipt enters the replica writer before becoming durable" {
       key: @documents.Key::replica(account, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   let (sync, action) = current_sync(account).advance(replica)
   guard action is Some(@sync.Action::Deliver(delivery, _)) else {
@@ -354,7 +354,7 @@ test "lost delivery response waits for newer local commit before retry" {
   let page = Editing({
     ..test_editing(),
     activation: { key, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, operation))) else {
@@ -436,7 +436,7 @@ test "account resolution retries a failed receipt replica" {
       key: @documents.Key::replica(account, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
@@ -487,7 +487,7 @@ test "account retry keeps an Undo made while replica storage is in flight" {
   let page = Editing({
     ..test_editing(),
     activation: { key: token, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
@@ -612,7 +612,7 @@ test "intermediate Replica commit cannot discard a pending Undo" {
   let page = Editing({
     ..test_editing(),
     activation: { key, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   let model = {
     page,
@@ -723,7 +723,7 @@ test "network retry waits while a newer replica write is in flight" {
   let page = Editing({
     ..test_editing(),
     activation: { key: token, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   let model = {
     page,
@@ -755,7 +755,7 @@ test "operation identity failure stays retryable while replica storage is busy" 
   let page = Editing({
     ..test_editing(),
     activation: { key: token, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   let model = {
     page,
@@ -788,7 +788,7 @@ test "operation identity generation failure remains retryable" {
       key: @documents.Key::replica(account, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   let (failed, _) = test_root_update(
     test_model(page, planning),
@@ -834,7 +834,7 @@ test "account switch defers a conflict fetch until its account is current" {
       key: @documents.Key::replica(account_a, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved).project_account(account_a),
+    documents: @documents.Model(saved).project_account(account_a),
   })
   guard current_sync(account_a).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
@@ -877,7 +877,7 @@ test "account-change delivery rechecks identity only once for a current attempt"
       key: @documents.Key::replica(account, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
@@ -907,7 +907,7 @@ test "revision conflict waits for recovery identity before atomic persistence" {
       key: @documents.Key::replica(account, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
@@ -1058,7 +1058,7 @@ test "selected Replica cannot reopen a fork before its durable commit" {
   let page = Editing({
     ..test_editing(),
     activation: { key, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   let page = page.begin_fork(fork).unwrap()
   let entry = @source_repository.RemoteEntry::Present(id, first, "Base")
@@ -1103,7 +1103,7 @@ test "failed conflict recovery identity leaves durable recovery work retryable" 
       key: @documents.Key::replica(account, document_id("one")),
       generation: 0,
     },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   guard current_sync(account).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
@@ -1199,7 +1199,7 @@ test "accepting a remote update starts a fresh editor activation" {
       _ => abort("valid replica")
     }
   let key = @documents.Key::replica(account, document.id())
-  let documents = @documents.State::State(saved).project_account(account)
+  let documents = @documents.Model(saved).project_account(account)
   let head = @source_repository.RemoteHead::Present(remote_revision)
   guard documents.remote_state(replica, Some(head))
     is @documents.RemoteState::UpdateAvailable(action) else {
@@ -1252,7 +1252,7 @@ test "eligible Replica edit enters persistence in the same root update" {
     Editing({
       ..test_editing(),
       activation: { key, generation: 0, },
-      documents: @documents.State::State(saved).project_account(account),
+      documents: @documents.Model(saved).project_account(account),
     }),
     current_sync(account),
   )
@@ -1279,7 +1279,7 @@ test "synced Autosave updates only its canonical replica" {
   let initial = {
     ..test_editing(),
     activation: { key: token, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   }
   let (documents, _) = initial.documents.reduce(
     @documents.Msg::TextChanged(token, "changed"),
@@ -1572,7 +1572,7 @@ test "remote tombstone persists without activating its Replica" {
     remote_id, second, "Remote",
   )
   let initial = test_model(
-    Editing({ ..test_editing(), documents: @documents.State::State(saved), }),
+    Editing({ ..test_editing(), documents: @documents.Model(saved), }),
     discovered_sync(account, entry),
   )
   guard initial.replication.select(saved, entry.document_id())
@@ -1939,7 +1939,7 @@ test "discovery persists a newer remote revision without replacing the editor" {
   let page = Editing({
     ..test_editing(),
     activation: { key, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   })
   let (sync, discovery) = current_sync(account).begin_discovery()
   let discovery = discovery.unwrap()
@@ -1999,7 +1999,7 @@ test "replica completion preserves a newer Autosave window at equal text" {
   }
   let saved = test_sync_snapshot(account)
   let token = @documents.Key::replica(account, document_id("one"))
-  let documents = @documents.State::State(saved).project_account(account)
+  let documents = @documents.Model(saved).project_account(account)
   let (documents, _) = documents.reduce(
     @documents.Msg::TextChanged(token, "sent"),
   )
@@ -2047,7 +2047,7 @@ test "replica revert remains eligible while a newer write may be in flight" {
   }
   let saved = test_sync_snapshot(account)
   let token = @documents.Key::replica(account, document_id("one"))
-  let documents = @documents.State::State(saved).project_account(account)
+  let documents = @documents.Model(saved).project_account(account)
   let (documents, _) = documents.reduce(
     @documents.Msg::TextChanged(token, "sent"),
   )
@@ -2084,7 +2084,7 @@ test "replica failure keeps optimistic text and retries the same write" {
   let initial = {
     ..test_editing(),
     activation: { key: token, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   }
   let (documents, _) = initial.documents.reduce(
     @documents.Msg::TextChanged(token, "optimistic"),
@@ -2142,7 +2142,7 @@ test "an edit after replica failure immediately replaces the failed write" {
   let initial = {
     ..test_editing(),
     activation: { key: token, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   }
   let (documents, _) = initial.documents.reduce(
     @documents.Msg::TextChanged(token, "too large"),
@@ -2213,7 +2213,7 @@ fn begin_active_replica_deletion() -> (
   let editing = {
     ..test_editing(),
     activation: { key, generation: 0, },
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
   }
   let sync = current_sync(account)
   let model = test_model(Editing(editing), sync)
@@ -2528,7 +2528,7 @@ test "stale create completion is ignored" {
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_true(editing.activation == initial.activation)
-  assert_true(editing.creation is Creating(_))
+  assert_true(editing.creation_in_progress(creation))
 }
 
 ///|
@@ -2658,7 +2658,7 @@ test "save completion updates inactive document without switching" {
 
 ///|
 test "preparing new preserves documents and mode" {
-  let documents = @documents.State::State(test_snapshot())
+  let documents = @documents.Model(test_snapshot())
   let (model, _) = test_update(
     PreparingNew({
       documents,
@@ -2681,7 +2681,7 @@ fn preparing_after_active_delete() -> (Page, @cmd.Cmd) {
     @source_repository.Document::create(document_id("one"), "one"),
   ]).unwrap()
   let base = test_editing()
-  let initial = { ..base, documents: @documents.State::State(snapshot), }
+  let initial = { ..base, documents: @documents.Model(snapshot), }
   let (documents, decisions) = initial.documents.reduce(
     @documents.Msg::DeleteConfirmed(source_key("one")),
   )
@@ -2717,7 +2717,7 @@ test "final active delete falls back to a new document" {
   let snapshot = @source_repository.SavedDocuments::from_documents([
     @source_repository.Document::create(document_id("one"), "one"),
   ]).unwrap()
-  let documents = @documents.State::State(snapshot)
+  let documents = @documents.Model(snapshot)
   let (preview, _) = @editor.MarkdownEditor::MarkdownEditor("loomark-test-text").activate(
     0,
     "one",
@@ -2753,7 +2753,7 @@ test "final active delete falls back to a new document" {
       ),
     ),
   )
-  guard model is PreparingNew(_) else { fail("should prepare new") }
+  guard model is OpeningNew(_, _) else { fail("should prepare new") }
 }
 
 ///|
@@ -2767,7 +2767,7 @@ test "failed New preparation keeps hidden replica writes addressable" {
   let saved = @source_repository.SavedDocuments::from_documents([source])
     .unwrap()
     .apply_replica(replica)
-  let initial = { ..test_editing(), documents: @documents.State::State(saved), }
+  let initial = { ..test_editing(), documents: @documents.Model(saved), }
   guard replica.edit("two newer") is @source_repository.EditPlan::Persist(write) else {
     fail("write")
   }
@@ -2847,7 +2847,7 @@ test "old-account receipt commits while New preparation has failed" {
   let initial = {
     ..test_editing(),
     activation: { key: source, generation: 0, },
-    documents: @documents.State::State(saved),
+    documents: @documents.Model(saved),
   }
   guard current_sync(account_a).advance(replica)
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
@@ -2980,7 +2980,7 @@ test "page-local revision restores authoritative text and preview" {
   let initial = {
     ..base,
     activation: { key: source_key("one"), generation: 0, },
-    documents: @documents.State::State(snapshot),
+    documents: @documents.Model(snapshot),
   }
   // Apply a text change then verify page-local order: stale timer ignored, correct revision persists
   let (documents, decisions) = initial.documents.reduce(
