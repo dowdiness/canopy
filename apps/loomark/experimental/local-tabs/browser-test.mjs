@@ -184,6 +184,29 @@ try{
     assert.match(outcome.errors[2],/LimitExceeded/);
     await a.close();return {rejected:outcome.errors.length,limitError:outcome.errors[2]};
   });
+  await record('journal reads preserve document order across cursor gaps',async()=>{
+    const a=await page('journal-reader','safe');
+    const result=await a.evaluate(async run=>{
+      const {openStore,readJournal}=await import('./store.mjs'),db=await openStore();
+      const target=run+'-journal-target',other=run+'-journal-other',keys=[];
+      try{
+        const tx=db.transaction('journal','readwrite');
+        for(let i=0;i<6;i++){
+          const request=tx.objectStore('journal').add({document:i%2?other:target,id:'row-'+i,payload:'fixture-'+i});
+          request.onsuccess=()=>keys.push(request.result);
+        }
+        await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error);});
+        const rows=await readJournal(db,target,0);
+        for(const [i,row] of rows.entries()){
+          if(row.cursor!==keys[i*2]||row.payload!=='fixture-'+i*2)throw Error('Journal cursor or payload changed');
+        }
+        const ids=async(document,after)=>(await readJournal(db,document,after)).map(row=>row.id);
+        return {all:rows.map(row=>row.id),afterOwn:await ids(target,keys[0]),afterOther:await ids(target,keys[3]),caughtUp:await ids(target,keys[4]),absent:await ids(run+'-absent',0)};
+      }finally{db.close();}
+    },run);
+    assert.deepEqual(result,{all:['row-0','row-2','row-4'],afterOwn:['row-2','row-4'],afterOther:['row-4'],caughtUp:[],absent:[]});
+    await a.close();
+  });
   assert.deepEqual(errors,[]);
 }catch(e){results.push({passed:false,error:e.stack});console.error(e);process.exitCode=1;}
 finally{await mkdir('evidence',{recursive:true});await writeFile('evidence/browser-results.json',JSON.stringify({date:new Date().toISOString(),browser:browser.version(),headless:process.env.HEADED!=='1',results,errors},null,2));await browser.close();}

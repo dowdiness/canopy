@@ -36,11 +36,16 @@ export async function readJournal(db,document,after) {
   const tx=db.transaction('journal'); const done=complete(tx);
   const rows=[];
   await new Promise((resolve,reject)=>{
-    const req=tx.objectStore('journal').openCursor(IDBKeyRange.lowerBound(after,true));
+    // Start at the tail so caught-up documents do not rescan their history.
+    const req=tx.objectStore('journal').index('document').openCursor(IDBKeyRange.only(document),'prev');
     req.onerror=()=>reject(req.error);
-    req.onsuccess=()=>{const c=req.result;if(!c)return resolve();if(c.value.document===document)rows.push({...c.value,cursor:c.primaryKey});c.continue();};
+    req.onsuccess=()=>{
+      const cursor=req.result;
+      if(!cursor||cursor.primaryKey<=after)return resolve();
+      rows.push({...cursor.value,cursor:cursor.primaryKey});cursor.continue();
+    };
   });
-  await done; return rows;
+  await done; return rows.reverse();
 }
 // EGW validates the entire payload before this call. This transaction enforces
 // append-only identity, durable closure and the resource policy against races.

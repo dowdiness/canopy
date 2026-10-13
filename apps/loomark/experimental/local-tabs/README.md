@@ -78,6 +78,7 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
 - Atomic shared immutable compact seed, fresh unique local writer on every
   Worker start, immutable operation union in IndexedDB, receipt deduplication.
   BroadcastChannel carries hints only; polling/focus/pageshow catches up.
+  Each document catches up without scanning other documents' journal entries.
 - EGW remains in the Worker after restore. Two replicas retain the main display
   basis and the merged operation union. This costs extra Worker restore time and
   memory; no second CRDT is rebuilt on the main thread.
