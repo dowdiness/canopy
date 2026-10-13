@@ -68,7 +68,7 @@ fn sidebar_tools(
   emit : @rabbita.Emit[DocumentIntent],
 ) -> @rabbita.Html {
   @sidebar.sidebar_footer(class="border-t border-lm-rule", [
-    examples_bar(
+    @examples.examples_bar(
       emit.map(text => ExampleSelected(input.activation, text)),
       close_after_action,
       disabled=input.examples_disabled,

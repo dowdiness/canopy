@@ -2,8 +2,7 @@
 @plugin "@tailwindcss/typography";
 @plugin "@egoist/tailwindcss-icons";
 @source "../app";
-@source not "../app/example_documents";
-@source not "../app/example_*.g.mbt";
+@source "../internal/examples/view.mbt";
 @source "../../../modules/rabbita-markdown/preview";
 @source not "../../../modules/rabbita-markdown/preview/*test.mbt";
 @source not "../../../modules/rabbita-markdown/preview/*benchmark*.mbt";

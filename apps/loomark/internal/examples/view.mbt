@@ -1,5 +1,5 @@
 ///|
-fn examples_bar(
+pub fn examples_bar(
   on_select : @rabbita.Emit[String],
   close_after_action : @rabbita.Cmd,
   disabled~ : Bool,
