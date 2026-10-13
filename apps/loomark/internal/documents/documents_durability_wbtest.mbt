@@ -133,39 +133,18 @@ test "promotion waits for ownership commit and newer accepted text" {
   assert_true(
     Model(committed).local_durability(persistence) is LocalDurability::Durable,
   )
-  let pending = {
-    ..documents,
-    saved: committed,
-    records: replace_record(documents.records, source_key("one"), record => {
-      ..record,
-      persistence: StartingSync(account, source),
-      document: source."newer accepted text("newer accepted text),
-    }),
-  }
+  let (pending, _) = durability_changed(documents, documents.edit(source_key("one"), "newer accepted text"))
   assert_true(pending.local_durability(persistence) is LocalDurability::Saving)
 }
 
 ///|
 test "fork recovery commit does not cover text accepted after forking" {
-  let recovery = documents_test_document("one", "recovery")
-  let documents = Model(documents_test_snapshot())
-  let documents = {
-    ..documents,
-    saved: @source_repository.SavedDocuments::from_documents([recovery]).unwrap(),
-    records: [
-      {
-        persistence: Forking({
-          account: account_id("account"),
-          original: document_id("original"),
-          recovery,
-        }),
-        document: recovery."newer recovery("newer recovery),
-        version: 1,
-        edit: Idle,
-        save: Saved,
-        lead_source: Unlisted,
-      },
-    ],
+  let account = account_id("account")
+  let replica = @source_repository.DocumentReplica(account, documents_test_document("one", "recovery"))
+  let saved = documents_test_snapshot().apply_replica(replica)
+  let fork = replica.fork(document_id("recovery")) catch { _ => abort("valid fork") }
+  let documents = Model(saved).begin_fork(fork) catch {
+    _ => abort("valid fork")
   }
   assert_true(
     documents.local_durability(@replica_persistence.State())
@@ -197,8 +176,8 @@ test "saving retries failed replica deletion without retaining stale failure" {
   let saved = documents_test_snapshot().apply_replica(replica)
   let key = Key::replica(replica.account(), replica.document_id())
   let write = replica.request_deletion()
-  let (documents, _) = Model(saved).reduce(DeleteConfirmed(key))
-  let (documents, _) = durability_applied(documents.update(ReplicaDeletionFailed(write, @source_repository.ReplicaFailure::StorageUnavailable))))
+  let (documents, _) = durability_deleted(Model(saved), Model(saved).delete(key))
+  let (documents, _) = durability_applied(documents.update(ReplicaDeletionFailed(write, @source_repository.ReplicaFailure::StorageUnavailable)))
   let (retrying, _) = @replica_persistence.State().submit(write)
   let (saved_after_changes, _) = documents.save_changes()
   assert_true(

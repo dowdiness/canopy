@@ -72,7 +72,7 @@ test "failed sync start resumes local persistence for a newer edit" {
   )
   let (documents, _) = sync_changed(documents, documents.edit(source_key("one"), "latest"))
   let (documents, _) = sync_applied(documents.update(ApplyPendingEdit(source_key("one"), pending_revision(documents, source_key("one")))))
-  let (documents, effects) = sync_applied(documents.update(PromotionFailed(replica.promote_source(), WriteFailed))))
+  let (documents, effects) = sync_applied(documents.update(PromotionFailed(replica.promote_source(), WriteFailed)))
   guard effects is [PersistSource(latest)] else {
     fail("latest edit must return to source persistence")
   }
@@ -110,7 +110,7 @@ test "composition remains active while sync start changes persistence owner" {
 test "sync start waits for acknowledged source persistence" {
   let account = account_id("account")
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = sync_changed(documents, documents.source_key("one"), "new"))
+  let (documents, _) = sync_changed(documents, source_key("one"), "new"))
   assert_true(documents.sync_start(source_key("one"), account) is Unavailable)
 }
 

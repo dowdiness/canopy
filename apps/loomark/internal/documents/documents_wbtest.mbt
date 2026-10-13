@@ -44,6 +44,24 @@ fn documents_test_document(
 }
 
 ///|
+fn begin_sync_start(
+  documents : Model,
+  account : @source_repository.AccountId,
+) -> (Model, @source_repository.DocumentReplica) {
+  let action = match documents.sync_start(source_key("one"), account) {
+    Ready(action) => action
+    Starting | Unavailable => abort("source must be ready for sync")
+  }
+  let (documents, effects) = documents.start_sync(action) catch {
+    _ => abort("valid sync start")
+  }
+  match effects {
+    [StoreReplica(write)] => (documents, write.replica())
+    _ => abort("sync start must submit promotion")
+  }
+}
+
+///|
 fn pending_revision(documents : Model, id : Key) -> Int {
   match find_record(documents.records, id).unwrap().edit {
     Waiting(revision) | ComposingWaiting(revision) => revision
