@@ -213,9 +213,7 @@ fn activate_open(
 fn install_document_transition(
   editing : EditingDocument,
   transition : @documents.Transition,
-  actions : Array[@documents.Action],
 ) -> EditingDocument {
-  for action in transition.effects { actions.push(action) }
   { ..editing, documents: transition.model, lifecycle_error: None, }
 }
 
@@ -223,24 +221,26 @@ fn install_document_transition(
 fn document_update(
   editing : EditingDocument,
   event : @documents.Msg,
-  actions : Array[@documents.Action],
-) -> (EditingDocument, DocumentUpdateResult) {
-  match editing.documents.update(event) {
-    Applied(transition) => {
-      let next = install_document_transition(editing, transition, actions)
-      (next, Updated(transition))
+) -> (EditingDocument, DocumentUpdate) {
+  try {
+    match editing.documents.update(event) {
+      Applied(transition) =>
+        (install_document_transition(editing, transition), DocumentUpdate::Updated(transition))
+      Superseded => (editing, DocumentUpdate::Obsolete)
     }
-    Superseded => (editing, Obsolete)
   } catch {
-    @documents.UpdateError::DocumentMismatch(_) =>
+    @documents.UpdateError::DocumentMismatch(_) => {
       let text = "Document acknowledgment did not match the current document. The current document was retained."
-      ({ ..editing, lifecycle_error: Some(text), }, Fault(text))
-    @documents.UpdateError::DocumentAlreadyExists(_) =>
+      ({ ..editing, lifecycle_error: Some(text), }, DocumentUpdate::Fault(text))
+    }
+    @documents.UpdateError::DocumentAlreadyExists(_) => {
       let text = "This document already exists. Reopen the current document to recover."
-      ({ ..editing, lifecycle_error: Some(text), }, Fault(text))
-    @documents.UpdateError::InvalidAcknowledgment(_) =>
+      ({ ..editing, lifecycle_error: Some(text), }, DocumentUpdate::Fault(text))
+    }
+    @documents.UpdateError::InvalidAcknowledgment(_) => {
       let text = "Document storage returned an invalid acknowledgment. The current document was retained."
-      ({ ..editing, lifecycle_error: Some(text), }, Fault(text))
+      ({ ..editing, lifecycle_error: Some(text), }, DocumentUpdate::Fault(text))
+    }
   }
 }
 
@@ -250,7 +250,14 @@ fn reduce_documents(
   event : @documents.Msg,
   actions : Array[@documents.Action],
 ) -> EditingDocument {
-  document_update(editing, event, actions).0
+  let (editing, outcome) = document_update(editing, event)
+  match outcome {
+    DocumentUpdate::Updated(transition) => {
+      for action in transition.effects { actions.push(action) }
+      editing
+    }
+    DocumentUpdate::Obsolete | DocumentUpdate::Fault(_) => editing
+  }
 }
 
 ///|
@@ -260,9 +267,14 @@ fn edit_document(
   text : String,
   actions : Array[@documents.Action],
 ) -> EditingDocument {
-  match editing.documents.edit(key, text) {
-    Changed(transition) => install_document_transition(editing, transition, actions)
-    SameText => { ..editing, lifecycle_error: None, }
+  try {
+    match editing.documents.edit(key, text) {
+      Changed(transition) => {
+        for action in transition.effects { actions.push(action) }
+        install_document_transition(editing, transition)
+      }
+      SameText => { ..editing, lifecycle_error: None, }
+    }
   } catch {
     @documents.EditError::DocumentMissing(_) =>
       { ..editing, lifecycle_error: Some("The document is no longer available. Reopen it to continue."), }
@@ -824,7 +836,7 @@ fn submit_replica(
 /// browser work becomes a Cmd; Documents-to-Replication handoffs stay atomic.
 fn apply_document_actions(
   model : Model,
-  actions : Array[@documents.Action],
+  actions : ReadOnlyArray[@documents.Action],
   emit : @rabbita.Emit[Msg],
 ) -> (Model, @rabbita.Cmd) {
   let (model, commands) = actions.fold(init=(model, []), (state, action) => {
@@ -1116,14 +1128,18 @@ fn initial_state(
 fn update_delete(model : Model, key : @documents.Key, emit : @rabbita.Emit[Msg]) -> (Model, @rabbita.Cmd) {
   match model.page {
     Editing(editing) =>
-      match editing.documents.delete(key) {
-        Accepted(transition) => {
-          let actions : Array[@documents.Action] = []
-          let editing = install_document_transition(editing, transition, actions)
-          let (model, command) = apply_document_actions({ ..model, page: Editing(editing), }, actions, emit)
-          (model, command)
+      try {
+        match editing.documents.delete(key) {
+          Accepted(transition) => {
+            let editing = install_document_transition(editing, transition)
+            apply_document_actions(
+              { ..model, page: Editing(editing), },
+              transition.effects,
+              emit,
+            )
+          }
+          AlreadyPending => (model, @cmd.none)
         }
-        AlreadyPending => (model, @cmd.none)
       } catch {
         @documents.DeleteError::DocumentMissing(_) =>
           ({ ..model, page: Editing({ ..editing, lifecycle_error: Some("The document is no longer available. Refresh the document list and try again."), }), }, @cmd.none)
@@ -1764,12 +1780,15 @@ fn reduce_page_documents(
   event : @documents.Msg,
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
-) -> (Page, Array[@documents.Action], @rabbita.Cmd) {
+) -> (Page, ReadOnlyArray[@documents.Action], @rabbita.Cmd) {
   match model {
     Editing(editing) => {
       let active = editing.activation
-      let actions : Array[@documents.Action] = []
-      let (updated, _) = document_update(editing, event, actions)
+      let (updated, outcome) = document_update(editing, event)
+      let actions = match outcome {
+        DocumentUpdate::Updated(transition) => transition.effects
+        DocumentUpdate::Obsolete | DocumentUpdate::Fault(_) => []
+      }
       let updated = match event {
         @documents.Msg::Promoted(write) if active.key is @documents.Key::Source(id) && id == write.replica().document_id() => {
           let replica = write.replica()
@@ -1784,13 +1803,12 @@ fn reduce_page_documents(
       (page, actions, command)
     }
     OpeningNew(opening, creation) =>
-      match opening.documents.update(event) {
-        Applied(transition) => {
-          let actions : Array[@documents.Action] = []
-          for action in transition.effects { actions.push(action) }
-          (OpeningNew({ ..opening, documents: transition.model, lifecycle_error: None, }, creation), actions, @cmd.none)
+      try {
+        match opening.documents.update(event) {
+          Applied(transition) =>
+            (OpeningNew({ ..opening, documents: transition.model, lifecycle_error: None, }, creation), transition.effects, @cmd.none)
+          Superseded => (model, [], @cmd.none)
         }
-        Superseded => (model, [], @cmd.none)
       } catch {
         @documents.UpdateError::DocumentMismatch(_) =>
           (OpeningNew({ ..opening, lifecycle_error: Some("Document acknowledgment did not match the current document. The current document was retained."), }, creation), [], @cmd.none)

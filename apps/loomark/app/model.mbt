@@ -101,7 +101,7 @@ priv enum CreationStatus {
 } derive(Eq)
 
 ///|
-priv enum DocumentUpdateResult {
+priv enum DocumentUpdate {
   Updated(@documents.Transition)
   Obsolete
   Fault(String)
