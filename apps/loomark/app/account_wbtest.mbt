@@ -301,7 +301,7 @@ test "physical completion during a newer save cannot bypass local persistence" {
     connecting,
     TextChanged(0, @text_change.TextChange::ReplaceAll("new text")),
   )
-  let (_, actions) = edited.page.documents_state().unwrap().save_changes() catch {
+  let saved = edited.page.documents_state().unwrap().save_changes() catch {
       @documents.DeleteError::DocumentMissing(_) =>
         fail("document missing during test save")
       @documents.DeleteError::OwnershipTransferInProgress(_) =>
@@ -309,6 +309,7 @@ test "physical completion during a newer save cannot bypass local persistence" {
       @documents.DeleteError::ReplicaMissing(_) =>
         fail("replica missing during test save")
     }
+  let actions = saved.effects
   guard actions is [@documents.Action::PersistSource(operation)] else {
     fail("latest source persistence")
   }

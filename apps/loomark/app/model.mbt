@@ -103,6 +103,7 @@ priv enum CreationStatus {
 ///|
 priv enum DocumentUpdate {
   Updated(@documents.Transition)
+  Unchanged
   Obsolete
   Fault
 }

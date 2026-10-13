@@ -78,8 +78,7 @@ pub fn Model::update(self : Self, message : Msg) -> Update raise UpdateError {
       let edit : Editing = match record.edit {
         Waiting(revision) => ComposingWaiting(revision)
         Idle => ComposingIdle
-        ComposingIdle | ComposingWaiting(_) | ComposingReady =>
-          return Superseded
+        ComposingIdle | ComposingWaiting(_) | ComposingReady => return Unchanged
       }
       applied_record(self, key, { ..record, edit, }, [])
     }
@@ -94,38 +93,48 @@ pub fn Model::update(self : Self, message : Msg) -> Update raise UpdateError {
           finish_composition(self.saved, { ..record, edit: Idle, })
         ComposingWaiting(revision) =>
           finish_composition(self.saved, { ..record, edit: Waiting(revision), })
-        Idle | Waiting(_) => return Superseded
+        Idle | Waiting(_) => return Unchanged
       }
       applied_record(self, key, record, effects)
     }
     RetrySave(key) => {
-      guard find_record(self.records, key) is Some(record) &&
-        record.save_failure() is Some(_) &&
-        !is_composing(record.edit) &&
-        record.delete_status() != DeletePending else {
-        return Superseded
+      guard find_record(self.records, key) is Some(record) else {
+        raise DocumentMissing(key)
       }
+      guard record.delete_status() != DeletePending else {
+        raise PendingDeletion(key)
+      }
+      guard record.save_failure() is Some(_) else { return Unchanged }
+      guard !is_composing(record.edit) else { raise CompositionInProgress(key) }
       let (model, record, effects) = request_save(self, record)
       applied_record(model, key, record, effects)
     }
     VisibilityFlush(key) => {
       guard find_record(self.records, key) is Some(record) &&
-        record.delete_status() != DeletePending &&
-        record.pending_window() is Some(window) else {
+        record.delete_status() != DeletePending else {
         return Superseded
       }
-      let (record, effects) = mark_eligible(self.saved, record, window)
-      applied_record(self, key, record, effects)
+      guard record.pending_window() is Some(window) else { return Unchanged }
+      let (flushed, effects) = mark_eligible(self.saved, record, window)
+      if flushed == record && effects.is_empty() {
+        return Unchanged
+      }
+      applied_record(self, key, flushed, effects)
     }
     VisibilityFlushAll => {
       let effects : Array[Action] = []
+      let mut changed = false
       let records = self.records.map(record => {
-        let (record, added) = flush_visibility(self.saved, record)
+        let (flushed, added) = flush_visibility(self.saved, record)
+        changed = changed || flushed != record
         for effect in added {
           effects.push(effect)
         }
-        record
+        flushed
       })
+      if !changed && effects.is_empty() {
+        return Unchanged
+      }
       Applied(
         transition({ ..self, records, }, ReadOnlyArray::from_array(effects)),
       )
@@ -145,9 +154,11 @@ pub fn Model::update(self : Self, message : Msg) -> Update raise UpdateError {
       applied_record(self, key, record, effects)
     }
     DismissDeleteFailure(key) => {
-      guard find_record(self.records, key) is Some(record) &&
-        record.persistence is Source(origin, Writable(save, Some(_))) else {
-        return Superseded
+      guard find_record(self.records, key) is Some(record) else {
+        raise DocumentMissing(key)
+      }
+      guard record.persistence is Source(origin, Writable(save, Some(_))) else {
+        return Unchanged
       }
       applied_record(
         self,

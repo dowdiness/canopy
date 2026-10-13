@@ -23,7 +23,7 @@ test "stale timers are superseded and mismatched stored records raise" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [Action::PersistSource(operation)] else {
     fail("latest quiet")
@@ -105,7 +105,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions[0] is Action::PersistSource(operation) else {
     fail("persist")
@@ -115,7 +115,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
   let (documents, decisions) = match
     documents.update(Imported(document_id("imported"), "text")) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [Action::PersistSource(op2)] else {
     fail("imported persist")
@@ -129,7 +129,7 @@ test "delete and recreate keeps pending revisions monotonic and isolated" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.update(New(document_id("new"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("new"), "first") {
     Changed(transition) => (transition.model, transition.effects)
@@ -142,7 +142,7 @@ test "delete and recreate keeps pending revisions monotonic and isolated" {
   }
   let (documents, _) = match documents.update(New(document_id("new"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("new"), "second") {
     Changed(transition) => (transition.model, transition.effects)
@@ -196,7 +196,7 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [PersistSource(save)] else { fail("save") }
   let (documents, decisions) = match
@@ -215,7 +215,7 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
   assert_true(documents == before)
   let (_, decisions) = match documents.update(Saved(save, save.document)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [DeleteSource(delete)] else {
     fail("original save remains valid")
@@ -230,7 +230,7 @@ test "old pending callback after recreate is ignored" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.update(New(document_id("new"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("new"), "first") {
     Changed(transition) => (transition.model, transition.effects)
@@ -243,7 +243,7 @@ test "old pending callback after recreate is ignored" {
   }
   let (documents, _) = match documents.update(New(document_id("new"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("new"), "second") {
     Changed(transition) => (transition.model, transition.effects)
@@ -274,7 +274,7 @@ test "waiting delete rejects mismatched stored completion" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard persist is [PersistSource(save)] else { fail("save") }
   let (documents, _) = match documents.edit(source_key("one"), "latest") {
@@ -313,7 +313,7 @@ test "duplicate save completion after delete issue is ignored" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard persist is [PersistSource(save)] else { fail("save") }
   let (documents, _) = match documents.delete(source_key("one")) {
@@ -322,7 +322,7 @@ test "duplicate save completion after delete issue is ignored" {
   }
   let (documents, first) = match documents.update(Saved(save, save.document)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard first is [DeleteSource(delete)] else { fail("delete") }
   assert_true(documents.update(Saved(save, save.document)) is Superseded)
@@ -348,7 +348,7 @@ test "stale save completion cannot finish a replacement operation" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard persist is [PersistSource(first)] else { fail("first save") }
   let (documents, _) = match documents.edit(source_key("one"), "latest") {
@@ -358,12 +358,12 @@ test "stale save completion cannot finish a replacement operation" {
   let (documents, _) = match
     documents.update(VisibilityFlush(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, retry) = match
     documents.update(SaveFailed(first, WriteFailed)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard retry is [PersistSource(second)] else { fail("replacement save") }
   let before = documents

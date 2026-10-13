@@ -47,7 +47,7 @@ test "late authorization result releases a request without advancing a newer sav
       ),
     ) {
     @documents.Update::Applied(transition) => transition.model
-    Superseded => fail("import should be applied")
+    Unchanged | Superseded => fail("import should be applied")
   }
   let released = new_saving.state.update(
     Event::AuthorizationReceived(request, None),

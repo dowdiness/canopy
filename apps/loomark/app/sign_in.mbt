@@ -48,7 +48,7 @@ fn save_changes(
   guard model.page is Editing(editing) else {
     abort("sign-in requested saving without an editor")
   }
-  let (documents, actions) = editing.documents.save_changes() catch {
+  let saving = editing.documents.save_changes() catch {
     error => {
       let notice = match error {
         @documents.DeleteError::DocumentMissing(_) =>
@@ -73,6 +73,8 @@ fn save_changes(
       )
     }
   }
+  let documents = saving.model
+  let actions = saving.effects
   let (model, command) = apply_document_actions(
     {
       ..model,

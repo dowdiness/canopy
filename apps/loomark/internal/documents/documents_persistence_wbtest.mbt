@@ -2,7 +2,7 @@
 fn persistence_applied(outcome : Update) -> (Model, ReadOnlyArray[Action]) {
   match outcome {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => abort("expected current update to apply")
+    Unchanged | Superseded => abort("expected current update to apply")
   }
 }
 

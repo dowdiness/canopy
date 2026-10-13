@@ -6,7 +6,7 @@ test "composition blocks persistence but keeps fresh revision" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, decisions) = match documents.edit(source_key("one"), "one!") {
     Changed(transition) => (transition.model, transition.effects)
@@ -20,7 +20,7 @@ test "composition blocks persistence but keeps fresh revision" {
   let (documents, decisions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [Action::ArmMaximum(_)] else { fail("maximum") }
   assert_true(has_pending(documents, source_key("one")))
@@ -60,7 +60,7 @@ test "maximum eligibility persists latest text during uninterrupted editing" {
   }
   let (_, decisions) = match documents.update(MaximumElapsed(maximum)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [Action::PersistSource(operation)] else {
     fail("maximum persist")
@@ -87,7 +87,7 @@ test "composition defers timers for an in-flight save until it ends" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions[0] is Action::PersistSource(_) else {
     fail("expected in-flight save")
@@ -95,7 +95,7 @@ test "composition defers timers for an in-flight save until it ends" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, decisions) = match
     documents.edit(source_key("one"), "one!!") {
@@ -109,7 +109,7 @@ test "composition defers timers for an in-flight save until it ends" {
   let (documents, decisions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [Action::ArmMaximum(_)] else { fail("maximum") }
   assert_true(has_pending(documents, source_key("one")))
@@ -131,7 +131,7 @@ test "visibility makes an in-flight save's latest replica eligible" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard persist is [Action::PersistSource(operation)] else {
     fail("first save")
@@ -143,13 +143,13 @@ test "visibility makes an in-flight save's latest replica eligible" {
   let (documents, flush) = match
     documents.update(VisibilityFlush(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(flush.is_empty())
   let (_, follow_up) = match
     documents.update(Saved(operation, operation.document)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard follow_up is [Action::PersistSource(latest)] else {
     fail("eligible follow-up")
@@ -163,7 +163,7 @@ test "duplicate composition end emits one maximum decision" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "first") {
     Changed(transition) => (transition.model, transition.effects)
@@ -172,13 +172,13 @@ test "duplicate composition end emits one maximum decision" {
   let (documents, first) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard first is [Action::ArmMaximum(_)] else {
     fail("first composition end should arm maximum")
   }
   assert_true(
-    documents.update(CompositionEnded(source_key("one"))) is Superseded,
+    documents.update(CompositionEnded(source_key("one"))) is Unchanged,
   )
 }
 
@@ -188,7 +188,7 @@ test "genuine composition cycles arm maximum once with saving pending" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "first") {
     Changed(transition) => (transition.model, transition.effects)
@@ -197,7 +197,7 @@ test "genuine composition cycles arm maximum once with saving pending" {
   let (documents, first) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard first is [Action::ArmMaximum(_)] else { fail("first cycle maximum") }
   let (documents, _) = match
@@ -208,7 +208,7 @@ test "genuine composition cycles arm maximum once with saving pending" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard documents.save_status(source_key("one")) is Some(SaveStatus::Unsaved) else {
     fail("first cycle should be saving")
@@ -216,7 +216,7 @@ test "genuine composition cycles arm maximum once with saving pending" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "second") {
     Changed(transition) => (transition.model, transition.effects)
@@ -225,11 +225,11 @@ test "genuine composition cycles arm maximum once with saving pending" {
   let (documents, second) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard second is [Action::ArmMaximum(_)] else { fail("second cycle maximum") }
   assert_true(
-    documents.update(CompositionEnded(source_key("one"))) is Superseded,
+    documents.update(CompositionEnded(source_key("one"))) is Unchanged,
   )
 }
 
@@ -244,17 +244,17 @@ test "queued composition callback applies immediately at composition end" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match
     documents.update(ApplyPendingEdit(source_key("one"), revision)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source
@@ -269,7 +269,7 @@ test "composition end without callback does not accept the edit" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "ime") {
     Changed(transition) => (transition.model, transition.effects)
@@ -278,7 +278,7 @@ test "composition end without callback does not accept the edit" {
   let (documents, _) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source
@@ -298,12 +298,12 @@ test "IME callback then newer edit waits for latest pending revision" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match
     documents.update(ApplyPendingEdit(source_key("one"), initial_revision)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "newer") {
     Changed(transition) => (transition.model, transition.effects)
@@ -312,7 +312,7 @@ test "IME callback then newer edit waits for latest pending revision" {
   let (documents, _) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source
@@ -322,7 +322,7 @@ test "IME callback then newer edit waits for latest pending revision" {
   let (documents, _) = match
     documents.update(ApplyPendingEdit(source_key("one"), revision)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source
@@ -336,7 +336,7 @@ test "composition end with no newer edit starts one pending subscription" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "composed") {
     Changed(transition) => (transition.model, transition.effects)
@@ -345,7 +345,7 @@ test "composition end with no newer edit starts one pending subscription" {
   let (documents, decisions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [ArmMaximum(_)] else { fail("maximum") }
   assert_true(has_pending(documents, source_key("one")))
@@ -361,12 +361,12 @@ test "composition end does not duplicate an already pending edit" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(has_pending(documents, source_key("one")))
 }
@@ -383,18 +383,18 @@ test "eligible maximum during composition persists at composition end" {
   let (documents, decisions) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(decisions.is_empty())
   let (documents, decisions) = match documents.update(MaximumElapsed(maximum)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(decisions.is_empty())
   let (documents, decisions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [PersistSource(_)] else { fail("persist") }
   assert_true(has_pending(documents, source_key("one")))
@@ -411,10 +411,10 @@ test "duplicate composition starts preserve waiting and ready evidence" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(
-    documents.update(CompositionStarted(source_key("one"))) is Superseded,
+    documents.update(CompositionStarted(source_key("one"))) is Unchanged,
   )
   match find_record(documents.records, source_key("one")).unwrap().edit {
     ComposingWaiting(waiting_revision) => assert_eq(waiting_revision, revision)
@@ -423,10 +423,10 @@ test "duplicate composition starts preserve waiting and ready evidence" {
   let (documents, _) = match
     documents.update(ApplyPendingEdit(source_key("one"), revision)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(
-    documents.update(CompositionStarted(source_key("one"))) is Superseded,
+    documents.update(CompositionStarted(source_key("one"))) is Unchanged,
   )
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().edit
@@ -442,7 +442,7 @@ test "ready composition end persists once" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "composed") {
     Changed(transition) => (transition.model, transition.effects)
@@ -452,19 +452,19 @@ test "ready composition end persists once" {
   let (documents, _) = match
     documents.update(ApplyPendingEdit(source_key("one"), revision)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, decisions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [PersistSource(operation)] else { fail("persist") }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().edit is Idle,
   )
   assert_true(
-    documents.update(CompositionEnded(source_key("one"))) is Superseded,
+    documents.update(CompositionEnded(source_key("one"))) is Unchanged,
   )
   ignore(operation)
 }
@@ -477,7 +477,7 @@ test "matching final text keeps ready evidence" {
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "same") {
     Changed(transition) => (transition.model, transition.effects)
@@ -487,7 +487,7 @@ test "matching final text keeps ready evidence" {
   let (documents, _) = match
     documents.update(ApplyPendingEdit(source_key("one"), revision)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(documents.edit(source_key("one"), "same") is SameText)
   assert_true(
@@ -497,7 +497,7 @@ test "matching final text keeps ready evidence" {
   let (documents, decisions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard decisions is [PersistSource(_)] else { fail("persist") }
   assert_true(
@@ -524,13 +524,13 @@ test "ready composition end marks in-flight follow-up eligible once" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard first is [PersistSource(operation)] else { fail("first save") }
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match documents.edit(source_key("one"), "latest") {
     Changed(transition) => (transition.model, transition.effects)
@@ -544,12 +544,12 @@ test "ready composition end marks in-flight follow-up eligible once" {
       ),
     ) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, decisions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(decisions.is_empty())
   assert_true(
@@ -558,7 +558,7 @@ test "ready composition end marks in-flight follow-up eligible once" {
   let (_, follow_up) = match
     documents.update(Saved(operation, operation.document)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard follow_up is [PersistSource(latest)] else { fail("one follow-up") }
   assert_eq(latest.document.text(), "latest")
@@ -567,17 +567,17 @@ test "ready composition end marks in-flight follow-up eligible once" {
 /// A composition end outside composition is not a save event.
 
 ///|
-test "composition end outside composition is ignored" {
+test "composition end outside composition leaves the pending edit intact" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.edit(source_key("one"), "changed") {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
-  let before = documents
+  let pending = documents.pending_edits()
   assert_true(
-    documents.update(CompositionEnded(source_key("one"))) is Superseded,
+    documents.update(CompositionEnded(source_key("one"))) is Unchanged,
   )
-  assert_true(documents == before)
+  assert_eq(documents.pending_edits(), pending)
 }
 
 /// A stale callback must not reach a replacement record with the same ID.

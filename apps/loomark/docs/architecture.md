@@ -161,13 +161,14 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
 
 ### 4.6 Document Lifecycle
 
-`internal/documents` exposes `Model`, `Msg`, and three operations:
+`internal/documents` exposes `Model` and `Msg` for Document lifecycle transitions:
 
 | Operation | Normal outcome | Raised refusal |
 |---|---|---|
 | `Model::edit(key, text)` | `Changed(Transition)` or `SameText` | `EditError`: missing Document or pending deletion |
 | `Model::delete(key)` | `Accepted(Transition)` or `AlreadyPending` | `DeleteError`: missing Document, ownership transfer, or missing Replica |
-| `Model::update(msg)` | `Applied(Transition)` or `Superseded` | `UpdateError`: duplicate identity, mismatched Document, or invalid acknowledgment |
+| `Model::update(msg)` | `Applied(Transition)`, `Unchanged`, or `Superseded` | `UpdateError`: missing Document, blocked retry, duplicate identity, mismatched Document, or invalid acknowledgment |
+| `Model::save_changes()` | `Transition` | `DeleteError` if retrying a deletion cannot be admitted; no partial model or effects escape |
 
 A `Transition` contains the next `model` and read-only `effects`. The model
 contains no browser commands or callbacks. The app installs the model and
@@ -175,6 +176,22 @@ hands effects to their owner in the same root update; browser work then
 returns a concrete `Msg`, such as `Saved`, `SaveFailed`, or `Deleted`.
 Storage failures become retryable model facts. They do not raise into the
 caller that originally requested an asynchronous write.
+
+`Unchanged` means that the current input is already satisfied, such as a
+duplicate composition notification, a flush without pending work, or a retry
+without a failed save. `Superseded` instead identifies obsolete acknowledgments,
+timers, and browser notifications for a Document that was removed or is being
+deleted.
+
+Explicit retry and failure-dismissal requests require an existing Document.
+Retrying a pending deletion's save raises `PendingDeletion`. Retrying a failed
+save during IME composition raises `CompositionInProgress`, retains the text
+and failure, and does not queue a retry. The app displays the refusal; finishing
+composition allows a subsequent explicit retry.
+
+Editing contract tests use the public text, Recent documents, pending-edit and
+save-status projections and the emitted effects. They do not depend on the
+private `Record` or `LeadSource` representation.
 
 Source save and deletion ownership is a single sum in
 [`documents_types.mbt`](../internal/documents/documents_types.mbt):

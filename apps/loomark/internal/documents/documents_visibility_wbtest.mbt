@@ -27,7 +27,7 @@ test "hidden flush leaves an active deletion alone while saving another document
   }
   let (documents, actions) = match documents.update(VisibilityFlushAll) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_eq(actions.length(), 1)
   let operation = visibility_save(actions, "two")
@@ -48,27 +48,22 @@ test "hidden flush starts all waiting documents once and accepts reverse acknowl
   }
   let (documents, actions) = match documents.update(VisibilityFlushAll) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_eq(actions.length(), 2)
   let first = visibility_save(actions, "one")
   let second = visibility_save(actions, "two")
-  let (unchanged, repeated) = match documents.update(VisibilityFlushAll) {
-    Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
-  }
-  assert_true(unchanged == documents)
-  assert_true(repeated.is_empty())
+  assert_true(documents.update(VisibilityFlushAll) is Unchanged)
   let (documents, follow_up) = match
     documents.update(Saved(second, second.document)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(follow_up.is_empty())
   let (documents, follow_up) = match
     documents.update(Saved(first, first.document)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(follow_up.is_empty())
   assert_eq(
@@ -101,7 +96,7 @@ test "hidden flush coalesces both in-flight lanes regardless of acknowledgment o
     }
     let (documents, actions) = match documents.update(VisibilityFlushAll) {
       Applied(transition) => (transition.model, transition.effects)
-      Superseded => fail("unexpected superseded callback")
+      Unchanged | Superseded => fail("expected an applied document update")
     }
     let first = visibility_save(actions, "one")
     let second = visibility_save(actions, "two")
@@ -115,22 +110,17 @@ test "hidden flush coalesces both in-flight lanes regardless of acknowledgment o
     }
     let (documents, actions) = match documents.update(VisibilityFlushAll) {
       Applied(transition) => (transition.model, transition.effects)
-      Superseded => fail("unexpected superseded callback")
+      Unchanged | Superseded => fail("expected an applied document update")
     }
     assert_true(actions.is_empty())
-    let (unchanged, actions) = match documents.update(VisibilityFlushAll) {
-      Applied(transition) => (transition.model, transition.effects)
-      Superseded => fail("unexpected superseded callback")
-    }
-    assert_true(unchanged == documents)
-    assert_true(actions.is_empty())
+    assert_true(documents.update(VisibilityFlushAll) is Unchanged)
     let order = if reverse { [second, first] } else { [first, second] }
     let mut documents = documents
     for operation in order {
       let (next, actions) = match
         documents.update(Saved(operation, operation.document)) {
         Applied(transition) => (transition.model, transition.effects)
-        Superseded => fail("unexpected superseded callback")
+        Unchanged | Superseded => fail("expected an applied document update")
       }
       guard actions is [PersistSource(latest)] else {
         fail("one latest follow-up")
@@ -141,7 +131,7 @@ test "hidden flush coalesces both in-flight lanes regardless of acknowledgment o
       )
       let (next, actions) = match next.update(Saved(latest, latest.document)) {
         Applied(transition) => (transition.model, transition.effects)
-        Superseded => fail("unexpected superseded callback")
+        Unchanged | Superseded => fail("expected an applied document update")
       }
       assert_true(actions.is_empty())
       documents = next
@@ -166,18 +156,18 @@ test "hidden flush defers composition and does not retry a failed document" {
   }
   let (documents, actions) = match documents.update(VisibilityFlushAll) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let operation = visibility_save(actions, "two")
   let (documents, _) = match
     documents.update(SaveFailed(operation, WriteFailed)) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match
     documents.update(CompositionStarted(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match
     documents.edit(source_key("one"), "composing one") {
@@ -186,7 +176,7 @@ test "hidden flush defers composition and does not retry a failed document" {
   }
   let (documents, actions) = match documents.update(VisibilityFlushAll) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   assert_true(actions.is_empty())
   assert_true(documents.is_composing(source_key("one")))
@@ -194,16 +184,11 @@ test "hidden flush defers composition and does not retry a failed document" {
     documents.save_status(source_key("two")) ==
     Some(SaveStatus::SaveFailed(WriteFailed)),
   )
-  let (unchanged, actions) = match documents.update(VisibilityFlushAll) {
-    Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
-  }
-  assert_true(unchanged == documents)
-  assert_true(actions.is_empty())
+  assert_true(documents.update(VisibilityFlushAll) is Unchanged)
   let (documents, actions) = match
     documents.update(CompositionEnded(source_key("one"))) {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("unexpected superseded callback")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
   guard actions is [PersistSource(committed)] else {
     fail("composition-end save")

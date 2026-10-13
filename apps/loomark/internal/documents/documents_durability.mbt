@@ -17,9 +17,7 @@ pub enum LocalSaveFailure {
 ///|
 /// Flush accepted edits and retry failed operations once. Admission failures
 /// leave the caller's model untouched; effects are returned only on success.
-pub fn Model::save_changes(
-  self : Self,
-) -> (Self, Array[Action]) raise DeleteError {
+pub fn Model::save_changes(self : Self) -> Transition raise DeleteError {
   let mut next = self
   let actions : Array[Action] = []
   for previous in self.records {
@@ -63,7 +61,7 @@ pub fn Model::save_changes(
       }
     }
   }
-  (next, actions)
+  transition(next, ReadOnlyArray::from_array(actions))
 }
 
 ///|

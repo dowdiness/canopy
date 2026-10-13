@@ -141,6 +141,8 @@ pub enum Delete {
 ///|
 pub enum Update {
   Applied(Transition)
+  // The current input is already satisfied; no transition is needed.
+  Unchanged
   Superseded
 }
 
@@ -241,6 +243,9 @@ pub(all) suberror DeleteError {
 
 ///|
 pub(all) suberror UpdateError {
+  DocumentMissing(Key)
+  PendingDeletion(Key)
+  CompositionInProgress(Key)
   DocumentMismatch(Key)
   DocumentAlreadyExists(Key)
   InvalidAcknowledgment(Key)

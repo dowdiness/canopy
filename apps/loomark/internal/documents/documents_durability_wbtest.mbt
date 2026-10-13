@@ -2,7 +2,7 @@
 fn durability_applied(outcome : Update) -> (Model, ReadOnlyArray[Action]) {
   match outcome {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => abort("expected current update to apply")
+    Unchanged | Superseded => abort("expected current update to apply")
   }
 }
 
@@ -205,10 +205,8 @@ test "saving retries failed replica deletion without retaining stale failure" {
     ),
   )
   let (retrying, _) = @replica_persistence.State().submit(write)
-  let (saved_after_changes, _) = documents.save_changes() catch {
+  let saved_after_changes = documents.save_changes() catch {
     _ => abort("save changes must recover the replica lane")
   }
-  assert_true(
-    saved_after_changes.local_durability(retrying) is LocalDurability::Saving,
-  )
+  assert_true(saved_after_changes.model.local_durability(retrying) is Saving)
 }

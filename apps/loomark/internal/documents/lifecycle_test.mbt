@@ -263,3 +263,139 @@ test "save attempts fence callbacks after reimporting identical identity and tex
   let stored = applied(importing.model, Saved(current, current.document))
   assert_eq(stored.model.snapshot().find(document.id()), Some(document))
 }
+
+///|
+test "current satisfied inputs are unchanged rather than superseded" {
+  let model = fixture_model()
+  let key = @documents.Key::source(fixture_document("stored").id())
+  for
+    msg in [
+      @documents.Msg::RetrySave(key),
+      DismissDeleteFailure(key),
+      VisibilityFlush(key),
+      VisibilityFlushAll,
+      CompositionEnded(key),
+    ] {
+    assert_true(model.update(msg) is Unchanged)
+  }
+  let composing = applied(model, CompositionStarted(key))
+  assert_true(composing.model.update(CompositionStarted(key)) is Unchanged)
+  assert_true(composing.model.is_composing(key))
+}
+
+///|
+test "requests require a document while notifications for a removed document expire" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  let model = @documents.Model(
+    @source_repository.SavedDocuments::from_documents([]).unwrap(),
+  )
+  for msg in [@documents.Msg::RetrySave(key), DismissDeleteFailure(key)] {
+    let refusal = try {
+      ignore(model.update(msg))
+      false
+    } catch {
+      @documents.UpdateError::DocumentMissing(actual) => actual == key
+      _ => false
+    }
+    assert_true(refusal)
+  }
+  for
+    msg in [
+      @documents.Msg::CompositionStarted(key),
+      CompositionEnded(key),
+      VisibilityFlush(key),
+    ] {
+    assert_true(model.update(msg) is Superseded)
+  }
+}
+
+///|
+test "retry during composition is refused without losing the failure or text" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  let changed = edited(fixture_model(), key, "unsaved")
+  let saving = applied(changed.model, VisibilityFlush(key))
+  guard saving.effects is [PersistSource(first)] else { fail("source save") }
+  let failed = applied(saving.model, SaveFailed(first, WriteFailed))
+  let composing = applied(failed.model, CompositionStarted(key))
+  let refusal = try {
+    ignore(composing.model.update(RetrySave(key)))
+    false
+  } catch {
+    @documents.UpdateError::CompositionInProgress(actual) => actual == key
+    _ => false
+  }
+  assert_true(refusal)
+  assert_eq(composing.model.text(key), Some("unsaved"))
+  assert_true(composing.model.save_status(key) is Some(SaveFailed(WriteFailed)))
+  let ended = applied(composing.model, CompositionEnded(key))
+  assert_true(ended.effects.is_empty())
+  let retry = applied(ended.model, RetrySave(key))
+  guard retry.effects is [PersistSource(current)] else {
+    fail("retry source save")
+  }
+  assert_eq(current.document.text(), "unsaved")
+  assert_true(retry.model.update(RetrySave(key)) is Unchanged)
+  let saved = applied(retry.model, Saved(current, current.document))
+  assert_true(saved.model.save_status(key) is Some(Clean))
+}
+
+///|
+test "retry cannot override an accepted deletion" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  guard fixture_model().delete(key) is Accepted(deleting) else {
+    fail("delete source")
+  }
+  let refusal = try {
+    ignore(deleting.model.update(RetrySave(key)))
+    false
+  } catch {
+    @documents.UpdateError::PendingDeletion(actual) => actual == key
+    _ => false
+  }
+  assert_true(refusal)
+  assert_eq(deleting.model.text(key), Some("stored"))
+  guard deleting.effects is [DeleteSource(operation)] else {
+    fail("source deletion")
+  }
+  let deleted = applied(
+    deleting.model,
+    Deleted(operation, operation.document_id),
+  )
+  assert_eq(deleted.model.document(key), None)
+}
+
+///|
+test "dismissing a deletion failure clears only the failure and is idempotent" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  guard fixture_model().delete(key) is Accepted(deleting) else {
+    fail("delete source")
+  }
+  guard deleting.effects is [DeleteSource(operation)] else {
+    fail("source deletion")
+  }
+  let failed = applied(deleting.model, DeleteFailed(operation, WriteFailed))
+  let dismissed = applied(failed.model, DismissDeleteFailure(key))
+  assert_true(dismissed.model.delete_status(key) is Some(Deletable))
+  assert_eq(dismissed.model.text(key), Some("stored"))
+  assert_true(dismissed.effects.is_empty())
+  assert_true(dismissed.model.update(DismissDeleteFailure(key)) is Unchanged)
+}
+
+///|
+test "repeated visibility flush keeps one eligible follow-up behind a source save" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  let changed = edited(fixture_model(), key, "first")
+  let saving = applied(changed.model, VisibilityFlush(key))
+  guard saving.effects is [PersistSource(first)] else {
+    fail("first source save")
+  }
+  let newer = edited(saving.model, key, "latest")
+  let eligible = applied(newer.model, VisibilityFlush(key))
+  assert_true(eligible.effects.is_empty())
+  assert_true(eligible.model.update(VisibilityFlush(key)) is Unchanged)
+  let settled = applied(eligible.model, Saved(first, first.document))
+  guard settled.effects is [PersistSource(latest)] else {
+    fail("one follow-up source save")
+  }
+  assert_eq(latest.document.text(), "latest")
+}

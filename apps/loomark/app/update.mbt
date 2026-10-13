@@ -219,6 +219,23 @@ fn install_document_transition(
 }
 
 ///|
+fn document_update_notice(error : @documents.UpdateError) -> String {
+  match error {
+    DocumentMissing(_) => "This document is no longer available."
+    PendingDeletion(_) =>
+      "This document is being deleted. Saving cannot be retried."
+    CompositionInProgress(_) =>
+      "Finish composing text before retrying the save. Your text has been retained."
+    DocumentMismatch(_) =>
+      "Document acknowledgment did not match the current document. The current document was retained."
+    DocumentAlreadyExists(_) =>
+      "This document already exists. Reopen the current document to recover."
+    InvalidAcknowledgment(_) =>
+      "Document storage returned an invalid acknowledgment. The current document was retained."
+  }
+}
+
+///|
 fn document_update(
   editing : EditingDocument,
   event : @documents.Msg,
@@ -230,21 +247,15 @@ fn document_update(
           install_document_transition(editing, transition),
           DocumentUpdate::Updated(transition),
         )
+      Unchanged => (editing, DocumentUpdate::Unchanged)
       Superseded => (editing, DocumentUpdate::Obsolete)
     }
   } catch {
-    @documents.UpdateError::DocumentMismatch(_) => {
-      let text = "Document acknowledgment did not match the current document. The current document was retained."
-      ({ ..editing, lifecycle_error: Some(text), }, DocumentUpdate::Fault)
-    }
-    @documents.UpdateError::DocumentAlreadyExists(_) => {
-      let text = "This document already exists. Reopen the current document to recover."
-      ({ ..editing, lifecycle_error: Some(text), }, DocumentUpdate::Fault)
-    }
-    @documents.UpdateError::InvalidAcknowledgment(_) => {
-      let text = "Document storage returned an invalid acknowledgment. The current document was retained."
-      ({ ..editing, lifecycle_error: Some(text), }, DocumentUpdate::Fault)
-    }
+    error =>
+      (
+        { ..editing, lifecycle_error: Some(document_update_notice(error)), },
+        DocumentUpdate::Fault,
+      )
   }
 }
 
@@ -262,7 +273,9 @@ fn reduce_documents(
       }
       editing
     }
-    DocumentUpdate::Obsolete | DocumentUpdate::Fault => editing
+    DocumentUpdate::Unchanged
+    | DocumentUpdate::Obsolete
+    | DocumentUpdate::Fault => editing
   }
 }
 
@@ -419,12 +432,9 @@ fn update_page(
             ) catch {
               error => {
                 let notice = match error {
-                  @documents.UpdateError::DocumentMismatch(_) =>
-                    "The new document did not match the current document state."
                   @documents.UpdateError::DocumentAlreadyExists(_) =>
                     "The new document identity is already in use. Retry to create a fresh identity."
-                  @documents.UpdateError::InvalidAcknowledgment(_) =>
-                    "Document storage returned an invalid acknowledgment. The current documents were retained."
+                  error => document_update_notice(error)
                 }
                 return (
                   OpeningNew(opening, { ..creation, status: Fault(notice), }),
@@ -466,8 +476,8 @@ fn update_page(
                   command,
                 )
               }
-              Superseded => {
-                let error = "The current creation acknowledgment was obsolete. The current document was retained."
+              Unchanged | Superseded => {
+                let error = "The new document was not created. Retry creating it. The current document was retained."
                 (
                   OpeningNew(opening, { ..creation, status: Fault(error), }),
                   @cmd.none,
@@ -2024,7 +2034,9 @@ fn reduce_page_documents(
       let (updated, outcome) = document_update(editing, event)
       let actions = match outcome {
         DocumentUpdate::Updated(transition) => transition.effects
-        DocumentUpdate::Obsolete | DocumentUpdate::Fault => []
+        DocumentUpdate::Unchanged
+        | DocumentUpdate::Obsolete
+        | DocumentUpdate::Fault => []
       }
       let updated = match event {
         @documents.Msg::Promoted(write) if active.key
@@ -2063,45 +2075,15 @@ fn reduce_page_documents(
               transition.effects,
               @cmd.none,
             )
-          Superseded => (model, [], @cmd.none)
+          Unchanged | Superseded => (model, [], @cmd.none)
         }
       } catch {
-        @documents.UpdateError::DocumentMismatch(_) =>
+        error =>
           (
             OpeningNew(
               {
                 ..opening,
-                lifecycle_error: Some(
-                  "Document acknowledgment did not match the current document. The current document was retained.",
-                ),
-              },
-              creation,
-            ),
-            [],
-            @cmd.none,
-          )
-        @documents.UpdateError::DocumentAlreadyExists(_) =>
-          (
-            OpeningNew(
-              {
-                ..opening,
-                lifecycle_error: Some(
-                  "This document already exists. Reopen it to recover.",
-                ),
-              },
-              creation,
-            ),
-            [],
-            @cmd.none,
-          )
-        @documents.UpdateError::InvalidAcknowledgment(_) =>
-          (
-            OpeningNew(
-              {
-                ..opening,
-                lifecycle_error: Some(
-                  "Document storage returned an invalid acknowledgment. The current document was retained.",
-                ),
+                lifecycle_error: Some(document_update_notice(error)),
               },
               creation,
             ),

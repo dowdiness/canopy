@@ -5,7 +5,7 @@ fn expect_document_update(
 ) -> @documents.Transition raise {
   match documents.update(message) {
     @documents.Update::Applied(transition) => transition
-    Superseded => fail("document update was superseded")
+    Unchanged | Superseded => fail("expected an applied document update")
   }
 }
 
