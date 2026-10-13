@@ -82,9 +82,8 @@ test "account switch retains optimistic text under its original owner" {
   let documents = @documents.Model(sync_test_saved()).project_account(
     account_a,
   )
-  let (documents, _) = documents.reduce(
-    @documents.Msg::TextChanged(token_a, "A unsaved"),
-  )
+  let __document_transition_0 = expect_document_edit(documents, token_a, "A unsaved")
+let documents = __document_transition_0.model
 
   let account_b_documents = documents.project_account(account_b)
   assert_eq(account_b_documents.text(token_a), Some("A unsaved"))
@@ -109,9 +108,9 @@ test "synced deletion hides a non-active row while its intent is persisted" {
     account,
   )
   let token = sync_test_key(account, "shared")
-  let (pending, actions) = documents.reduce(
-    @documents.Msg::DeleteConfirmed(token),
-  )
+  let __document_transition_1 = expect_document_delete(documents, token)
+let pending = __document_transition_1.model
+let actions = __document_transition_1.effects.to_array()
   guard actions is [@documents.Action::DeleteReplica(edit)] else {
     fail("durable deletion intent")
   }
@@ -124,9 +123,8 @@ test "synced deletion hides a non-active row while its intent is persisted" {
   assert_false(visible.exists(seed => seed.docid() == token))
 
   let write = edit.durable().request_deletion()
-  let (hidden, _) = pending.reduce(
-    @documents.Msg::FeedbackReceived(ReplicaSettled(write, Some(token))),
-  )
+  let __document_transition_2 = expect_document_update(pending, @documents.Msg::ReplicaSettled(write, Some(token)))
+  let hidden = __document_transition_2.model
   assert_eq(hidden.text(token), None)
   assert_true(
     hidden
@@ -144,21 +142,20 @@ test "failed deletion persistence restores the document and exact retry" {
     account,
   )
   let token = sync_test_key(account, "shared")
-  let (pending, actions) = documents.reduce(
-    @documents.Msg::DeleteConfirmed(token),
-  )
+  let __document_transition_3 = expect_document_delete(documents, token)
+let pending = __document_transition_3.model
+let actions = __document_transition_3.effects.to_array()
   guard actions is [@documents.Action::DeleteReplica(edit)] else {
     fail("durable deletion intent")
   }
   let write = edit.durable().request_deletion()
-  let (failed, _) = pending.reduce(
-    @documents.Msg::FeedbackReceived(
+  let __document_transition_4 = expect_document_update(pending, @documents.Msg::
       ReplicaDeletionFailed(
         write,
         @source_repository.ReplicaFailure::WriteFailed,
       ),
-    ),
-  )
+    )
+  let failed = __document_transition_4.model
   assert_eq(failed.text(token), Some("A"))
   assert_true(
     failed.delete_status(token)
@@ -166,7 +163,8 @@ test "failed deletion persistence restores the document and exact retry" {
       DeletePersistenceFailed(@source_repository.ReplicaFailure::WriteFailed)
     ),
   )
-  let (_, retry) = failed.reduce(@documents.Msg::RetryDelete(token))
+  let __document_transition_5 = expect_document_delete(failed, token)
+let retry = __document_transition_5.effects.to_array()
   guard retry is [@documents.Action::RetryReplica(owner, document)] &&
     owner == account &&
     document == document_id("shared") else {
@@ -183,16 +181,15 @@ test "deletion intent remains isolated to its owning account" {
   let documents = @documents.Model(sync_test_saved()).project_account(
     account_a,
   )
-  let (pending, actions) = documents.reduce(
-    @documents.Msg::DeleteConfirmed(token_a),
-  )
+  let __document_transition_6 = expect_document_delete(documents, token_a)
+let pending = __document_transition_6.model
+let actions = __document_transition_6.effects.to_array()
   guard actions is [@documents.Action::DeleteReplica(edit)] else {
     fail("account A deletion")
   }
   let write = edit.durable().request_deletion()
-  let (hidden, _) = pending.reduce(
-    @documents.Msg::FeedbackReceived(ReplicaSettled(write, Some(token_a))),
-  )
+  let __document_transition_7 = expect_document_update(pending, @documents.Msg::ReplicaSettled(write, Some(token_a)))
+  let hidden = __document_transition_7.model
   let account_b_documents = hidden.project_account(account_b)
   assert_eq(account_b_documents.text(token_a), None)
   assert_eq(account_b_documents.text(token_b), Some("B"))
@@ -205,16 +202,15 @@ test "delete conflict restores the working copy for a new decision" {
     account,
   )
   let token = sync_test_key(account, "shared")
-  let (pending, actions) = documents.reduce(
-    @documents.Msg::DeleteConfirmed(token),
-  )
+  let __document_transition_8 = expect_document_delete(documents, token)
+let pending = __document_transition_8.model
+let actions = __document_transition_8.effects.to_array()
   guard actions is [@documents.Action::DeleteReplica(edit)] else {
     fail("durable deletion intent")
   }
   let preparing = edit.durable().request_deletion()
-  let (hidden, _) = pending.reduce(
-    @documents.Msg::FeedbackReceived(ReplicaSettled(preparing, Some(token))),
-  )
+  let __document_transition_9 = expect_document_update(pending, @documents.Msg::ReplicaSettled(preparing, Some(token)))
+  let hidden = __document_transition_9.model
   guard preparing.replica().directive()
     is @source_repository.ReplicaDirective::CreateOperation(draft) else {
     fail("delete draft")
@@ -225,9 +221,8 @@ test "delete conflict restores the working copy for a new decision" {
     _ => abort("operation id")
   }
   let sending = draft.start(operation_id)
-  let (hidden, _) = hidden.reduce(
-    @documents.Msg::FeedbackReceived(ReplicaAdvanced(sending)),
-  )
+  let __document_transition_10 = expect_document_update(hidden, @documents.Msg::ReplicaAdvanced(sending))
+  let hidden = __document_transition_10.model
   let revision = @source_repository.SavedRevision::parse(2.0) catch {
     _ => abort("revision")
   }
@@ -240,9 +235,8 @@ test "delete conflict restores the working copy for a new decision" {
     is @source_repository.ReconcilePlan::Persist(conflict) else {
     fail("delete conflict")
   }
-  let (restored, _) = hidden.reduce(
-    @documents.Msg::FeedbackReceived(ReplicaSettled(conflict, None)),
-  )
+  let __document_transition_11 = expect_document_update(hidden, @documents.Msg::ReplicaSettled(conflict, None))
+  let restored = __document_transition_11.model
   assert_eq(restored.text(token), Some("A"))
   assert_true(restored.delete_status(token) is Some(Deletable))
 }

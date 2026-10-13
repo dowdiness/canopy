@@ -47,12 +47,11 @@ fn redirecting_model() -> Model {
 test "sign-in advances on the final local save completion" {
   let initial = test_editing()
   let key = initial.activation.key
-  let (documents, _) = initial.documents.reduce(
-    @documents.Msg::TextChanged(key, "latest"),
-  )
-  let (documents, actions) = documents.reduce(
-    @documents.Msg::ApplyPendingEdit(key, 1),
-  )
+  let __document_transition_0 = expect_document_edit(initial.documents, key, "latest")
+let documents = __document_transition_0.model
+  let __document_transition_1 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, 1))
+  let documents = __document_transition_1.model
+let actions = __document_transition_1.effects.to_array()
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
@@ -60,9 +59,7 @@ test "sign-in advances on the final local save completion" {
   assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
   let (ready, _) = test_root_update(
     waiting,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
-    ),
+    DocumentSaved(operation, operation.document),
   )
   assert_true(ready.sign_in is @sign_in.Connecting(..))
   assert_eq(
@@ -80,21 +77,18 @@ test "sign-in advances on the final local save completion" {
 test "local save failure releases editing and sign-in retries the failed save" {
   let initial = test_editing()
   let key = initial.activation.key
-  let (documents, _) = initial.documents.reduce(
-    @documents.Msg::TextChanged(key, "latest"),
-  )
-  let (documents, actions) = documents.reduce(
-    @documents.Msg::ApplyPendingEdit(key, 1),
-  )
+  let __document_transition_2 = expect_document_edit(initial.documents, key, "latest")
+let documents = __document_transition_2.model
+  let __document_transition_3 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, 1))
+  let documents = __document_transition_3.model
+let actions = __document_transition_3.effects.to_array()
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
   let (waiting, _) = start_sign_in(signed_out_model({ ..initial, documents, }))
   let (failed, _) = test_root_update(
     waiting,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, SaveFailed(WriteFailed)),
-    ),
+    DocumentSaveFailed(operation, WriteFailed),
   )
   assert_true(
     account_controls_input(failed).sign_in
@@ -314,9 +308,7 @@ test "physical completion during a newer save cannot bypass local persistence" {
   assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
   let (ready, _) = test_root_update(
     waiting,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
-    ),
+    DocumentSaved(operation, operation.document),
   )
   let next = sign_in_request(ready)
   assert_true(next != physical)
@@ -385,12 +377,11 @@ test "explicit cancellation retains the physical request and fences stale cancel
 test "canceling sign-in leaves its save alive and preserves subsequent editing" {
   let initial = test_editing()
   let key = initial.activation.key
-  let (documents, _) = initial.documents.reduce(
-    @documents.Msg::TextChanged(key, "saving"),
-  )
-  let (documents, actions) = documents.reduce(
-    @documents.Msg::ApplyPendingEdit(key, 1),
-  )
+  let __document_transition_4 = expect_document_edit(initial.documents, key, "saving")
+let documents = __document_transition_4.model
+  let __document_transition_5 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, 1))
+  let documents = __document_transition_5.model
+let actions = __document_transition_5.effects.to_array()
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
@@ -404,9 +395,7 @@ test "canceling sign-in leaves its save alive and preserves subsequent editing" 
   )
   let (completed, _) = test_root_update(
     edited,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
-    ),
+    DocumentSaved(operation, operation.document),
   )
   assert_true(
     account_controls_input(completed).sign_in is @sign_in.Available(_),

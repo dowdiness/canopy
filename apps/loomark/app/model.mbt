@@ -146,11 +146,6 @@ priv enum Msg {
   DocumentSaveFailed(@documents.SaveOperation, @source_repository.SaveFailure)
   DocumentDeleted(@documents.DeleteOperation, @source_repository.DocumentId)
   DocumentDeleteFailed(@documents.DeleteOperation, @source_repository.DeleteFailure)
-  DocumentReplicaAdvanced(@documents.ReplicaWrite)
-  DocumentReplicaSettled(@documents.ReplicaWrite, @documents.Key?)
-  DocumentReplicaDeletionFailed(@documents.ReplicaWrite, @source_repository.ReplicaFailure)
-  DocumentPromoted(@documents.ReplicaWrite)
-  DocumentPromotionFailed(@documents.ReplicaWrite, @source_repository.ReplicaFailure)
   ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
   PageRestored
@@ -164,6 +159,7 @@ priv enum Msg {
   DocumentSelected(@documents.Key)
   CreateRequested
   RetryOpeningNewCreation
+  DismissDocumentFault
   CreateCompleted(Int, @source_repository.CreateResult)
   DeleteRequested(@documents.Key)
   DeleteCancelled

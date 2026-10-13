@@ -241,7 +241,7 @@ fn view(
       @html.fragment([
         save_failure_view(save_failure, emit(RetrySave)),
         failure,
-        input.lifecycle_error.map(error => failure_notice(error, "", on_action=None)).unwrap_or(@html.nothing),
+        input.lifecycle_error.map(error => failure_notice(error, "Dismiss", on_action=Some(emit(DismissDocumentFault)))).unwrap_or(@html.nothing),
         if input.import_failed {
           import_failure_view(emit(DismissImportFailure))
         } else {

@@ -8,26 +8,25 @@ fn input_for(
 ///|
 test "empty imported document remains listed after failed save and deletes locally" {
   let documents = @documents.Model(test_snapshot())
-  let (documents, decisions) = documents.reduce(
-    @documents.Msg::Imported(document_id("empty"), ""),
-  )
+  let __document_transition_0 = expect_document_update(documents, @documents.Msg::Imported(document_id("empty"), ""))
+  let documents = __document_transition_0.model
+let decisions = __document_transition_0.effects.to_array()
   guard decisions is [@documents.Action::PersistSource(operation)] else {
     fail("import save")
   }
-  let (documents, _) = documents.reduce(
-    @documents.Msg::FeedbackReceived(
-      @documents.Feedback::SaveCompleted(operation, SaveFailed(WriteFailed)),
-    ),
-  )
+  let __document_transition_1 = expect_document_update(documents, 
+      @documents.Msg::SaveFailed(operation, WriteFailed),
+    )
+  let documents = __document_transition_1.model
   let seeds = input_for(documents)
   assert_true(
     seeds.exists(seed => {
       seed.docid() == source_key("empty") && seed.source() == ""
     }),
   )
-  let (documents, decisions) = documents.reduce(
-    @documents.Msg::DeleteConfirmed(source_key("empty")),
-  )
+  let __document_transition_2 = expect_document_delete(documents, source_key("empty"))
+  let documents = __document_transition_2.model
+let decisions = __document_transition_2.effects.to_array()
   assert_true(decisions.is_empty())
   assert_true(
     !input_for(documents).exists(seed => seed.docid() == source_key("empty")),
@@ -37,22 +36,20 @@ test "empty imported document remains listed after failed save and deletes local
 ///|
 test "edited New returning empty stays listed before and after lead acceptance" {
   let documents = @documents.Model(test_snapshot())
-  let (documents, _) = documents.reduce(@documents.Msg::New(document_id("new")))
-  let (documents, _) = documents.reduce(
-    @documents.Msg::TextChanged(source_key("new"), "first"),
-  )
-  let (documents, _) = documents.reduce(
-    @documents.Msg::TextChanged(source_key("new"), ""),
-  )
+  let __document_transition_3 = expect_document_update(documents, @documents.Msg::New(document_id("new")))
+  let documents = __document_transition_3.model
+  let __document_transition_4 = expect_document_edit(documents, source_key("new"), "first")
+let documents = __document_transition_4.model
+  let __document_transition_5 = expect_document_edit(documents, source_key("new"), "")
+let documents = __document_transition_5.model
   assert_true(
     input_for(documents).exists(seed => {
       seed.docid() == source_key("new") && seed.source() == "first"
     }),
   )
   let revision = pending_revision(documents, source_key("new"))
-  let (documents, _) = documents.reduce(
-    @documents.Msg::ApplyPendingEdit(source_key("new"), revision),
-  )
+  let __document_transition_6 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(source_key("new"), revision))
+  let documents = __document_transition_6.model
   assert_true(
     input_for(documents).exists(seed => {
       seed.docid() == source_key("new") && seed.source() == ""
@@ -66,7 +63,8 @@ test "untouched New is excluded while loaded saved empty is admitted" {
     documents_test_document("empty", ""),
   ]).unwrap()
   let documents = @documents.Model(saved)
-  let (documents, _) = documents.reduce(@documents.Msg::New(document_id("new")))
+  let __document_transition_7 = expect_document_update(documents, @documents.Msg::New(document_id("new")))
+  let documents = __document_transition_7.model
   let seeds = input_for(documents)
   assert_true(
     seeds.exists(seed => {
@@ -78,7 +76,7 @@ test "untouched New is excluded while loaded saved empty is admitted" {
 
 ///|
 test "creation gating produces blocked typed deletion presentation" {
-  let editing = { ..test_editing(), creation: Creating(0), }
+  let editing = { ..test_editing(), creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }), }
   let seeds = recent_document_seeds(editing, []).to_array()
   assert_true(
     seeds.all(seed => {
@@ -102,20 +100,16 @@ test "loaded saved rows retain lexical order" {
 ///|
 test "adapter preserves accepted sources and page-local row order" {
   let documents = @documents.Model(test_snapshot())
-  let (documents, _) = documents.reduce(
-    @documents.Msg::TextChanged(source_key("two"), "second"),
-  )
+  let __document_transition_8 = expect_document_edit(documents, source_key("two"), "second")
+let documents = __document_transition_8.model
   let two_revision = pending_revision(documents, source_key("two"))
-  let (documents, _) = documents.reduce(
-    @documents.Msg::ApplyPendingEdit(source_key("two"), two_revision),
-  )
-  let (documents, _) = documents.reduce(
-    @documents.Msg::TextChanged(source_key("one"), "first"),
-  )
+  let __document_transition_9 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(source_key("two"), two_revision))
+  let documents = __document_transition_9.model
+  let __document_transition_10 = expect_document_edit(documents, source_key("one"), "first")
+let documents = __document_transition_10.model
   let one_revision = pending_revision(documents, source_key("one"))
-  let (documents, _) = documents.reduce(
-    @documents.Msg::ApplyPendingEdit(source_key("one"), one_revision),
-  )
+  let __document_transition_11 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(source_key("one"), one_revision))
+  let documents = __document_transition_11.model
   let seeds = input_for(documents)
   assert_true(
     seeds.map(seed => seed.docid()) == [source_key("one"), source_key("two")],

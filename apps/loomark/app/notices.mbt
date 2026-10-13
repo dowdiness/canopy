@@ -12,6 +12,7 @@ priv enum DocumentFailure {
 priv struct NoticesInput {
   failure : DocumentFailure?
   import_failed : Bool
+  lifecycle_error : String?
 } derive(Eq)
 
 ///|
