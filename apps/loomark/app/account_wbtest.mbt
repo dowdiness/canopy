@@ -47,11 +47,14 @@ fn redirecting_model() -> Model {
 test "sign-in advances on the final local save completion" {
   let initial = test_editing()
   let key = initial.activation.key
-  let __document_transition_0 = expect_document_edit(initial.documents, key, "latest")
-let documents = __document_transition_0.model
-  let __document_transition_1 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, 1))
-  let documents = __document_transition_1.model
-let actions = __document_transition_1.effects.to_array()
+  let transition = expect_document_edit(initial.documents, key, "latest")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(key, 1),
+  )
+  let documents = transition.model
+  let actions = transition.effects
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
@@ -77,11 +80,14 @@ let actions = __document_transition_1.effects.to_array()
 test "local save failure releases editing and sign-in retries the failed save" {
   let initial = test_editing()
   let key = initial.activation.key
-  let __document_transition_2 = expect_document_edit(initial.documents, key, "latest")
-let documents = __document_transition_2.model
-  let __document_transition_3 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, 1))
-  let documents = __document_transition_3.model
-let actions = __document_transition_3.effects.to_array()
+  let transition = expect_document_edit(initial.documents, key, "latest")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(key, 1),
+  )
+  let documents = transition.model
+  let actions = transition.effects
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
@@ -296,10 +302,13 @@ test "physical completion during a newer save cannot bypass local persistence" {
     TextChanged(0, @text_change.TextChange::ReplaceAll("new text")),
   )
   let (_, actions) = edited.page.documents_state().unwrap().save_changes() catch {
-    @documents.DeleteError::DocumentMissing(_) => fail("document missing during test save")
-    @documents.DeleteError::OwnershipTransferInProgress(_) => fail("document transfer during test save")
-    @documents.DeleteError::ReplicaMissing(_) => fail("replica missing during test save")
-  }
+      @documents.DeleteError::DocumentMissing(_) =>
+        fail("document missing during test save")
+      @documents.DeleteError::OwnershipTransferInProgress(_) =>
+        fail("document transfer during test save")
+      @documents.DeleteError::ReplicaMissing(_) =>
+        fail("replica missing during test save")
+    }
   guard actions is [@documents.Action::PersistSource(operation)] else {
     fail("latest source persistence")
   }
@@ -381,11 +390,14 @@ test "explicit cancellation retains the physical request and fences stale cancel
 test "canceling sign-in leaves its save alive and preserves subsequent editing" {
   let initial = test_editing()
   let key = initial.activation.key
-  let __document_transition_4 = expect_document_edit(initial.documents, key, "saving")
-let documents = __document_transition_4.model
-  let __document_transition_5 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, 1))
-  let documents = __document_transition_5.model
-let actions = __document_transition_5.effects.to_array()
+  let transition = expect_document_edit(initial.documents, key, "saving")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(key, 1),
+  )
+  let documents = transition.model
+  let actions = transition.effects
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }

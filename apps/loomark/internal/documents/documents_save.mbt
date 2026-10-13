@@ -1,30 +1,4 @@
 ///|
-fn import_document(
-  documents : Model,
-  document_id : @source_repository.DocumentId,
-  text : String,
-) -> (Model, Array[Action]) {
-  let key = Key::source(document_id)
-  guard find_record(documents.records, key) is None else {
-    return (documents, [])
-  }
-  let document = @source_repository.Document::create(document_id, text)
-  let record = {
-    persistence: Source(ImportedNew, SourceLifecycle::Available),
-    document,
-    version: 0,
-    edit: Idle,
-    save: Saved,
-    lead_source: LeadSource::Available(text),
-  }
-  let (record, effects) = begin_save(documents.saved, record)
-  (
-    { ..documents, records: prepend_record(documents.records, record), },
-    effects,
-  )
-}
-
-///|
 fn acknowledged_document(
   saved : @source_repository.SavedDocuments,
   key : Key,
@@ -40,9 +14,6 @@ fn acknowledged_document(
 }
 
 ///|
-/// Transfer the current working copy to the durable recovery identity without
-/// changing its text or editing lifecycle. The compound Replica write remains
-/// the only persistence operation until it commits.
 pub fn Model::begin_fork(
   self : Self,
   write : @source_repository.ReplicaWrite,
@@ -53,14 +24,14 @@ pub fn Model::begin_fork(
   let original = replica.document_id()
   let key = Key::replica(replica.account(), original)
   guard find_record(self.records, key) is Some(record) &&
-    record.persistence is Replica(account, ReplicaAvailable) &&
+    record.persistence is Replica(account, ReplicaAvailable, autosave) &&
     account == replica.account() else {
     raise ExpiredAction
   }
-  let ownership = { account, original, recovery, }
+  let ownership : ForkOwnership = { account, original, recovery, }
   let transferred = {
     ..record,
-    persistence: Forking(ownership),
+    persistence: Forking(ownership, autosave),
     document: recovery.update(record.document.text()),
   }
   {
@@ -72,223 +43,83 @@ pub fn Model::begin_fork(
 ///|
 fn apply_text(
   documents : Model,
-  document_id : Key,
+  record : Record,
   text : String,
-) -> (Model, Array[Action]) {
-  guard find_record(documents.records, document_id) is Some(record) else {
-    return (documents, [])
-  }
-  guard !delete_is_active(record.delete_phase()) &&
-    record.document.text() != text else {
-    return (documents, [])
-  }
+) -> (Model, ReadOnlyArray[Action]) {
+  let key = record.key()
   let document = record.document.update(text)
   let lead_source = match record.lead_source {
-    LeadSource::Unlisted => LeadSource::Available(text)
+    Unlisted => LeadSource::Available(text)
     source => source
   }
-  let acknowledged = acknowledged_document(documents.saved, record.key())
-  // A committed Replica can be older than the active persistence lane. Submit
-  // every eligible Replica edit and let that lane compare against its head.
-  let is_clean = record.persistence is Source(_, _) &&
-    acknowledged is Some(saved) &&
-    saved.text() == text
-  let in_flight = record.save is Saving(_, _)
-  let (documents, replica) = if is_clean && !in_flight {
+  // Replica writes compare against the persistence lane, not its older durable snapshot.
+  let clean = record.persistence is Source(_, _) &&
+    acknowledged_document(documents.saved, key)
+    .map(saved => saved.text() == text)
+    .unwrap_or(false)
+  let (documents, window) = if clean && !record.has_source_write() {
     (documents, None)
   } else {
-    match record.save {
-      Saving(_, Some(replica)) | Waiting(replica) =>
-        (documents, Some(revise_autosave(replica)))
-      Saving(_, None) | Saved | Failed(_) => {
-        let (next, replica) = allocate_autosave(documents)
-        (next, Some(replica))
+    match record.pending_window() {
+      Some(window) => (documents, Some({ ..window, eligibility: Deferred, }))
+      None => {
+        let (next, window) = allocate_autosave(documents)
+        (next, Some(window))
       }
     }
   }
   let (documents, revision) = allocate_working_copy_version(documents)
   let needs_lead = match lead_source {
-    LeadSource::Available(source) => source != text
-    LeadSource::Unlisted => true
+    Available(source) => source != text
+    Unlisted => true
   }
-  let edit = if needs_lead ||
-    (match replica {
-      Some(replica) => replica.eligibility == AutosaveEligibility::Deferred
-      None => false
-    }) {
-    match record.edit {
-      ComposingIdle | ComposingWaiting(_) | ComposingReady =>
-        ComposingWaiting(revision)
-      _ => EditState::Waiting(revision)
+  let pending = needs_lead ||
+    window.map(window => window.eligibility == Deferred).unwrap_or(false)
+  let edit : Editing = if is_composing(record.edit) {
+    if pending {
+      ComposingWaiting(revision)
+    } else {
+      ComposingIdle
     }
+  } else if pending {
+    Waiting(revision)
   } else {
-    match record.edit {
-      ComposingIdle | ComposingWaiting(_) | ComposingReady => ComposingIdle
-      _ => EditState::Idle
-    }
-  }
-  let save = match replica {
-    None => Saved
-    Some(_) if is_clean && !in_flight => Saved
-    Some(replica) =>
-      match record.save {
-        Saving(operation, _) => Saving(operation, Some(replica))
-        _ => Waiting(replica)
-      }
+    Idle
   }
   let record = {
-    ..record,
+    ..record.schedule(window),
     document,
     version: revision,
-    lead_source,
     edit,
-    save,
+    lead_source,
   }
-  let documents = {
-    ..documents,
-    records: prepend_record(
-      remove_record(documents.records, document_id),
-      record,
-    ),
-  }
-  match replica {
-    None => (documents, [])
-    Some(_) if is_composing(edit) => (documents, [])
-    Some(replica) => {
-      let (replica, decisions) = autosave_effect(replica, false)
-      (replace_autosave(documents, document_id, replica), decisions)
+  let (record, effects) = match window {
+    Some(window) if !is_composing(edit) => {
+      let (window, effects) = autosave_effect(window, false)
+      (record.schedule(Some(window)), effects)
     }
+    _ => (record, [])
   }
-}
-
-///|
-fn apply_pending_edit(
-  documents : Model,
-  document_id : Key,
-  revision : Int,
-) -> (Model, Array[Action]) {
-  guard find_record(documents.records, document_id) is Some(record) else {
-    return (documents, [])
-  }
-  guard !delete_is_active(record.delete_phase()) else { return (documents, []) }
-  match record.edit {
-    Waiting(current) if current == revision => {
-      let (record, decisions) = accept_pending(documents.saved, record)
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, document_id, _ => record),
-        },
-        decisions,
-      )
-    }
-    ComposingWaiting(current) if current == revision =>
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, document_id, r => {
-            ..r,
-            edit: ComposingReady,
-          }),
-        },
-        [],
-      )
-    ComposingReady => (documents, [])
-    _ => (documents, [])
-  }
-}
-
-///|
-fn eligible_maximum(
-  documents : Model,
-  maximum_id : Int,
-) -> (Model, Array[Action]) {
-  guard documents.records
-    .exact_view()
-    .search_by(record => {
-      match record.save {
-        Waiting(replica) | Saving(_, Some(replica)) =>
-          replica.maximum_id == maximum_id
-        Saved | Saving(_, None) | Failed(_) => false
-      }
-    })
-    is Some(index) else {
-    return (documents, [])
-  }
-  let record = documents.records[index]
-  let document_id = record.key()
-  guard !delete_is_active(record.delete_phase()) else { return (documents, []) }
-  match record.save {
-    Waiting(replica) if replica.maximum_id == maximum_id => {
-      let (record, decisions) = mark_eligible(documents.saved, record)
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, document_id, _ => record),
-        },
-        decisions,
-      )
-    }
-    Saving(_, Some(replica)) if replica.maximum_id == maximum_id => {
-      let (record, decisions) = mark_eligible(documents.saved, record)
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, document_id, _ => record),
-        },
-        decisions,
-      )
-    }
-    _ => (documents, [])
-  }
-}
-
-///|
-fn flush_visibility(
-  saved : @source_repository.SavedDocuments,
-  record : Record,
-) -> (Record, Array[Action]) {
-  guard !delete_is_active(record.delete_phase()) else { return (record, []) }
-  match record.save {
-    Waiting(_) | Saving(_, Some(_)) => mark_eligible(saved, record)
-    Saved | Saving(_, None) | Failed(_) => (record, [])
-  }
+  (
+    {
+      ..documents,
+      records: prepend_record(remove_record(documents.records, key), record),
+    },
+    effects,
+  )
 }
 
 ///|
 fn mark_eligible(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Action]) {
-  match record.save {
-    Waiting(replica) if is_composing(record.edit) =>
-      (
-        {
-          ..record,
-          save: Waiting({
-            ..replica,
-            eligibility: AutosaveEligibility::Eligible,
-          }),
-        },
-        [],
-      )
-    Waiting(replica) =>
-      begin_save(saved, {
-        ..record,
-        save: Waiting({ ..replica, eligibility: AutosaveEligibility::Eligible, }),
-      })
-    Saving(operation, Some(replica)) =>
-      (
-        {
-          ..record,
-          save: Saving(
-            operation,
-            Some({ ..replica, eligibility: AutosaveEligibility::Eligible, }),
-          ),
-        },
-        [],
-      )
-    Saved | Failed(_) | Saving(_, None) => (record, [])
+  window : AutosaveWindow,
+) -> (Record, ReadOnlyArray[Action]) {
+  let record = record.schedule(Some({ ..window, eligibility: Eligible, }))
+  if is_composing(record.edit) || record.has_source_write() {
+    (record, [])
+  } else {
+    begin_save(saved, record)
   }
 }
 
@@ -296,203 +127,204 @@ fn mark_eligible(
 fn accept_pending(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Action]) {
+) -> (Record, ReadOnlyArray[Action]) {
   let record = {
     ..record,
-    edit: Idle,
-    lead_source: LeadSource::Available(record.document.text()),
+    edit: Editing::Idle,
+    lead_source: Available(record.document.text()),
   }
-  mark_eligible(saved, record)
+  match record.pending_window() {
+    Some(window) => mark_eligible(saved, record, window)
+    None => (record, [])
+  }
 }
 
 ///|
 fn finish_composition(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Action]) {
-  match record.save {
-    Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible =>
+) -> (Record, ReadOnlyArray[Action]) {
+  match record.pending_window() {
+    Some(window) if window.eligibility == Eligible && !record.has_source_write() =>
       begin_save(saved, record)
-    Waiting(replica) => {
-      let (replica, decisions) = autosave_effect(replica, false)
-      ({ ..record, save: Waiting(replica), }, decisions)
+    Some(window) => {
+      let (window, effects) = autosave_effect(window, true)
+      (record.schedule(Some(window)), effects)
     }
-    Saving(operation, Some(replica)) if replica.eligibility ==
-      AutosaveEligibility::Deferred => {
-      let (replica, decisions) = autosave_effect(replica, false)
-      ({ ..record, save: Saving(operation, Some(replica)), }, decisions)
-    }
+    None => (record, [])
+  }
+}
+
+///|
+fn flush_visibility(
+  saved : @source_repository.SavedDocuments,
+  record : Record,
+) -> (Record, ReadOnlyArray[Action]) {
+  if record.delete_status() == DeletePending {
+    return (record, [])
+  }
+  match record.pending_window() {
+    Some(window) => mark_eligible(saved, record, window)
+    None => (record, [])
+  }
+}
+
+///|
+priv enum SaveCompletion {
+  Continue(Record, LocalDocumentOrigin, AutosaveWindow?, DeletionFailure?)
+  Delete(Record, LocalDocumentOrigin, DeleteOperation, AutosaveWindow?)
+}
+
+///|
+fn current_save(
+  documents : Model,
+  operation : SaveOperation,
+) -> SaveCompletion? {
+  guard find_record(documents.records, operation.key) is Some(record) else {
+    return None
+  }
+  match record.persistence {
+    Source(origin, Writable(Saving(active, pending), failure)) if active ==
+      operation => Some(Continue(record, origin, pending, failure))
+    Source(origin, WaitingToDelete(active, deletion, pending)) if active ==
+      operation => Some(Delete(record, origin, deletion, pending))
+    _ => None
+  }
+}
+
+///|
+fn resume_autosave(
+  saved : @source_repository.SavedDocuments,
+  record : Record,
+) -> (Record, ReadOnlyArray[Action]) {
+  match record.pending_window() {
+    Some(window) if window.eligibility == Eligible && !is_composing(record.edit) =>
+      begin_save(saved, record)
     _ => (record, [])
   }
 }
 
 ///|
-fn complete_waiting_delete(
-  documents : Model,
-  record : Record,
-  origin : LocalDocumentOrigin,
-  delete_operation : DeleteOperation,
-  retained : DocumentsSaveStatus,
-  saved : @source_repository.SavedDocuments,
-) -> (Model, Array[Action]) {
-  let document_id = record.key()
-  let (deleting, decision) = issue_delete_record(
-    record, origin, delete_operation, retained,
-  )
-  (
-    {
-      ..documents,
-      saved,
-      records: replace_record(documents.records, document_id, _ => deleting),
-    },
-    [decision],
-  )
-}
-
-///|
-fn complete_stored(
-  documents : Model,
-  record : Record,
-  pending : AutosaveWindow?,
-  saved : @source_repository.SavedDocuments,
-) -> (Model, Array[Action]) {
-  let document_id = record.key()
-  let persistence = match record.persistence {
-    Source(EphemeralNew | ImportedNew, deletion) =>
-      DocumentPersistence::Source(Existing, deletion)
-    Source(Existing, _) | StartingSync(_, _) | Replica(_, _) | Forking(_) =>
-      record.persistence
-  }
-  let completed = { ..record, persistence, }
-  match record.persistence {
-    Source(origin, SourceLifecycle::Waiting(delete_operation)) => {
-      let retained = match pending {
-        Some(replica) if acknowledged_document(saved, record.key()) !=
-          Some(record.document) => DocumentsSaveStatus::Waiting(replica)
-        _ => Saved
-      }
-      complete_waiting_delete(
-        documents, completed, origin, delete_operation, retained, saved,
-      )
-    }
-    Source(
-      _,
-      SourceLifecycle::Deleting(_)
-      | SourceLifecycle::Available
-      | SourceLifecycle::Failed(_, _)
-    )
-    | StartingSync(_, _)
-    | Replica(_, _)
-    | Forking(_) => {
-      let (next, decisions) = match pending {
-        Some(_) if acknowledged_document(saved, record.key()) ==
-          Some(record.document) => ({ ..completed, save: Saved, }, [])
-        Some(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
-          !is_composing(record.edit) => begin_save(saved, completed)
-        Some(replica) => ({ ..completed, save: Waiting(replica), }, [])
-        None => ({ ..completed, save: Saved, }, [])
-      }
-      (
-        {
-          ..documents,
-          saved,
-          records: replace_record(documents.records, document_id, _ => next),
-        },
-        decisions,
-      )
-    }
-  }
-}
-
-///|
-fn complete_failed(
-  documents : Model,
-  record : Record,
-  pending : AutosaveWindow?,
-  failure : @source_repository.SaveFailure,
-) -> (Model, Array[Action]) {
-  let document_id = record.key()
-  match record.persistence {
-    Source(origin, SourceLifecycle::Waiting(delete_operation)) =>
-      if acknowledged_document(documents.saved, record.key()) is Some(_) {
-        complete_waiting_delete(
-          documents,
-          record,
-          origin,
-          delete_operation,
-          Failed(failure),
-          documents.saved,
-        )
-      } else {
-        (
-          {
-            ..documents,
-            records: remove_record(documents.records, document_id),
-          },
-          [],
-        )
-      }
-    Source(
-      _,
-      SourceLifecycle::Deleting(_)
-      | SourceLifecycle::Available
-      | SourceLifecycle::Failed(_, _)
-    )
-    | StartingSync(_, _)
-    | Replica(_, _)
-    | Forking(_) => {
-      let (next, decisions) = if acknowledged_document(
-          documents.saved,
-          record.key(),
-        ) ==
-        Some(record.document) {
-        ({ ..record, save: Saved, }, [])
-      } else {
-        match pending {
-          Some(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
-            !is_composing(record.edit) =>
-            begin_save(documents.saved, { ..record, save: Waiting(replica), })
-          Some(replica) => ({ ..record, save: Waiting(replica), }, [])
-          None => ({ ..record, save: Failed(failure), }, [])
-        }
-      }
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, document_id, _ => next),
-        },
-        decisions,
-      )
-    }
-  }
-}
-
-///|
-fn complete(
+fn save_succeeded(
   documents : Model,
   operation : SaveOperation,
-  result : @source_repository.SaveResult,
-) -> (Model, Array[Action]) {
-  let document_id = operation.key
-  guard find_record(documents.records, document_id) is Some(record) else {
-    return (documents, [])
+  document : @source_repository.Document,
+) -> Update raise UpdateError {
+  guard current_save(documents, operation) is Some(completion) else {
+    return Superseded
   }
-  guard record.save is Saving(current, pending) && current == operation else {
-    return (documents, [])
+  guard document == operation.document else {
+    raise DocumentMismatch(operation.key)
   }
-  match result {
-    Stored(document) => {
-      guard document == operation.document else { return (documents, []) }
-      guard documents.saved.apply(
-          @source_repository.RepositoryChange::Stored(document),
-        )
-        is Some(saved) else {
-        return (documents, [])
+  guard documents.saved.apply(
+      @source_repository.RepositoryChange::Stored(document),
+    )
+    is Some(saved) else {
+    raise InvalidAcknowledgment(operation.key)
+  }
+  let (record, effects) = match completion {
+    Continue(record, _, pending, failure) => {
+      let autosave : Autosave = if record.document == document {
+        Idle
+      } else {
+        match pending {
+          Some(window) => Waiting(window)
+          None => Idle
+        }
       }
-      complete_stored(documents, record, pending, saved)
+      resume_autosave(saved, {
+        ..record,
+        persistence: Source(
+          Existing,
+          Writable(SourceSave::from_autosave(autosave), failure),
+        ),
+      })
     }
-    SaveFailed(failure) => complete_failed(documents, record, pending, failure)
+    Delete(record, _, deletion, pending) => {
+      let restoration : Autosave = if record.document == document {
+        Idle
+      } else {
+        match pending {
+          Some(window) => Waiting(window)
+          None => Idle
+        }
+      }
+      issue_delete(record, Existing, deletion, restoration)
+    }
   }
+  Applied(
+    transition(
+      {
+        ..documents,
+        saved,
+        records: replace_record(documents.records, operation.key, _ => record),
+      },
+      effects,
+    ),
+  )
+}
+
+///|
+fn save_failed(
+  documents : Model,
+  operation : SaveOperation,
+  failure : @source_repository.SaveFailure,
+) -> Update {
+  guard current_save(documents, operation) is Some(completion) else {
+    return Superseded
+  }
+  let (record, effects) = match completion {
+    Continue(record, origin, pending, deletion) => {
+      let autosave : Autosave = if documents.saved.find(record.document.id()) ==
+        Some(record.document) {
+        Idle
+      } else {
+        match pending {
+          Some(window) => Waiting(window)
+          None => Failed(failure)
+        }
+      }
+      resume_autosave(documents.saved, {
+        ..record,
+        persistence: Source(
+          origin,
+          Writable(SourceSave::from_autosave(autosave), deletion),
+        ),
+      })
+    }
+    Delete(record, origin, deletion, pending) => {
+      if documents.saved.find(record.document.id()) is None {
+        return Applied(
+          transition(
+            {
+              ..documents,
+              records: remove_record(documents.records, operation.key),
+            },
+            [],
+          ),
+        )
+      }
+      let restoration : Autosave = if documents.saved.find(record.document.id()) ==
+        Some(record.document) {
+        Idle
+      } else {
+        match pending {
+          Some(window) => Waiting(window)
+          None => Failed(failure)
+        }
+      }
+      issue_delete(record, origin, deletion, restoration)
+    }
+  }
+  Applied(
+    transition(
+      {
+        ..documents,
+        records: replace_record(documents.records, operation.key, _ => record),
+      },
+      effects,
+    ),
+  )
 }
 
 ///|
@@ -510,7 +342,7 @@ fn refresh_replica_record(
   match find_record(documents.records, key) {
     None if previous.document() is None => {
       let (documents, version) = allocate_working_copy_version(documents)
-      return {
+      {
         ..documents,
         records: prepend_record(documents.records, {
           ..replica_record(replica, document),
@@ -518,37 +350,29 @@ fn refresh_replica_record(
         }),
       }
     }
-    None => return documents
-    Some(_) => ()
-  }
-  guard find_record(documents.records, key) is Some(record) &&
-    record.persistence is Replica(account, deletion) &&
-    account == replica.account() else {
-    return documents
-  }
-  if previous.document() is None || deletion is ReplicaFailed(_) {
-    let (documents, version) = allocate_working_copy_version(documents)
-    return {
-      ..documents,
-      records: replace_record(documents.records, key, _ => {
-        ..replica_record(replica, document),
-        version,
-      }),
+    Some(record) => {
+      guard record.persistence is Replica(account, deletion, autosave) &&
+        account == replica.account() else {
+        return documents
+      }
+      let restore = previous.document() is None || deletion is ReplicaFailed(_)
+      let refresh = mounted != Some(key) &&
+        previous.document() == Some(record.document) &&
+        autosave is Idle &&
+        record.edit is Idle
+      if !restore && !refresh {
+        return documents
+      }
+      let (documents, version) = allocate_working_copy_version(documents)
+      {
+        ..documents,
+        records: replace_record(documents.records, key, _ => {
+          ..replica_record(replica, document),
+          version,
+        }),
+      }
     }
-  }
-  guard mounted != Some(key) &&
-    previous.document() == Some(record.document) &&
-    record.save is DocumentsSaveStatus::Saved &&
-    record.edit is EditState::Idle else {
-    return documents
-  }
-  let (documents, version) = allocate_working_copy_version(documents)
-  {
-    ..documents,
-    records: replace_record(documents.records, key, _ => {
-      ..replica_record(replica, document),
-      version,
-    }),
+    None => documents
   }
 }
 
@@ -557,28 +381,30 @@ fn fail_replica_deletion(
   documents : Model,
   write : @source_repository.ReplicaWrite,
   failure : @source_repository.ReplicaFailure,
-) -> (Model, Array[Action]) {
+) -> Update raise UpdateError {
   let replica = write.replica()
+  let key = Key::replica(replica.account(), replica.document_id())
+  guard find_record(documents.records, key) is Some(record) &&
+    record.persistence is Replica(account, ReplicaPending, autosave) else {
+    return Superseded
+  }
   guard write is @source_repository.ReplicaWrite::Remove(_) ||
     replica.is_deleting() ||
     replica.is_deleted() else {
-    return (documents, [])
+    raise InvalidAcknowledgment(key)
   }
-  let key = Key::replica(replica.account(), replica.document_id())
-  guard find_record(documents.records, key) is Some(record) &&
-    record.persistence is Replica(account, ReplicaPending) &&
-    account == replica.account() else {
-    return (documents, [])
+  let record = {
+    ..record,
+    persistence: Replica(account, ReplicaFailed(failure), autosave),
   }
-  (
-    {
-      ..documents,
-      records: replace_record(documents.records, key, current => {
-        ..current,
-        persistence: Replica(account, ReplicaFailed(failure)),
-      }),
-    },
-    [],
+  Applied(
+    transition(
+      {
+        ..documents,
+        records: replace_record(documents.records, key, _ => record),
+      },
+      [],
+    ),
   )
 }
 
@@ -586,12 +412,15 @@ fn fail_replica_deletion(
 fn advance_replica(
   documents : Model,
   write : @source_repository.ReplicaWrite,
-) -> (Model, Array[Action]) raise UpdateError {
+) -> Update raise UpdateError {
   let replica = write.replica()
   let saved = documents.saved.apply_replica_write(write) catch {
-    _ => raise UpdateError::InvalidAcknowledgment(Key::replica(replica.account(), replica.document_id()))
+    _ =>
+      raise InvalidAcknowledgment(
+        Key::replica(replica.account(), replica.document_id()),
+      )
   }
-  ({ ..documents, saved, }, [])
+  Applied(transition({ ..documents, saved, }, []))
 }
 
 ///|
@@ -599,74 +428,104 @@ fn settle_replica(
   documents : Model,
   write : @source_repository.ReplicaWrite,
   mounted : Key?,
-) -> (Model, Array[Action]) raise UpdateError {
+) -> Update raise UpdateError {
   let replica = write.replica()
   let previous = documents.saved.replica(
     replica.account(),
     replica.document_id(),
   )
-  let saved = documents.saved.apply_replica_write(write) catch {
-    _ => raise UpdateError::InvalidAcknowledgment(Key::replica(replica.account(), replica.document_id()))
-  }
-  if write is @source_repository.ReplicaWrite::Remove(replica) {
-    let key = Key::replica(replica.account(), replica.document_id())
-    return (
-      { ..documents, saved, records: remove_record(documents.records, key), },
-      [],
-    )
-  }
-  guard write is @source_repository.ReplicaWrite::Fork(replica, recovery) else {
-    // Replica persistence acknowledges repository state, not the working-copy
-    // Autosave window. A newer edit may have returned to this exact text while
-    // another Replica write is still queued.
-    return (
-      refresh_replica_record(
-        { ..documents, saved, },
-        previous,
-        replica,
-        mounted,
-      ),
-      [],
-    )
-  }
-  let recovery_key = Key::source(recovery.id())
-  guard find_record(documents.records, recovery_key) is Some(record) &&
-    record.persistence is Forking(ownership) &&
-    ownership.account == replica.account() &&
-    ownership.original == replica.document_id() &&
-    ownership.recovery == recovery else {
-    return (documents, [])
-  }
-  let recovered = {
-    ..record,
-    persistence: Source(Existing, SourceLifecycle::Available),
-    save: if record.document == recovery {
-      Saved
-    } else {
-      record.save
-    },
-  }
-  let (recovered, effects) = finish_sync_start_record(saved, recovered)
-  let records = prepend_record(
-    remove_record(documents.records, recovery_key),
-    recovered,
-  )
-  if replica.is_deleted() {
-    ({ ..documents, saved, records, }, effects)
-  } else {
-    let (documents, version) = allocate_working_copy_version({
-      ..documents,
-      saved,
-      records,
-    })
-    guard replica.document() is Some(document) else {
-      return ({ ..documents, saved, records, }, effects)
+  // A fork completion must still own its recovery working copy before it can
+  // acknowledge either side of the atomic write.
+  let recovery_record = match write {
+    Fork(_, recovery) => {
+      guard find_record(documents.records, Key::source(recovery.id()))
+        is Some(record) &&
+        record.persistence is Forking(ownership, autosave) &&
+        ownership.account == replica.account() &&
+        ownership.original == replica.document_id() &&
+        ownership.recovery == recovery else {
+        return Superseded
+      }
+      Some((record, recovery, autosave))
     }
-    let original = { ..replica_record(replica, document), version, }
-    (
-      { ..documents, records: prepend_record(documents.records, original), },
-      effects,
-    )
+    _ => None
+  }
+  let saved = documents.saved.apply_replica_write(write) catch {
+    _ =>
+      raise InvalidAcknowledgment(
+        Key::replica(replica.account(), replica.document_id()),
+      )
+  }
+  match write {
+    Remove(_) =>
+      Applied(
+        transition(
+          {
+            ..documents,
+            saved,
+            records: remove_record(
+              documents.records,
+              Key::replica(replica.account(), replica.document_id()),
+            ),
+          },
+          [],
+        ),
+      )
+    _ =>
+      match recovery_record {
+        None =>
+          Applied(
+            transition(
+              refresh_replica_record(
+                { ..documents, saved, },
+                previous,
+                replica,
+                mounted,
+              ),
+              [],
+            ),
+          )
+        Some((record, recovery, autosave)) => {
+          let autosave = if record.document == recovery {
+            Autosave::Idle
+          } else {
+            autosave
+          }
+          let recovered = {
+            ..record,
+            persistence: Source(
+              Existing,
+              Writable(SourceSave::from_autosave(autosave), None),
+            ),
+          }
+          let (recovered, effects) = resume_autosave(saved, recovered)
+          let records = prepend_record(
+            remove_record(documents.records, record.key()),
+            recovered,
+          )
+          let documents = { ..documents, saved, records, }
+          match replica.document() {
+            Some(document) => {
+              let (documents, version) = allocate_working_copy_version(
+                documents,
+              )
+              Applied(
+                transition(
+                  {
+                    ..documents,
+                    records: prepend_record(documents.records, {
+                      ..replica_record(replica, document),
+                      version,
+                    }),
+                  },
+                  effects,
+                ),
+              )
+            }
+            None => Applied(transition(documents, effects))
+          }
+        }
+      }
   }
 }
 
@@ -683,7 +542,7 @@ pub fn Model::start_sync(
       ..documents,
       records: replace_record(documents.records, action.key, current => {
         ..current,
-        persistence: StartingSync(action.account, action.document),
+        persistence: StartingSync(action.account, action.document, Idle),
       }),
     },
     [
@@ -695,77 +554,52 @@ pub fn Model::start_sync(
 }
 
 ///|
-fn finish_sync_start_record(
-  saved : @source_repository.SavedDocuments,
-  record : Record,
-) -> (Record, Array[Action]) {
-  match record.save {
-    Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
-      !is_composing(record.edit) => begin_save(saved, record)
-    Saved | Waiting(_) => (record, [])
-    Saving(_, _) | Failed(_) => (record, [])
-  }
-}
-
-///|
 fn complete_sync_start(
   documents : Model,
-  replica : @source_repository.DocumentReplica,
-  result : Result[Unit, @source_repository.ReplicaFailure],
-) -> (Model, Array[Action]) {
-  guard replica.document() is Some(document) else { return (documents, []) }
-  let source_key = Key::source(replica.document_id())
-  guard find_record(documents.records, source_key) is Some(record) &&
-    record.persistence is StartingSync(account, source) &&
-    account == replica.account() &&
-    source == document else {
-    return (documents, [])
+  write : @source_repository.ReplicaWrite,
+  failure : @source_repository.ReplicaFailure?,
+) -> Update raise UpdateError {
+  let replica = write.replica()
+  let key = Key::source(replica.document_id())
+  guard find_record(documents.records, key) is Some(record) &&
+    record.persistence is StartingSync(account, source, autosave) &&
+    account == replica.account() else {
+    return Superseded
   }
-  match result {
-    Ok(_) => {
+  guard write is @source_repository.ReplicaWrite::PromoteSource(_) &&
+    replica.document() == Some(source) else {
+    raise DocumentMismatch(key)
+  }
+  let (saved, persistence) = match failure {
+    None => {
       guard documents.saved.apply_sync_start(replica) is Some(saved) else {
-        return (documents, [])
+        raise InvalidAcknowledgment(key)
       }
-      let transitioned = {
-        ..record,
-        persistence: Replica(account, ReplicaAvailable),
-        save: if record.document == document {
-          Saved
-        } else {
-          record.save
-        },
+      let autosave = if record.document == source {
+        Autosave::Idle
+      } else {
+        autosave
       }
-      let (transitioned, effects) = finish_sync_start_record(
-        saved, transitioned,
-      )
-      (
-        {
-          ..documents,
-          saved,
-          records: prepend_record(
-            remove_record(documents.records, source_key),
-            transitioned,
-          ),
-        },
-        effects,
-      )
+      (saved, DocumentPersistence::Replica(account, ReplicaAvailable, autosave))
     }
-    Err(_) => {
-      let restored = {
-        ..record,
-        persistence: Source(Existing, SourceLifecycle::Available),
-      }
-      let (restored, effects) = finish_sync_start_record(
+    Some(_) =>
+      (
         documents.saved,
-        restored,
+        DocumentPersistence::Source(
+          Existing,
+          Writable(SourceSave::from_autosave(autosave), None),
+        ),
       )
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, source_key, _ => restored),
-        },
-        effects,
-      )
-    }
   }
+  let (record, effects) = resume_autosave(saved, { ..record, persistence, })
+  Applied(
+    transition(
+      {
+        ..documents,
+        saved,
+        records: prepend_record(remove_record(documents.records, key), record),
+      },
+      effects,
+    ),
+  )
 }

@@ -2,30 +2,38 @@
 fn durability_applied(outcome : Update) -> (Model, ReadOnlyArray[Action]) {
   match outcome {
     Applied(transition) => (transition.model, transition.effects)
-    Superseded => fail("expected current update to apply")
+    Superseded => abort("expected current update to apply")
   }
 }
 
 ///|
-fn durability_changed(model : Model, outcome : Edit) -> (Model, ReadOnlyArray[Action]) {
+fn durability_changed(
+  _model : Model,
+  outcome : Edit,
+) -> (Model, ReadOnlyArray[Action]) {
   match outcome {
     Changed(transition) => (transition.model, transition.effects)
-    SameText => (model, [])
+    SameText => abort("expected changed text")
   }
 }
 
 ///|
-fn durability_deleted(model : Model, outcome : Delete) -> (Model, ReadOnlyArray[Action]) {
+fn durability_deleted(
+  _model : Model,
+  outcome : Delete,
+) -> (Model, ReadOnlyArray[Action]) {
   match outcome {
     Accepted(transition) => (transition.model, transition.effects)
-    AlreadyPending => (model, [])
+    AlreadyPending => abort("expected accepted deletion")
   }
 }
 
 ///|
 test "untouched new document is locally durable" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = durability_applied(documents.update(New(document_id("new"))))
+  let (documents, _) = durability_applied(
+    documents.update(New(document_id("new"))),
+  )
   assert_true(
     documents.local_durability(@replica_persistence.State::State())
     is LocalDurability::Durable,
@@ -35,7 +43,9 @@ test "untouched new document is locally durable" {
 ///|
 test "imported blank document is not durable before persistence" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = durability_applied(documents.update(Imported(document_id("new"), "")))
+  let (documents, _) = durability_applied(
+    documents.update(Imported(document_id("new"), "")),
+  )
   assert_true(
     documents.local_durability(@replica_persistence.State::State())
     is LocalDurability::Saving,
@@ -45,7 +55,9 @@ test "imported blank document is not durable before persistence" {
 ///|
 test "composition requires input before local durability" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = durability_applied(documents.update(CompositionStarted(source_key("one"))))
+  let (documents, _) = durability_applied(
+    documents.update(CompositionStarted(source_key("one"))),
+  )
   assert_true(
     documents.local_durability(@replica_persistence.State::State())
     is LocalDurability::AwaitingInput,
@@ -133,33 +145,37 @@ test "promotion waits for ownership commit and newer accepted text" {
   assert_true(
     Model(committed).local_durability(persistence) is LocalDurability::Durable,
   )
-  let (pending, _) = durability_changed(documents, documents.edit(source_key("one"), "newer accepted text"))
+  let (pending, _) = durability_changed(
+    documents,
+    documents.edit(source_key("one"), "newer accepted text"),
+  )
   assert_true(pending.local_durability(persistence) is LocalDurability::Saving)
 }
 
 ///|
 test "fork recovery commit does not cover text accepted after forking" {
-  let account = account_id("account")
-  let replica = @source_repository.DocumentReplica(account, documents_test_document("one", "recovery"))
-  let saved = documents_test_snapshot().apply_replica(replica)
-  let fork = replica.fork(document_id("recovery")) catch { _ => abort("valid fork") }
-  let documents = Model(saved).begin_fork(fork) catch {
-    _ => abort("valid fork")
-  }
+  let (documents, _, _, fork) = fork_fixture()
+  let documents = documents.begin_fork(fork) catch { _ => abort("valid fork") }
+  let (persistence, _) = @replica_persistence.State().submit(fork)
   assert_true(
-    documents.local_durability(@replica_persistence.State())
-    is LocalDurability::Saving,
+    documents.local_durability(persistence) is LocalDurability::Saving,
   )
 }
 
 ///|
 test "imported blank save failure releases local durability instead of waiting forever" {
   let documents = Model(documents_test_snapshot())
-  let (documents, actions) = durability_applied(documents.update(Imported(document_id("blank"), "")))
+  let (documents, actions) = durability_applied(
+    documents.update(Imported(document_id("blank"), "")),
+  )
   guard actions[0] is PersistSource(operation) else {
     fail("import persists immediately")
   }
-  let (documents, _) = durability_applied(documents.update(SaveFailed(operation, @source_repository.SaveFailure::StorageUnavailable)))
+  let (documents, _) = durability_applied(
+    documents.update(
+      SaveFailed(operation, @source_repository.SaveFailure::StorageUnavailable),
+    ),
+  )
   assert_true(
     documents.local_durability(@replica_persistence.State())
     is LocalDurability::Failed(_),
@@ -176,10 +192,22 @@ test "saving retries failed replica deletion without retaining stale failure" {
   let saved = documents_test_snapshot().apply_replica(replica)
   let key = Key::replica(replica.account(), replica.document_id())
   let write = replica.request_deletion()
-  let (documents, _) = durability_deleted(Model(saved), Model(saved).delete(key))
-  let (documents, _) = durability_applied(documents.update(ReplicaDeletionFailed(write, @source_repository.ReplicaFailure::StorageUnavailable)))
+  let (documents, _) = durability_deleted(
+    Model(saved),
+    Model(saved).delete(key),
+  )
+  let (documents, _) = durability_applied(
+    documents.update(
+      ReplicaDeletionFailed(
+        write,
+        @source_repository.ReplicaFailure::StorageUnavailable,
+      ),
+    ),
+  )
   let (retrying, _) = @replica_persistence.State().submit(write)
-  let (saved_after_changes, _) = documents.save_changes()
+  let (saved_after_changes, _) = documents.save_changes() catch {
+    _ => abort("save changes must recover the replica lane")
+  }
   assert_true(
     saved_after_changes.local_durability(retrying) is LocalDurability::Saving,
   )

@@ -51,9 +51,10 @@ test "remote update capability expires after a local edit" {
   )
   guard remote is UpdateAvailable(action) else { fail("available update") }
   let key = Key::replica(replica.account(), replica.document_id())
-  guard (try documents.edit(key, "local") catch {
-    _ => abort("unexpected edit error")
-  }) is Changed(transition) else {
+  guard (documents.edit(key, "local") catch {
+      _ => abort("unexpected edit error")
+    })
+    is Changed(transition) else {
     fail("local edit")
   }
   let documents = transition.model
@@ -92,9 +93,10 @@ test "remote update capability expires when a newer revision commits" {
     fail("newer revision")
   }
   let newer = write.replica()
-  guard (try documents.update(ReplicaSettled(write, None)) catch {
-    _ => abort("unexpected update error")
-  }) is Applied(transition) else {
+  guard (documents.update(ReplicaSettled(write, None)) catch {
+      _ => abort("unexpected update error")
+    })
+    is Applied(transition) else {
     fail("current replica update")
   }
   let documents = transition.model
@@ -262,31 +264,33 @@ test "replica commit refreshes only an unmounted clean working copy" {
   let write = accepted_remote_write(base, remote_revision(2.0, "remote"))
 
   let clean = Model(saved).project_account(account)
-  guard (try clean.update(ReplicaSettled(write, None)) catch {
-    _ => abort("unexpected update error")
-  }) is Applied(transition) else {
+  guard (clean.update(ReplicaSettled(write, None)) catch {
+      _ => abort("unexpected update error")
+    })
+    is Applied(transition) else {
     fail("unmounted replica update")
   }
   let refreshed = transition.model
   assert_eq(refreshed.text(key), Some("remote"))
 
-  guard (try clean.update(ReplicaSettled(write, Some(key))) catch {
-    _ => abort("unexpected update error")
-  }) is Applied(transition) else {
+  guard (clean.update(ReplicaSettled(write, Some(key))) catch {
+      _ => abort("unexpected update error")
+    })
+    is Applied(transition) else {
     fail("mounted replica update")
   }
   let mounted = transition.model
   assert_eq(mounted.text(key), Some("base"))
 
-  guard (try clean.edit(key, "local") catch {
-    _ => abort("unexpected edit error")
-  }) is Changed(transition) else {
+  guard (clean.edit(key, "local") catch { _ => abort("unexpected edit error") })
+    is Changed(transition) else {
     fail("local edit")
   }
   let edited = transition.model
-  guard (try edited.update(ReplicaSettled(write, None)) catch {
-    _ => abort("unexpected update error")
-  }) is Applied(transition) else {
+  guard (edited.update(ReplicaSettled(write, None)) catch {
+      _ => abort("unexpected update error")
+    })
+    is Applied(transition) else {
     fail("edited replica update")
   }
   let edited = transition.model

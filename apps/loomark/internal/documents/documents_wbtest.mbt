@@ -115,6 +115,7 @@ test "replica completion classifies promotion independently of a newer write" {
     write == promotion else {
     fail("promotion must rekey even when superseded")
   }
+}
 
 ///|
 test "replica completion distinguishes current, superseded, and deletion failure" {
@@ -159,6 +160,7 @@ test "replica completion distinguishes current, superseded, and deletion failure
     is None else {
     fail("ordinary write failure stays with the persistence lane")
   }
+}
 
 ///|
 test "same document id remains isolated across source and accounts" {
@@ -188,9 +190,14 @@ test "same document id remains isolated across source and accounts" {
   let replica_a = Key::replica(account_a, id)
   let replica_b = Key::replica(account_b, id)
   let state = Model(saved).project_account(account_a).project_account(account_b)
-  guard (try state.edit(replica_a, "edited A") catch {
-    _ => abort("unexpected edit error")
-  }) is Changed(transition) else {
+  guard (state.edit(replica_a, "edited A") catch {
+      _ => abort("unexpected edit error")
+    })
+    is Changed(transition) else {
     fail("replica edit")
   }
   let state = transition.model
+  assert_eq(state.text(source), Some("source"))
+  assert_eq(state.text(replica_a), Some("edited A"))
+  assert_eq(state.text(replica_b), Some("account B"))
+}

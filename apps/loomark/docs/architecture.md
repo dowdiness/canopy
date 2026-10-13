@@ -20,17 +20,18 @@ This document details the internal architecture, runtime lifecycle, and DOM subs
    - [4.3 Demand-Driven Sidebar](#43-demand-driven-sidebar-recent-documents)
    - [4.4 Mobile Viewport & Virtual Keyboard Handling](#44-mobile-viewport--virtual-keyboard-handling)
    - [4.5 Element Resizing & Caret Visibility](#45-element-resizing--caret-visibility)
+   - [4.6 Document Lifecycle](#46-document-lifecycle)
 
 ---
 
 ## 1. High-Level Architecture & Data Flow
 
-Loomark follows a clean unidirectional flow built on [Rabbita](https://github.com/dowdiness/rabbita) (a TEA-inspired MoonBit web framework). What the user writes in the native `<textarea>` is the single source of truth; everything else—previews, sidebars, autosave—is derived incrementally.
+Loomark follows a unidirectional flow built on [Rabbita](https://github.com/dowdiness/rabbita). The native `<textarea>` owns browser input, composition, and undo. `documents.Model` owns admitted Document text and persistence transitions; previews, document leads, and autosave consume that text.
 
 ```
                      ┌──────────────────────────────┐
                      │ Native Browser <textarea>   │
-                     │ (Source of Truth / Keystroke)│
+                     │(Input / Composition / Undo) │
                      └──────────────┬───────────────┘
                                     │
                   ┌─────────────────┴─────────────────┐
@@ -157,3 +158,57 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
 - **Safe Fallback:** Observer creation and registration run inside `@js.try_sync`, preserving safety on browsers without full modern API support. The subscription disconnects the observer when that node is replaced. Width and height changes trigger caret measurement independently of visual-viewport events.
 - **Pure Calculation Engine (`internal/viewport/policy.mbt`):** Contains pure arithmetic for caret scrolling, viewport bounds, keyboard baselines, and split alignments. It neither reads nor mutates retained state. Shared resolved CSS numeric parsing lives in `internal/browser/css.mbt` and preserves NaN for nonnumeric keywords such as `normal`.
 - **DOM Access Boundary (`internal/browser/`):** Encapsulates missing native DOM accessors in object-specific files, isolating native browser calls from application logic. Viewport scheduling and retained measurements remain in `internal/viewport/`.
+
+### 4.6 Document Lifecycle
+
+`internal/documents` exposes `Model`, `Msg`, and three operations:
+
+| Operation | Normal outcome | Raised refusal |
+|---|---|---|
+| `Model::edit(key, text)` | `Changed(Transition)` or `SameText` | `EditError`: missing Document or pending deletion |
+| `Model::delete(key)` | `Accepted(Transition)` or `AlreadyPending` | `DeleteError`: missing Document, ownership transfer, or missing Replica |
+| `Model::update(msg)` | `Applied(Transition)` or `Superseded` | `UpdateError`: duplicate identity, mismatched Document, or invalid acknowledgment |
+
+A `Transition` contains the next `model` and read-only `effects`. The model
+contains no browser commands or callbacks. The app installs the model and
+hands effects to their owner in the same root update; browser work then
+returns a concrete `Msg`, such as `Saved`, `SaveFailed`, or `Deleted`.
+Storage failures become retryable model facts. They do not raise into the
+caller that originally requested an asynchronous write.
+
+Source save and deletion ownership is a single sum in
+[`documents_types.mbt`](../internal/documents/documents_types.mbt):
+
+| Source phase | Required state | Persistence restriction |
+|---|---|---|
+| `Writable` | Source save phase and any previous deletion failure | At most one active Source write and one text-free pending autosave window |
+| `WaitingToDelete` | Active save, accepted deletion, optional pending window | The active save must settle before deletion; no newer save starts |
+| `Deleting` | Accepted deletion and restoration autosave state | Restoration cannot contain an active Source write |
+
+Deletion failure restores the working copy and its autosave eligibility.
+An eligible newer edit can resume saving without losing the deletion retry.
+Source saves carry a private attempt identity taken from the consumed
+autosave window. Imports and explicit retries allocate fresh windows,
+so identical Document identity and text cannot admit an older completion.
+Retrying deletion likewise allocates a fresh operation. A current
+acknowledgment with the wrong Document raises an error; an obsolete or
+duplicate Source completion yields `Superseded`.
+
+The 250 ms quiet window, non-restarting 2000 ms maximum window, and IME
+deferral remain independent of storage latency. Promotion and recovery
+retain edits while ownership transfers. Replica write ordering and durable
+acknowledgments remain the responsibility of `internal/replica_persistence`.
+The app rejects stale Replica attempts there before translating accepted
+acknowledgments into document `Msg` values; an idle autosave window is not
+evidence of Replica durability.
+
+At the app level, `Creation` holds only request identity, intent, and
+progress or failure. `OpeningNew` keeps document and display context
+separate from its required creation request; an editing page has an
+optional `Creation`. Creation request IDs are distinct from editor
+activation generations. Both identity-generation failure and a rejected
+identity can be retried with a fresh request, while older completions are
+ignored. A failed opening creation has its own screen with the failure
+notice and retry action, not a storage-read failure screen. Typed document
+refusals produce a visible notice and do not continue into dependent edits
+or activation.

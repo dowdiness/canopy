@@ -37,18 +37,17 @@ test "late authorization result releases a request without advancing a newer sav
   }
   let new_saving = canceled.state.update(Event::Invoke(restart), ready)
   assert_true(new_saving.effects is [Effect::SaveChanges])
-  let documents = match sign_in_documents().update(
-    @documents.Msg::Imported(
-      @source_repository.DocumentId::parse(
-        "00000000-0000-4000-8000-000000000001",
+  let documents = match
+    sign_in_documents().update(
+      @documents.Msg::Imported(
+        @source_repository.DocumentId::parse(
+          "00000000-0000-4000-8000-000000000001",
+        ),
+        "pending text",
       ),
-      "pending text",
-    ),
-  ) {
+    ) {
     @documents.Update::Applied(transition) => transition.model
     Superseded => fail("import should be applied")
-  } catch {
-    _ => fail("valid import")
   }
   let released = new_saving.state.update(
     Event::AuthorizationReceived(request, None),

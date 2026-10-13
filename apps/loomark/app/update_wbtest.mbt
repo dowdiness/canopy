@@ -2,12 +2,10 @@
 fn expect_document_update(
   documents : @documents.Model,
   message : @documents.Msg,
-) -> @documents.Transition {
+) -> @documents.Transition raise {
   match documents.update(message) {
     @documents.Update::Applied(transition) => transition
     Superseded => fail("document update was superseded")
-  } catch {
-    _ => fail("document update failed")
   }
 }
 
@@ -16,12 +14,10 @@ fn expect_document_edit(
   documents : @documents.Model,
   key : @documents.Key,
   text : String,
-) -> @documents.Transition {
+) -> @documents.Transition raise {
   match documents.edit(key, text) {
     @documents.Edit::Changed(transition) => transition
     SameText => fail("expected a text change")
-  } catch {
-    _ => fail("document edit failed")
   }
 }
 
@@ -29,12 +25,10 @@ fn expect_document_edit(
 fn expect_document_delete(
   documents : @documents.Model,
   key : @documents.Key,
-) -> @documents.Transition {
+) -> @documents.Transition raise {
   match documents.delete(key) {
     @documents.Delete::Accepted(transition) => transition
     AlreadyPending => fail("delete already pending")
-  } catch {
-    _ => fail("document delete failed")
   }
 }
 
@@ -42,8 +36,7 @@ fn expect_document_delete(
 fn Page::documents_state(self : Self) -> @documents.Model? {
   match self {
     Editing(editing) => Some(editing.documents)
-    OpeningNew(preparing, _) =>
-      Some(preparing.documents)
+    OpeningNew(preparing, _) => Some(preparing.documents)
     Loading(_) | Recovery(_, _) => None
   }
 }
@@ -106,7 +99,8 @@ fn test_editing() -> EditingDocument {
   {
     activation: { key: source_key("one"), generation: 0, },
     documents,
-    creation: None, lifecycle_error: None,
+    creation: None,
+    lifecycle_error: None,
     deletion: NoDeletion,
     mode: Text,
     menu_open: false,
@@ -172,11 +166,14 @@ fn begin_replica(
 fn make_replica_eligible(
   model : Model,
   key : @documents.Key,
-) -> (Model, @documents.ReplicaEdit) {
+) -> (Model, @documents.ReplicaEdit) raise {
   guard model.page is Editing(editing) else { abort("editing") }
   let revision = pending_revision(editing.documents, key)
-  let __document_transition_0 = expect_document_update(editing.documents, @documents.Msg::ApplyPendingEdit(key, revision))
-  let actions = __document_transition_0.effects.to_array()
+  let transition = expect_document_update(
+    editing.documents,
+    @documents.Msg::ApplyPendingEdit(key, revision),
+  )
+  let actions = transition.effects
   guard actions is [@documents.Action::SaveReplica(edit)] else {
     abort("replica eligible")
   }
@@ -1018,7 +1015,7 @@ test "revision conflict waits for recovery identity before atomic persistence" {
   }
   let (creating, _) = test_root_update(recovering, CreateRequested)
   guard creating.page is Editing(creating_editor) &&
-    creation_request_is_current(creating_editor.creation, 0) else {
+    creation_in_progress(creating_editor.creation) else {
     fail("creation in flight")
   }
   let (persisting, _) = test_root_update(
@@ -1036,9 +1033,15 @@ test "revision conflict waits for recovery identity before atomic persistence" {
   assert_true(forking.activation.key == recovery_key)
   assert_eq(forking.activation.generation, 0)
   assert_eq(forking.documents.text(recovery_key), Some("local"))
+  guard forking.creation is Some(creation) else {
+    fail("ownership transfer must retain the creation request")
+  }
   let (created_after_rekey, _) = test_root_update(
     persisting,
-    CreateCompleted(0, Created(document_id("created-during-fork"))),
+    CreateCompleted(
+      creation.request_id,
+      Created(document_id("created-during-fork")),
+    ),
   )
   guard created_after_rekey.page is Editing(created_editor) else {
     fail("created document")
@@ -1320,11 +1323,14 @@ test "synced Autosave updates only its canonical replica" {
     activation: { key: token, generation: 0, },
     documents: @documents.Model(saved).project_account(account),
   }
-  let __document_transition_1 = expect_document_edit(initial.documents, token, "changed")
-let documents = __document_transition_1.model
-  let __document_transition_2 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)))
-  let documents = __document_transition_2.model
-let decisions = __document_transition_2.effects.to_array()
+  let transition = expect_document_edit(initial.documents, token, "changed")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
+  )
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions is [@documents.Action::SaveReplica(submission)] else {
     fail("replica persistence")
   }
@@ -1456,10 +1462,14 @@ test "Example selection supersedes a pending remote open" {
     ExampleSelected(editing.activation, example_text),
   )
   assert_eq(creating.sync().selection(), None)
+  guard creating.page is Editing(creating_editor) &&
+    creating_editor.creation is Some(creation) else {
+    fail("example creation must own its request")
+  }
   let (example, _) = test_root_update(
     creating,
     ExampleCreateCompleted(
-      editing.activation.generation,
+      creation.request_id,
       example_text,
       Created(document_id("example")),
     ),
@@ -2038,11 +2048,14 @@ test "replica completion preserves a newer Autosave window at equal text" {
   let saved = test_sync_snapshot(account)
   let token = @documents.Key::replica(account, document_id("one"))
   let documents = @documents.Model(saved).project_account(account)
-  let __document_transition_3 = expect_document_edit(documents, token, "sent")
-let documents = __document_transition_3.model
-  let __document_transition_4 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)))
-  let documents = __document_transition_4.model
-let effects = __document_transition_4.effects.to_array()
+  let transition = expect_document_edit(documents, token, "sent")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
+  )
+  let documents = transition.model
+  let effects = transition.effects
   guard effects is [@documents.Action::SaveReplica(submission)] else {
     fail("first write")
   }
@@ -2052,21 +2065,27 @@ let effects = __document_transition_4.effects.to_array()
     saved.replica(owner, document.id()).unwrap(),
     document.text(),
   )
-  let __document_transition_5 = expect_document_edit(documents, token, "newer")
-let documents = __document_transition_5.model
-  let __document_transition_6 = expect_document_edit(documents, token, "sent")
-let documents = __document_transition_6.model
+  let transition = expect_document_edit(documents, token, "newer")
+  let documents = transition.model
+  let transition = expect_document_edit(documents, token, "sent")
+  let documents = transition.model
 
-  let __document_transition_7 = expect_document_update(documents, @documents.Msg::ReplicaSettled(replica.store(), None))
-  let documents = __document_transition_7.model
-let follow_up = __document_transition_7.effects.to_array()
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ReplicaSettled(replica.store(), None),
+  )
+  let documents = transition.model
+  let follow_up = transition.effects
   assert_true(follow_up.is_empty())
   assert_true(
     documents.save_status(token) == Some(@documents.SaveStatus::Unsaved),
   )
   assert_eq(documents.text(token), Some("sent"))
-  let __document_transition_8 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)))
-  let effects = __document_transition_8.effects.to_array()
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
+  )
+  let effects = transition.effects
   guard effects is [@documents.Action::SaveReplica(submission)] else {
     fail("newer equal-text edit remains eligible")
   }
@@ -2082,22 +2101,28 @@ test "replica revert remains eligible while a newer write may be in flight" {
   let saved = test_sync_snapshot(account)
   let token = @documents.Key::replica(account, document_id("one"))
   let documents = @documents.Model(saved).project_account(account)
-  let __document_transition_9 = expect_document_edit(documents, token, "sent")
-let documents = __document_transition_9.model
-  let __document_transition_10 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)))
-  let documents = __document_transition_10.model
-let effects = __document_transition_10.effects.to_array()
+  let transition = expect_document_edit(documents, token, "sent")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
+  )
+  let documents = transition.model
+  let effects = transition.effects
   guard effects is [@documents.Action::SaveReplica(_)] else {
     fail("first write")
   }
-  let __document_transition_11 = expect_document_edit(documents, token, "one")
-let documents = __document_transition_11.model
+  let transition = expect_document_edit(documents, token, "one")
+  let documents = transition.model
   assert_true(
     documents.save_status(token) == Some(@documents.SaveStatus::Unsaved),
   )
   assert_eq(documents.text(token), Some("one"))
-  let __document_transition_12 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)))
-  let effects = __document_transition_12.effects.to_array()
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
+  )
+  let effects = transition.effects
   guard effects is [@documents.Action::SaveReplica(submission)] else {
     fail("revert must reach the replica head")
   }
@@ -2117,11 +2142,14 @@ test "replica failure keeps optimistic text and retries the same write" {
     activation: { key: token, generation: 0, },
     documents: @documents.Model(saved).project_account(account),
   }
-  let __document_transition_13 = expect_document_edit(initial.documents, token, "optimistic")
-let documents = __document_transition_13.model
-  let __document_transition_14 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)))
-  let documents = __document_transition_14.model
-let decisions = __document_transition_14.effects.to_array()
+  let transition = expect_document_edit(initial.documents, token, "optimistic")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
+  )
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions is [@documents.Action::SaveReplica(submission)] else {
     fail("persist")
   }
@@ -2174,11 +2202,14 @@ test "an edit after replica failure immediately replaces the failed write" {
     activation: { key: token, generation: 0, },
     documents: @documents.Model(saved).project_account(account),
   }
-  let __document_transition_15 = expect_document_edit(initial.documents, token, "too large")
-let documents = __document_transition_15.model
-  let __document_transition_16 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)))
-  let documents = __document_transition_16.model
-let first = __document_transition_16.effects.to_array()
+  let transition = expect_document_edit(initial.documents, token, "too large")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(token, pending_revision(documents, token)),
+  )
+  let documents = transition.model
+  let first = transition.effects
   guard first is [@documents.Action::SaveReplica(submission)] else {
     fail("first eligible edit")
   }
@@ -2200,11 +2231,14 @@ let first = __document_transition_16.effects.to_array()
     TextChanged(0, @text_change.TextChange::ReplaceAll("small")),
   )
   guard edited.page is Editing(editing) else { fail("editing") }
-  let __document_transition_17 = expect_document_update(editing.documents, @documents.Msg::ApplyPendingEdit(
+  let transition = expect_document_update(
+    editing.documents,
+    @documents.Msg::ApplyPendingEdit(
       token,
       pending_revision(editing.documents, token),
-    ))
-  let next = __document_transition_17.effects.to_array()
+    ),
+  )
+  let next = transition.effects
   guard next is [@documents.Action::SaveReplica(submission)] else {
     fail("replacement eligible edit")
   }
@@ -2391,7 +2425,10 @@ test "accepted Import immediately becomes the Editing Document" {
 ///|
 test "completed Example creates and activates a new Document without changing the existing Document" {
   let initial = test_editing()
-  let creating = { ..initial, creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }), }
+  let creating = {
+    ..initial,
+    creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }),
+  }
   let text = "# Example\n"
   let (model, _) = test_update(
     Editing(creating),
@@ -2430,7 +2467,10 @@ test "each completed Import is retained and the latest completion activates" {
 
 ///|
 test "accepted Import supersedes an unfinished New action" {
-  let initial = { ..test_editing(), creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }), }
+  let initial = {
+    ..test_editing(),
+    creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }),
+  }
   let (model, _) = test_update(
     Editing(initial),
     ImportCreateCompleted("Imported", Created(document_id("imported"))),
@@ -2450,8 +2490,12 @@ test "accepted Import supersedes an unfinished New action" {
 test "export payload uses the Editing Document's current text and derived name" {
   let initial = test_editing()
   let text = "## Unsaved name\n\nCurrent text\n"
-  let __document_transition_18 = expect_document_edit(initial.documents, source_key("one"), text)
-let documents = __document_transition_18.model
+  let transition = expect_document_edit(
+    initial.documents,
+    source_key("one"),
+    text,
+  )
+  let documents = transition.model
   let (filename, exported) = export_payload({ ..initial, documents, })
   assert_eq(filename, "Unsaved name.md")
   assert_eq(exported, text)
@@ -2460,8 +2504,12 @@ let documents = __document_transition_18.model
 ///|
 test "export payload falls back for an empty Editing Document" {
   let initial = test_editing()
-  let __document_transition_19 = expect_document_edit(initial.documents, source_key("one"), "")
-let documents = __document_transition_19.model
+  let transition = expect_document_edit(
+    initial.documents,
+    source_key("one"),
+    "",
+  )
+  let documents = transition.model
   assert_eq(export_payload({ ..initial, documents, }), ("untitled.md", ""))
 }
 
@@ -2488,7 +2536,10 @@ test "repository open activates its resolved initial Document" {
 
 ///|
 test "delete is rejected while creation is in flight and completion still activates" {
-  let initial = { ..test_editing(), creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }), }
+  let initial = {
+    ..test_editing(),
+    creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }),
+  }
   let (after_delete, _) = test_update(
     Editing(initial),
     DeleteRequested(source_key("one")),
@@ -2547,7 +2598,10 @@ test "same document selection is a no-op" {
 
 ///|
 test "stale create completion is ignored" {
-  let initial = { ..test_editing(), creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }), }
+  let initial = {
+    ..test_editing(),
+    creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }),
+  }
   let (model, _) = test_update(
     Editing(initial),
     CreateCompleted(1, Created(document_id("new"))),
@@ -2560,8 +2614,8 @@ test "stale create completion is ignored" {
 ///|
 test "pending target cannot be selected" {
   let initial = test_editing()
-  let __document_transition_20 = expect_document_delete(initial.documents, source_key("two"))
-  let documents = __document_transition_20.model
+  let transition = expect_document_delete(initial.documents, source_key("two"))
+  let documents = transition.model
   let (model, _) = test_update(
     Editing({ ..initial, documents, }),
     DocumentSelected(source_key("two")),
@@ -2576,8 +2630,8 @@ test "deleting the Editing Document activates its saved fallback" {
     ..test_editing(),
     deletion: DeleteConfirmation(source_key("one")),
   }
-  let __document_transition_21 = expect_document_delete(initial.documents, source_key("one"))
-  let effects = __document_transition_21.effects.to_array()
+  let transition = expect_document_delete(initial.documents, source_key("one"))
+  let effects = transition.effects
   guard effects is [@documents.Action::DeleteSource(operation)] else {
     fail("delete operation")
   }
@@ -2588,9 +2642,7 @@ test "deleting the Editing Document activates its saved fallback" {
   guard model is Editing(deleting) else { fail("deleting") }
   let (model, _) = test_update(
     Editing(deleting),
-    DocumentDeleted(
-        operation, document_id("one"),
-    ),
+    DocumentDeleted(operation, document_id("one")),
   )
   guard model is Editing(editing) else { fail("fallback") }
   assert_true(editing.activation.key == source_key("two"))
@@ -2599,8 +2651,11 @@ test "deleting the Editing Document activates its saved fallback" {
 ///|
 test "deleting an active unsaved new document reconciles activation" {
   let initial = test_editing()
-  let __document_transition_22 = expect_document_update(initial.documents, @documents.Msg::New(document_id("new")))
-  let documents = __document_transition_22.model
+  let transition = expect_document_update(
+    initial.documents,
+    @documents.Msg::New(document_id("new")),
+  )
+  let documents = transition.model
   let (model, _) = test_update(
     Editing({
       ..initial,
@@ -2618,18 +2673,24 @@ test "deleting an active unsaved new document reconciles activation" {
 ///|
 test "failed first save of active new document reconciles activation" {
   let initial = test_editing()
-  let __document_transition_23 = expect_document_update(initial.documents, @documents.Msg::New(document_id("new")))
-  let documents = __document_transition_23.model
-  let __document_transition_24 = expect_document_edit(documents, source_key("new"), "hello")
-let documents = __document_transition_24.model
-  let __document_transition_25 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(source_key("new"), 1))
-  let documents = __document_transition_25.model
-let decisions = __document_transition_25.effects.to_array()
+  let transition = expect_document_update(
+    initial.documents,
+    @documents.Msg::New(document_id("new")),
+  )
+  let documents = transition.model
+  let transition = expect_document_edit(documents, source_key("new"), "hello")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(source_key("new"), 1),
+  )
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions[0] is @documents.Action::PersistSource(operation) else {
     fail("save")
   }
-  let __document_transition_26 = expect_document_delete(documents, source_key("new"))
-  let documents = __document_transition_26.model
+  let transition = expect_document_delete(documents, source_key("new"))
+  let documents = transition.model
   let (model, _) = test_update(
     Editing({
       ..initial,
@@ -2646,11 +2707,18 @@ let decisions = __document_transition_25.effects.to_array()
 ///|
 test "save completion updates inactive document without switching" {
   let initial = test_editing()
-  let __document_transition_27 = expect_document_edit(initial.documents, source_key("two"), "two!")
-let documents = __document_transition_27.model
-  let __document_transition_28 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(source_key("two"), 1))
-  let documents = __document_transition_28.model
-let decisions = __document_transition_28.effects.to_array()
+  let transition = expect_document_edit(
+    initial.documents,
+    source_key("two"),
+    "two!",
+  )
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(source_key("two"), 1),
+  )
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions[0] is @documents.Action::PersistSource(operation) else {
     fail("persist")
   }
@@ -2672,7 +2740,16 @@ let decisions = __document_transition_28.effects.to_array()
 test "preparing new preserves documents and mode" {
   let documents = @documents.Model(test_snapshot())
   let (model, _) = test_update(
-    OpeningNew({ documents, mode: Split, compact: false, next_activation_generation: 0, lifecycle_error: None, }, { request_id: 1, intent: NewDocument, status: InProgress, }),
+    OpeningNew(
+      {
+        documents,
+        mode: Split,
+        compact: false,
+        next_activation_generation: 0,
+        lifecycle_error: None,
+      },
+      { request_id: 1, intent: NewDocument, status: InProgress, },
+    ),
     EmptyCreateCompleted(1, Created(document_id("new"))),
   )
   guard model is Editing(editing) else { fail("editing") }
@@ -2682,22 +2759,20 @@ test "preparing new preserves documents and mode" {
 }
 
 ///|
-fn preparing_after_active_delete() -> (Page, @cmd.Cmd) {
+fn preparing_after_active_delete() -> (Page, @cmd.Cmd) raise {
   let snapshot = @source_repository.SavedDocuments::from_documents([
     @source_repository.Document::create(document_id("one"), "one"),
   ]).unwrap()
   let base = test_editing()
   let initial = { ..base, documents: @documents.Model(snapshot), }
-  let __document_transition_29 = expect_document_delete(initial.documents, source_key("one"))
-  let documents = __document_transition_29.model
-let decisions = __document_transition_29.effects.to_array()
+  let transition = expect_document_delete(initial.documents, source_key("one"))
+  let documents = transition.model
+  let decisions = transition.effects
   match decisions[0] {
     @documents.Action::DeleteSource(operation) =>
       test_update(
         Editing({ ..initial, documents, }),
-        DocumentDeleted(
-            operation, document_id("one"),
-        ),
+        DocumentDeleted(operation, document_id("one")),
       )
     _ => abort("delete")
   }
@@ -2731,6 +2806,7 @@ test "final active delete falls back to a new document" {
     activation: { key: source_key("one"), generation: 0, },
     documents,
     creation: None,
+    lifecycle_error: None,
     deletion: NoDeletion,
     mode: Text,
     menu_open: false,
@@ -2740,18 +2816,16 @@ test "final active delete falls back to a new document" {
     imports_pending: 0,
     next_creation_request_id: 1,
   }
-  let __document_transition_30 = expect_document_delete(initial.documents, source_key("one"))
-  let documents = __document_transition_30.model
-let decisions = __document_transition_30.effects.to_array()
+  let transition = expect_document_delete(initial.documents, source_key("one"))
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions[0] is @documents.Action::DeleteSource(operation) else {
     fail("delete")
   }
   let state = { ..initial, documents, }
   let (model, _) = test_update(
     Editing(state),
-    DocumentDeleted(
-        operation, document_id("one"),
-    ),
+    DocumentDeleted(operation, document_id("one")),
   )
   guard model is OpeningNew(_, _) else { fail("should prepare new") }
 }
@@ -2775,9 +2849,9 @@ test "failed New preparation keeps hidden replica writes addressable" {
   guard effect is Some(@replication.Persist(attempt)) else {
     fail("active writer")
   }
-  let __document_transition_31 = expect_document_delete(initial.documents, source_key("one"))
-  let documents = __document_transition_31.model
-let decisions = __document_transition_31.effects.to_array()
+  let transition = expect_document_delete(initial.documents, source_key("one"))
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions is [@documents.Action::DeleteSource(deletion)] else {
     fail("delete source")
   }
@@ -2786,11 +2860,9 @@ let decisions = __document_transition_31.effects.to_array()
       ..test_model(Editing({ ..initial, documents, }), @sync.State()),
       replication,
     },
-    DocumentDeleted(
-        deletion, document_id("one"),
-    ),
+    DocumentDeleted(deletion, document_id("one")),
   )
-  guard preparing.page is OpeningNew(preparing_page, preparation) else {
+  guard preparing.page is OpeningNew(_, preparation) else {
     fail("new document in progress")
   }
   let (failed, _) = test_root_update(
@@ -2802,7 +2874,8 @@ let decisions = __document_transition_31.effects.to_array()
       ),
     ),
   )
-  guard failed.page is OpeningNew(retained, failed_creation) && failed_creation.status is Failed(_) else {
+  guard failed.page is OpeningNew(retained, failed_creation) &&
+    failed_creation.status is Failed(_) else {
     fail("loaded failure must retain documents")
   }
   assert_true(
@@ -2850,9 +2923,9 @@ test "old-account receipt commits while New preparation has failed" {
     is (sync, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("old-account delivery")
   }
-  let __document_transition_32 = expect_document_delete(initial.documents, source)
-let documents = __document_transition_32.model
-let decisions = __document_transition_32.effects.to_array()
+  let transition = expect_document_delete(initial.documents, source)
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions is [@documents.Action::DeleteSource(deletion)] else {
     fail("source deletion")
   }
@@ -2860,7 +2933,7 @@ let decisions = __document_transition_32.effects.to_array()
     test_model(Editing({ ..initial, documents, }), sync),
     DocumentDeleted(deletion, document_id("source")),
   )
-  guard preparing.page is OpeningNew(preparing_page, preparation) else {
+  guard preparing.page is OpeningNew(_, preparation) else {
     fail("new document preparation")
   }
   let (failed, _) = test_root_update(
@@ -2872,7 +2945,8 @@ let decisions = __document_transition_32.effects.to_array()
       ),
     ),
   )
-  guard failed.page is OpeningNew(_, failed_creation) && failed_creation.status is Failed(_) else {
+  guard failed.page is OpeningNew(_, failed_creation) &&
+    failed_creation.status is Failed(_) else {
     fail("loaded failure")
   }
   let (checking, lookup) = failed.sync().begin_lookup()
@@ -2911,7 +2985,8 @@ let decisions = __document_transition_32.effects.to_array()
     storing,
     Sync(ReplicaWriteCompleted(attempt, Ok(()))),
   )
-  guard committed.page is OpeningNew(_, failed_creation) && failed_creation.status is Failed(_) else {
+  guard committed.page is OpeningNew(_, failed_creation) &&
+    failed_creation.status is Failed(_) else {
     fail("keep loaded failure")
   }
   let durable = committed.page
@@ -2939,8 +3014,8 @@ let decisions = __document_transition_32.effects.to_array()
 ///|
 test "active pending deletion prevents document switch" {
   let initial = test_editing()
-  let __document_transition_33 = expect_document_delete(initial.documents, source_key("one"))
-  let documents = __document_transition_33.model
+  let transition = expect_document_delete(initial.documents, source_key("one"))
+  let documents = transition.model
   let (model, _) = test_update(
     Editing({ ..initial, documents, }),
     DocumentSelected(source_key("two")),
@@ -2974,26 +3049,31 @@ test "page-local revision restores authoritative text and preview" {
     documents: @documents.Model(snapshot),
   }
   // Apply a text change then verify page-local order: stale timer ignored, correct revision persists
-  let __document_transition_34 = expect_document_edit(initial.documents, source_key("one"), "one!")
-let documents = __document_transition_34.model
-let decisions = __document_transition_34.effects.to_array()
+  let transition = expect_document_edit(
+    initial.documents,
+    source_key("one"),
+    "one!",
+  )
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions is [@documents.Action::ArmMaximum(_)] else { fail("timers") }
-  // Simulate stale pending_revision(documents, source_key("one")) timer with wrong revision: should be ignored by documents layer
-  let __document_transition_35 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(source_key("one"), 99))
-  let documents = __document_transition_35.model
-let stale = __document_transition_35.effects.to_array()
-  assert_true(stale.is_empty())
+  assert_true(
+    documents.update(@documents.Msg::ApplyPendingEdit(source_key("one"), 99))
+    is Superseded,
+  )
   // Correct revision proceeds
-  let __document_transition_36 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(
       source_key("one"),
       pending_revision(documents, source_key("one")),
-    ))
-  let decisions = __document_transition_36.effects.to_array()
+    ),
+  )
+  let decisions = transition.effects
   guard decisions[0] is @documents.Action::PersistSource(op) else {
     fail("persist")
   }
   assert_eq(op.document.text(), "one!")
-  // Update view layer: authoritative text is still "one" until save completes, preview unchanged
   let (model, _) = test_update(
     Editing({ ..initial, documents: initial.documents, }),
     TextChanged(
@@ -3008,16 +3088,32 @@ let stale = __document_transition_35.effects.to_array()
 ///|
 test "preparing new reduces unrelated inactive save completion" {
   let initial = test_editing()
-  let __document_transition_37 = expect_document_edit(initial.documents, source_key("two"), "two!")
-let documents = __document_transition_37.model
-  let __document_transition_38 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(source_key("two"), 1))
-  let documents = __document_transition_38.model
-let decisions = __document_transition_38.effects.to_array()
+  let transition = expect_document_edit(
+    initial.documents,
+    source_key("two"),
+    "two!",
+  )
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(source_key("two"), 1),
+  )
+  let documents = transition.model
+  let decisions = transition.effects
   guard decisions[0] is @documents.Action::PersistSource(operation) else {
     fail("persist")
   }
   let (model, _) = test_update(
-    OpeningNew({ documents, mode: Text, compact: false, next_activation_generation: 1, lifecycle_error: None, }, { request_id: 1, intent: NewDocument, status: InProgress, }),
+    OpeningNew(
+      {
+        documents,
+        mode: Text,
+        compact: false,
+        next_activation_generation: 1,
+        lifecycle_error: None,
+      },
+      { request_id: 1, intent: NewDocument, status: InProgress, },
+    ),
     DocumentSaved(operation, operation.document),
   )
   guard model is OpeningNew(preparing, _) else { fail("preparing") }
@@ -3035,19 +3131,28 @@ test "writing focus destination follows editor mode without reading the DOM" {
   assert_eq(editor_focus_id(Preview), mode_dom_id(Preview))
 }
 
-
 ///|
 test "failed initial creation preserves context and retry fences stale completion" {
   let documents = @documents.Model(test_snapshot())
   let opening : OpeningNewContext = {
-    documents, mode: Split, compact: false, next_activation_generation: 4, lifecycle_error: None,
+    documents,
+    mode: Split,
+    compact: false,
+    next_activation_generation: 4,
+    lifecycle_error: None,
   }
-  let creation : Creation = { request_id: 5, intent: NewDocument, status: InProgress, }
+  let creation : Creation = {
+    request_id: 5,
+    intent: NewDocument,
+    status: InProgress,
+  }
   let (failed, _) = test_update(
     OpeningNew(opening, creation),
     EmptyCreateCompleted(
       5,
-      CreateFailed(@source_repository.CreateFailure::DocumentIdentityUnavailable),
+      CreateFailed(
+        @source_repository.CreateFailure::DocumentIdentityUnavailable,
+      ),
     ),
   )
   guard failed is OpeningNew(retained, failed_creation) &&
@@ -3058,8 +3163,7 @@ test "failed initial creation preserves context and retry fences stale completio
   assert_true(retained.mode is Split)
 
   let (retried, _) = test_update(failed, RetryOpeningNewCreation)
-  guard retried is OpeningNew(reopened, retry) &&
-    retry.status is InProgress else {
+  guard retried is OpeningNew(reopened, retry) && retry.status is InProgress else {
     fail("initial creation retry")
   }
   assert_eq(retry.request_id, 6)
@@ -3072,29 +3176,109 @@ test "failed initial creation preserves context and retry fences stale completio
   assert_true(stale == retried)
 }
 
-
 ///|
 test "failed editing creation remains visible and retry fences stale completion" {
   let initial = test_editing()
   let (started, _) = test_update(Editing(initial), CreateRequested)
-  guard started is Editing(creating) && creation_request_is_current(creating.creation, 1) else {
+  guard started is Editing(creating) &&
+    creation_request_is_current(creating.creation, 1) else {
     fail("new creation started")
   }
   let failure = @source_repository.CreateFailure::DocumentIdentityUnavailable
-  let (failed, _) = test_update(Editing(creating), CreateCompleted(1, CreateFailed(failure)))
-  guard failed is Editing(failed_editing) && failed_editing.creation is Some({ status: Failed(_), .. }) else {
+  let (failed, _) = test_update(
+    Editing(creating),
+    CreateCompleted(1, CreateFailed(failure)),
+  )
+  guard failed is Editing(failed_editing) &&
+    failed_editing.creation is Some({ status: Failed(_), .. }) else {
     fail("failed creation retained")
   }
   assert_eq(failed_editing.documents.text(source_key("one")), Some("one"))
   let (retrying, _) = test_update(Editing(failed_editing), CreateRequested)
-  guard retrying is Editing(retry) && creation_request_is_current(retry.creation, 2) else {
+  guard retrying is Editing(retry) &&
+    creation_request_is_current(retry.creation, 2) else {
     fail("creation retry started")
   }
-  let (stale, _) = test_update(Editing(retry), CreateCompleted(1, Created(document_id("stale"))))
+  let (stale, _) = test_update(
+    Editing(retry),
+    CreateCompleted(1, Created(document_id("stale"))),
+  )
   assert_true(stale == Editing(retry))
-  let (completed, _) = test_update(Editing(retry), CreateCompleted(2, Created(document_id("new"))))
+  let (completed, _) = test_update(
+    Editing(retry),
+    CreateCompleted(2, Created(document_id("new"))),
+  )
   guard completed is Editing(after) else { fail("editing after retry") }
   assert_eq(after.documents.text(source_key("one")), Some("one"))
   assert_eq(after.documents.text(source_key("new")), Some(""))
   assert_true(after.creation is None)
+}
+
+///|
+test "duplicate Example identity does not overwrite an existing document" {
+  let initial = test_editing()
+  let (page, _) = test_update(
+    Editing(initial),
+    ExampleSelected(initial.activation, "must not replace existing text"),
+  )
+  guard page is Editing(creating) && creating.creation is Some(creation) else {
+    fail("example creation must own its request")
+  }
+  let (page, _) = test_update(
+    page,
+    ExampleCreateCompleted(
+      creation.request_id,
+      "must not replace existing text",
+      Created(document_id("two")),
+    ),
+  )
+  guard page is Editing(retained) else { fail("current editor must survive") }
+  assert_true(retained.activation == initial.activation)
+  assert_eq(retained.documents.text(source_key("two")), Some("two"))
+  assert_true(retained.lifecycle_error is Some(_))
+  assert_true(retained.creation is None)
+}
+
+///|
+test "opening creation retries a rejected identity without losing documents" {
+  let initial = test_editing()
+  let opening : OpeningNewContext = {
+    documents: initial.documents,
+    mode: Split,
+    compact: false,
+    next_activation_generation: 4,
+    lifecycle_error: None,
+  }
+  let creation : Creation = {
+    request_id: 12,
+    intent: NewDocument,
+    status: InProgress,
+  }
+  let (rejected, _) = test_update(
+    OpeningNew(opening, creation),
+    EmptyCreateCompleted(creation.request_id, Created(document_id("one"))),
+  )
+  guard rejected is OpeningNew(retained, { status: Fault(_), .. }) else {
+    fail("a duplicate identity must retain the opening context")
+  }
+  assert_true(retained.documents == opening.documents)
+  let (retrying, _) = test_update(rejected, RetryOpeningNewCreation)
+  guard retrying is OpeningNew(_, retry) && retry.status is InProgress else {
+    fail("a rejected identity must allow a fresh creation request")
+  }
+  assert_true(retry.request_id != creation.request_id)
+  let (stale, _) = test_update(
+    retrying,
+    EmptyCreateCompleted(creation.request_id, Created(document_id("stale"))),
+  )
+  assert_true(stale == retrying)
+  let (completed, _) = test_update(
+    retrying,
+    EmptyCreateCompleted(retry.request_id, Created(document_id("new"))),
+  )
+  guard completed is Editing(editing) else { fail("retry must open an editor") }
+  assert_true(editing.activation.key == source_key("new"))
+  assert_eq(editing.activation.generation, opening.next_activation_generation)
+  assert_eq(editing.documents.text(source_key("one")), Some("one"))
+  assert_eq(editing.documents.text(source_key("new")), Some(""))
 }

@@ -1,12 +1,6 @@
 ///|
-pub fn Model::document(
-  self : Self,
-  document_id : Key,
-) -> @source_repository.Document? {
-  match find_record(self.records, document_id) {
-    Some(record) => Some(record.document)
-    None => None
-  }
+pub fn Model::document(self : Self, key : Key) -> @source_repository.Document? {
+  find_record(self.records, key).map(record => record.document)
 }
 
 ///|
@@ -32,42 +26,42 @@ pub fn Model::resume_hint(
   match find_record(self.records, key) {
     Some(record) =>
       match record.persistence {
-        Source(_, _) | StartingSync(_, _) =>
+        Source(_, _) | StartingSync(_, _, _) =>
           self.saved.editing_document_hint(record.document.id())
-        Replica(_, _) | Forking(_) => None
+        Replica(_, _, _) | Forking(_, _) => None
       }
     None => None
   }
 }
 
 ///|
-pub fn Model::is_composing(self : Self, id : Key) -> Bool {
-  find_record(self.records, id).map(r => is_composing(r.edit)).unwrap_or(false)
+pub fn Model::is_composing(self : Self, key : Key) -> Bool {
+  find_record(self.records, key)
+  .map(record => is_composing(record.edit))
+  .unwrap_or(false)
 }
 
 ///|
 pub fn Model::sync_start(
   self : Self,
-  id : Key,
+  key : Key,
   account : @source_repository.AccountId,
 ) -> SyncStart {
-  match find_record(self.records, id) {
-    Some(record) if record.persistence is StartingSync(owner, _) &&
+  match find_record(self.records, key) {
+    Some(record) if record.persistence is StartingSync(owner, _, _) &&
       owner == account => Starting
-    Some(record) if record.persistence
-      is Source(Existing, SourceLifecycle::Available) &&
-      record.save is Saved &&
+    Some(record) if record.persistence is Source(Existing, Writable(Idle, None)) &&
       record.edit is Idle &&
       self.saved.find(record.document.id()) == Some(record.document) &&
       self.saved.replica(account, record.document.id()) is None =>
-      Ready({ key: id, account, document: record.document, })
-    Some(_) | None => Unavailable
+      Ready({ key, account, document: record.document, })
+    _ => Unavailable
   }
 }
 
 ///|
-/// Project the working copy and newest observed remote head as one state. A
-/// remote action exists only when its body still matches that head exactly.
+/// A remote action exists only while the working copy and observed head still
+/// match the durable Replica from which that action was projected.
 pub fn Model::remote_state(
   self : Self,
   replica : @source_repository.DocumentReplica,
@@ -76,16 +70,15 @@ pub fn Model::remote_state(
   let key = Key::replica(replica.account(), replica.document_id())
   guard find_record(self.records, key) is Some(record) &&
     replica.live() is Some(live) else {
-    return RemoteState::Unavailable
+    return Unavailable
   }
   let knowledge = replica.remote_knowledge(catalog_head)
   let relation = live.relation(record.document.text(), knowledge)
-  let action = if record.persistence is Replica(account, ReplicaAvailable) &&
+  let action = if record.persistence is Replica(account, ReplicaAvailable, Idle) &&
     account == replica.account() &&
     self.visible_account == Some(account) &&
     replica.document() == Some(record.document) &&
-    record.save is DocumentsSaveStatus::Saved &&
-    record.edit is EditState::Idle &&
+    record.edit is Idle &&
     self.saved.replica(account, replica.document_id()) == Some(replica) &&
     replica.remote_update() is Some(update) &&
     knowledge.head() == Some(update.head()) {
@@ -95,16 +88,15 @@ pub fn Model::remote_state(
   }
   match (relation, action) {
     (@source_repository.Relation::RemoteAhead, Some(action)) =>
-      RemoteState::UpdateAvailable(action)
-    (@source_repository.Relation::DeletedRemotely, Some(action)) =>
-      RemoteState::DeletionAvailable(action)
-    (Current, _) => RemoteState::Current
-    (LocalAhead, _) => RemoteState::LocalAhead
-    (RemoteAhead, _) => RemoteState::RemoteAhead
-    (Concurrent, _) => RemoteState::Concurrent
-    (Diverged, _) => RemoteState::Diverged
-    (DeletedRemotely, _) => RemoteState::DeletedRemotely
-    (Unavailable, _) => RemoteState::Unavailable
+      UpdateAvailable(action)
+    (DeletedRemotely, Some(action)) => DeletionAvailable(action)
+    (Current, _) => Current
+    (LocalAhead, _) => LocalAhead
+    (RemoteAhead, _) => RemoteAhead
+    (Concurrent, _) => Concurrent
+    (Diverged, _) => Diverged
+    (DeletedRemotely, _) => DeletedRemotely
+    (Unavailable, _) => Unavailable
   }
 }
 
@@ -116,15 +108,8 @@ pub fn Model::accept_remote(
   action : AcceptRemote,
 ) -> RemoteAcceptance raise ActionError {
   let current = match self.remote_state(replica, catalog_head) {
-    RemoteState::UpdateAvailable(current) | DeletionAvailable(current) =>
-      current
-    Current
-    | LocalAhead
-    | RemoteAhead
-    | Concurrent
-    | Diverged
-    | DeletedRemotely
-    | Unavailable => raise ExpiredAction
+    UpdateAvailable(current) | DeletionAvailable(current) => current
+    _ => raise ExpiredAction
   }
   guard current == action else { raise ExpiredAction }
   let write = action.update.accept()
@@ -133,13 +118,12 @@ pub fn Model::accept_remote(
   match action.update.remote() {
     @source_repository.RemoteDocument::Present(_, _) => {
       guard accepted.document() is Some(document) else { raise ExpiredAction }
-      let records = replace_record(self.records, action.key, record => {
-        ..record,
+      let records = replace_record(self.records, action.key, _ => {
         document,
         version,
-        edit: EditState::Idle,
-        save: DocumentsSaveStatus::Saved,
-        lead_source: LeadSource::Available(document.text()),
+        persistence: Replica(replica.account(), ReplicaAvailable, Idle),
+        edit: Idle,
+        lead_source: Available(document.text()),
       })
       Opened({ ..self, records, }, document, write)
     }
@@ -165,14 +149,14 @@ pub fn StartSync::document_id(self : Self) -> @source_repository.DocumentId {
 ///|
 pub fn Model::fallback_document(self : Self, excluding : Key) -> Key? {
   self.records
-  .filter(r => {
-    r.key() != excluding &&
-    self.record_is_visible(r) &&
-    !delete_is_active(r.delete_phase()) &&
-    !(r.persistence is DocumentPersistence::Source(EphemeralNew, _))
+  .exact_view()
+  .search_by(record => {
+    record.key() != excluding &&
+    self.record_is_visible(record) &&
+    record.delete_status() != DeletePending &&
+    !(record.persistence is Source(EphemeralNew, _))
   })
-  .get(0)
-  .map(r => r.key())
+  .map(index => self.records[index].key())
 }
 
 ///|
@@ -181,50 +165,52 @@ pub fn Model::snapshot(self : Self) -> @source_repository.SavedDocuments {
 }
 
 ///|
-pub fn Model::text(self : Self, id : Key) -> String? {
-  self.document(id).map(document => document.text())
+pub fn Model::text(self : Self, key : Key) -> String? {
+  self.document(key).map(document => document.text())
 }
 
 ///|
-pub fn Model::is_ephemeral_new(self : Self, id : Key) -> Bool {
-  match find_record(self.records, id) {
-    Some(record) => record.persistence is Source(EphemeralNew, _)
-    None => false
+pub fn Model::is_ephemeral_new(self : Self, key : Key) -> Bool {
+  find_record(self.records, key)
+  .map(record => record.persistence is Source(EphemeralNew, _))
+  .unwrap_or(false)
+}
+
+///|
+fn Model::record_save_status(self : Self, record : Record) -> SaveStatus {
+  if record.has_source_write() || record.pending_window() is Some(_) {
+    return Unsaved
+  }
+  if record.save_failure() is Some(failure) {
+    return SaveFailed(failure)
+  }
+  match record.persistence {
+    Forking(_, _) => Unsaved
+    Source(EphemeralNew, _) => Clean
+    Source(_, _) | StartingSync(_, _, _) =>
+      if self.saved.find(record.document.id()) == Some(record.document) {
+        Clean
+      } else {
+        Unsaved
+      }
+    Replica(account, _, _) =>
+      if self.saved
+        .replica(account, record.document.id())
+        .map(replica => replica.document() == Some(record.document))
+        .unwrap_or(false) {
+        Clean
+      } else {
+        Unsaved
+      }
   }
 }
 
 ///|
-pub fn Model::save_status(self : Self, id : Key) -> SaveStatus? {
-  find_record(self.records, id).map(r => {
-    match r.persistence {
-      Replica(account, _) =>
-        match r.save {
-          DocumentsSaveStatus::Waiting(_) | DocumentsSaveStatus::Saving(_, _) =>
-            SaveStatus::Unsaved
-          Failed(failure) => SaveStatus::SaveFailed(failure)
-          Saved =>
-            match self.saved.replica(account, r.document.id()) {
-              Some(replica) if replica.document() == Some(r.document) =>
-                SaveStatus::Clean
-              Some(_) | None => SaveStatus::Unsaved
-            }
-        }
-      Source(_, _) | StartingSync(_, _) =>
-        match r.save {
-          DocumentsSaveStatus::Saved => SaveStatus::Clean
-          DocumentsSaveStatus::Failed(failure) =>
-            SaveStatus::SaveFailed(failure)
-          DocumentsSaveStatus::Waiting(_) | DocumentsSaveStatus::Saving(_, _) =>
-            SaveStatus::Unsaved
-        }
-      Forking(_) => SaveStatus::Unsaved
-    }
-  })
+pub fn Model::save_status(self : Self, key : Key) -> SaveStatus? {
+  find_record(self.records, key).map(record => self.record_save_status(record))
 }
 
 ///|
-/// Return the Replica persistence lane that currently owns this working copy.
-/// A recovery Source keeps its original owner until the atomic fork commits.
 pub fn Model::replica_owner(
   self : Self,
   key : Key,
@@ -232,41 +218,17 @@ pub fn Model::replica_owner(
   match find_record(self.records, key) {
     Some(record) =>
       match record.persistence {
-        Replica(account, _) => Some((account, record.document.id()))
-        Forking(ownership) => Some((ownership.account, ownership.original))
-        Source(_, _) | StartingSync(_, _) => None
+        Replica(account, _, _) => Some((account, record.document.id()))
+        Forking(ownership, _) => Some((ownership.account, ownership.original))
+        Source(_, _) | StartingSync(_, _, _) => None
       }
     None => None
   }
 }
 
 ///|
-#warnings("-unused_value")
-fn Model::save_phase(self : Self, id : Key) -> DocumentsSaveStatus? {
-  find_record(self.records, id).map(r => r.save)
-}
-
-///|
-pub fn Model::delete_status(self : Self, id : Key) -> DeleteStatus? {
-  find_record(self.records, id).map(r => {
-    match r.delete_phase() {
-      DocumentsDeletePhase::Unavailable => DeleteStatus::NotDeletable
-      DocumentsDeletePhase::Available => DeleteStatus::Deletable
-      DocumentsDeletePhase::Waiting(_) | DocumentsDeletePhase::Deleting(_) =>
-        DeleteStatus::DeletePending
-      DocumentsDeletePhase::Failed(_, failure) =>
-        DeleteStatus::DeleteFailed(failure)
-      DocumentsDeletePhase::ReplicaPending => DeleteStatus::DeletePending
-      DocumentsDeletePhase::ReplicaFailed(failure) =>
-        DeleteStatus::DeletePersistenceFailed(failure)
-    }
-  })
-}
-
-///|
-#warnings("-unused_value")
-fn Model::delete_phase_status(self : Self, id : Key) -> DocumentsDeletePhase? {
-  find_record(self.records, id).map(r => r.delete_phase())
+pub fn Model::delete_status(self : Self, key : Key) -> DeleteStatus? {
+  find_record(self.records, key).map(record => record.delete_status())
 }
 
 ///|
@@ -274,24 +236,23 @@ pub fn Model::recent(
   self : Self,
 ) -> Array[(Key, String, SaveStatus, DeleteStatus)] {
   self.records.filter_map(record => {
-    guard self.record_is_visible(record) else { return None }
-    guard record.lead_source is LeadSource::Available(source) else {
+    guard self.record_is_visible(record) &&
+      record.lead_source is Available(source) else {
       return None
     }
     Some(
       (
         record.key(),
         source,
-        self.save_status(record.key()).unwrap(),
-        self.delete_status(record.key()).unwrap(),
+        self.record_save_status(record),
+        record.delete_status(),
       ),
     )
   })
 }
 
 ///|
-/// Identities owned locally, including durable deleting/tombstoned Replicas
-/// that intentionally have no Recent documents row.
+/// Includes durable deleting/tombstoned Replicas without a Recent documents row.
 pub fn Model::known_keys(self : Self) -> Array[Key] {
   self.records.map(record => record.key()) +
   self.saved
@@ -303,13 +264,9 @@ pub fn Model::known_keys(self : Self) -> Array[Key] {
 pub fn Model::pending_edits(self : Self) -> Array[(Key, Int)] {
   self.records.filter_map(record => {
     match record.edit {
-      Waiting(revision) if !delete_is_active(record.delete_phase()) =>
+      Waiting(revision) if record.delete_status() != DeletePending =>
         Some((record.key(), revision))
-      Idle
-      | Waiting(_)
-      | ComposingIdle
-      | ComposingWaiting(_)
-      | ComposingReady => None
+      _ => None
     }
   })
 }

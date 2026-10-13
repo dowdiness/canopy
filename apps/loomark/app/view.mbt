@@ -21,9 +21,7 @@ fn view(
           mode: editing.mode,
           preview: editing.preview,
         })
-      Loading(_)
-      | OpeningNew(_, _)
-      | Recovery(_, _) => None
+      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
     }
   })
 
@@ -121,9 +119,7 @@ fn view(
   let recent_seeds = page.map2(remote_seeds, (page, remote) => {
     match page {
       Editing(editing) => recent_document_seeds(editing, remote)
-      Loading(_)
-      | OpeningNew(_, _)
-      | Recovery(_, _) => @vector.Vector([])
+      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => @vector.Vector([])
     }
   })
   let delete_confirmation = page.map(page => {
@@ -133,9 +129,7 @@ fn view(
           DeleteConfirmation(id) => Some(id)
           NoDeletion => None
         }
-      Loading(_)
-      | OpeningNew(_, _)
-      | Recovery(_, _) => None
+      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
     }
   })
   // Resizing must preserve the sidebar state, so it outlives responsive editor branches.
@@ -224,6 +218,12 @@ fn view(
           creation_failure_view(failure, emit(CreateRequested))
         Some(OpeningCreate(failure)) =>
           creation_failure_view(failure, emit(RetryOpeningNewCreation))
+        Some(OpeningFault(message)) =>
+          failure_notice(
+            message,
+            "Retry creating",
+            on_action=Some(emit(RetryOpeningNewCreation)),
+          )
         Some(Example(activation, text, failure)) =>
           example_creation_failure_view(
             failure,
@@ -241,7 +241,15 @@ fn view(
       @html.fragment([
         save_failure_view(save_failure, emit(RetrySave)),
         failure,
-        input.lifecycle_error.map(error => failure_notice(error, "Dismiss", on_action=Some(emit(DismissDocumentFault)))).unwrap_or(@html.nothing),
+        input.lifecycle_error
+        .map(error => {
+          failure_notice(
+            error,
+            "Dismiss",
+            on_action=Some(emit(DismissDocumentFault)),
+          )
+        })
+        .unwrap_or(@html.nothing),
         if input.import_failed {
           import_failure_view(emit(DismissImportFailure))
         } else {
@@ -255,7 +263,7 @@ fn view(
       OpeningNew(_, creation) =>
         match creation.status {
           InProgress => LoadingScreen
-          Failed(_) | Fault(_) => RecoveryScreen(StorageUnavailable)
+          Failed(_) | Fault(_) => CreationScreen
         }
       Recovery(failure, _) => RecoveryScreen(failure)
       Editing(_) => EditingScreen
@@ -331,8 +339,18 @@ fn notices_input(model : Model) -> NoticesInput {
       OpeningNew(_, creation) =>
         match creation.status {
           Failed(failure) =>
-            return { failure: Some(OpeningCreate(failure)), import_failed: false, lifecycle_error, }
-          InProgress | Fault(_) =>
+            return {
+              failure: Some(OpeningCreate(failure)),
+              import_failed: false,
+              lifecycle_error,
+            }
+          Fault(message) =>
+            return {
+              failure: Some(OpeningFault(message)),
+              import_failed: false,
+              lifecycle_error,
+            }
+          InProgress =>
             return { failure: None, import_failed: false, lifecycle_error, }
         }
       _ => return { failure: None, import_failed: false, lifecycle_error, }
@@ -351,7 +369,8 @@ fn notices_input(model : Model) -> NoticesInput {
             Failed(failure) =>
               match creation.intent {
                 NewDocument => Some(Create(failure))
-                Example(text) => Some(Example(editing.activation, text, failure))
+                Example(text) =>
+                  Some(Example(editing.activation, text, failure))
               }
             InProgress | Fault(_) => None
           }

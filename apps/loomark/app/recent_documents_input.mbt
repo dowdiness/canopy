@@ -18,9 +18,8 @@ fn document_membership(page : Page) -> DocumentMembership {
         keys: editing.documents.known_keys(),
         can_activate: editing.can_activate(),
       }
-    Loading(_)
-    | OpeningNew(_, _)
-    | Recovery(_, _) => { keys: [], can_activate: false, }
+    Loading(_) | OpeningNew(_, _) | Recovery(_, _) =>
+      { keys: [], can_activate: false, }
   }
 }
 

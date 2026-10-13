@@ -104,7 +104,7 @@ priv enum CreationStatus {
 priv enum DocumentUpdate {
   Updated(@documents.Transition)
   Obsolete
-  Fault(String)
+  Fault
 }
 
 ///|
@@ -145,7 +145,10 @@ priv enum Msg {
   DocumentSaved(@documents.SaveOperation, @source_repository.Document)
   DocumentSaveFailed(@documents.SaveOperation, @source_repository.SaveFailure)
   DocumentDeleted(@documents.DeleteOperation, @source_repository.DocumentId)
-  DocumentDeleteFailed(@documents.DeleteOperation, @source_repository.DeleteFailure)
+  DocumentDeleteFailed(
+    @documents.DeleteOperation,
+    @source_repository.DeleteFailure
+  )
   ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
   PageRestored

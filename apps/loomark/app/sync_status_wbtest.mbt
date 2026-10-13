@@ -69,9 +69,7 @@ fn status_model(
   let saved = saved.apply_replica(replica) catch {
     _ => abort("valid test replica")
   }
-  let documents = @documents.Model(saved).project_account(
-    replica.account(),
-  )
+  let documents = @documents.Model(saved).project_account(replica.account())
   test_model(
     Editing({
       ..test_editing(),
@@ -137,8 +135,11 @@ test "local document status exposes sign-in and sync-start states" {
   assert_eq(action.document_id(), document_id("one"))
 
   guard signed_in.page is Editing(editing) else { fail("editing") }
-  let __document_transition_0 = expect_document_update(editing.documents, @documents.Msg::New(document_id("new")))
-  let documents = __document_transition_0.model
+  let transition = expect_document_update(
+    editing.documents,
+    @documents.Msg::New(document_id("new")),
+  )
+  let documents = transition.model
   let ephemeral = {
     ..signed_in,
     page: Editing({
@@ -152,8 +153,12 @@ test "local document status exposes sign-in and sync-start states" {
   }
   assert_true(ephemeral_view.durability is LocalDurability::NotStarted)
   assert_true(ephemeral_view.sync is DocumentSync::DeviceOnly)
-  let __document_transition_1 = expect_document_edit(documents, source_key("new"), "First words")
-let documents = __document_transition_1.model
+  let transition = expect_document_edit(
+    documents,
+    source_key("new"),
+    "First words",
+  )
+  let documents = transition.model
   assert_true(
     local_durability({ ..editing, documents, }, source_key("new"))
     is Some(LocalDurability::Saving),
@@ -303,10 +308,13 @@ test "unsaved visible text projects durability and relation independently" {
   let initial = status_model(synchronized, status_sync(account))
   guard initial.page is Editing(editing) else { fail("editing") }
   let key = editing.activation.key
-  let __document_transition_2 = expect_document_edit(editing.documents, key, "edited")
-let documents = __document_transition_2.model
-  let __document_transition_3 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)))
-  let documents = __document_transition_3.model
+  let transition = expect_document_edit(editing.documents, key, "edited")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)),
+  )
+  let documents = transition.model
   let model : Model = {
     page: Editing({ ..editing, documents, }),
     replication: @replication.State(protocol=status_sync(account), persistence~),
@@ -351,10 +359,13 @@ test "network retry cannot become a saving retry" {
   let initial = status_model(sending, retryable)
   guard initial.page is Editing(editing) else { fail("editing") }
   let key = editing.activation.key
-  let __document_transition_4 = expect_document_edit(editing.documents, key, "newer")
-let documents = __document_transition_4.model
-  let __document_transition_5 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)))
-  let documents = __document_transition_5.model
+  let transition = expect_document_edit(editing.documents, key, "newer")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)),
+  )
+  let documents = transition.model
   let model = { ..initial, page: Editing({ ..editing, documents, }), }
   guard document_sync_view(model) is Some(view) else {
     fail("document sync view")
@@ -389,10 +400,13 @@ test "retry messages restart only their owned lifecycle" {
   }
   guard model.page is Editing(editing) else { fail("editing") }
   let key = editing.activation.key
-  let __document_transition_6 = expect_document_edit(editing.documents, key, "edited")
-let documents = __document_transition_6.model
-  let __document_transition_7 = expect_document_update(documents, @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)))
-  let documents = __document_transition_7.model
+  let transition = expect_document_edit(editing.documents, key, "edited")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
+    @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)),
+  )
+  let documents = transition.model
   let model = { ..model, page: Editing({ ..editing, documents, }), }
   guard document_sync_view(model) is Some(view) &&
     view.persistence is Some(@replica_persistence.Status::Retryable(action, _)) else {

@@ -4,18 +4,18 @@
 test "activation target preserves current text and parsed resume eligibility" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.edit(source_key("one"), "one!") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   guard documents.document(source_key("one")) is Some(saved) else {
     fail("saved activation target")
   }
   assert_eq(saved.text(), "one!")
   assert_true(documents.resume_hint(source_key("one")) is Some(_))
   let (documents, _) = match documents.update(New(document_id("new"))) {
-  Applied(transition) => (transition.model, transition.effects),
-  Superseded => fail("unexpected superseded callback")
-}
+    Applied(transition) => (transition.model, transition.effects)
+    Superseded => fail("unexpected superseded callback")
+  }
   guard documents.document(source_key("new")) is Some(ephemeral) else {
     fail("ephemeral activation target")
   }
@@ -27,10 +27,11 @@ test "activation target preserves current text and parsed resume eligibility" {
 ///|
 test "Import accepts empty text and persists it immediately as New" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, decisions) = match documents.update(Imported(document_id("imported"), ""),) {
-  Applied(transition) => (transition.model, transition.effects),
-  Superseded => fail("unexpected superseded callback")
-}
+  let (documents, decisions) = match
+    documents.update(Imported(document_id("imported"), "")) {
+    Applied(transition) => (transition.model, transition.effects)
+    Superseded => fail("unexpected superseded callback")
+  }
   assert_eq(documents.text(source_key("imported")), Some(""))
   guard decisions is [Action::PersistSource(operation)] &&
     operation.key == source_key("imported") else {
@@ -43,9 +44,9 @@ test "Import accepts empty text and persists it immediately as New" {
 test "duplicate text changes preserve documents and decisions" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.edit(source_key("one"), "one!") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   let before = documents
   let outcome = documents.edit(source_key("one"), "one!")
   assert_true(outcome is SameText)
@@ -56,9 +57,9 @@ test "duplicate text changes preserve documents and decisions" {
 test "lead source remains available while an existing edit is pending" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.edit(source_key("one"), "changed") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source
     is LeadSource::Available("one"),
@@ -70,22 +71,23 @@ test "lead source remains available while an existing edit is pending" {
 test "matching callback adopts source and stale callback does not" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.edit(source_key("one"), "changed") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   let revision = pending_revision(documents, source_key("one"))
   let (documents, _) = match documents.edit(source_key("one"), "newer") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   let stale = documents.update(ApplyPendingEdit(source_key("one"), revision))
   assert_true(stale is Superseded)
   assert_true(has_pending(documents, source_key("one")))
   let revision = pending_revision(documents, source_key("one"))
-  let (documents, _) = match documents.update(ApplyPendingEdit(source_key("one"), revision),) {
-  Applied(transition) => (transition.model, transition.effects),
-  Superseded => fail("unexpected superseded callback")
-}
+  let (documents, _) = match
+    documents.update(ApplyPendingEdit(source_key("one"), revision)) {
+    Applied(transition) => (transition.model, transition.effects)
+    Superseded => fail("unexpected superseded callback")
+  }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source
     is LeadSource::Available("newer"),
@@ -97,13 +99,13 @@ test "matching callback adopts source and stale callback does not" {
 test "exact clean return has no pending subscription" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.edit(source_key("one"), "changed") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   let (documents, _) = match documents.edit(source_key("one"), "one") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source
     is LeadSource::Available("one"),
@@ -115,13 +117,13 @@ test "exact clean return has no pending subscription" {
 test "first new edit immediately establishes its source" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.update(New(document_id("new"))) {
-  Applied(transition) => (transition.model, transition.effects),
-  Superseded => fail("unexpected superseded callback")
-}
+    Applied(transition) => (transition.model, transition.effects)
+    Superseded => fail("unexpected superseded callback")
+  }
   let (documents, _) = match documents.edit(source_key("new"), "first") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   assert_true(
     find_record(documents.records, source_key("new")).unwrap().lead_source
     is LeadSource::Available("first"),
@@ -132,14 +134,16 @@ test "first new edit immediately establishes its source" {
 test "exact clean return restores saved without lead delay" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = match documents.edit(source_key("one"), "changed") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
   let (documents, decisions) = match documents.edit(source_key("one"), "one") {
-  Changed(transition) => (transition.model, transition.effects),
-  SameText => fail("unexpected unchanged edit")
-}
-  assert_true(documents.save_status(source_key("one")) is Some(SaveStatus::Clean))
+    Changed(transition) => (transition.model, transition.effects)
+    SameText => fail("unexpected unchanged edit")
+  }
+  assert_true(
+    documents.save_status(source_key("one")) is Some(SaveStatus::Clean),
+  )
   assert_eq(decisions.length(), 0)
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().lead_source

@@ -2,6 +2,7 @@
 priv enum ScreenPhase {
   LoadingScreen
   RecoveryScreen(@source_repository.OpenFailure)
+  CreationScreen
   EditingScreen
 } derive(Eq)
 
@@ -49,6 +50,11 @@ fn screen_layout(
             [@html.h1("Document recovery"), @html.p(message)],
           )
         }
+        CreationScreen =>
+          @html.div(
+            class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6]",
+            [@html.h1("New document"), input.notices],
+          )
         EditingScreen => {
           let editor_inert = input.compact &&
             !@sidebar.sidebar_is_collapsed(sidebar)
