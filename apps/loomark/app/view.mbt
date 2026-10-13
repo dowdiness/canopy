@@ -1,714 +1,346 @@
 ///|
-fn mode_name(mode : EditorMode) -> String {
-  match mode {
-    Text => "Text"
-    Preview => "Preview"
-    Split => "Split"
-  }
-}
-
-///|
-fn mode_dom_id(mode : EditorMode) -> String {
-  "loomark-mode-\{mode_name(mode).to_lower()}"
-}
-
-///|
-fn mode_tab(
-  mode : EditorMode,
-  selected_mode : EditorMode,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let name = mode_name(mode)
-  let icon_class = "pointer-events-none block size-4"
-  let icon = match mode {
-    Text => @view.text_mode_icon(icon_class)
-    Preview => @view.preview_mode_icon(icon_class)
-    Split => @view.split_mode_icon(icon_class)
-  }
-  @rui.tabs_trigger(
-    value=name.to_lower(),
-    selected=mode == selected_mode,
-    controls="loomark-editor-panel",
-    id=mode_dom_id(mode),
-    on_value_change=@cmd.Emit(_ => emit(ModeSelected(mode))),
-    title=name,
-    class="loomark-mode-button",
-    attrs=@html.Attrs::build().aria_label(name),
-    style=[
-      "width:2.25rem;height:2.25rem;min-height:2.25rem;flex:none;padding:0",
-    ],
-    icon,
-  )
-}
-
-///|
-fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
-  @rui.tabs_content(
-    value=mode_name(mode).to_lower(),
-    selected=true,
-    labelledby=mode_dom_id(mode),
-    id="loomark-editor-panel",
-    class="min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-    style=["display:flex"],
-    content,
-  )
-}
-
-///|
-fn sync_status_label(text : String) -> @rabbita.Html {
-  @html.span(class="min-w-0 px-1.5 py-1", text)
-}
-
-///|
-fn sync_status_button(
-  text : String,
-  message : Msg,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  @html.button(
-    type_="button",
-    class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
-    on_click=emit(message),
-    text,
-  )
-}
-
-///|
-fn account_status_view(
-  status : AccountStatus,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match status {
-    Checking
-    | SignedOut
-    | SignedIn(_)
-    | SigningOut(_)
-    | SignOutUnconfirmed(_)
-    | Unavailable => @html.nothing
-    SyncUnavailable =>
-      sync_status_button("Retry document connection", RetryAccount, emit)
-  }
-}
-
-///|
-fn local_durability_view(durability : LocalDurability) -> @rabbita.Html {
-  match durability {
-    NotStarted | Saving | Stored => @html.nothing
-    NotStored => sync_status_label("Not saved on this device")
-  }
-}
-
-///|
-fn save_indicator(
-  durability : LocalDurability?,
-  persistence : @replica_persistence.Status?,
-) -> @rabbita.Html {
-  let (label, icon) = match durability {
-    None | Some(NotStarted) => return @html.nothing
-    Some(NotStored) => ("Not saved", @view.unsaved_icon("block size-4"))
-    Some(Saving) if persistence is Some(Retryable(_, _)) =>
-      ("Not saved", @view.unsaved_icon("block size-4"))
-    Some(Saving) => ("Saving on this device", @view.saving_icon("block size-4"))
-    Some(Stored) => ("Saved on this device", @view.saved_icon("block size-4"))
-  }
-  @html.span(
-    class="loomark-save-status inline-flex h-9 shrink-0 items-center",
-    title=label,
-    attrs=@html.Attrs::build().role("status").aria_label(label),
-    [icon, @html.span(class="loomark-save-caption", label)],
-  )
-}
-
-///|
-fn remote_state_view(
-  remote : @documents.RemoteState,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match remote {
-    @documents.RemoteState::Current | LocalAhead | RemoteAhead | Concurrent =>
-      @html.nothing
-    Diverged => sync_status_label("Conflicting changes")
-    DeletedRemotely => sync_status_label("Deletion pending")
-    UpdateAvailable(action) =>
-      sync_status_button("Open update", AcceptRemote(action), emit)
-    DeletionAvailable(action) =>
-      sync_status_button("Remove deleted document", AcceptRemote(action), emit)
-    Unavailable => @html.nothing
-  }
-}
-
-///|
-fn replica_persistence_view(
-  persistence : @replica_persistence.Status,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match persistence {
-    @replica_persistence.Status::Current | Persisting => @html.nothing
-    Retryable(action, _) =>
-      @html.div(class="flex flex-col items-start gap-1", [
-        sync_status_label("Sync information was not saved on this device."),
-        sync_status_button("Retry saving", RetrySaving(action), emit),
-      ])
-  }
-}
-
-///|
-fn activity_view(
-  activity : @sync.Activity,
-  durability : LocalDurability?,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match activity {
-    @sync.Activity::Idle | Working => @html.nothing
-    Retryable(action) =>
-      @html.div(class="flex flex-col items-start gap-1", [
-        sync_status_label(
-          if durability is Some(Stored) {
-            "Saved on this device. Sync failed."
-          } else {
-            "Sync failed."
-          },
-        ),
-        sync_status_button("Retry sync", RetrySync(action), emit),
-      ])
-    Blocked => sync_status_label("Sync paused")
-  }
-}
-
-///|
-fn selection_activity_view(
-  activity : @sync.SelectionActivity,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match activity {
-    @sync.SelectionActivity::Idle | Working => @html.nothing
-    Retryable(action) =>
-      sync_status_button("Retry opening", RetrySelection(action), emit)
-  }
-}
-
-///|
-fn render_document_sync(
-  sync : DocumentSync,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match sync {
-    DeviceOnly | Unavailable | Linking | Linked => @html.nothing
-    SyncAvailable(action) => sync_status_button("Sync", StartSync(action), emit)
-  }
-}
-
-///|
-fn local_durability_option_view(durability : LocalDurability?) -> @rabbita.Html {
-  match durability {
-    None => @html.nothing
-    Some(durability) => local_durability_view(durability)
-  }
-}
-
-///|
-fn document_sync_option_view(
-  sync : DocumentSync?,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match sync {
-    None => @html.nothing
-    Some(sync) => render_document_sync(sync, emit)
-  }
-}
-
-///|
-fn replica_persistence_option_view(
-  persistence : @replica_persistence.Status?,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match persistence {
-    None => @html.nothing
-    Some(persistence) => replica_persistence_view(persistence, emit)
-  }
-}
-
-///|
-fn remote_state_option_view(
-  remote : @documents.RemoteState?,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match remote {
-    None => @html.nothing
-    Some(remote) => remote_state_view(remote, emit)
-  }
-}
-
-///|
-fn activity_option_view(
-  activity : @sync.Activity?,
-  durability : LocalDurability?,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  match activity {
-    None => @html.nothing
-    Some(activity) => activity_view(activity, durability, emit)
-  }
-}
-
-///|
-fn sync_status_view(
-  account : @rabbita.Html,
-  durability : @rabbita.Html,
-  persistence : @rabbita.Html,
-  sync : @rabbita.Html,
-  remote : @rabbita.Html,
-  activity : @rabbita.Html,
-  opening : @rabbita.Html,
-) -> @rabbita.Html {
-  @html.div(
-    class="loomark-menu-attention flex min-w-0 flex-col items-start gap-1 text-xs text-lm-muted empty:hidden",
-    attrs=@html.Attrs::build().role("status").aria_live("polite"),
-    [account, durability, persistence, sync, remote, activity, opening],
-  )
-}
-
-///|
-fn file_actions(
-  input_id : String,
-  import_disabled : Bool,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let action_class = "flex min-h-9 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-lm-rule bg-lm-surface px-2 py-1.5 text-xs text-lm-muted transition-colors duration-150 hover:bg-lm-accent-soft hover:text-lm-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11"
-  @html.div(class="grid min-w-0 grid-cols-2 gap-2", [
-    @html.label(
-      class="relative \{action_class} has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-lm-accent",
-      title="Import Markdown",
-      for_=input_id,
-      [
-        @view.upload_icon("pointer-events-none block size-4 shrink-0"),
-        @html.span("Import"),
-        @html.input(
-          input_type=File,
-          id=input_id,
-          class="sr-only",
-          on_files=emit.map(files => ImportFilesSelected(files)),
-          attrs=@html.Attrs::build()
-            .aria_label("Import Markdown")
-            .disabled(import_disabled),
-        ),
-      ],
-    ),
-    @html.button(
-      type_="button",
-      class=action_class,
-      title="Export Markdown",
-      attrs=@html.Attrs::build().aria_label("Export Markdown"),
-      on_click=emit(ExportRequested),
-      [
-        @view.download_icon("pointer-events-none block size-4 shrink-0"),
-        @html.span("Export"),
-      ],
-    ),
-  ])
-}
-
-///|
-fn sidebar_tools(
-  scope : @sidebar.SidebarScope,
-  editing : EditingState,
-  account : AccountControlsInput,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  @sidebar.sidebar_footer(class="border-t border-lm-rule", [
-    examples_bar(
-      emit,
-      editing.activation,
-      @sidebar.sidebar_collapse(scope),
-      disabled=editing.creation is Creating(_) ||
-        account.departure.editor_disabled(),
-    ),
-    file_actions("loomark-import", account.departure.editor_disabled(), emit),
-  ])
-}
-
-///|
-fn mode_bar(
-  editing : EditingState,
-  account : AccountControlsInput,
-  sync_status : @rabbita.Html,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  @html.header(
-    class="loomark-topbar flex h-12 shrink-0 items-center justify-end gap-1 px-6 max-[520px]:h-[52px] max-[520px]:px-3",
-    [
-      @html.button(
-        type_="button",
-        class="loomark-icon",
-        title="New document",
-        attrs=@html.Attrs::build()
-          .aria_label("New document")
-          .disabled(
-            !editing.can_activate() || account.departure.editor_disabled(),
-          ),
-        on_click=emit(CreateRequested),
-        @view.square_pen_icon("block size-4"),
-      ),
-      @html.button(
-        type_="button",
-        class="loomark-icon",
-        title="More actions",
-        attrs=@html.Attrs::build()
-          .id("loomark-more-actions")
-          .aria_label("More actions")
-          .aria_controls("loomark-more-actions-content")
-          .aria_expanded(if editing.menu_open { "true" } else { "false" }),
-        on_click=emit(MenuToggled),
-        @view.more_icon("block size-4"),
-      ),
-      if editing.menu_open {
-        @html.div(id="loomark-more-actions-content", class="loomark-menu", [
-          sync_status,
-          @html.div(
-            class="flex flex-col gap-1 border-b border-lm-rule px-1 pb-2",
-            account_controls(account, emit),
-          ),
-          file_actions(
-            "loomark-menu-import",
-            account.departure.editor_disabled(),
-            emit,
-          ),
-        ])
-      } else {
-        @html.nothing
-      },
-    ],
-  )
-}
-
-///|
-fn document_sidebar_trigger(
-  scope : @sidebar.SidebarScope,
-  compact : Bool,
-) -> @rabbita.Html {
-  let focus = compact && @sidebar.sidebar_is_collapsed(scope)
-  @sidebar.sidebar_trigger(
-    scope,
-    mobile=false,
-    controls="loomark-document-sidebar",
-    aria_label="Toggle documents",
-    class="loomark-sidebar-trigger fixed left-3 z-50 active:opacity-50 max-[520px]:left-2",
-    on_click=if focus {
-      @sidebar.sidebar_focus("loomark-document-sidebar")
-    } else {
-      @cmd.none
-    },
-    @view.panel_icon("block size-4 shrink-0"),
-  )
-}
-
-///|
-fn text_area_view(
+fn view(
+  model : @rabbita.Val[Model],
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
-  activation : Activation,
-  placeholder? : String,
-  disabled? : Bool,
-  read_only? : Bool,
-) -> @rabbita.Html {
-  @html.div(
-    class="loomark-source-frame h-full min-h-0 w-full min-w-0",
-    Map([
-      (
-        "activation-\{activation.generation}",
-        editor.input_view(
-          "Text",
-          input => emit(InputChanged(activation.generation, input)),
-          composing => {
-            if composing {
-              emit(CompositionStarted(activation.generation))
-            } else {
-              emit(CompositionEnded(activation.generation))
-            }
-          },
-          disabled?,
-          read_only?,
-          rows=24,
-          placeholder?,
-          autofocus=true,
-          class="loomark-source m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent font-lm-mono text-base text-lm-ink caret-lm-accent outline-0 [tab-size:2]",
-        ),
-      ),
-    ]),
-  )
-}
-
-///|
-fn import_failure_view(emit : @rabbita.Emit[Msg]) -> @rabbita.Html {
-  failure_notice(
-    "The Markdown file could not be imported.",
-    "Dismiss",
-    emit(DismissImportFailure),
-  )
-}
-
-///|
-fn creation_failure_view(
-  failure : @source_repository.CreateFailure,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let reason = match failure {
-    @source_repository.CreateFailure::DocumentIdentityUnavailable =>
-      "This browser cannot create a document identity."
-  }
-  failure_notice(
-    "A new document could not be created. " + reason,
-    "Retry creating",
-    emit(CreateRequested),
-  )
-}
-
-///|
-fn example_creation_failure_view(
-  activation : Activation,
-  text : String,
-  failure : @source_repository.CreateFailure,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let reason = match failure {
-    @source_repository.CreateFailure::DocumentIdentityUnavailable =>
-      "This browser cannot create a document identity."
-  }
-  failure_notice(
-    "The example document could not be created. " + reason,
-    "Try again",
-    emit(ExampleSelected(activation, text)),
-  )
-}
-
-///|
-fn delete_failure_view(
-  document_id : @documents.Key,
-  failure : @source_repository.DeleteFailure,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let reason = match failure {
-    InvalidSource => "The document is no longer available."
-    StorageUnavailable => "Browser storage is unavailable."
-    QuotaExceeded => "Browser storage is full."
-    WriteFailed => "Browser storage failed while deleting the document."
-  }
-  @html.div(
-    class="flex min-h-12 shrink-0 items-center justify-between gap-4 bg-lm-danger-soft px-4 py-2.5 text-sm text-lm-danger",
-    attrs=@html.Attrs::build().role("alert"),
-    [
-      @html.p("The document was not deleted. " + reason),
-      @html.div(class="flex shrink-0 gap-2", [
-        @html.button(
-          class="min-h-8 rounded-md border border-current px-2.5 py-1",
-          on_click=emit(RetryDelete(document_id)),
-          "Try again",
-        ),
-        @html.button(
-          class="min-h-8 rounded-md border border-current px-2.5 py-1",
-          on_click=emit(DismissDeleteFailure(document_id)),
-          "Dismiss",
-        ),
-      ]),
-    ],
-  )
-}
-
-///|
-fn delete_persistence_failure_view(
-  document_id : @documents.Key,
-  failure : @source_repository.ReplicaFailure,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let reason = match failure {
-    InvalidReplica => "The synchronized document state is invalid."
-    StorageUnavailable => "Browser storage is unavailable."
-    QuotaExceeded => "Browser storage is full."
-    WriteFailed => "Browser storage failed while saving the deletion."
-  }
-  failure_notice(
-    "The deletion was not saved. " + reason,
-    "Try again",
-    emit(RetryDelete(document_id)),
-  )
-}
-
-///|
-fn save_failure_view(
-  failure : @source_repository.SaveFailure,
-  emit : @rabbita.Emit[Msg],
-) -> @rabbita.Html {
-  let reason = match failure {
-    @source_repository.SaveFailure::InvalidSource =>
-      " The document identity is invalid."
-    @source_repository.SaveFailure::StorageUnavailable =>
-      " Browser storage is unavailable."
-    @source_repository.SaveFailure::QuotaExceeded => " Browser storage is full."
-    @source_repository.SaveFailure::WriteFailed =>
-      " Browser storage failed while writing the document."
-  }
-  failure_notice(
-    "Changes are not saved in this browser." + reason,
-    "Retry saving",
-    emit(RetrySave),
-  )
-}
-
-///|
-fn view(
-  sidebar : @sidebar.SidebarScope,
-  model : Page,
-  account : AccountControlsInput,
-  emit : @rabbita.Emit[Msg],
-  editor_panels : @rabbita.Html,
-  sync_status : @rabbita.Html,
-  sync_attention : @rabbita.Html,
-  replica_persistence : @replica_persistence.Status?,
-  delete_dialog : @rabbita.Html,
-  recent_navigation : @rabbita.Html,
-) -> @rabbita.Html {
-  @html.div(
-    id="loomark-root",
-    class="flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light selection:bg-lm-accent-soft",
-    attrs=@html.Attrs::build()
-      .role("region")
-      .aria_label("Loomark Markdown Editor"),
-    [
-      match model {
-        Loading(_) | PreparingNew(_) =>
-          @html.div(
-            class="grid min-h-full place-items-center text-lm-muted [&_p]:m-0",
-            [@html.p("Loading document")],
+) -> @rabbita.Val[@rabbita.Html] {
+  let page = model.map(model => model.page)
+  let editor_input : @rabbita.Val[EditorInput?] = model.map(model => {
+    match model.page {
+      Editing(editing) =>
+        Some({
+          activation: editing.activation,
+          show_new_document_hint: local_durability(
+            editing,
+            editing.activation.key,
           )
-        Recovery(failure, _) | NewPreparationFailed(_, failure) => {
-          let message = match failure {
-            @source_repository.OpenFailure::StorageUnavailable =>
-              "Browser storage is unavailable."
-            @source_repository.OpenFailure::ReadFailed =>
-              "Browser storage failed while reading the document."
+          is Some(NotStarted),
+          disabled: editing.creation is Creating(_) ||
+          model.sign_in.blocks_editing(),
+          read_only: editing.deletion_blocks_document_changes(),
+          mode: editing.mode,
+          preview: editing.preview,
+        })
+      Loading(_)
+      | PreparingNew(_)
+      | NewPreparationFailed(_, _)
+      | Recovery(_, _) => None
+    }
+  })
+
+  let compact = page.map(page => {
+    match page {
+      Loading(compact) => compact
+      PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+        preparing.compact
+      Editing(editing) => editing.compact
+      Recovery(_, compact) => compact
+    }
+  })
+  let on_editor : @rabbita.Emit[EditorUiEvent] = emit.map(event => {
+    match event {
+      InputChanged(generation, input) => Msg::InputChanged(generation, input)
+      CompositionStarted(generation) => Msg::CompositionStarted(generation)
+      CompositionEnded(generation) => Msg::CompositionEnded(generation)
+      ScrollClaimed(pane) => Msg::ScrollClaimed(pane)
+    }
+  })
+  let editor_panes = build_editor_view(editor_input, compact, editor, on_editor)
+  let on_sync : @rabbita.Emit[SyncIntent] = emit.map(intent => {
+    match intent {
+      RetryAccount => Msg::RetryAccount
+      StartSync(action) => Msg::StartSync(action)
+      AcceptRemote(action) => Msg::AcceptRemote(action)
+      RetrySaving(action) => Msg::RetrySaving(action)
+      RetrySync(action) => Msg::RetrySync(action)
+      RetrySelection(action) => Msg::RetrySelection(action)
+    }
+  })
+  let on_account : @rabbita.Emit[AccountIntent] = emit.map(intent => {
+    match intent {
+      RetryAccount => Msg::RetryAccount
+      SignIn(action) => Msg::SignIn(@sign_in.Invoke(action))
+      LogoutRequested => Msg::LogoutRequested
+    }
+  })
+  let on_document : @rabbita.Emit[DocumentIntent] = emit.map(intent => {
+    match intent {
+      CreateRequested => Msg::CreateRequested
+      MenuToggled => Msg::MenuToggled
+      ImportFilesSelected(files) => Msg::ImportFilesSelected(files)
+      ExportRequested => Msg::ExportRequested
+      ExampleSelected(activation, text) =>
+        Msg::ExampleSelected(activation, text)
+    }
+  })
+  let on_mode = emit.map(mode => ModeSelected(mode))
+  let remote_documents = model.map(model => remote_documents(model.sync()))
+  let account = model.map(model => account_status(model.sync()))
+  let durability = model.map(document_durability)
+  let replica_persistence = model.map(document_replica_persistence)
+  let document_sync = model.map(document_sync)
+  let document_remote = model.map(document_remote_state)
+  let document_activity = model.map(document_sync_activity)
+  let selection = model.map(selection_activity)
+  let account_view = account.view(account => {
+    account_status_view(account, on_sync)
+  })
+  let durability_view = durability.view(durability => {
+    local_durability_option_view(durability)
+  })
+  let replica_persistence_view = replica_persistence.view(persistence => {
+    replica_persistence_option_view(persistence, on_sync)
+  })
+  let document_sync_view = document_sync.view(sync => {
+    document_sync_option_view(sync, on_sync)
+  })
+  let document_remote_view = document_remote.view(remote => {
+    remote_state_option_view(remote, on_sync)
+  })
+  let document_activity_view = document_activity.view2(durability, (
+    activity,
+    durability,
+  ) => activity_option_view(activity, durability, on_sync))
+  let selection_view = selection.view(activity => {
+    selection_activity_view(activity, on_sync)
+  })
+  let sync_status = account_view.view7(
+    durability_view, replica_persistence_view, document_sync_view, document_remote_view,
+    document_activity_view, selection_view, sync_status_view,
+  )
+  let sync_attention = document_remote.map3(
+    replica_persistence,
+    document_activity,
+    (remote, persistence, activity) => {
+      let attention = sync_attention_view(
+        remote, persistence, activity, on_sync,
+      )
+      (attention, persistence)
+    },
+  )
+  let membership = page.map(document_membership)
+  let remote_seeds = remote_documents.map2(membership, remote_document_seeds)
+  let recent_seeds = page.map2(remote_seeds, (page, remote) => {
+    match page {
+      Editing(editing) => recent_document_seeds(editing, remote)
+      Loading(_)
+      | PreparingNew(_)
+      | NewPreparationFailed(_, _)
+      | Recovery(_, _) => @vector.Vector([])
+    }
+  })
+  let delete_confirmation = page.map(page => {
+    match page {
+      Editing(editing) =>
+        match editing.deletion {
+          DeleteConfirmation(id) => Some(id)
+          NoDeletion => None
+        }
+      Loading(_)
+      | PreparingNew(_)
+      | NewPreparationFailed(_, _)
+      | Recovery(_, _) => None
+    }
+  })
+  // Resizing must preserve the sidebar state, so it outlives responsive editor branches.
+  let sidebar_state = @sidebar.SidebarProviderState::SidebarProviderState(true)
+  let recent_documents_view = @recent_documents.build(
+    input=recent_seeds,
+    lifecycle_key=key => key.lifecycle_key(),
+    visible=sidebar_state.visible(),
+    can_create=model.map(model => {
+      match model.page {
+        Editing(editing) =>
+          editing.can_activate() && !model.sign_in.blocks_editing()
+        _ => false
+      }
+    }),
+    compact~,
+    delete_target=delete_confirmation,
+    on_intent=@cmd.Emit(intent => {
+      match intent {
+        Create => emit(CreateRequested)
+        Select(id) => emit(DocumentSelected(id))
+        RequestDelete(id) => emit(DeleteRequested(id))
+        CancelDelete => emit(DeleteCancelled)
+        ConfirmDelete(id) => emit(DeleteConfirmed(id))
+      }
+    }),
+    close_after_action=sidebar_state.collapse(),
+  )
+  let account_input = model.map(account_controls_input)
+  let account_controls = account_input.view(input => {
+    account_controls(input, on_account)
+  })
+  let account_notice = account_input.view(account_notice)
+  let tools_input = model.map(document_tools_input)
+  let tools = tools_input.view(input => {
+    match input {
+      None => @html.nothing
+      Some(input) => sidebar_tools(input, sidebar_state.collapse(), on_document)
+    }
+  })
+  let toolbar_input = model.map(toolbar_input)
+  let toolbar = toolbar_input.view3(account_controls, sync_status, (
+    input,
+    account,
+    sync_status,
+  ) => {
+    match input {
+      None => @html.nothing
+      Some(input) => document_toolbar(input, account, sync_status, on_document)
+    }
+  })
+  let mode = page.map(page => {
+    match page {
+      Editing(editing) => Some(editing.mode)
+      _ => None
+    }
+  })
+  let editor_view = mode.view2(editor_panes, (mode, panels) => {
+    match mode {
+      Some(mode) => mode_content(mode, panels)
+      None => @html.nothing
+    }
+  })
+  let footer = mode.view3(durability, sync_attention, (
+    mode,
+    durability,
+    attention,
+  ) => {
+    let (sync_attention, persistence) = attention
+    match mode {
+      Some(mode) =>
+        document_footer(mode, durability, persistence, sync_attention, on_mode)
+      None => @html.nothing
+    }
+  })
+  let notices = model
+    .map(notices_input)
+    .view(input => {
+      let save_failure = match input.failure {
+        Some(Save(failure)) => Some(failure)
+        _ => None
+      }
+      let failure = match input.failure {
+        None | Some(Save(_)) => @html.nothing
+        Some(Create(failure)) =>
+          creation_failure_view(failure, emit(CreateRequested))
+        Some(Example(activation, text, failure)) =>
+          example_creation_failure_view(
+            failure,
+            emit(ExampleSelected(activation, text)),
+          )
+        Some(Delete(key, failure)) =>
+          delete_failure_view(
+            failure,
+            emit(RetryDelete(key)),
+            emit(DismissDeleteFailure(key)),
+          )
+        Some(DeletePersistence(key, failure)) =>
+          delete_persistence_failure_view(failure, emit(RetryDelete(key)))
+      }
+      @html.fragment([
+        save_failure_view(save_failure, emit(RetrySave)),
+        failure,
+        if input.import_failed {
+          import_failure_view(emit(DismissImportFailure))
+        } else {
+          @html.nothing
+        },
+      ])
+    })
+  let phase = page.map(page => {
+    match page {
+      Loading(_) | PreparingNew(_) => LoadingScreen
+      Recovery(failure, _) | NewPreparationFailed(_, failure) =>
+        RecoveryScreen(failure)
+      Editing(_) => EditingScreen
+    }
+  })
+  let controls = toolbar.map3(account_notice, footer, (
+    toolbar,
+    account_notice,
+    footer,
+  ) => (toolbar, account_notice, footer))
+  let layout_input = phase.map8(
+    compact,
+    recent_documents_view.navigation(),
+    tools,
+    controls,
+    editor_view,
+    notices,
+    recent_documents_view.dialog(),
+    (phase, compact, navigation, tools, controls, editor, notices, dialog) => {
+      let (toolbar, account_notice, footer) = controls
+      LayoutInput::{
+        phase,
+        compact,
+        navigation,
+        tools,
+        toolbar,
+        account_notice,
+        editor,
+        footer,
+        notices,
+        dialog,
+      }
+    },
+  )
+  @sidebar.sidebar_provider_with_state(
+    state=sidebar_state,
+    input=layout_input,
+    class="loomark-viewport [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
+    screen_layout,
+  )
+}
+
+///|
+fn document_tools_input(model : Model) -> DocumentToolsInput? {
+  guard model.page is Editing(editing) else { return None }
+  Some({
+    activation: editing.activation,
+    examples_disabled: editing.creation is Creating(_) ||
+    model.sign_in.blocks_editing(),
+    import_disabled: model.sign_in.blocks_editing(),
+  })
+}
+
+///|
+fn toolbar_input(model : Model) -> ToolbarInput? {
+  guard model.page is Editing(editing) else { return None }
+  Some({
+    can_create: editing.can_activate() && !model.sign_in.blocks_editing(),
+    menu_open: editing.menu_open,
+    import_disabled: model.sign_in.blocks_editing(),
+  })
+}
+
+///|
+fn notices_input(model : Model) -> NoticesInput {
+  guard model.page is Editing(editing) else {
+    return { failure: None, import_failed: false, }
+  }
+  let sign_in_reports_save_failure = account_controls_input(model).sign_in
+    is @sign_in.Failed(@sign_in.Save(_), ..)
+  let failure : DocumentFailure? = match
+    editing.documents.save_status(editing.activation.key) {
+    Some(@documents.SaveStatus::SaveFailed(failure)) if !sign_in_reports_save_failure =>
+      Some(Save(failure))
+    _ =>
+      match editing.creation {
+        CreationFailed(failure) => Some(Create(failure))
+        ExampleCreationFailed(text, failure) =>
+          Some(Example(editing.activation, text, failure))
+        _ =>
+          match editing.documents.delete_status(editing.activation.key) {
+            Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
+              Some(Delete(editing.activation.key, failure))
+            Some(@documents.DeleteStatus::DeletePersistenceFailed(failure)) =>
+              Some(DeletePersistence(editing.activation.key, failure))
+            _ => None
           }
-          @html.div(
-            class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6] [&_p]:text-lm-muted",
-            [@html.h1("Document recovery"), @html.p(message)],
-          )
-        }
-        Editing(editing) => {
-          let editor_inert = editing.compact &&
-            !@sidebar.sidebar_is_collapsed(sidebar)
-          @html.div(
-            class="flex h-full min-h-0 min-w-0 flex-1 opacity-100 transition-opacity duration-[140ms] ease-[cubic-bezier(0.23,1,0.32,1)] starting:opacity-[0.92] motion-reduce:duration-[80ms] motion-reduce:ease-[ease]",
-            [
-              @sidebar.sidebar(
-                sidebar,
-                id="loomark-document-sidebar",
-                mobile=false,
-                side=@sidebar.SidebarLeft,
-                variant=@sidebar.SidebarDefault,
-                collapsible=@sidebar.SidebarOffcanvas,
-                aria_label="Documents",
-                class="loomark-sidebar [--rui-sidebar:var(--color-lm-foundation)] [--rui-sidebar-foreground:var(--color-lm-ink)] [--rui-sidebar-border:var(--color-lm-rule)] [--rui-sidebar-accent:var(--color-lm-accent-soft)] [--rui-sidebar-accent-foreground:var(--color-lm-accent)]",
-                [
-                  recent_navigation,
-                  sidebar_tools(sidebar, editing, account, emit),
-                ],
-              ),
-              document_sidebar_trigger(sidebar, editing.compact),
-              @html.div(
-                id="loomark-editor",
-                class="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
-                attrs=@html.Attrs::build().inert(editor_inert),
-                [
-                  mode_bar(editing, account, sync_status, emit),
-                  account_notice(account),
-                  mode_content(editing.mode, editor_panels),
-                  @html.footer(
-                    class="loomark-footer flex h-16 shrink-0 items-center justify-between gap-2 px-3 max-[520px]:px-2",
-                    [
-                      @html.div(
-                        class="loomark-footer-status flex min-w-0 flex-1 items-center gap-2",
-                        [
-                          save_indicator(
-                            local_durability(editing, editing.activation.key),
-                            replica_persistence,
-                          ),
-                          @html.div(
-                            class="loomark-sync-attention min-w-0",
-                            sync_attention,
-                          ),
-                        ],
-                      ),
-                      @html.div(
-                        class="loomark-bottom-actions flex shrink-0 items-center gap-2",
-                        [
-                          @rui.tabs_root(
-                            value=mode_name(editing.mode).to_lower(),
-                            style=["width:auto"],
-                            @rui.tabs_list(
-                              orientation=@rui.TabsHorizontal,
-                              variant=@rui.TabsDefault,
-                              aria_label="Editor mode",
-                              [
-                                mode_tab(Text, editing.mode, emit),
-                                mode_tab(Split, editing.mode, emit),
-                                mode_tab(Preview, editing.mode, emit),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  match
-                    (
-                      editing.documents.save_status(editing.activation.key),
-                      editing.creation,
-                    ) {
-                    (Some(@documents.SaveStatus::SaveFailed(failure)), _) if !(account.departure
-                      is LoginFailed(SaveFailed(_))) =>
-                      save_failure_view(failure, emit)
-                    (_, CreationFailed(failure)) =>
-                      creation_failure_view(failure, emit)
-                    (_, ExampleCreationFailed(text, failure)) =>
-                      example_creation_failure_view(
-                        editing.activation,
-                        text,
-                        failure,
-                        emit,
-                      )
-                    _ =>
-                      match
-                        editing.documents.delete_status(editing.activation.key) {
-                        Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
-                          delete_failure_view(
-                            editing.activation.key,
-                            failure,
-                            emit,
-                          )
-                        Some(
-                          @documents.DeleteStatus::DeletePersistenceFailed(
-                            failure
-                          )
-                        ) =>
-                          delete_persistence_failure_view(
-                            editing.activation.key,
-                            failure,
-                            emit,
-                          )
-                        _ => @html.nothing
-                      }
-                  },
-                  if editing.import_failed {
-                    import_failure_view(emit)
-                  } else {
-                    @html.nothing
-                  },
-                ],
-              ),
-            ],
-          )
-        }
-      },
-      delete_dialog,
-    ],
-  )
+      }
+  }
+  { failure, import_failed: editing.import_failed, }
 }

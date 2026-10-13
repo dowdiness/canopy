@@ -21,7 +21,7 @@ orthogonal-input suppression, and scope disposal.
 
 ## Non-goals
 
-- Moving `Model`, `Msg`, `Documents`, or their reducer protocol out of `app`.
+- Changing `Model`, `Msg`, or the Documents reducer protocol.
 - Adding a Catalog, stored title, persisted Document lead, or manual lead cache.
 - Adding another `incr` runtime, an eager hidden observer, a generic storage
   trait, or a generic feature framework.
@@ -40,9 +40,8 @@ orthogonal-input suppression, and scope disposal.
 3. `Documents::reduce` remains the deterministic owner of selection, saving,
    deletion, and quiet-event acceptance.
 4. Recent documents receives resolved presentation capabilities and emits
-   intents. It cannot import `RepositorySnapshot`, Catalog state, composition
-   state, save lanes, or deletion policy because the repository is below
-   `app/internal`.
+   intents. It does not import repository or Documents state, save lanes, or
+   deletion policy. This is a dependency rule, not a package-visibility restriction.
 5. A Document lead contains only equality-relevant information that a consumer
    can present.
 6. Lead extraction is total: non-empty text never becomes Empty solely because
@@ -128,17 +127,16 @@ optimization without exposing offsets, certificates, or parser nodes. The packag
 imports no app, repository, Rabbita, RUI, DOM, storage, timer, or command
 package.
 
-### `app/internal/source_repository`
+### `internal/source_repository`
 
-Move the existing `internal/source_repository` package under `app/internal`
-without changing persistence behavior. MoonBit then permits `app` to import it
-but rejects an import from sibling `internal/recent_documents`.
+Keep the repository with Loomark's other internal features without changing
+persistence behavior, following the revised repository-placement decision.
 
 The repository imports `document_lead` for `DerivedName` derivation and
 certified pure reuse.
 Remove `derive_name` from the repository's generated public interface. Update
 module/package documentation and every import path in the same mechanical
-stage. Do not move `Model`, `Msg`, or Documents state with it.
+stage. Do not change `Model`, `Msg`, or Documents state as part of this extraction.
 
 ### `internal/recent_documents`
 
@@ -205,8 +203,7 @@ Only include retry or dismiss intents when the existing Documents transition
 actually exposes that capability. Do not create presentation actions that have
 no reducer decision behind them. The package may import `document_lead`,
 `sidebar`, Rabbita HTML/command APIs, and RUI primitives. It must not import
-`app`; MoonBit package visibility must make importing
-`app/internal/source_repository` fail.
+`app`, `documents`, or `source_repository`.
 
 ### `internal/sidebar`
 
@@ -382,13 +379,11 @@ Start from a dedicated
 worktree whose HEAD contains current `origin/main`; do not continue from the
 prototype branch.
 
-### 1. Enforce the repository boundary
+### 1. Separate repository and presentation responsibilities
 
-- Move `internal/source_repository` to `app/internal/source_repository` as a
-  behavior-preserving package and import migration.
+- Keep `internal/source_repository` independent of presentation code.
 - Update package maps, docs, tests, benchmarks, and generated interfaces.
-- Add a small compiler probe or boundary check demonstrating that
-  `internal/recent_documents` cannot import the relocated package.
+- Keep repository imports out of `internal/recent_documents`.
 - Run Source repository tests before any semantic extraction change.
 
 ### 2. Deepen `document_lead`
@@ -499,9 +494,9 @@ Use the affected package loop during implementation:
 cd apps/loomark
 NEW_MOON_MOD=0 moon check app --target js
 NEW_MOON_MOD=0 moon test app --target js --release
-NEW_MOON_MOD=0 moon check app/internal/source_repository --target js
-NEW_MOON_MOD=0 moon test app/internal/source_repository --target js --release
-NEW_MOON_MOD=0 moon bench app/internal/source_repository --target js --release
+NEW_MOON_MOD=0 moon check internal/source_repository --target js
+NEW_MOON_MOD=0 moon test internal/source_repository --target js --release
+NEW_MOON_MOD=0 moon bench internal/source_repository --target js --release
 NEW_MOON_MOD=0 moon check internal/document_lead --target js
 NEW_MOON_MOD=0 moon test internal/document_lead --target js --release
 NEW_MOON_MOD=0 moon bench internal/document_lead --target js --release

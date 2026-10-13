@@ -1,0 +1,214 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/documents"
+
+import {
+  "dowdiness/loomark/internal/replica_persistence",
+  "dowdiness/loomark/internal/source_repository",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror ActionError {
+  ExpiredAction
+} derive(Eq, @debug.Debug)
+pub fn ActionError::equal(Self, Self) -> Bool
+pub fn ActionError::not_equal(Self, Self) -> Bool
+pub fn ActionError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub struct AcceptRemote {
+  // private fields
+} derive(Eq)
+pub fn AcceptRemote::equal(Self, Self) -> Bool
+pub fn AcceptRemote::not_equal(Self, Self) -> Bool
+
+pub(all) enum Action {
+  ArmMaximum(Int)
+  PersistSource(SaveOperation)
+  StoreReplica(@source_repository.ReplicaWrite)
+  SaveReplica(ReplicaEdit)
+  DeleteReplica(ReplicaEdit)
+  RetryReplica(@source_repository.AccountId, @source_repository.DocumentId)
+  DeleteSource(DeleteOperation)
+}
+
+pub struct DeleteOperation {
+  key : Key
+  document_id : @source_repository.DocumentId
+  request_id : Int
+} derive(Eq)
+pub fn DeleteOperation::equal(Self, Self) -> Bool
+pub fn DeleteOperation::not_equal(Self, Self) -> Bool
+
+pub(all) enum DeleteStatus {
+  NotDeletable
+  Deletable
+  DeletePending
+  DeleteFailed(@source_repository.DeleteFailure)
+  DeletePersistenceFailed(@source_repository.ReplicaFailure)
+} derive(Eq)
+pub fn DeleteStatus::equal(Self, Self) -> Bool
+pub fn DeleteStatus::not_equal(Self, Self) -> Bool
+
+pub(all) enum Feedback {
+  MaximumElapsed(Int)
+  SaveCompleted(SaveOperation, @source_repository.SaveResult)
+  ReplicaAdvanced(@source_repository.ReplicaWrite)
+  ReplicaSettled(@source_repository.ReplicaWrite, Key?)
+  ReplicaDeletionFailed(@source_repository.ReplicaWrite, @source_repository.ReplicaFailure)
+  PromotionCompleted(@source_repository.ReplicaWrite, Result[Unit, @source_repository.ReplicaFailure])
+  DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
+}
+pub fn Feedback::from_replica_completion(@source_repository.ReplicaWrite, @replica_persistence.Completion, Key?) -> Self?
+
+pub enum Key {
+  Source(@source_repository.DocumentId)
+  Replica(@source_repository.AccountId, @source_repository.DocumentId)
+} derive(Eq, Hash)
+pub fn Key::equal(Self, Self) -> Bool
+pub fn Key::hash(Self) -> Int
+pub fn Key::hash_combine(Self, Hasher) -> Unit
+pub fn Key::lifecycle_key(Self) -> String
+pub fn Key::not_equal(Self, Self) -> Bool
+pub fn Key::replica(@source_repository.AccountId, @source_repository.DocumentId) -> Self
+pub fn Key::source(@source_repository.DocumentId) -> Self
+
+pub enum LocalDurability {
+  AwaitingInput
+  Saving
+  Failed(LocalSaveFailure)
+  Durable
+} derive(Eq)
+pub fn LocalDurability::equal(Self, Self) -> Bool
+pub fn LocalDurability::not_equal(Self, Self) -> Bool
+
+pub enum LocalSaveFailure {
+  Save(Key, @source_repository.SaveFailure)
+  Delete(Key, @source_repository.DeleteFailure)
+  Replica(Key, @source_repository.ReplicaFailure)
+} derive(Eq)
+pub fn LocalSaveFailure::equal(Self, Self) -> Bool
+pub fn LocalSaveFailure::not_equal(Self, Self) -> Bool
+
+pub(all) enum Msg {
+  New(@source_repository.DocumentId)
+  Imported(@source_repository.DocumentId, String)
+  TextChanged(Key, String)
+  CompositionStarted(Key)
+  CompositionEnded(Key)
+  FeedbackReceived(Feedback)
+  RetrySave(Key)
+  VisibilityFlush(Key)
+  VisibilityFlushAll
+  ApplyPendingEdit(Key, Int)
+  DeleteConfirmed(Key)
+  RetryDelete(Key)
+  DismissDeleteFailure(Key)
+}
+
+pub struct OpenedDocument {
+  // private fields
+}
+pub fn OpenedDocument::document(Self) -> @source_repository.Document
+pub fn OpenedDocument::documents(Self) -> State
+pub fn OpenedDocument::key(Self) -> Key
+
+pub(all) enum RemoteAcceptance {
+  Opened(State, @source_repository.Document, @source_repository.ReplicaWrite)
+  Removed(State, @source_repository.ReplicaWrite)
+}
+
+pub(all) enum RemoteOpen {
+  Opened(OpenedDocument)
+  Superseded
+}
+
+pub(all) enum RemoteState {
+  Current
+  LocalAhead
+  RemoteAhead
+  Concurrent
+  Diverged
+  DeletedRemotely
+  UpdateAvailable(AcceptRemote)
+  DeletionAvailable(AcceptRemote)
+  Unavailable
+} derive(Eq)
+pub fn RemoteState::equal(Self, Self) -> Bool
+pub fn RemoteState::not_equal(Self, Self) -> Bool
+
+pub struct ReplicaEdit {
+  // private fields
+} derive(Eq)
+pub fn ReplicaEdit::document(Self) -> @source_repository.Document
+pub fn ReplicaEdit::durable(Self) -> @source_repository.DocumentReplica
+pub fn ReplicaEdit::equal(Self, Self) -> Bool
+pub fn ReplicaEdit::not_equal(Self, Self) -> Bool
+
+pub struct SaveOperation {
+  key : Key
+  document : @source_repository.Document
+} derive(Eq)
+pub fn SaveOperation::equal(Self, Self) -> Bool
+pub fn SaveOperation::not_equal(Self, Self) -> Bool
+
+pub(all) enum SaveStatus {
+  Clean
+  Unsaved
+  SaveFailed(@source_repository.SaveFailure)
+} derive(Eq)
+pub fn SaveStatus::equal(Self, Self) -> Bool
+pub fn SaveStatus::not_equal(Self, Self) -> Bool
+
+pub struct StartSync {
+  // private fields
+} derive(Eq)
+pub fn StartSync::account(Self) -> @source_repository.AccountId
+pub fn StartSync::document_id(Self) -> @source_repository.DocumentId
+pub fn StartSync::equal(Self, Self) -> Bool
+pub fn StartSync::not_equal(Self, Self) -> Bool
+
+pub struct State {
+  // private fields
+} derive(Eq)
+pub fn State::State(@source_repository.SavedDocuments) -> Self
+pub fn State::accept_remote(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?, AcceptRemote) -> RemoteAcceptance raise ActionError
+pub fn State::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise ActionError
+pub fn State::delete_status(Self, Key) -> DeleteStatus?
+pub fn State::document(Self, Key) -> @source_repository.Document?
+pub fn State::equal(Self, Self) -> Bool
+pub fn State::fallback_document(Self, Key) -> Key?
+pub fn State::hide_accounts(Self) -> Self
+pub fn State::is_composing(Self, Key) -> Bool
+pub fn State::is_ephemeral_new(Self, Key) -> Bool
+pub fn State::known_keys(Self) -> Array[Key]
+pub fn State::local_durability(Self, @replica_persistence.State) -> LocalDurability
+pub fn State::not_equal(Self, Self) -> Bool
+pub fn State::open_replica(Self, @source_repository.DocumentReplica) -> RemoteOpen
+pub fn State::pending_edits(Self) -> Array[(Key, Int)]
+pub fn State::project_account(Self, @source_repository.AccountId) -> Self
+pub fn State::recent(Self) -> Array[(Key, String, SaveStatus, DeleteStatus)]
+pub fn State::reduce(Self, Msg) -> (Self, Array[Action])
+pub fn State::remote_state(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?) -> RemoteState
+pub fn State::replica_owner(Self, Key) -> (@source_repository.AccountId, @source_repository.DocumentId)?
+pub fn State::resume_hint(Self, Key) -> @source_repository.EditingDocumentHint?
+pub fn State::save_changes(Self) -> (Self, Array[Action])
+pub fn State::save_status(Self, Key) -> SaveStatus?
+pub fn State::snapshot(Self) -> @source_repository.SavedDocuments
+pub fn State::start_sync(Self, StartSync) -> (Self, Array[Action]) raise ActionError
+pub fn State::sync_start(Self, Key, @source_repository.AccountId) -> SyncStart
+pub fn State::text(Self, Key) -> String?
+
+pub(all) enum SyncStart {
+  Unavailable
+  Ready(StartSync)
+  Starting
+} derive(Eq)
+pub fn SyncStart::equal(Self, Self) -> Bool
+pub fn SyncStart::not_equal(Self, Self) -> Bool
+
+// Type aliases
+
+// Traits

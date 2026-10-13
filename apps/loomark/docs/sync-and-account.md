@@ -2,7 +2,23 @@
 
 Loomark pairs local-first IndexedDB persistence with an optional cloud sync service powered by Cloudflare Workers, D1, and Google OAuth (via Better Auth).
 
-This guide details how Loomark coordinates authentication, background replication, causal consistency, and divergence recovery without disrupting the active editor.
+- For a high-level product introduction and philosophy, see the [Loomark README](../README.md).
+- For client-side UI and DOM architecture, see [architecture.md](architecture.md).
+- For deployment and production verification, see [production.md](production.md).
+- For the full document map, see [Documentation Index](README.md).
+
+This guide details how Loomark coordinates authentication, background replication, causal consistency, and divergence recovery without disrupting active editing.
+
+---
+
+## Table of Contents
+
+1. [System Boundary and Responsibilities](#1-system-boundary-and-responsibilities)
+2. [Google Sign-In and Page Departure Lifecycle](#2-google-sign-in-and-page-departure-lifecycle)
+3. [Replica Persistence and State Machine](#3-replica-persistence-and-state-machine)
+4. [Conflict Handling and Divergence Recovery](#4-conflict-handling-and-divergence-recovery)
+5. [Network Protocol and Invariants](#5-network-protocol-and-invariants)
+6. [Testing the Sync Stack](#6-testing-the-sync-stack)
 
 ---
 
@@ -37,16 +53,22 @@ Sync failed.** only when the current text is locally stored; otherwise it says
 logout or when account lookup is unavailable. Account lookup failures retain
 **Check account connection** without presenting the user as signed out.
 
-Sign-in preparation shows **Signing in…** with **Cancel sign-in** until
+Sign-in shows **Signing in…** with **Cancel sign-in** until
 navigation begins. During account lookup the account control is disabled;
 logout failures retain the account name and **Retry sign-out**.
 
 When a user clicks **Login with Google**, Loomark guarantees that local work is safely committed before navigating away:
 
-1. **Local Pre-Flight:** The root model asks the document store to flush pending edits to IndexedDB across both Source and Replica lanes. If saving fails, navigation aborts, the editor stays interactive, and a retry button appears. If the user continues typing while departure is pending, the new edits immediately cancel departure to avoid losing keystrokes.
+1. **Local Saving:** Pending edits are flushed to IndexedDB across both Source and Replica lanes, without waiting for remote sync. If saving fails, navigation aborts, the editor stays interactive, and a retry button appears. If the user continues typing while departure is pending, the new edits immediately cancel departure to avoid losing keystrokes.
 2. **Cancellation:** Until browser navigation physically starts, clicking **Cancel sign-in** abandons the OAuth flow and returns focus to the editor (or preview tab). Any background save already in flight continues quietly.
 3. **Dispatch:** Once the browser initiates the redirect to Google, subsequent edits or delayed account checks cannot cancel navigation.
 4. **BFCache & Restoration:** If the user returns from Google via the browser's Back/Forward cache (`pageshow.persisted`), Loomark releases the departure lock and refreshes the user session without reloading or resetting the active editor.
+
+[Sign-in](../internal/sign_in/sign_in.mbt) owns progression and available
+operations; [app integration](../app/sign_in.mbt) connects its decisions to
+storage, authentication, and browser actions. Cancellation ends the user's
+intent, not an outstanding authorization request: its eventual response must
+still be consumed, but cannot navigate without a current sign-in waiting for it.
 
 `internal/sync.Session` is the single source of truth for user sessions, checked via `/api/account`. Logging out transitions through `Revoking` (or `LogoutUnconfirmed` on network uncertainty). A confirmed logout hides remote account documents immediately but preserves all local documents and keeps the active editor open.
 
@@ -77,7 +99,7 @@ When both the local device and the server receive independent edits, Loomark nev
 ### Synchronized Deletions
 
 Deleting a synced document enters a durable `Deleting` state:
-- The editor row is removed optimistically, but the active editor remains mounted until the deletion commits to local IndexedDB.
+- An open target remains visible with editing disabled, while a non-open target shows progress in Recent documents, until deletion commits to local IndexedDB.
 - The background sync engine delivers an HTTP `DELETE` to the server.
 - Once acknowledged, the client replaces the record with a lightweight, text-free `Tombstone` to prevent stale peer devices from resurrecting the document.
 

@@ -1,74 +1,74 @@
 # Loomark
 
-A browser Markdown editor built with [Rabbita](https://github.com/dowdiness/rabbita), designed around one core principle: **the text you type is the only source of truth.**
+A quiet, local-first Markdown space for your thoughts.
+Built around one simple principle: **the text you type is the only source of truth.**
 
-Loomark pairs a native textarea with an incremental Markdown preview engine. It works completely offline with local-first IndexedDB autosave, and optionally syncs across devices through a Cloudflare Worker backed by D1 and Google sign-in.
-
-Read [the product vocabulary and behaviour contract](CONTEXT.md) before making product or architectural changes.
-
----
-
-## How It Works
-
-Loomark is structured as a standard Rabbita application in `apps/loomark/app`, exposing a single entry point:
-
-```moonbit
-pub fn app() -> @rabbita.Val[@rabbita.Html]
-```
-
-- **Editing & Preview:** Native `<textarea>` inputs flow into `modules/rabbita-markdown/text_area`, which produces minimal `TextChange` diffs and drives the incremental preview without lag.
-- **Local Storage:** `apps/loomark/app/internal/source_repository` reconciles exact document text against IndexedDB, deriving an in-memory catalog on startup.
-- **Demand-Driven Sidebar:** Recent documents extract a lightweight `DocumentLead` (the first meaningful heading or line) on the fly, rendering rows only when the sidebar opens.
-- **Mobile Viewport:** Loomark uses Rabbita's typed `@dom.VisualViewport`
-  for native viewport access and resize/scroll events. The subscription owns
-  listener removal, layout updates, frame batching, and zoom policy.
-  Only the missing `scale` getter uses a private accessor in `app/viewport_dom.mbt`.
-  The entry page requests `interactive-widget=resizes-content`, so supporting
-  browsers resize the layout rather than leave an exposed document strip above
-  the keyboard. Other browsers retain the visual-viewport path.
-  Available height is `visualViewport.height * visualViewport.scale`: zoom alone
-  preserves layout height, but resizing must continue while zoomed. Zoom panning
-  retains the last layout offset, bounded by the remaining layout height.
-  With content resizing, bottom-bar visibility is estimated from the largest
-  observed layout height, adjusted by changes in `window.outerHeight`. A deficit
-  greater than 100 CSS pixels hides the bar; this threshold never changes the
-  editor's height. Width changes reset the estimate. Small/floating keyboards,
-  rotation with the keyboard open, and startup without an unobscured sample can
-  leave the bar visible. Large browser-UI changes can also resemble a keyboard.
-  Text and Preview share the same softened edges beneath the fixed controls.
-  The bars own their decorative backgrounds, and the layout wrapper is transparent;
-  no independent editor overlay remains when the bottom bar is hidden.
-  Textarea `scroll-padding` keeps native caret navigation clear of the controls
-  and fades without per-input DOM measurement; manual reading scrolls remain
-  browser-owned.
-- **Element Resizing:** Loomark uses Rabbita's typed `@dom.ResizeObserver`
-  to observe the current textarea after rendering. Creation and registration
-  stay inside `@js.try_sync`, preserving the existing error path when the
-  browser API is unavailable. The subscription disconnects the observer when
-  that node is replaced. Width and height changes trigger caret measurement,
-  independently of VisualViewport events.
-  `app/viewport_policy.mbt` contains pure CSS numeric parsing and calculations
-  for caret scrolling, viewport placement, the next keyboard baseline,
-  bottom-bar visibility, and Split scroll alignment. It neither reads nor
-  mutates retained state. CSS values come from Rabbita's `get_property_value`;
-  MoonBit's `StringView` and `@string.parse_double` parse resolved pixel values,
-  preserving NaN for nonnumeric keywords such as `normal`.
-  `app/viewport.mbt` and `app/split_scroll.mbt` perform typed DOM operations in
-  MoonBit; the viewport shell retains previous numeric samples and owns frames
-  and cleanup. `app/viewport_dom.mbt` contains only missing native DOM accessors,
-  with no parsing, application policy, or scheduling.
-  `app/app.mbt` resolves elements at startup or after rendering. Split connects
-  directly to the resolved scroll owner and releases that connection on document,
-  mode, owner, or breakpoint changes. An initial sync catches scrolling that
-  occurred before the after-render connection.
+Open the browser. Start writing. No noise, no sign-up, no lock-in.
 
 ---
 
-## Quick Start & Development
+## The Philosophy: A Quiet Desk
 
-### Standalone Web App
+Most modern writing tools try to do too much. They crowd your screen with floating menus, AI popups, and red spellcheck squiggles. They silently transform your characters or hide your words behind complex, proprietary formats.
 
-Run the editor locally in the browser with local IndexedDB storage:
+**Loomark was built to give you back a calm, reliable desk:**
+
+1. **Text is Ground Truth:** What you type is literally what is saved and exported. No hidden attributes, no arbitrary restructuring, and no lossy conversions.
+2. **The Tool Stays Out of Your Way:** When you write, the editor recedes. Your active thought stays in focus, and surrounding paragraphs gently fade into the background.
+3. **Your Words Belong to You:** Once loaded, Loomark lets you keep writing without an internet connection. It saves directly to your device first, and you can export standard Markdown at any moment.
+4. **Reliability Over Novelty:** Every interaction—from caret navigation to native Undo/Redo—respects your natural muscle memory.
+
+---
+
+## The Experience
+
+### ✍️ Pure, Distraction-Free Drafting
+- **Natural Native Typing:** Standard browser text editing keeps IME composition and browser Undo/Redo completely natural.
+- **Zero Visual Noise:** No dictionary red lines, no autocorrect interruptions, and no unexpected formatting jumps. Write freely in any language, dialect, or code snippet.
+- **Writing Focus:** While typing, surrounding paragraphs gently fade into the background so you can focus on the active sentence. Leaving the editor restores full readability immediately.
+
+### 🍃 Thoughtful Modes & Viewport
+- **Three Views:** Toggle effortlessly between **Text** (pure drafting), **Preview** (clean formatted reading), and **Split** (side-by-side with a draggable divider).
+- **Mobile Responsive:** Adapts cleanly to on-screen keyboards and device rotation, hiding extraneous bottom bars to maximize vertical writing space.
+
+### ☕ Local-First Peace of Mind
+- **Quiet Autosave:** Automatically persists to your browser after a short pause in typing or when switching tabs. The footer always confirms local save status with an explicit retry option if a save fails.
+- **Start Immediately:** Open the app and write. Loomark derives recognizable document leads from your first heading or line without requiring you to name or organize files first.
+- **Recent Documents:** A lightweight slide-out sidebar lets you revisit and switch between recent documents seamlessly.
+
+### 🛡️ Freedom & Optional Sync
+- **Zero Lock-In:** Import any standard UTF-8 Markdown file cleanly. Export your current note as a `.md` file with one click at any time.
+- **Opt-In Cloud Sync:** Sign in with Google to sync individual documents across devices when you choose. Sync is explicitly chosen per document, never forced on your private notes.
+- **Explicit Conflict Recovery:** If offline edits diverge across devices, Loomark never silently overwrites your work. Divergent edits fork safely into local **Recovery documents**.
+
+---
+
+## The Interface: Simple & Intentional
+
+Loomark has zero clutter, keeping all essential tools right at your fingertips:
+
+- **Top-Left (Menu icon):** Opens the Recent documents drawer to switch between documents or view automatically extracted leads.
+- **Top-Right (Pen icon):** Starts a fresh document instantly.
+- **Mode Switcher (Text / Preview / Split):** Toggle between drafting, rendered reading, or side-by-side editing with a draggable divider.
+- **More Actions (`...` menu):** Cleanly export your current note as a `.md` file, import existing Markdown documents, or manage optional cloud sync.
+- **Footer:** Displays quiet durability feedback (`Saved on this device`, `Saving on this device`, or `Not saved`) with explicit retry controls when needed.
+
+---
+
+## When to Reach for Loomark
+
+- **Morning stream of consciousness & journaling:** Open a blank tab and let thoughts flow without deciding on filenames or folder structures first.
+- **Deep writing & long-form drafting:** Enable *Writing Focus* to dim surrounding paragraphs, keeping your eyes on the sentence you are shaping right now.
+- **Scratchpad for code & ideas:** Draft technical notes, checklists, or prose with zero red squiggles or autocorrect getting in the way.
+- **Writing on the go:** Keep writing on trains, planes, or off the grid with confidence that your words remain on your device.
+
+---
+
+## Quick Start (For Developers)
+
+### Standalone Web App (Local-Only)
+
+Run the editor locally in your browser with local IndexedDB storage:
 
 ```bash
 ./scripts/install-local-warren.sh
@@ -78,14 +78,13 @@ npm run build:styles
 ../../_build/tools/bin/warren dev --direct
 ```
 
-### Full-Stack (With Google Sign-In & D1 Sync)
+### Full-Stack (With Optional Sync)
 
-Run the local Cloudflare Worker backend alongside the editor:
+Run the Cloudflare Worker backend alongside the editor:
 
 ```bash
 cd apps/loomark
 cp .env.example .env
-# Set BETTER_AUTH_URL=http://localhost:8787 and configure your Google OAuth client
 npm ci
 npm run db:migrate:local
 npm run dev:worker
@@ -100,29 +99,12 @@ npm run typecheck:server
 NEW_MOON_MOD=0 moon test --target js -p dowdiness/loomark/server/documents dowdiness/loomark/server/internal/document_store
 ```
 
-For release and end-to-end browser validation, see [Production and Validation](docs/production.md).
-
 ---
 
-## Core Invariants
+## Documentation & Architecture
 
-- **Text is truth:** Documents are stored simply as `(document_id, text)`. There is no hidden AST metadata, no proprietary JSON blob, and no lossy serialization.
-- **Non-blocking autosave:** Pending text becomes eligible for saving after 250 ms of quiet, when its non-restarting 2,000 ms maximum-wait timer can be processed, or on page hide. IME composition defers persistence until committed. These are eligibility conditions, not deadlines for storage acknowledgment. Hidden-page saves are best effort and do not automatically retry failed saves.
-- **Clean import & export:** Import decodes strict UTF-8, strips BOMs, normalizes line breaks (`\n`), and never alters your characters. Export downloads the current text in memory on demand.
-- **Offline-first sync:** You can write freely without an internet connection. When connected, changes sync via causal replica state machines with atomic conflict recovery (`Fork` on divergence).
-
----
-
-## Deep Dives
-
-- [Product Vocabulary & Contract (CONTEXT.md)](CONTEXT.md) — Canonical definitions, UI states, and behavioral invariants.
-- [Sync and Account Architecture (docs/sync-and-account.md)](docs/sync-and-account.md) — Causal replicas, Google OAuth lifecycle, conflict forks, and discovery protocol.
-- [Production Release & Validation Runbook (docs/production.md)](docs/production.md) — Cloudflare Workers deployment, D1 schema migrations, and Playwright verification.
-
-### Architectural Decisions (ADRs)
-
-- [Standard Rabbita Text App plan](../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md)
-- [Current and saved text](../../docs/decisions/2026-08-24-loomark-source-first-interactive-contract.md)
-- [Production E2E boundary](../../docs/decisions/2026-08-24-loomark-production-e2e-boundary.md)
-- [Textarea edit boundary](../../docs/decisions/2026-08-25-loomark-textarea-edit-boundary.md)
-- [Document deletion](../../docs/decisions/2026-08-31-loomark-document-deletion.md)
+- **[Documentation Index (docs/README.md)](docs/README.md)** — Overview map of all architecture, operations, and design guides.
+- **[Product Vocabulary & Behavior Contract (CONTEXT.md)](CONTEXT.md)** — Canonical terms, UI states, and product design rules.
+- **[Technical Architecture (docs/architecture.md)](docs/architecture.md)** — Rabbita structure, incremental parser, viewport mechanics, and DOM lifecycle.
+- **[Sync and Account Architecture (docs/sync-and-account.md)](docs/sync-and-account.md)** — Causal replicas, authentication, and conflict recovery.
+- **[Production Release Runbook (docs/production.md)](docs/production.md)** — Cloudflare deployment, database migrations, and validation.

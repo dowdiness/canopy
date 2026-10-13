@@ -11,7 +11,29 @@ Run the complete boundary from the repository root:
 ```
 
 The script builds the production release, rejects unexpected JavaScript or
-removed Worker artifacts, type-checks the test, and runs the Playwright suite.
+removed Worker artifacts, type-checks the tests, and runs editor, Focus, and
+sidebar correctness suites.
+
+Long-document measurement runs separately and requires Node.js 24. From two
+checkouts with initialized submodules and dependencies:
+
+```bash
+./scripts/build-loomark-standalone.sh /path/to/baseline
+./scripts/build-loomark-standalone.sh
+npm --prefix apps/loomark/examples/vanilla run benchmark:writing -- \
+  --baseline /path/to/baseline/apps/loomark/dist \
+  --candidate "$PWD/apps/loomark/dist"
+```
+
+The benchmark alternates baseline/candidate order in one Chromium browser at
+1280 × 900. Each operation reports median, p95, maximum, and counts above the
+10 ms target; timing alone does not fail the command. Incorrect input or Undo,
+JavaScript errors, and incomplete measurements still fail it.
+
+`benchmark-results/writing/` in this directory contains `measurements.json`
+(raw samples, timing breakdowns, and release/environment identity) and
+`summary.md`. Collected results are saved before exiting on interruption.
+The separate CI benchmark job publishes both.
 
 After that build, run the slower explicit-GC retention boundary when changing
 Preview parsing, semantic ownership, or lazy subtree reuse:

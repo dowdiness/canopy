@@ -1,4 +1,14 @@
 ///|
+fn Page::documents_state(self : Self) -> @documents.State? {
+  match self {
+    Editing(editing) => Some(editing.documents)
+    PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
+      Some(preparing.documents)
+    Loading(_) | Recovery(_, _) => None
+  }
+}
+
+///|
 fn document_id(value : String) -> @source_repository.DocumentId {
   let mut hash = 0
   for byte in value {
@@ -94,9 +104,7 @@ fn test_model(page : Page, sync : @sync.State) -> Model {
   {
     page,
     replication: @replication.State(protocol=sync),
-    departure: Stable,
-    login_prepare: None,
-    next_login_id: 0,
+    sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
   }
 }
@@ -612,9 +620,7 @@ test "intermediate Replica commit cannot discard a pending Undo" {
       protocol=current_sync(account),
       persistence~,
     ),
-    departure: Stable,
-    login_prepare: None,
-    next_login_id: 0,
+    sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
   }
 
@@ -722,9 +728,7 @@ test "network retry waits while a newer replica write is in flight" {
   let model = {
     page,
     replication: @replication.State(protocol=retryable, persistence~),
-    departure: Stable,
-    login_prepare: None,
-    next_login_id: 0,
+    sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
   }
   let (unchanged, _) = test_root_update(model, RetrySync(retry))
@@ -756,9 +760,7 @@ test "operation identity failure stays retryable while replica storage is busy" 
   let model = {
     page,
     replication: @replication.State(protocol=planning, persistence~),
-    departure: Stable,
-    login_prepare: None,
-    next_login_id: 0,
+    sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
   }
   let (retired, _) = test_root_update(

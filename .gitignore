@@ -7,6 +7,7 @@ target/
 node_modules/
 dist/
 release/
+/tmp/
 
 .env
 _build
@@ -18,6 +19,7 @@ _build
 apps/web/src/pages.gen.ts
 apps/web/worker-startup.cpuprofile
 apps/loomark/app/example_*.g.mbt
+apps/loomark/internal/examples/example_*.g.mbt
 apps/loomark/public/styles.css
 
 .playwright-mcp/

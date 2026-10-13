@@ -1,0 +1,107 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/sign_in"
+
+import {
+  "dowdiness/loomark/internal/account_http",
+  "dowdiness/loomark/internal/documents",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub enum Action {
+  Begin
+  Cancel(Int)
+} derive(Eq)
+pub fn Action::equal(Self, Self) -> Bool
+pub fn Action::not_equal(Self, Self) -> Bool
+
+pub(all) enum Editor {
+  Ready
+  Creating
+  Importing
+  ConfirmingDelete
+}
+
+pub enum Effect {
+  SaveChanges
+  RequestAuthorizationUrl(Request)
+  Navigate(@account_http.GoogleAuthorizationUrl)
+  FocusEditor
+  CheckAccount
+}
+
+pub(all) enum Event {
+  Invoke(Action)
+  AuthorizationReceived(Request, @account_http.GoogleAuthorizationUrl?)
+  Interrupted
+  Refresh
+  PageRestored
+  AuthenticationFailed
+}
+
+pub enum Failure {
+  Save(@documents.LocalSaveFailure)
+  Authentication
+} derive(Eq)
+pub fn Failure::equal(Self, Self) -> Bool
+pub fn Failure::not_equal(Self, Self) -> Bool
+
+pub enum Outcome {
+  Applied
+  Unavailable
+  Superseded
+  RequestReleased
+}
+
+pub(all) enum Readiness {
+  SignedOut(editor~ : Editor, durability~ : @documents.LocalDurability)
+  EditorUnavailable
+  CheckingAccount
+  SignedIn
+  AccountUnavailable
+}
+
+pub struct Request {
+  // private fields
+} derive(Eq)
+pub fn Request::equal(Self, Self) -> Bool
+pub fn Request::not_equal(Self, Self) -> Bool
+
+pub enum SignIn {
+  Idle(generation~ : Int, pending~ : Request?)
+  SavingChanges(generation~ : Int, pending~ : Request?)
+  Connecting(generation~ : Int, request~ : Request)
+  RedirectPending(generation~ : Int, destination~ : @account_http.GoogleAuthorizationUrl)
+  Leaving(generation~ : Int)
+  SaveFailed(generation~ : Int, pending~ : Request?, failure~ : @documents.LocalSaveFailure)
+  AuthenticationFailed(generation~ : Int, pending~ : Request?)
+} derive(Eq)
+pub fn SignIn::SignIn() -> Self
+pub fn SignIn::blocks_editing(Self) -> Bool
+pub fn SignIn::equal(Self, Self) -> Bool
+pub fn SignIn::not_equal(Self, Self) -> Bool
+pub fn SignIn::update(Self, Event, Readiness) -> Transition
+pub fn SignIn::view(Self, Readiness) -> View
+
+pub struct Transition {
+  state : SignIn
+  effects : Array[Effect]
+  outcome : Outcome
+}
+
+pub enum View {
+  Available(Action)
+  Unavailable
+  InProgress(Action)
+  Failed(Failure, retry~ : Action?)
+  Leaving
+} derive(Eq)
+pub fn View::equal(Self, Self) -> Bool
+pub fn View::not_equal(Self, Self) -> Bool
+
+// Type aliases
+
+// Traits

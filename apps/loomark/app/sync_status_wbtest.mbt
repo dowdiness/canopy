@@ -314,9 +314,7 @@ test "unsaved visible text projects durability and relation independently" {
   let model : Model = {
     page: Editing({ ..editing, documents, }),
     replication: @replication.State(protocol=status_sync(account), persistence~),
-    departure: Stable,
-    login_prepare: None,
-    next_login_id: 0,
+    sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
   }
   guard document_sync_view(model) is Some(status) else {
@@ -408,7 +406,7 @@ test "retry messages restart only their owned lifecycle" {
     view.persistence is Some(@replica_persistence.Status::Retryable(action, _)) else {
     fail("retry available")
   }
-  let message = RetrySaving(action)
+  let message : Msg = RetrySaving(action)
   let (retrying, _) = test_root_update(model, message)
   assert_true(
     retrying.replication.status(account, document.id())
@@ -492,9 +490,7 @@ test "fork persistence belongs to its recovery Source until commit" {
   let model : Model = {
     page,
     replication: @replication.State(protocol=@sync.State(), persistence~),
-    departure: Stable,
-    login_prepare: None,
-    next_login_id: 0,
+    sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
   }
   assert_true(

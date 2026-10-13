@@ -2,6 +2,9 @@ import {
   "dowdiness/dom_boundary",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/js" @dom_js,
+  "moonbitlang/core/double",
+  "moonbitlang/core/string",
 }
 
 supported_targets = "js"

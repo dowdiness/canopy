@@ -1,9 +1,23 @@
-# Loomark
+# Loomark Product Vocabulary & Behavior Contract
 
-Loomark is a browser Markdown Text editor. This glossary describes its accepted
-product language.
+Loomark is a quiet, local-first browser Markdown text editor. This document is the canonical glossary describing its accepted product language, UI states, and behavioral invariants.
 
-## Language
+Before proposing UI changes, refactoring state machines, or adding features, ensure your changes comply with the terms and contracts defined here.
+
+---
+
+## Table of Contents
+
+1. [Document Identity & Content](#1-document-identity--content)
+2. [Editor Modes & Presentation](#2-editor-modes--presentation)
+3. [Recent Documents & Navigation](#3-recent-documents--navigation)
+4. [Storage, Durability & Autosave](#4-storage-durability--autosave)
+5. [Multi-Device Synchronization & Conflict Recovery](#5-multi-device-synchronization--conflict-recovery)
+6. [Document Operations (Import, Export, Deletion)](#6-document-operations-import-export-deletion)
+
+---
+
+## 1. Document Identity & Content
 
 **Loomark document**:
 The Markdown entity edited in Loomark. It has an identity and text.
@@ -54,6 +68,91 @@ A readable Document lead shown without the distinct form of a heading, task,
 quote, code, or list. Its readable text remains while its source block receives
 no other specialized presentation.
 _Avoid_: ordinary content, paragraph
+
+---
+
+## 2. Editor Modes & Presentation
+
+**Editor mode**:
+The current way to edit, inspect, or combine views of the selected Document
+text. A Document switch keeps the current mode, while reopening Loomark starts
+in Text mode; modes never own a second text authority or a separate browser undo
+history.
+_Avoid_: layout, workspace
+
+**Text mode**:
+The editor mode that shows the textarea and hides Preview.
+The writing area disables browser spellchecking so dictionary suggestions do not
+mark document text with red underlines. Autocomplete and autocorrect remain off;
+native IME composition is unchanged.
+Text and Preview share the same edge fade and subtle blur beneath the fixed top
+and bottom controls in every editor mode. Each bar owns its blurred background;
+the editor has no separate decorative overlay. Document spacing stays inside the
+scrollable content rather than an empty outer frame. Native scroll padding keeps
+the current writing line clear of the controls and faded edges without changing
+text, selection, composition, or Undo. Manual reading scrolls are not pulled back
+to the caret. Compact Split retains a minimum usable writing pane when notices
+reduce the available height.
+The editor follows changes in the browser's available height, excluding pinch
+magnification. It requests native content resizing where supported. The bottom
+bar and its reserved space are removed when visual-viewport occlusion or a
+window-size-adjusted height estimate indicates a keyboard. Panning alone does
+not restore the bar.
+No bottom overlay or reserved bottom gap remains while the bar is hidden.
+The top toolbar and failure notices remain available. The
+bottom bar returns when the visible height recovers. Ordinary window-height
+changes and hardware-keyboard focus alone do not hide it. Keyboard detection
+under content resizing is best-effort, not a browser-provided visibility signal;
+its limitations are described in [Mobile Viewport](docs/architecture.md#mobile-viewport).
+Width or height changes keep the visible
+textarea's active selection endpoint readable, including when a resize control
+has focus, without replacing the textarea or changing text, selection, focus,
+IME composition, or native Undo. Pinch zoom remains browser-owned and does not
+cause the editor to reflow around the zoomed viewport. Keyboard and window height
+changes still resize the editor while zoomed; a recovered height cannot leave
+the previous keyboard-sized frame or an obsolete top offset in place.
+_Avoid_: source mode, raw mode
+
+**Preview**:
+A read-only parse-derived view of Document text. It may lag behind Document text
+and never determines editing or saving.
+_Avoid_: rendered document, accepted text
+
+**Preview mode**:
+The editor mode that shows Preview while preserving the hidden textarea and its
+browser-owned editing state.
+_Avoid_: reading mode
+
+**Split mode**:
+The editor mode that shows the textarea and the same Preview together with a
+resizable divider.
+_Avoid_: dual editor, two-pane editor
+
+**Preview preparation**:
+Creating at most one syntax Parser for the selected document after Preview or
+Split is selected. A Document switch discards it; a target in Text mode does
+not create another Parser. Returning to Text retains a healthy Parser and keeps
+it current without producing hidden Preview output.
+_Avoid_: warm-up, preloading
+
+**Preview refresh**:
+Reading one coherent syntax snapshot, lowering it directly to MarkdownIR, and
+replacing Preview from the latest committed Document text while Preview or
+Split is requested. After the Parser transition, lowering waits for a 24 ms
+candidate-text quiet window so rapid changes normally produce one visible
+update. Returning from Text requests one refresh when the retained Preview is
+older than current Document text.
+_Avoid_: projection refresh, render loop
+
+**Stale Preview**:
+The last successful Preview of the selected Loomark document retained after a
+newer refresh fails. Loomark marks it as stale; it never becomes Document text
+or carries over to another document.
+_Avoid_: fallback document, recovered text
+
+---
+
+## 3. Recent Documents & Navigation
 
 **Recent documents**:
 The place for choosing a Loomark document as one continuous, ungrouped list,
@@ -113,79 +212,9 @@ selected Editor-mode control in Preview. Transient More actions content closes.
 Closing More actions with Escape restores focus to its trigger.
 _Avoid_: save-and-open, handoff
 
-**Editor mode**:
-The current way to edit, inspect, or combine views of the selected Document
-text. A Document switch keeps the current mode, while reopening Loomark starts
-in Text mode; modes never own a second text authority or a separate browser undo
-history.
-_Avoid_: layout, workspace
+---
 
-**Text mode**:
-The editor mode that shows the textarea and hides Preview.
-Text and Preview share the same edge fade and subtle blur beneath the fixed top
-and bottom controls in every editor mode. Each bar owns its blurred background;
-the editor has no separate decorative overlay. Document spacing stays inside the
-scrollable content rather than an empty outer frame. Native scroll padding keeps
-the current writing line clear of the controls and faded edges without changing
-text, selection, composition, or Undo. Manual reading scrolls are not pulled back
-to the caret. Compact Split retains a minimum usable writing pane when notices
-reduce the available height.
-The editor follows changes in the browser's available height, excluding pinch
-magnification. It requests native content resizing where supported. The bottom
-bar and its reserved space are removed when visual-viewport occlusion or a
-window-size-adjusted height estimate indicates a keyboard. Panning alone does
-not restore the bar.
-No bottom overlay or reserved bottom gap remains while the bar is hidden.
-The top toolbar and failure notices remain available. The
-bottom bar returns when the visible height recovers. Ordinary window-height
-changes and hardware-keyboard focus alone do not hide it. Keyboard detection
-under content resizing is best-effort, not a browser-provided visibility signal;
-its limitations are described in [Mobile Viewport](README.md#how-it-works).
-Width or height changes keep the visible
-textarea's active selection endpoint readable, including when a resize control
-has focus, without replacing the textarea or changing text, selection, focus,
-IME composition, or native Undo. Pinch zoom remains browser-owned and does not
-cause the editor to reflow around the zoomed viewport. Keyboard and window height
-changes still resize the editor while zoomed; a recovered height cannot leave
-the previous keyboard-sized frame or an obsolete top offset in place.
-_Avoid_: source mode, raw mode
-
-**Preview**:
-A read-only parse-derived view of Document text. It may lag behind Document text
-and never determines editing or saving.
-_Avoid_: rendered document, accepted text
-
-**Preview mode**:
-The editor mode that shows Preview while preserving the hidden textarea and its
-browser-owned editing state.
-_Avoid_: reading mode
-
-**Split mode**:
-The editor mode that shows the textarea and the same Preview together with a
-resizable divider.
-_Avoid_: dual editor, two-pane editor
-
-**Preview preparation**:
-Creating at most one syntax Parser for the selected document after Preview or
-Split is selected. A Document switch discards it; a target in Text mode does
-not create another Parser. Returning to Text retains a healthy Parser and keeps
-it current without producing hidden Preview output.
-_Avoid_: warm-up, preloading
-
-**Preview refresh**:
-Reading one coherent syntax snapshot, lowering it directly to MarkdownIR, and
-replacing Preview from the latest committed Document text while Preview or
-Split is requested. After the Parser transition, lowering waits for a 24 ms
-candidate-text quiet window so rapid changes normally produce one visible
-update. Returning from Text requests one refresh when the retained Preview is
-older than current Document text.
-_Avoid_: projection refresh, render loop
-
-**Stale Preview**:
-The last successful Preview of the selected Loomark document retained after a
-newer refresh fails. Loomark marks it as stale; it never becomes Document text
-or carries over to another document.
-_Avoid_: fallback document, recovered text
+## 4. Storage, Durability & Autosave
 
 **Saved text**:
 The most recent Document text successfully written to browser storage. It may
@@ -215,6 +244,17 @@ _Avoid_: archive, backup, file storage
 Saving the current Document text after input is quiet for 250 ms and IME
 composition has ended.
 _Avoid_: periodic backup, manual save
+
+**Recovery**:
+The state shown for a Loomark document whose Browser storage record cannot be
+opened safely. That document cannot become the Editing Document, but Loomark
+preserves it as unavailable and opens another valid Loomark document or a New
+document.
+_Avoid_: automatic reset, save failure
+
+---
+
+## 5. Multi-Device Synchronization & Conflict Recovery
 
 **Synced document**:
 A Loomark document explicitly connected to the signed-in account. Its current
@@ -248,6 +288,10 @@ _Avoid_: merged document, conflict marker, backup
 Separate browser tabs editing Loomark without shared operation ordering. A later
 Browser storage write may overwrite Saved text or recreate a deleted document.
 _Avoid_: synchronized tabs, collaborative sessions
+
+---
+
+## 6. Document Operations (Import, Export, Deletion)
 
 **Import**:
 Creating a new Loomark document from strictly decoded UTF-8 bytes. Loomark
@@ -292,10 +336,3 @@ target shows its progress in Recent documents while editing continues; an open
 target remains visible and permits neither editing nor Document switch.
 Failure restores the target to retryable availability.
 _Avoid_: loading document, optimistic deletion
-
-**Recovery**:
-The state shown for a Loomark document whose Browser storage record cannot be
-opened safely. That document cannot become the Editing Document, but Loomark
-preserves it as unavailable and opens another valid Loomark document or a New
-document.
-_Avoid_: automatic reset, save failure
