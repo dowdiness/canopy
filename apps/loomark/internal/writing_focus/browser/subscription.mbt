@@ -1,5 +1,5 @@
 ///|
-const WRITING_FOCUS_LAYER_ID : String = "loomark-writing-focus"
+pub const WRITING_FOCUS_LAYER_ID : String = "loomark-writing-focus"
 
 ///|
 priv suberror WritingFocusSubscription {
@@ -14,11 +14,11 @@ priv enum WritingFocusConnection {
 }
 
 ///|
-fn resolve_writing_focus() -> WritingFocus raise {
+fn resolve_writing_focus(editor_id : String) -> WritingFocus raise {
   let document = @dom.document()
-  guard document.get_element_by_id(EDITOR_TEXT_ID).to_option() is Some(element) &&
+  guard document.get_element_by_id(editor_id).to_option() is Some(element) &&
     element.to_html_text_area_element() is Some(text_area) else {
-    raise MissingFocusElement(EDITOR_TEXT_ID)
+    raise MissingFocusElement(editor_id)
   }
   guard document.get_element_by_id(WRITING_FOCUS_LAYER_ID).to_option()
     is Some(element) &&
@@ -29,12 +29,13 @@ fn resolve_writing_focus() -> WritingFocus raise {
 }
 
 ///|
-fn writing_focus_subscription(
+pub fn subscription(
+  editor_id : String,
   activation : Int,
   preview : @editor.EditorState,
 ) -> @sub.Sub {
   @sub.custom_sub(
-    "loomark.writing-focus(\{activation})",
+    "loomark.writing-focus(\{editor_id},\{activation})",
     @sub.Scope::Local,
     WritingFocusSubscription::Refresh(preview),
     (_, scheduler) => {
@@ -44,7 +45,7 @@ fn writing_focus_subscription(
         @cmd.custom_cmd(kind=@cmd.after_render, _ => {
           match connection {
             AwaitingRender => {
-              let focus = resolve_writing_focus() catch {
+              let focus = resolve_writing_focus(editor_id) catch {
                 error => {
                   connection = Removed
                   report_writing_focus_error(@js.any(error))

@@ -40,7 +40,7 @@ fn CaretLayout::CaretLayout(document : @dom.Document) -> CaretLayout {
     before_caret,
     caret,
     after_caret,
-    window: document_window(document),
+    window: @browser.document_window(document),
   }
 }
 
@@ -84,17 +84,17 @@ fn CaretLayout::measure(
     self.element.get_bounding_client_rect().get_top()
   measured(
     top,
-    parse_css_number(style.get_property_value("line-height")),
+    @browser.parse_css_number(style.get_property_value("line-height")),
     area.get_scroll_top(),
     area.get_client_height(),
-    parse_css_number(style.get_property_value("padding-top")),
-    parse_css_number(style.get_property_value("padding-bottom")),
+    @browser.parse_css_number(style.get_property_value("padding-top")),
+    @browser.parse_css_number(style.get_property_value("padding-bottom")),
   )
 }
 
 ///|
 /// Bind effects to a supplied node, not to a document-global selector.
-fn observe_text_area_resize(
+pub fn observe_text_area_resize(
   area : @dom.HTMLTextAreaElement,
 ) -> (() -> Unit) raise @js.JsError {
   let apply_measurement = (
@@ -113,7 +113,7 @@ fn observe_text_area_resize(
     }
   }
   @js.try_sync(() => {
-    let document = element_document(area.as_element())
+    let document = @browser.element_document(area.as_element())
     let body = document.get_body().unwrap()
     let layout = CaretLayout(document)
     let observer = @dom.ResizeObserver::new((_, _) => {
@@ -135,7 +135,7 @@ priv suberror VisualViewportSubscription {
 
 ///|
 /// Own scheduling and style writes for explicit browser handles.
-fn visual_viewport_subscription(
+pub fn visual_viewport_subscription(
   window : @dom.Window,
   viewport : @dom.VisualViewport,
   root : @dom.HTMLElement,
@@ -149,15 +149,15 @@ fn visual_viewport_subscription(
       let mut frame : Double? = None
       let mut top = 0.0
       let mut baseline_height = window.inner_height()
-      let mut previous_outer_height = window_outer_height(window)
+      let mut previous_outer_height = @browser.window_outer_height(window)
       let mut previous_width = window.inner_width()
       fn update_viewport(_ : Double) {
         frame = None
-        let scale = visual_viewport_scale(viewport)
+        let scale = @browser.visual_viewport_scale(viewport)
         guard scale > 0.0 else { return }
         let height = viewport_layout_height(viewport.get_height(), scale)
         let layout_height = window.inner_height()
-        let outer_height = window_outer_height(window)
+        let outer_height = @browser.window_outer_height(window)
         let width = window.inner_width()
         baseline_height = viewport_baseline_height(
           baseline_height, previous_outer_height, previous_width, layout_height,

@@ -1,7 +1,7 @@
 ///|
 /// Connect already-resolved nodes. The caller schedules sync after rendering
 /// and invalidates queued work before invoking the returned disconnect action.
-fn connect_split_scroll(
+pub fn connect_split_scroll(
   from : @dom.Element,
   to : @dom.Element,
   schedule_sync : () -> Unit,

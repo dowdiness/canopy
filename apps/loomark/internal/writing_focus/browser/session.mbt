@@ -79,7 +79,7 @@ fn draw_writing_focus(session : WritingFocusSession) -> Unit raise {
       let fades = @writing_focus.calculate_dimming_ranges(
         focus_range,
         samples[:],
-        document_timeline_time(session.document).to_option(),
+        @browser_api.document_timeline_time(session.document).to_option(),
         animate~,
       )
       render_writing_fades(
@@ -184,9 +184,9 @@ fn add_writing_focus(
   dimming_layer : @dom.HTMLElement,
 ) -> WritingFocus raise @js.JsError {
   let session : WritingFocusSession = @js.try_sync(() => {
-    let document = element_document(text_area.as_element())
-    let window = document_window(document)
-    let fonts = document_fonts(document)
+    let document = @browser_api.element_document(text_area.as_element())
+    let window = @browser_api.document_window(document)
+    let fonts = @browser_api.document_fonts(document)
     let reduced_motion = window.match_media("(prefers-reduced-motion: reduce)")
     let text_layout = TextLayout(document, window, text_area, dimming_layer)
     let session : WritingFocusSession = {

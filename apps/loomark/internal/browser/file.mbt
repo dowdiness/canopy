@@ -29,11 +29,6 @@ let op : @cmd.Op = @cmd.Op()..on_invoke((extension, _) => {
 })
 
 ///|
-pub fn viewport_width() -> Double {
-  @dom.window().inner_width()
-}
-
-///|
 pub fn read(file : File, emit : @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd {
   op.request(Read(file, result => emit(result)))
 }

@@ -1,0 +1,9 @@
+import {
+  "dowdiness/js_ffi" @js,
+  "dowdiness/loomark/internal/browser",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/js" @dom_js,
+  "moonbit-community/rabbita/sub",
+}
+
+supported_targets = "js"

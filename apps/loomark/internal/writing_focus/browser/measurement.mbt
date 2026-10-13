@@ -254,8 +254,10 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
     layout_style.set_property(property, style.get_property_value(property))
   }
   layout_style.set_property("width", "\{width}px")
-  let padding_left = parse_css_number(style.get_property_value("padding-left"))
-  let padding_right = parse_css_number(
+  let padding_left = @browser_api.parse_css_number(
+    style.get_property_value("padding-left"),
+  )
+  let padding_right = @browser_api.parse_css_number(
     style.get_property_value("padding-right"),
   )
   set_style_if_changed(

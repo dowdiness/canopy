@@ -8,7 +8,8 @@ fn subscriptions(
     viewport,
     match model.page {
       Editing(editing) if editing.mode != Preview =>
-        writing_focus_subscription(
+        @writing_focus_browser.subscription(
+          EDITOR_TEXT_ID,
           editing.activation.generation,
           editing.preview,
         )
@@ -83,7 +84,7 @@ fn text_area_resize_subscription(activation : Int, compact : Bool) -> @sub.Sub {
             return
           }
           stop = Some(
-            observe_text_area_resize(area) catch {
+            @viewport.observe_text_area_resize(area) catch {
               @js.JsError(error) => {
                 @js.global()
                 .get("console")
@@ -152,7 +153,9 @@ fn split_scroll_subscription(
             @dom.document().get_element_by_id(target).to_option() is Some(to) else {
             return
           }
-          let connected = connect_split_scroll(from, to, sync_after_render)
+          let connected = @viewport.connect_split_scroll(
+            from, to, sync_after_render,
+          )
           connection = Some(connected)
           // A scroll can precede this after-render connection when its owner
           // changes. Catch up from live geometry once the listener is attached.

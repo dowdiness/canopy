@@ -29,9 +29,9 @@ fn sample_writing_shade(
   let sample = match animation {
     None => @writing_focus.OpacitySample::Still(opacity)
     Some(animation) => {
-      let current_time = animation_current_time(animation.native).to_option()
-      let rate = animation_playback_rate(animation.native)
-      if animation_pending(animation.native) {
+      let current_time = @browser_api.animation_current_time(animation.native).to_option()
+      let rate = @browser_api.animation_playback_rate(animation.native)
+      if @browser_api.animation_pending(animation.native) {
         @writing_focus.OpacitySample::Animating(
           opacity,
           @writing_focus.ActiveFade::Pending(
@@ -41,9 +41,9 @@ fn sample_writing_shade(
           ),
         )
       } else {
-        match animation_play_state(animation.native) {
+        match @browser_api.animation_play_state(animation.native) {
           "running" => {
-            let start_time = animation_start_time(animation.native).to_option()
+            let start_time = @browser_api.animation_start_time(animation.native).to_option()
             match (start_time, current_time) {
               (Some(start), Some(current)) =>
                 @writing_focus.OpacitySample::Animating(
@@ -75,7 +75,7 @@ fn clear_writing_shades(
 ) -> Unit {
   for shade in shades {
     if shade.content is Visible(_, Some(animation)) {
-      cancel_opacity_animation(animation.native)
+      @browser_api.cancel_animation(animation.native)
     }
   }
   layer.set_inner_text("")
@@ -108,7 +108,7 @@ fn start_opacity_animation(
   element : @dom.HTMLElement,
   timing : @writing_focus.FadeTiming,
 ) -> OpacityAnimation {
-  let native = animate_opacity(
+  let native = @browser_api.animate_opacity(
     element,
     timing.from_opacity,
     timing.to_opacity,
@@ -130,14 +130,23 @@ fn apply_writing_fade(
       let animation = start_opacity_animation(element, active.timing())
       match active {
         Pending(_, current_time_ms~, playback_rate~) => {
-          set_animation_playback_rate(animation.native, playback_rate)
+          @browser_api.set_animation_playback_rate(
+            animation.native,
+            playback_rate,
+          )
           if current_time_ms is Some(current_time) {
-            set_animation_current_time(animation.native, current_time)
+            @browser_api.set_animation_current_time(
+              animation.native,
+              current_time,
+            )
           }
         }
         Running(_, start_time_ms~, playback_rate~, ..) => {
-          set_animation_playback_rate(animation.native, playback_rate)
-          set_animation_start_time(animation.native, start_time_ms)
+          @browser_api.set_animation_playback_rate(
+            animation.native,
+            playback_rate,
+          )
+          @browser_api.set_animation_start_time(animation.native, start_time_ms)
         }
       }
       Some(animation)
@@ -168,7 +177,8 @@ fn render_writing_fades(
     }
     match shade.content {
       Hidden => shade.element.remove_attribute("hidden")
-      Visible(_, Some(animation)) => cancel_opacity_animation(animation.native)
+      Visible(_, Some(animation)) =>
+        @browser_api.cancel_animation(animation.native)
       Visible(_, None) => ()
     }
     let target_opacity = match fade {
@@ -185,7 +195,7 @@ fn render_writing_fades(
       Hidden => ()
       Visible(_, animation) => {
         if animation is Some(animation) {
-          cancel_opacity_animation(animation.native)
+          @browser_api.cancel_animation(animation.native)
         }
         shade.element.set_attribute("hidden", "")
         shade.content = Hidden
