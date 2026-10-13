@@ -180,8 +180,8 @@ caller that originally requested an asynchronous write.
 `Unchanged` means that the current input is already satisfied, such as a
 duplicate composition notification, a flush without pending work, or a retry
 without a failed save. `Superseded` instead identifies obsolete acknowledgments,
-timers, and browser notifications for a Document that was removed or is being
-deleted.
+timers, notifications for a removed Document, and attempts to begin composition
+or flush a Document whose deletion is pending.
 
 Explicit retry and failure-dismissal requests require an existing Document.
 Retrying a pending deletion's save raises `PendingDeletion`. Retrying a failed
@@ -204,6 +204,10 @@ Source save and deletion ownership is a single sum in
 
 Deletion failure restores the working copy and its autosave eligibility.
 An eligible newer edit can resume saving without losing the deletion retry.
+While Source or Replica deletion is pending, `CompositionEnded` still records
+the end of composition in the retained working copy, but starts no save or
+timer. If deletion fails, a pending edit can resume its quiet window, and an
+already eligible edit can save without another composition notification.
 Source saves carry a private attempt identity taken from the consumed
 autosave window. Imports and explicit retries allocate fresh windows,
 so identical Document identity and text cannot admit an older completion.

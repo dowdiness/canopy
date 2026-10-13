@@ -144,6 +144,11 @@ fn finish_composition(
   saved : @source_repository.SavedDocuments,
   record : Record,
 ) -> (Record, ReadOnlyArray[Action]) {
+  // Record the end of composition without restarting work owned by deletion.
+  // A failed deletion will restore the pending autosave and its subscription.
+  if record.delete_status() == DeletePending {
+    return (record, [])
+  }
   match record.pending_window() {
     Some(window) if window.eligibility == Eligible && !record.has_source_write() =>
       begin_save(saved, record)

@@ -399,3 +399,134 @@ test "repeated visibility flush keeps one eligible follow-up behind a source sav
   }
   assert_eq(latest.document.text(), "latest")
 }
+
+///|
+test "composition ending during deletion resumes a pending edit after failure" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  let composing = applied(fixture_model(), CompositionStarted(key))
+  let changed = edited(composing.model, key, "composed text")
+  guard changed.model.delete(key) is Accepted(deleting) else { fail("delete") }
+  guard deleting.effects is [DeleteSource(operation)] else {
+    fail("source deletion")
+  }
+  let ended = applied(deleting.model, CompositionEnded(key))
+  assert_true(!ended.model.is_composing(key))
+  assert_true(ended.effects.is_empty())
+  assert_true(ended.model.delete_status(key) is Some(DeletePending))
+  let restored = applied(ended.model, DeleteFailed(operation, WriteFailed))
+  guard restored.effects is [ArmMaximum(_)] else {
+    fail("resume autosave deadline")
+  }
+  guard restored.model.pending_edits() is [(pending_key, revision)] &&
+    pending_key == key else {
+    fail("resume quiet-window subscription")
+  }
+  let saving = applied(restored.model, ApplyPendingEdit(key, revision))
+  guard saving.effects is [PersistSource(save)] else {
+    fail("resume source save")
+  }
+  assert_eq(save.document.text(), "composed text")
+  let saved = applied(saving.model, Saved(save, save.document))
+  assert_eq(
+    saved.model.snapshot().find(save.document.id()),
+    Some(save.document),
+  )
+  assert_true(saved.model.save_status(key) is Some(Clean))
+}
+
+///|
+test "ready composition ending while deletion waits never overtakes its source write" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  let changed = edited(fixture_model(), key, "first")
+  let saving = applied(changed.model, VisibilityFlush(key))
+  guard saving.effects is [PersistSource(first)] else { fail("first save") }
+  let latest = edited(saving.model, key, "latest composed text")
+  guard latest.model.pending_edits() is [(pending_key, revision)] &&
+    pending_key == key else {
+    fail("composition quiet callback")
+  }
+  let composing = applied(latest.model, CompositionStarted(key))
+  let ready = applied(composing.model, ApplyPendingEdit(key, revision))
+  guard ready.model.delete(key) is Accepted(waiting) else {
+    fail("delete after save")
+  }
+  assert_true(waiting.effects.is_empty())
+  let ended = applied(waiting.model, CompositionEnded(key))
+  assert_true(!ended.model.is_composing(key))
+  assert_true(ended.effects.is_empty())
+  let deleting = applied(ended.model, Saved(first, first.document))
+  guard deleting.effects is [DeleteSource(operation)] else {
+    fail("delete before newer save")
+  }
+  let restored = applied(deleting.model, DeleteFailed(operation, WriteFailed))
+  guard restored.effects is [PersistSource(latest)] else {
+    fail("resume eligible text")
+  }
+  assert_eq(latest.document.text(), "latest composed text")
+  let saved = applied(restored.model, Saved(latest, latest.document))
+  assert_eq(
+    saved.model.snapshot().find(latest.document.id()),
+    Some(latest.document),
+  )
+}
+
+///|
+test "idle composition ending during deletion leaves no phantom composing state" {
+  let key = @documents.Key::source(fixture_document("stored").id())
+  let composing = applied(fixture_model(), CompositionStarted(key))
+  guard composing.model.delete(key) is Accepted(deleting) else {
+    fail("delete")
+  }
+  guard deleting.effects is [DeleteSource(operation)] else {
+    fail("source deletion")
+  }
+  let ended = applied(deleting.model, CompositionEnded(key))
+  assert_true(!ended.model.is_composing(key))
+  assert_true(ended.effects.is_empty())
+  let restored = applied(ended.model, DeleteFailed(operation, WriteFailed))
+  assert_true(restored.effects.is_empty())
+  let changed = edited(restored.model, key, "ordinary typing")
+  let saving = applied(changed.model, VisibilityFlush(key))
+  guard saving.effects is [PersistSource(save)] else {
+    fail("ordinary input saves")
+  }
+  assert_eq(save.document.text(), "ordinary typing")
+}
+
+///|
+test "replica composition ending during deletion resumes edits after local failure" {
+  let account = @source_repository.AccountId::parse("composition-account")
+  let replica = @source_repository.DocumentReplica::receive(
+    account,
+    fixture_document("stored"),
+    @source_repository.SavedRevision::parse(1),
+  )
+  let snapshot = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(replica)
+  let key = @documents.Key::replica(account, replica.document_id())
+  let composing = applied(@documents.Model(snapshot), CompositionStarted(key))
+  let changed = edited(composing.model, key, "composed replica text")
+  guard changed.model.delete(key) is Accepted(deleting) else {
+    fail("delete replica")
+  }
+  guard deleting.effects is [DeleteReplica(_)] else {
+    fail("replica deletion intent")
+  }
+  let ended = applied(deleting.model, CompositionEnded(key))
+  assert_true(!ended.model.is_composing(key))
+  assert_true(ended.effects.is_empty())
+  let restored = applied(
+    ended.model,
+    ReplicaDeletionFailed(replica.request_deletion(), StorageUnavailable),
+  )
+  guard restored.model.pending_edits() is [(pending_key, revision)] &&
+    pending_key == key else {
+    fail("resume replica quiet-window subscription")
+  }
+  let saving = applied(restored.model, ApplyPendingEdit(key, revision))
+  guard saving.effects is [SaveReplica(edit)] else {
+    fail("resume replica edit")
+  }
+  assert_eq(edit.document().text(), "composed replica text")
+}

@@ -83,8 +83,7 @@ pub fn Model::update(self : Self, message : Msg) -> Update raise UpdateError {
       applied_record(self, key, { ..record, edit, }, [])
     }
     CompositionEnded(key) => {
-      guard find_record(self.records, key) is Some(record) &&
-        record.delete_status() != DeletePending else {
+      guard find_record(self.records, key) is Some(record) else {
         return Superseded
       }
       let (record, effects) = match record.edit {
