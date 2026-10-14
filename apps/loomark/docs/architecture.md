@@ -177,6 +177,13 @@ returns a concrete `Msg`, such as `Saved`, `SaveFailed`, or `Deleted`.
 Storage failures become retryable model facts. They do not raise into the
 caller that originally requested an asynchronous write.
 
+Editor input branches directly on `Edit`: `Changed` installs the transition and
+forwards accepted text to the editor; `SameText` leaves the model and Preview
+unchanged. An `EditError` restores authoritative text and displays the refusal,
+without forwarding the rejected edit. Example creation likewise handles the
+edit outcome before activation. Neither path infers acceptance by comparing
+the resulting Document text.
+
 `Unchanged` means that the current input is already satisfied, such as a
 duplicate composition notification, a flush without pending work, or a retry
 without a failed save. `Superseded` instead identifies obsolete acknowledgments,

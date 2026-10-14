@@ -280,37 +280,12 @@ fn reduce_documents(
 }
 
 ///|
-fn edit_document(
-  editing : EditingDocument,
-  key : @documents.Key,
-  text : String,
-  actions : Array[@documents.Action],
-) -> EditingDocument {
-  try {
-    match editing.documents.edit(key, text) {
-      Changed(transition) => {
-        for action in transition.effects {
-          actions.push(action)
-        }
-        install_document_transition(editing, transition)
-      }
-      SameText => { ..editing, lifecycle_error: None, }
-    }
-  } catch {
-    @documents.EditError::DocumentMissing(_) =>
-      {
-        ..editing,
-        lifecycle_error: Some(
-          "The document is no longer available. Reopen it to continue.",
-        ),
-      }
-    @documents.EditError::PendingDeletion(_) =>
-      {
-        ..editing,
-        lifecycle_error: Some(
-          "This document is being deleted and can no longer be edited.",
-        ),
-      }
+fn document_edit_notice(error : @documents.EditError) -> String {
+  match error {
+    DocumentMissing(_) =>
+      "The document is no longer available. Reopen it to continue."
+    PendingDeletion(_) =>
+      "This document is being deleted and can no longer be edited."
   }
 }
 
@@ -534,7 +509,26 @@ fn update_page(
         for action in transition.effects {
           actions.push(action)
         }
-        let editing = edit_document(editing, key, text, actions)
+        let edit = editing.documents.edit(key, text) catch {
+          error =>
+            return (
+              Editing({
+                ..editing,
+                creation: None,
+                lifecycle_error: Some(document_edit_notice(error)),
+              }),
+              @cmd.none,
+            )
+        }
+        let editing = match edit {
+          Changed(transition) => {
+            for action in transition.effects {
+              actions.push(action)
+            }
+            install_document_transition(editing, transition)
+          }
+          SameText => editing
+        }
         match activation_target(editing.documents, key) {
           None => (Editing({ ..editing, creation: None, }), @cmd.none)
           Some(target) => {
@@ -594,24 +588,33 @@ fn update_page(
               Editing(editing),
               editor.restore(editing.documents.text(key).unwrap_or("")),
             )
-          Some(text) if editing.documents.text(key) == Some(text) =>
-            (Editing(editing), @cmd.none)
           Some(text) => {
-            let editing = edit_document(editing, key, text, actions)
-            if editing.documents.text(key) != Some(text) {
-              (
-                Editing(editing),
-                editor.restore(editing.documents.text(key).unwrap_or("")),
-              )
-            } else {
-              let (preview, preview_command) = editor.accepted(
-                editing.preview,
-                editing.activation.generation,
-                text,
-                change,
-                emit.map(event => PreviewEvent(event)),
-              )
-              (Editing({ ..editing, preview, }), preview_command)
+            let edit = editing.documents.edit(key, text) catch {
+              error =>
+                return (
+                  Editing({
+                    ..editing,
+                    lifecycle_error: Some(document_edit_notice(error)),
+                  }),
+                  editor.restore(editing.documents.text(key).unwrap_or("")),
+                )
+            }
+            match edit {
+              Changed(transition) => {
+                for action in transition.effects {
+                  actions.push(action)
+                }
+                let editing = install_document_transition(editing, transition)
+                let (preview, preview_command) = editor.accepted(
+                  editing.preview,
+                  editing.activation.generation,
+                  text,
+                  change,
+                  emit.map(event => PreviewEvent(event)),
+                )
+                (Editing({ ..editing, preview, }), preview_command)
+              }
+              SameText => (Editing(editing), @cmd.none)
             }
           }
         }
