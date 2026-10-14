@@ -753,3 +753,39 @@
 @media (prefers-color-scheme: dark) {
   .loomark-viewport { --rui-dialog-backdrop: oklch(0 0 0 / 0.5); }
 }
+
+/* Printing Preview yields the reading page alone; the writing chrome stays on
+   screen. Text mode prints as browser-owned textarea content. */
+@media print {
+  @page { margin: 22mm 20mm; }
+  /* Paper is always light: replace every dark-appearance token, not only text. */
+  :root {
+    --color-lm-foundation: #fff;
+    --color-lm-surface: #fff;
+    --color-lm-paper: #fff;
+    --color-lm-ink: #1a1714;
+    --color-lm-muted: #5d5650;
+    --color-lm-rule: oklch(0.89 0.006 80);
+    --color-lm-accent: oklch(0.47 0.12 264);
+    --color-lm-accent-soft: oklch(0.94 0.024 264);
+    --color-lm-danger: oklch(0.52 0.16 25);
+    --color-lm-danger-soft: oklch(0.95 0.022 25);
+  }
+  .loomark-viewport { position: static !important; height: auto !important; }
+  #loomark-root, #loomark-editor, #loomark-editor-panel, #loomark-editor-panels,
+  #loomark-editor-panels > *, #loomark-preview-scroll {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: none !important;
+  }
+  .loomark-topbar, .loomark-footer, .loomark-sidebar, .loomark-sidebar-trigger,
+  .loomark-divider, #loomark-text-pane:has(+ .loomark-divider:not([hidden])),
+  [role="alert"] {
+    display: none !important;
+  }
+  #loomark-preview-scroll { mask-image: none !important; }
+  #loomark-preview-scroll .rmd-preview-content { padding: 0 !important; font-size: 11.5pt; }
+  .loomark-prose :where(h1, h2, h3) { break-after: avoid; }
+  .loomark-prose :where(pre, blockquote, img, table) { break-inside: avoid; }
+}

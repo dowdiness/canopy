@@ -154,8 +154,9 @@ _Avoid_: fallback document, recovered text
 Loomark follows the system light or dark preference with the same warm paper
 hue. Text uses a duospaced writing face and Preview a reading serif; system
 fonts cover scripts they lack. Bundled font files carry their version in the
-name and stay cached. Appearance never changes Document text, and Preview adds
-no quotation marks or code delimiters that the text does not contain.
+name and stay cached. Printing from Preview prints the reading page without
+controls. Appearance never changes Document text, and Preview adds no quotation
+marks or code delimiters that the text does not contain.
 _Avoid_: theme, skin
 
 ---
