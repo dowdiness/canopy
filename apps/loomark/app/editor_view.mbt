@@ -218,7 +218,7 @@ fn text_area_view(
           // Changing this attribute splits Chromium's native typing undo group.
           placeholder="Start writing…",
           autofocus=true,
-          class="loomark-source m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent font-lm-mono text-base text-lm-ink caret-lm-accent outline-0 [tab-size:2]",
+          class="loomark-source m-0 block h-full min-h-0 w-full min-w-0 resize-none rounded-none border-0 bg-transparent font-lm-writing text-lm-ink caret-lm-accent outline-0 [tab-size:2]",
         ),
       ),
       (

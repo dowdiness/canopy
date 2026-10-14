@@ -25,6 +25,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 ### ✍️ Pure, Distraction-Free Drafting
 - **Natural Native Typing:** Standard browser text editing keeps IME composition and browser Undo/Redo completely natural.
 - **Zero Visual Noise:** No dictionary red lines, no autocorrect interruptions, and no unexpected formatting jumps. Write freely in any language, dialect, or code snippet.
+- **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face; read in a literary serif. Both ship with the app, so they work offline once loaded.
 - **Writing Focus:** While typing, surrounding paragraphs gently fade into the background so you can focus on the active sentence. Leaving the editor restores full readability immediately.
 
 ### 🍃 Thoughtful Modes & Viewport

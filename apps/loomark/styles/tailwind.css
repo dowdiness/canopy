@@ -11,6 +11,29 @@
 @source "../internal/view";
 @source not "../internal/view/*test.mbt";
 
+/* Bundled faces stay local so writing keeps its voice offline. Licenses: public/fonts/LICENSE.txt */
+@font-face {
+  font-family: "iA Writer Quattro";
+  src: url("./fonts/iAWriterQuattroS-Regular-2.000.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("./fonts/Literata-3.103.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("./fonts/Literata-Italic-3.103.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 @theme {
   --color-lm-foundation: oklch(0.972 0.004 85);
   --color-lm-surface: oklch(0.994 0.002 85);
@@ -23,7 +46,9 @@
   --color-lm-danger: oklch(0.52 0.16 25);
   --color-lm-danger-soft: oklch(0.95 0.022 25);
   --font-lm-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-lm-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-lm-mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-lm-writing: "iA Writer Quattro", ui-monospace, monospace;
+  --font-lm-reading: "Literata", "Iowan Old Style", Charter, Georgia, serif;
 }
 
 /* Dark paper keeps the same warm hue so switching system appearance does not
@@ -140,6 +165,8 @@
   --rui-destructive: var(--color-lm-danger);
   --rui-destructive-subtle: var(--color-lm-danger-soft);
   --loomark-track: color-mix(in oklab, var(--color-lm-ink) 5%, var(--color-lm-paper));
+  /* Text and Preview share one measure so switching modes keeps the text edge. */
+  --loomark-measure: 680px;
   --loomark-bottom-space: 64px;
   --loomark-content-bottom: calc(16px + var(--loomark-bottom-space));
   position: fixed !important;
@@ -168,9 +195,12 @@
 .loomark-source {
   /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
      only element resizing needs the existing measured-caret correction. */
-  padding: 70px max(28px, calc((100% - 760px) / 2)) var(--loomark-content-bottom);
+  padding: 70px max(28px, calc((100% - var(--loomark-measure)) / 2)) var(--loomark-content-bottom);
   scroll-padding-block: 70px var(--loomark-content-bottom);
-  line-height: 1.875;
+  font-size: 17px;
+  line-height: 1.85;
+  letter-spacing: 0.002em;
+  -webkit-font-smoothing: antialiased;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--color-lm-rule) transparent;
@@ -237,9 +267,10 @@
 #loomark-preview-scroll .rmd-preview-content {
   width: 100%;
   max-width: none;
-  padding: 70px max(28px, calc((100% - 720px) / 2)) var(--loomark-content-bottom);
-  font-size: 16px;
-  line-height: 1.85;
+  padding: 70px max(28px, calc((100% - var(--loomark-measure)) / 2)) calc(var(--loomark-content-bottom) + 48px);
+  font-family: var(--font-lm-reading);
+  font-size: 18px;
+  line-height: 1.72;
 }
 
 #loomark-preview-scroll .loomark-prose :where(h1) {
@@ -394,7 +425,10 @@
   .loomark-source { padding-top: 68px; padding-inline: 24px; scroll-padding-top: 68px; }
   #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px var(--loomark-content-bottom); }
   .loomark-menu { right: 12px; top: 49px; }
+  .loomark-source { font-size: 16px; }
+  #loomark-preview-scroll .rmd-preview-content { font-size: 17px; }
 }
+#loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { font-size: 17px; }
 
 .loomark-delete-action {
   --rui-sidebar-action-fg: var(--color-lm-muted);

@@ -152,7 +152,9 @@ _Avoid_: fallback document, recovered text
 
 **Appearance**:
 Loomark follows the system light or dark preference with the same warm paper
-hue. Appearance never changes Document text.
+hue. Text uses a duospaced writing face and Preview a reading serif; system
+fonts cover scripts they lack. Bundled font files carry their version in the
+name and stay cached. Appearance never changes Document text.
 _Avoid_: theme, skin
 
 ---
