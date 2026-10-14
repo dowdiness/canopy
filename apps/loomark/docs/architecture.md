@@ -210,6 +210,13 @@ Editing contract tests use the public text, Recent documents, pending-edit and
 save-status projections and the emitted effects. They do not depend on the
 private `Record` or `LeadSource` representation.
 
+Promotion and fork-recovery durability tests drive public lifecycle operations
+and complete the actual persistence attempts. After the ownership write commits,
+they verify an empty persistence queue, an older saved body, and newer Document
+text that is still `Saving`. Only acknowledgment of the newer body makes the
+model `Durable`; a pending ownership write cannot mask a premature durability
+decision.
+
 Source save and deletion ownership is a single sum in
 [`documents_types.mbt`](../internal/documents/documents_types.mbt):
 

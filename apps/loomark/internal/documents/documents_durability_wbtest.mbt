@@ -130,34 +130,127 @@ test "replica deletion waits for local intent but not durable remote delivery" {
 }
 
 ///|
-test "promotion waits for ownership commit and newer accepted text" {
-  let source = documents_test_document("one", "one")
+test "promotion commit remains non-durable until newer accepted text is stored" {
   let account = account_id("account")
-  let write = @source_repository.DocumentReplica(account, source).promote_source()
-  let (persistence, _) = @replica_persistence.State().submit(write)
-  let documents = Model(documents_test_snapshot())
-  assert_true(
-    documents.local_durability(persistence) is LocalDurability::Saving,
+  let (documents, replica) = begin_sync_start(
+    Model(documents_test_snapshot()),
+    account,
   )
-  let committed = documents.saved.apply_replica_write(write)
-  assert_true(
-    Model(committed).local_durability(persistence) is LocalDurability::Durable,
-  )
-  let (pending, _) = durability_changed(
+  let promotion = replica.promote_source()
+  let (persistence, attempt) = @replica_persistence.State().submit(promotion)
+  guard attempt is Some(attempt) else { fail("promotion must start") }
+  let (documents, _) = durability_changed(
     documents,
     documents.edit(source_key("one"), "newer accepted text"),
   )
-  assert_true(pending.local_durability(persistence) is LocalDurability::Saving)
+  assert_true(documents.local_durability(persistence) is Saving)
+
+  let (persistence, completion) = persistence.complete(attempt, Ok(()))
+  guard completion is @replica_persistence.Completion::Current(committed) else {
+    fail("promotion must finish without queued writes")
+  }
+  let (documents, effects) = durability_applied(
+    documents.update(Promoted(committed)),
+  )
+  let key = Key::replica(account, document_id("one"))
+  assert_true(effects.is_empty())
+  assert_eq(persistence.pending_writes().count(), 0)
+  assert_eq(documents.snapshot().find(document_id("one")), None)
+  assert_eq(
+    documents
+    .snapshot()
+    .replica(account, document_id("one"))
+    .bind(replica => replica.document()),
+    Some(documents_test_document("one", "one")),
+  )
+  assert_eq(documents.text(key), Some("newer accepted text"))
+  assert_true(documents.local_durability(persistence) is Saving)
+
+  guard documents.pending_edits() is [(pending_key, revision)] &&
+    pending_key == key else {
+    fail("newer text must retain its pending edit after promotion")
+  }
+  let (documents, effects) = durability_applied(
+    documents.update(ApplyPendingEdit(key, revision)),
+  )
+  guard effects is [SaveReplica(edit)] else {
+    fail("newer text must save through the promoted Replica")
+  }
+  assert_eq(edit.document().text(), "newer accepted text")
+  assert_true(documents.local_durability(persistence) is Saving)
+  guard edit.durable().edit(edit.document().text())
+    is @source_repository.EditPlan::Persist(write) else {
+    fail("newer Replica text must require persistence")
+  }
+  let (persistence, attempt) = persistence.submit(write)
+  guard attempt is Some(attempt) else { fail("newer Replica write must start") }
+  assert_true(documents.local_durability(persistence) is Saving)
+  let (persistence, completion) = persistence.complete(attempt, Ok(()))
+  guard completion is @replica_persistence.Completion::Current(committed) else {
+    fail("newer Replica write must finish")
+  }
+  let (documents, effects) = durability_applied(
+    documents.update(ReplicaSettled(committed, Some(key))),
+  )
+  assert_true(effects.is_empty())
+  assert_eq(
+    documents
+    .snapshot()
+    .replica(account, document_id("one"))
+    .bind(replica => replica.document()),
+    Some(edit.document()),
+  )
+  assert_true(documents.local_durability(persistence) is Durable)
 }
 
 ///|
-test "fork recovery commit does not cover text accepted after forking" {
+test "fork recovery commit remains non-durable until newer accepted text is stored" {
   let (documents, _, _, fork) = fork_fixture()
-  let documents = documents.begin_fork(fork) catch { _ => abort("valid fork") }
-  let (persistence, _) = @replica_persistence.State().submit(fork)
-  assert_true(
-    documents.local_durability(persistence) is LocalDurability::Saving,
+  guard fork is @source_repository.ReplicaWrite::Fork(_, recovery) else {
+    fail("fixture must provide a recovery write")
+  }
+  let key = Key::source(recovery.id())
+  let documents = documents.begin_fork(fork)
+  let (persistence, attempt) = @replica_persistence.State().submit(fork)
+  guard attempt is Some(attempt) else { fail("fork must start") }
+  let (documents, _) = durability_changed(
+    documents,
+    documents.edit(key, "newer recovery"),
   )
+  assert_true(documents.local_durability(persistence) is Saving)
+
+  let (persistence, completion) = persistence.complete(attempt, Ok(()))
+  guard completion is @replica_persistence.Completion::Current(committed) else {
+    fail("fork must finish without queued writes")
+  }
+  let (documents, effects) = durability_applied(
+    documents.update(ReplicaSettled(committed, Some(key))),
+  )
+  assert_true(effects.is_empty())
+  assert_eq(persistence.pending_writes().count(), 0)
+  assert_eq(documents.snapshot().find(recovery.id()), Some(recovery))
+  assert_eq(documents.text(key), Some("newer recovery"))
+  assert_eq(documents.replica_owner(key), None)
+  assert_true(documents.local_durability(persistence) is Saving)
+
+  guard documents.pending_edits() is [(pending_key, revision)] &&
+    pending_key == key else {
+    fail("newer recovery text must retain its pending edit")
+  }
+  let (documents, effects) = durability_applied(
+    documents.update(ApplyPendingEdit(key, revision)),
+  )
+  guard effects is [PersistSource(operation)] else {
+    fail("newer recovery text must save as a Source")
+  }
+  assert_eq(operation.document.text(), "newer recovery")
+  assert_true(documents.local_durability(persistence) is Saving)
+  let (documents, effects) = durability_applied(
+    documents.update(Saved(operation, operation.document)),
+  )
+  assert_true(effects.is_empty())
+  assert_eq(documents.snapshot().find(recovery.id()), Some(operation.document))
+  assert_true(documents.local_durability(persistence) is Durable)
 }
 
 ///|
