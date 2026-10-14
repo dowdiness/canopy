@@ -6,6 +6,8 @@ priv struct EditorInput {
   read_only : Bool
   mode : EditorMode
   preview : @editor.EditorState
+  /// Declares Japanese content so assistive technology and typography use it.
+  japanese : Bool
 } derive(Eq)
 
 ///|
@@ -63,6 +65,7 @@ fn build_editor_view(
                   on_event,
                   editor,
                   input.activation,
+                  japanese=input.japanese,
                   show_new_document_hint=input.show_new_document_hint,
                   disabled=input.disabled,
                   read_only=input.read_only,
@@ -80,7 +83,7 @@ fn build_editor_view(
                 scope~,
                 side=@rui.SecondPanel,
                 class="flex min-h-0 min-w-0 overflow-hidden bg-lm-paper",
-                attrs=@html.Attrs::build()
+                attrs=content_language(input.japanese)
                   .hidden(!preview_visible)
                   .on_wheel(_ => on_event(ScrollClaimed(PreviewPane)))
                   .on_pointerdown(_ => on_event(ScrollClaimed(PreviewPane)))
@@ -184,12 +187,13 @@ fn text_area_view(
   editor : @editor.MarkdownEditor,
   activation : Activation,
   show_new_document_hint~ : Bool,
+  japanese~ : Bool,
   disabled? : Bool,
   read_only? : Bool,
 ) -> @rabbita.Html {
   @html.div(
     class="loomark-source-frame h-full min-h-0 w-full min-w-0",
-    attrs=@html.Attrs::build()
+    attrs=content_language(japanese)
       .spellcheck(false)
       .data_set(
         "new-document-hint",
@@ -232,4 +236,15 @@ fn text_area_view(
       ),
     ]),
   )
+}
+
+///|
+/// The interface stays English; only document content declares Japanese.
+fn content_language(japanese : Bool) -> @html.Attrs {
+  let attrs = @html.Attrs::build()
+  if japanese {
+    attrs.lang("ja")
+  } else {
+    attrs
+  }
 }

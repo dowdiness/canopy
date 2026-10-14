@@ -25,8 +25,9 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 ### ✍️ Pure, Distraction-Free Drafting
 - **Natural Native Typing:** Standard browser text editing keeps IME composition and browser Undo/Redo completely natural.
 - **Zero Visual Noise:** No dictionary red lines, no autocorrect interruptions, and no unexpected formatting jumps. Write freely in any language, dialect, or code snippet.
-- **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face; read in a literary serif. Both ship with the app, so they work offline once loaded.
 - **Writing Focus:** While typing, surrounding paragraphs gently fade into the background so you can focus on the active sentence. Leaving the editor restores full readability immediately.
+- **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face paired with IBM Plex Sans JP for Japanese; read in a literary serif paired with BIZ UDMincho. All faces ship with the app, so they work offline once loaded.
+- **Japanese-Aware:** Japanese documents keep kana and kanji upright, show emphasis with emphasis dots (傍点), and use strict line breaking and roomier lines in Preview.
 - **A Quiet Character Count:** Wide screens show the document's character count (excluding spaces and line breaks) beside the mode switcher, settling after a short pause instead of flickering with every keystroke.
 
 ### 🍃 Thoughtful Modes & Viewport

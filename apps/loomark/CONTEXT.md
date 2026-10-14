@@ -162,12 +162,24 @@ _Avoid_: word count, statistics, progress
 
 **Appearance**:
 Loomark follows the system light or dark preference with the same warm paper
-hue. Text uses a duospaced writing face and Preview a reading serif; system
-fonts cover scripts they lack. Bundled font files carry their version in the
-name and stay cached. Printing from Preview prints the reading page without
-controls. Appearance never changes Document text, and Preview adds no quotation
-marks or code delimiters that the text does not contain.
+hue. Text uses a duospaced writing face with IBM Plex Sans JP for Japanese, and
+Preview a reading serif with BIZ UDMincho; system fonts cover scripts they
+lack. Japanese faces download only when Japanese text appears and stay cached
+by versioned file name. A face that arrives late replaces the system
+font everywhere at once, and Writing focus re-measures. Printing from
+Preview prints the reading page without controls. Appearance never changes
+Document text, and Preview adds no quotation marks or code delimiters that the
+text does not contain.
 _Avoid_: theme, skin
+
+**Japanese document**:
+A Loomark document whose text contains kana and whose East Asian characters
+outnumber its other words, judged from the same settled text as the Character
+count. Its Text and Preview declare Japanese content for assistive technology
+and Japanese typography: Preview keeps kana and kanji upright, marks emphasis
+with emphasis dots, and widens line spacing. The interface language is
+unchanged.
+_Avoid_: locale, translation
 
 ---
 

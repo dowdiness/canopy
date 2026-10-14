@@ -17,6 +17,22 @@ test "text_profile counts visible characters without spaces or line breaks" {
 }
 
 ///|
+test "text_profile recognizes Japanese only when it is the main language" {
+  inspect(
+    text_profile("今日は晴れ。Loomark で書く。").japanese,
+    content="true",
+  )
+  // Kanji without kana may be Chinese.
+  inspect(text_profile("我们今天写作").japanese, content="false")
+  // A Japanese phrase inside English prose keeps the English typography.
+  inspect(
+    text_profile("Notes from the trip: we visited すし bars every night").japanese,
+    content="false",
+  )
+  inspect(text_profile("").japanese, content="false")
+}
+
+///|
 test "character_count_label groups thousands" {
   inspect(character_count_label(1), content="1 character")
   inspect(character_count_label(999), content="999 characters")

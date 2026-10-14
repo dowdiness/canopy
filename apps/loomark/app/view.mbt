@@ -16,7 +16,11 @@ fn view(
       .map(item => item.1)
     })
     .map(source => source.map(text_profile))
-  let editor_input : @rabbita.Val[EditorInput?] = model.map(model => {
+  let japanese = profile.map(profile => profile is Some({ japanese: true, .. }))
+  let editor_input : @rabbita.Val[EditorInput?] = model.map2(japanese, (
+    model,
+    japanese,
+  ) => {
     match model.page {
       Editing(editing) =>
         Some({
@@ -31,6 +35,7 @@ fn view(
           read_only: editing.deletion_blocks_document_changes(),
           mode: editing.mode,
           preview: editing.preview,
+          japanese,
         })
       Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
     }

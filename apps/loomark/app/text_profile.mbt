@@ -1,4 +1,27 @@
 ///|
+/// Kana and ideographs: Japanese text has no spaces between words.
+fn is_east_asian(c : Char) -> Bool {
+  let code = c.to_int()
+  (code >= 0x3040 && code <= 0x30FF) ||
+  (code >= 0x3400 && code <= 0x4DBF) ||
+  (code >= 0x4E00 && code <= 0x9FFF) ||
+  (code >= 0xF900 && code <= 0xFAFF) ||
+  (code >= 0xFF66 && code <= 0xFF9F)
+}
+
+///|
+/// Letters and digits outside East Asian scripts; punctuation, symbols, and
+/// Markdown markers do not start a word.
+fn is_word_letter(c : Char) -> Bool {
+  let code = c.to_int()
+  if code < 0x80 {
+    c.is_ascii_alphabetic() || c.is_ascii_digit()
+  } else {
+    !(code >= 0x2000 && code <= 0x2BFF) && !(code >= 0x3000 && code <= 0x303F)
+  }
+}
+
+///|
 fn is_blank(c : Char) -> Bool {
   c == ' ' ||
   c == '\n' ||
@@ -31,19 +54,39 @@ fn joins_previous(c : Char) -> Bool {
 priv struct TextProfile {
   /// Visible characters, excluding spaces and line breaks.
   characters : Int
+  /// Kana marks Japanese rather than Chinese; East Asian characters must
+  /// outnumber other words so an English note with a Japanese phrase keeps
+  /// its own typography.
+  japanese : Bool
 } derive(Eq)
 
 ///|
 fn text_profile(text : String) -> TextProfile {
   let mut characters = 0
+  let mut east_asian = 0
+  let mut other_words = 0
+  let mut kana = false
+  let mut in_word = false
   let mut after_joiner = false
   for c in text {
-    if !is_blank(c) && !joins_previous(c) && !after_joiner {
+    if is_blank(c) {
+      in_word = false
+    } else if joins_previous(c) || after_joiner {
+      ()
+    } else {
       characters += 1
+      if is_east_asian(c) {
+        east_asian += 1
+        kana = kana || c <= '\u{30FF}'
+        in_word = false
+      } else if !in_word && is_word_letter(c) {
+        other_words += 1
+        in_word = true
+      }
     }
     after_joiner = c == '\u{200D}'
   }
-  { characters, }
+  { characters, japanese: kana && east_asian >= other_words, }
 }
 
 ///|
