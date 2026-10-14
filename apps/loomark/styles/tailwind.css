@@ -402,7 +402,6 @@
   scroll-padding-block: 70px var(--loomark-content-bottom);
   font-size: 17px;
   line-height: 1.85;
-  letter-spacing: 0.002em;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: contain;
   scrollbar-width: thin;
