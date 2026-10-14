@@ -150,6 +150,16 @@ newer refresh fails. Loomark marks it as stale; it never becomes Document text
 or carries over to another document.
 _Avoid_: fallback document, recovered text
 
+**Character count**:
+A quiet writing measure beside the Editor-mode control on wide screens. It
+counts the Document text that Recent documents last settled on, so it may lag
+typing by the same short pause. Every visible character counts, including
+Markdown markers and punctuation; spaces and line breaks do not, and combining
+marks, variation selectors, and joined emoji count with the character they
+modify. It is absent for empty text and on compact screens, where save
+attention owns the footer. It is presentation, not a save status.
+_Avoid_: word count, statistics, progress
+
 **Appearance**:
 Loomark follows the system light or dark preference with the same warm paper
 hue. Text uses a duospaced writing face and Preview a reading serif; system

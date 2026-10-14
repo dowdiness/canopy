@@ -5,6 +5,17 @@ fn view(
   editor : @editor.MarkdownEditor,
 ) -> @rabbita.Val[@rabbita.Html] {
   let page = model.map(model => model.page)
+  // Profiles follow the settled Recent documents source, not each keystroke.
+  let profile = model
+    .map(model => {
+      guard model.page is Editing(editing) else { return None }
+      editing.documents
+      .recent()
+      .iter()
+      .find_first(item => item.0 == editing.activation.key)
+      .map(item => item.1)
+    })
+    .map(source => source.map(text_profile))
   let editor_input : @rabbita.Val[EditorInput?] = model.map(model => {
     match model.page {
       Editing(editing) =>
@@ -193,15 +204,21 @@ fn view(
       None => @html.nothing
     }
   })
-  let footer = mode.view3(durability, sync_attention, (
+  let characters = profile.map(profile => {
+    profile.map(profile => profile.characters)
+  })
+  let footer = mode.view4(durability, sync_attention, characters, (
     mode,
     durability,
     attention,
+    characters,
   ) => {
     let (sync_attention, persistence) = attention
     match mode {
       Some(mode) =>
-        document_footer(mode, durability, persistence, sync_attention, on_mode)
+        document_footer(
+          mode, durability, persistence, sync_attention, characters, on_mode,
+        )
       None => @html.nothing
     }
   })

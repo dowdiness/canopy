@@ -131,6 +131,7 @@ fn document_footer(
   durability : LocalDurability?,
   persistence : @replica_persistence.Status?,
   attention : @rabbita.Html,
+  characters : Int?,
   on_mode : @rabbita.Emit[EditorMode],
 ) -> @rabbita.Html {
   @html.footer(
@@ -146,6 +147,15 @@ fn document_footer(
       @html.div(
         class="loomark-bottom-actions flex shrink-0 items-center gap-2",
         [
+          // The measure stays mounted: inserting it during the first typing
+          // burst would split Chromium's native Undo group.
+          @html.span(
+            class="loomark-character-count",
+            match characters {
+              Some(count) if count > 0 => character_count_label(count)
+              _ => ""
+            },
+          ),
           @rui.tabs_root(
             value=mode_name(mode).to_lower(),
             style=["width:auto"],

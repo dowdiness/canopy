@@ -27,6 +27,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 - **Zero Visual Noise:** No dictionary red lines, no autocorrect interruptions, and no unexpected formatting jumps. Write freely in any language, dialect, or code snippet.
 - **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face; read in a literary serif. Both ship with the app, so they work offline once loaded.
 - **Writing Focus:** While typing, surrounding paragraphs gently fade into the background so you can focus on the active sentence. Leaving the editor restores full readability immediately.
+- **A Quiet Character Count:** Wide screens show the document's character count (excluding spaces and line breaks) beside the mode switcher, settling after a short pause instead of flickering with every keystroke.
 
 ### 🍃 Thoughtful Modes & Viewport
 - **Three Views:** Toggle effortlessly between **Text** (pure drafting), **Preview** (clean formatted reading), and **Split** (side-by-side with a draggable divider).
@@ -53,7 +54,7 @@ Loomark has zero clutter, keeping all essential tools right at your fingertips:
 - **Top-Right (Pen icon):** Starts a fresh document instantly.
 - **Mode Switcher (Text / Preview / Split):** Toggle between drafting, rendered reading, or side-by-side editing with a draggable divider.
 - **More Actions (`...` menu):** Cleanly export your current note as a `.md` file, import existing Markdown documents, or manage optional cloud sync.
-- **Footer:** Displays quiet durability feedback (`Saved on this device`, `Saving on this device`, or `Not saved`) with explicit retry controls when needed.
+- **Footer:** Displays quiet durability feedback (`Saved on this device`, `Saving on this device`, or `Not saved`) with explicit retry controls when needed, and the character count on wide screens.
 
 ---
 

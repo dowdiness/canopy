@@ -754,6 +754,20 @@
   .loomark-viewport { --rui-dialog-backdrop: oklch(0 0 0 / 0.5); }
 }
 
+/* A writing measure, not a status: quiet, tabular, and absent on compact
+   screens where save attention owns the footer. */
+.loomark-character-count {
+  padding-inline: 6px;
+  color: var(--color-lm-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.loomark-character-count:empty { padding: 0; }
+@media (max-width: 641px) {
+  .loomark-character-count { display: none; }
+}
+
 /* Printing Preview yields the reading page alone; the writing chrome stays on
    screen. Text mode prints as browser-owned textarea content. */
 @media print {
