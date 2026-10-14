@@ -2651,10 +2651,7 @@ test "deleting the Editing Document activates its saved fallback" {
 ///|
 test "deleting an active unsaved new document reconciles activation" {
   let initial = test_editing()
-  let transition = expect_document_update(
-    initial.documents,
-    @documents.Msg::New(document_id("new")),
-  )
+  let transition = initial.documents.create(document_id("new"))
   let documents = transition.model
   let (model, _) = test_update(
     Editing({
@@ -2673,10 +2670,7 @@ test "deleting an active unsaved new document reconciles activation" {
 ///|
 test "failed first save of active new document reconciles activation" {
   let initial = test_editing()
-  let transition = expect_document_update(
-    initial.documents,
-    @documents.Msg::New(document_id("new")),
-  )
+  let transition = initial.documents.create(document_id("new"))
   let documents = transition.model
   let transition = expect_document_edit(documents, source_key("new"), "hello")
   let documents = transition.model

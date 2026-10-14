@@ -135,10 +135,7 @@ test "local document status exposes sign-in and sync-start states" {
   assert_eq(action.document_id(), document_id("one"))
 
   guard signed_in.page is Editing(editing) else { fail("editing") }
-  let transition = expect_document_update(
-    editing.documents,
-    @documents.Msg::New(document_id("new")),
-  )
+  let transition = editing.documents.create(document_id("new"))
   let documents = transition.model
   let ephemeral = {
     ..signed_in,

@@ -457,9 +457,7 @@ test "failed existing save still releases a waiting delete" {
 test "new document deletion is local and does not change snapshot" {
   let documents = Model::Model(documents_test_snapshot())
   let before = documents.snapshot()
-  let (documents, _) = persistence_applied(
-    documents.update(New(document_id("new"))),
-  )
+  let documents = documents.create(document_id("new")).model
   let (documents, decisions) = persistence_deleted(
     documents,
     documents.delete(source_key("new")),
@@ -472,9 +470,7 @@ test "new document deletion is local and does not change snapshot" {
 ///|
 test "new in-flight stored save promotes before deletion" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = persistence_applied(
-    documents.update(New(document_id("new"))),
-  )
+  let documents = documents.create(document_id("new")).model
   let (documents, decisions) = persistence_changed(
     documents,
     documents.edit(source_key("new"), "hello"),
@@ -505,9 +501,7 @@ test "new in-flight stored save promotes before deletion" {
 ///|
 test "new in-flight failed save is removed locally" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = persistence_applied(
-    documents.update(New(document_id("new"))),
-  )
+  let documents = documents.create(document_id("new")).model
   let (documents, decisions) = persistence_changed(
     documents,
     documents.edit(source_key("new"), "hello"),
@@ -683,9 +677,7 @@ test "eligible pending latest text waits for delete without an intermediate writ
 ///|
 test "failed absent New completion removes the record before delete" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = persistence_applied(
-    documents.update(New(document_id("new"))),
-  )
+  let documents = documents.create(document_id("new")).model
   let (documents, timer) = persistence_changed(
     documents,
     documents.edit(source_key("new"), "x"),

@@ -108,13 +108,15 @@ test "first edit to New establishes a public Recent entry" {
   let documents = @documents.Model(
     @source_repository.SavedDocuments::from_documents([]).unwrap(),
   )
-  let created = editing_applied(documents.update(New(id)))
+  let created = documents.create(id)
   let key = @documents.Key::source(id)
   assert_eq(
     created.model.document(key).map(document => document.text()),
     Some(""),
   )
   assert_eq(editing_recent_text(created.model, key), None)
+  assert_true(created.effects.is_empty())
+  assert_eq(created.model.snapshot(), documents.snapshot())
   let (documents, _) = match created.model.edit(key, "first") {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
@@ -164,7 +166,7 @@ test "saved activation remains resumable while an ephemeral New does not" {
   )
 
   let new_id = editing_fixture_id("a0000000-0000-4000-8000-000000000015")
-  let documents = editing_applied(documents.update(New(new_id))).model
+  let documents = documents.create(new_id).model
   let new_key = @documents.Key::source(new_id)
   assert_eq(
     documents.document(new_key).map(document => document.text()),
@@ -181,4 +183,29 @@ test "duplicate text edit is SameText" {
     SameText => fail("unexpected unchanged edit")
   }
   assert_true(documents.edit(key, "one!") is SameText)
+}
+
+///|
+test "creation rejects saved and ephemeral identities without replacing their documents" {
+  let existing_id = editing_fixture_id("a0000000-0000-4000-8000-000000000011")
+  let new_id = editing_fixture_id("a0000000-0000-4000-8000-000000000016")
+  let documents = editing_fixture_model().create(new_id).model
+  for id in [existing_id, new_id] {
+    let refusal = try {
+      ignore(documents.create(id))
+      None
+    } catch {
+      error => Some(error)
+    }
+    assert_eq(
+      refusal,
+      Some(
+        @documents.CreateError::DocumentAlreadyExists(
+          @documents.Key::source(id),
+        ),
+      ),
+    )
+  }
+  assert_eq(documents.text(@documents.Key::source(existing_id)), Some("one"))
+  assert_eq(documents.text(@documents.Key::source(new_id)), Some(""))
 }

@@ -165,6 +165,7 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
 
 | Operation | Normal outcome | Raised refusal |
 |---|---|---|
+| `Model::create(document_id)` | `Transition` | `CreateError`: duplicate identity |
 | `Model::edit(key, text)` | `Changed(Transition)` or `SameText` | `EditError`: missing Document or pending deletion |
 | `Model::delete(key)` | `Accepted(Transition)` or `AlreadyPending` | `DeleteError`: missing Document, ownership transfer, or missing Replica |
 | `Model::update(msg)` | `Applied(Transition)`, `Unchanged`, or `Superseded` | `UpdateError`: missing Document, blocked retry, duplicate identity, mismatched Document, or invalid acknowledgment |
@@ -176,6 +177,15 @@ hands effects to their owner in the same root update; browser work then
 returns a concrete `Msg`, such as `Saved`, `SaveFailed`, or `Deleted`.
 Storage failures become retryable model facts. They do not raise into the
 caller that originally requested an asynchronous write.
+
+`Model(saved)` constructs the lifecycle model from saved Documents.
+`model.create(document_id)` instead adds an untouched New document to that
+existing model, preserving its Documents and pending work. Creation returns a
+transition directly, never `Unchanged` or `Superseded`; duplicate identities
+raise `CreateError::DocumentAlreadyExists`. Its effects are empty, and the New
+document remains absent from storage and Recent documents until its first edit.
+The app handles creation directly, like `edit` and `delete`, rather than
+sending a creation request through `Msg`.
 
 Editor input branches directly on `Edit`: `Changed` installs the transition and
 forwards accepted text to the editor; `SameText` leaves the model and Preview

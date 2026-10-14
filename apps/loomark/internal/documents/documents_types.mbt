@@ -154,7 +154,6 @@ pub struct Transition {
 
 ///|
 pub(all) enum Msg {
-  New(@source_repository.DocumentId)
   Imported(@source_repository.DocumentId, String)
   CompositionStarted(Key)
   CompositionEnded(Key)
@@ -227,6 +226,11 @@ pub(all) enum Action {
   RetryReplica(@source_repository.AccountId, @source_repository.DocumentId)
   DeleteSource(DeleteOperation)
 }
+
+///|
+pub(all) suberror CreateError {
+  DocumentAlreadyExists(Key)
+} derive(Eq, Debug)
 
 ///|
 pub(all) suberror EditError {
@@ -379,6 +383,12 @@ pub extend SyncStart with Eq::{equal, not_equal}
 
 ///|
 pub extend Key with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CreateError with Eq::{equal, not_equal}
+
+///|
+pub extend CreateError with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend EditError with Eq::{equal, not_equal}

@@ -19,6 +19,26 @@ fn applied_record(
 }
 
 ///|
+/// Add an untouched New document without scheduling persistence.
+pub fn Model::create(
+  self : Self,
+  document_id : @source_repository.DocumentId,
+) -> Transition raise CreateError {
+  let key = Key::source(document_id)
+  if find_record(self.records, key) is Some(_) {
+    raise DocumentAlreadyExists(key)
+  }
+  let record : Record = {
+    persistence: Source(EphemeralNew, Writable(Idle, None)),
+    document: @source_repository.Document::create(document_id, ""),
+    version: 0,
+    edit: Idle,
+    lead_source: Unlisted,
+  }
+  transition({ ..self, records: prepend_record(self.records, record), }, [])
+}
+
+///|
 pub fn Model::edit(
   self : Self,
   key : Key,
@@ -40,29 +60,20 @@ pub fn Model::edit(
 ///|
 pub fn Model::update(self : Self, message : Msg) -> Update raise UpdateError {
   match message {
-    New(document_id) | Imported(document_id, _) => {
+    Imported(document_id, text) => {
       let key = Key::source(document_id)
       if find_record(self.records, key) is Some(_) {
         raise DocumentAlreadyExists(key)
       }
-      let (origin, text, lead_source) = match message {
-        Imported(_, text) =>
-          (LocalDocumentOrigin::ImportedNew, text, LeadSource::Available(text))
-        _ => (LocalDocumentOrigin::EphemeralNew, "", LeadSource::Unlisted)
-      }
       let document = @source_repository.Document::create(document_id, text)
       let record : Record = {
-        persistence: Source(origin, Writable(Idle, None)),
+        persistence: Source(ImportedNew, Writable(Idle, None)),
         document,
         version: 0,
         edit: Idle,
-        lead_source,
+        lead_source: Available(text),
       }
-      let (model, record, effects) = if origin is ImportedNew {
-        request_save(self, record)
-      } else {
-        (self, record, [])
-      }
+      let (model, record, effects) = request_save(self, record)
       Applied(
         transition(
           { ..model, records: prepend_record(model.records, record), },

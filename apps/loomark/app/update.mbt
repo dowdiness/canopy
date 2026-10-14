@@ -402,63 +402,46 @@ fn update_page(
               @cmd.none,
             )
           Created(document_id) => {
-            let outcome = opening.documents.update(
-              @documents.Msg::New(document_id),
-            ) catch {
-              error => {
-                let notice = match error {
-                  @documents.UpdateError::DocumentAlreadyExists(_) =>
-                    "The new document identity is already in use. Retry to create a fresh identity."
-                  error => document_update_notice(error)
-                }
+            let transition = opening.documents.create(document_id) catch {
+              DocumentAlreadyExists(_) => {
+                let notice = "The new document identity is already in use. Retry to create a fresh identity."
                 return (
                   OpeningNew(opening, { ..creation, status: Fault(notice), }),
                   @cmd.none,
                 )
               }
             }
-            match outcome {
-              Applied(transition) => {
-                for action in transition.effects {
-                  actions.push(action)
-                }
-                let activation = {
-                  key: @documents.Key::source(document_id),
-                  generation: opening.next_activation_generation,
-                }
-                let (preview, command) = activate_surface(
-                  activation,
-                  "",
-                  opening.mode,
-                  emit,
-                  editor,
-                )
-                (
-                  Editing({
-                    activation,
-                    documents: transition.model,
-                    creation: None,
-                    lifecycle_error: None,
-                    deletion: NoDeletion,
-                    mode: opening.mode,
-                    menu_open: false,
-                    compact: opening.compact,
-                    preview,
-                    import_failed: false,
-                    imports_pending: 0,
-                    next_creation_request_id: creation.request_id + 1,
-                  }),
-                  command,
-                )
-              }
-              Unchanged | Superseded => {
-                let error = "The new document was not created. Retry creating it. The current document was retained."
-                (
-                  OpeningNew(opening, { ..creation, status: Fault(error), }),
-                  @cmd.none,
-                )
-              }
+            for action in transition.effects {
+              actions.push(action)
             }
+            let activation = {
+              key: @documents.Key::source(document_id),
+              generation: opening.next_activation_generation,
+            }
+            let (preview, command) = activate_surface(
+              activation,
+              "",
+              opening.mode,
+              emit,
+              editor,
+            )
+            (
+              Editing({
+                activation,
+                documents: transition.model,
+                creation: None,
+                lifecycle_error: None,
+                deletion: NoDeletion,
+                mode: opening.mode,
+                menu_open: false,
+                compact: opening.compact,
+                preview,
+                import_failed: false,
+                imports_pending: 0,
+                next_creation_request_id: creation.request_id + 1,
+              }),
+              command,
+            )
           }
         }
       }
@@ -499,13 +482,20 @@ fn update_page(
         (Editing(editing), @cmd.none)
       } else {
         let key = @documents.Key::source(document_id)
-        let (editing, outcome) = document_update(
-          editing,
-          @documents.Msg::New(document_id),
-        )
-        guard outcome is DocumentUpdate::Updated(transition) else {
-          return (Editing({ ..editing, creation: None, }), @cmd.none)
+        let transition = editing.documents.create(document_id) catch {
+          DocumentAlreadyExists(_) =>
+            return (
+              Editing({
+                ..editing,
+                creation: None,
+                lifecycle_error: Some(
+                  "This document already exists. Reopen the current document to recover.",
+                ),
+              }),
+              @cmd.none,
+            )
         }
+        let editing = install_document_transition(editing, transition)
         for action in transition.effects {
           actions.push(action)
         }
@@ -808,13 +798,20 @@ fn update_page(
       if !creation_request_is_current(editing.creation, request_id) {
         (Editing(editing), @cmd.none)
       } else {
-        let (editing, outcome) = document_update(
-          editing,
-          @documents.Msg::New(document_id),
-        )
-        guard outcome is DocumentUpdate::Updated(transition) else {
-          return (Editing({ ..editing, creation: None, }), @cmd.none)
+        let transition = editing.documents.create(document_id) catch {
+          DocumentAlreadyExists(_) =>
+            return (
+              Editing({
+                ..editing,
+                creation: None,
+                lifecycle_error: Some(
+                  "This document already exists. Reopen the current document to recover.",
+                ),
+              }),
+              @cmd.none,
+            )
         }
+        let editing = install_document_transition(editing, transition)
         for action in transition.effects {
           actions.push(action)
         }

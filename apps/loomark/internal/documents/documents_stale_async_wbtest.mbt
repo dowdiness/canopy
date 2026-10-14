@@ -127,10 +127,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
 ///|
 test "delete and recreate keeps pending revisions monotonic and isolated" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.update(New(document_id("new"))) {
-    Applied(transition) => (transition.model, transition.effects)
-    Unchanged | Superseded => fail("expected an applied document update")
-  }
+  let documents = documents.create(document_id("new")).model
   let (documents, _) = match documents.edit(source_key("new"), "first") {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
@@ -140,10 +137,7 @@ test "delete and recreate keeps pending revisions monotonic and isolated" {
     Accepted(transition) => (transition.model, transition.effects)
     AlreadyPending => fail("unexpected pending deletion")
   }
-  let (documents, _) = match documents.update(New(document_id("new"))) {
-    Applied(transition) => (transition.model, transition.effects)
-    Unchanged | Superseded => fail("expected an applied document update")
-  }
+  let documents = documents.create(document_id("new")).model
   let (documents, _) = match documents.edit(source_key("new"), "second") {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
@@ -228,10 +222,7 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
 ///|
 test "old pending callback after recreate is ignored" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.update(New(document_id("new"))) {
-    Applied(transition) => (transition.model, transition.effects)
-    Unchanged | Superseded => fail("expected an applied document update")
-  }
+  let documents = documents.create(document_id("new")).model
   let (documents, _) = match documents.edit(source_key("new"), "first") {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
@@ -241,10 +232,7 @@ test "old pending callback after recreate is ignored" {
     Accepted(transition) => (transition.model, transition.effects)
     AlreadyPending => fail("unexpected pending deletion")
   }
-  let (documents, _) = match documents.update(New(document_id("new"))) {
-    Applied(transition) => (transition.model, transition.effects)
-    Unchanged | Superseded => fail("expected an applied document update")
-  }
+  let documents = documents.create(document_id("new")).model
   let (documents, _) = match documents.edit(source_key("new"), "second") {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")

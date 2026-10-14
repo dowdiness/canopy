@@ -40,10 +40,7 @@ test "empty imported document remains listed after failed save and deletes local
 ///|
 test "edited New returning empty stays listed before and after lead acceptance" {
   let documents = @documents.Model(test_snapshot())
-  let transition = expect_document_update(
-    documents,
-    @documents.Msg::New(document_id("new")),
-  )
+  let transition = documents.create(document_id("new"))
   let documents = transition.model
   let transition = expect_document_edit(documents, source_key("new"), "first")
   let documents = transition.model
@@ -73,10 +70,7 @@ test "untouched New is excluded while loaded saved empty is admitted" {
     documents_test_document("empty", ""),
   ]).unwrap()
   let documents = @documents.Model(saved)
-  let transition = expect_document_update(
-    documents,
-    @documents.Msg::New(document_id("new")),
-  )
+  let transition = documents.create(document_id("new"))
   let documents = transition.model
   let seeds = input_for(documents)
   assert_true(

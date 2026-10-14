@@ -31,9 +31,7 @@ fn durability_deleted(
 ///|
 test "untouched new document is locally durable" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = durability_applied(
-    documents.update(New(document_id("new"))),
-  )
+  let documents = documents.create(document_id("new")).model
   assert_true(
     documents.local_durability(@replica_persistence.State::State())
     is LocalDurability::Durable,

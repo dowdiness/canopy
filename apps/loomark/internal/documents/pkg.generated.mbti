@@ -17,6 +17,13 @@ pub fn ActionError::equal(Self, Self) -> Bool
 pub fn ActionError::not_equal(Self, Self) -> Bool
 pub fn ActionError::to_repr(Self) -> @debug.Repr
 
+pub(all) suberror CreateError {
+  DocumentAlreadyExists(Key)
+} derive(Eq, @debug.Debug)
+pub fn CreateError::equal(Self, Self) -> Bool
+pub fn CreateError::not_equal(Self, Self) -> Bool
+pub fn CreateError::to_repr(Self) -> @debug.Repr
+
 pub(all) suberror DeleteError {
   DocumentMissing(Key)
   OwnershipTransferInProgress(Key)
@@ -127,6 +134,7 @@ pub struct Model {
 pub fn Model::Model(@source_repository.SavedDocuments) -> Self
 pub fn Model::accept_remote(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?, AcceptRemote) -> RemoteAcceptance raise ActionError
 pub fn Model::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise ActionError
+pub fn Model::create(Self, @source_repository.DocumentId) -> Transition raise CreateError
 pub fn Model::delete(Self, Key) -> Delete raise DeleteError
 pub fn Model::delete_status(Self, Key) -> DeleteStatus?
 pub fn Model::document(Self, Key) -> @source_repository.Document?
@@ -155,7 +163,6 @@ pub fn Model::text(Self, Key) -> String?
 pub fn Model::update(Self, Msg) -> Update raise UpdateError
 
 pub(all) enum Msg {
-  New(@source_repository.DocumentId)
   Imported(@source_repository.DocumentId, String)
   CompositionStarted(Key)
   CompositionEnded(Key)
