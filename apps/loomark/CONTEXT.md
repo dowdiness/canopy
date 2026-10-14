@@ -150,6 +150,11 @@ newer refresh fails. Loomark marks it as stale; it never becomes Document text
 or carries over to another document.
 _Avoid_: fallback document, recovered text
 
+**Appearance**:
+Loomark follows the system light or dark preference with the same warm paper
+hue. Appearance never changes Document text.
+_Avoid_: theme, skin
+
 ---
 
 ## 3. Recent Documents & Navigation

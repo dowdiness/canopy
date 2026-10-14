@@ -27,7 +27,7 @@ fn screen_layout(
 ) -> @rabbita.Html {
   @html.div(
     id="loomark-root",
-    class="flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light selection:bg-lm-accent-soft",
+    class="flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-lm-foundation font-lm-ui text-lm-ink scheme-light-dark selection:bg-lm-accent-soft",
     attrs=@html.Attrs::build()
       .role("region")
       .aria_label("Loomark Markdown Editor"),

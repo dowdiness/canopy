@@ -29,6 +29,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 
 ### 🍃 Thoughtful Modes & Viewport
 - **Three Views:** Toggle effortlessly between **Text** (pure drafting), **Preview** (clean formatted reading), and **Split** (side-by-side with a draggable divider).
+- **Light & Dark:** Follows your system appearance with the same warm paper tone.
 - **Mobile Responsive:** Adapts cleanly to on-screen keyboards and device rotation, hiding extraneous bottom bars to maximize vertical writing space.
 
 ### ☕ Local-First Peace of Mind

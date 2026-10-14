@@ -12,18 +12,35 @@
 @source not "../internal/view/*test.mbt";
 
 @theme {
-  --color-lm-foundation: #fdfdfb;
-  --color-lm-surface: #fffefc;
-  --color-lm-paper: #fffefc;
-  --color-lm-ink: oklch(0.24 0.018 265);
-  --color-lm-muted: oklch(0.5 0.02 265);
-  --color-lm-rule: oklch(0.87 0.004 255);
-  --color-lm-accent: oklch(0.48 0.12 276);
-  --color-lm-accent-soft: oklch(0.91 0.035 276);
+  --color-lm-foundation: oklch(0.972 0.004 85);
+  --color-lm-surface: oklch(0.994 0.002 85);
+  --color-lm-paper: oklch(0.991 0.003 85);
+  --color-lm-ink: oklch(0.25 0.01 70);
+  --color-lm-muted: oklch(0.53 0.012 70);
+  --color-lm-rule: oklch(0.89 0.006 80);
+  --color-lm-accent: oklch(0.47 0.12 264);
+  --color-lm-accent-soft: oklch(0.94 0.024 264);
   --color-lm-danger: oklch(0.52 0.16 25);
-  --color-lm-danger-soft: oklch(0.94 0.025 25);
+  --color-lm-danger-soft: oklch(0.95 0.022 25);
   --font-lm-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-lm-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+/* Dark paper keeps the same warm hue so switching system appearance does not
+   change the document's character. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-lm-foundation: oklch(0.175 0.005 70);
+    --color-lm-surface: oklch(0.235 0.006 70);
+    --color-lm-paper: oklch(0.2 0.005 70);
+    --color-lm-ink: oklch(0.9 0.008 80);
+    --color-lm-muted: oklch(0.67 0.01 80);
+    --color-lm-rule: oklch(0.32 0.007 70);
+    --color-lm-accent: oklch(0.78 0.1 264);
+    --color-lm-accent-soft: oklch(0.31 0.045 264);
+    --color-lm-danger: oklch(0.74 0.13 25);
+    --color-lm-danger-soft: oklch(0.29 0.05 25);
+  }
 }
 
 /* Typography owns Markdown rhythm while Loomark keeps the established palette. */
@@ -41,7 +58,7 @@
   --tw-prose-captions: var(--color-lm-muted);
   --tw-prose-code: var(--color-lm-ink);
   --tw-prose-pre-code: var(--color-lm-ink);
-  --tw-prose-pre-bg: oklch(0.95 0.003 255);
+  --tw-prose-pre-bg: color-mix(in oklab, var(--color-lm-ink) 4.5%, var(--color-lm-paper));
   --tw-prose-th-borders: var(--color-lm-rule);
   --tw-prose-td-borders: var(--color-lm-rule);
 }
@@ -105,6 +122,24 @@
    visible viewport. Override the Sidebar provider's inline layout minimum. */
 .loomark-viewport {
   --rui-sidebar-wrapper-background: transparent;
+  /* Map RUI's neutral roles onto Loomark paper so both appearances agree. */
+  --rui-background: var(--color-lm-paper);
+  --rui-foreground: var(--color-lm-ink);
+  --rui-muted: var(--loomark-track);
+  --rui-muted-foreground: var(--color-lm-muted);
+  --rui-border: var(--color-lm-rule);
+  --rui-input: var(--color-lm-rule);
+  --rui-popover: var(--color-lm-surface);
+  --rui-popover-foreground: var(--color-lm-ink);
+  --rui-primary: var(--color-lm-ink);
+  --rui-primary-foreground: var(--color-lm-paper);
+  --rui-secondary: var(--loomark-track);
+  --rui-secondary-foreground: var(--color-lm-ink);
+  --rui-accent: var(--color-lm-accent-soft);
+  --rui-accent-foreground: var(--color-lm-accent);
+  --rui-destructive: var(--color-lm-danger);
+  --rui-destructive-subtle: var(--color-lm-danger-soft);
+  --loomark-track: color-mix(in oklab, var(--color-lm-ink) 5%, var(--color-lm-paper));
   --loomark-bottom-space: 64px;
   --loomark-content-bottom: calc(16px + var(--loomark-bottom-space));
   position: fixed !important;
