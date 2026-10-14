@@ -200,8 +200,8 @@ mark with an accessible `Not saved` label rather than visible status text. A
 document whose text is empty has no visible placeholder, while its selectable
 entry retains an accessible `Empty document` label. When no saved documents
 exist, the list shows `No documents yet` rather than unexplained blank space.
-The selected document uses an explicit row highlight with a subtle background
-and slim edge accent; exact visual values remain provisional. A selected cold
+The selected document uses an explicit row highlight with a subtle tinted
+background and no edge bar; exact visual values remain provisional. A selected cold
 target shows a small loading indicator with an accessible `Loading document`
 label while the current document remains visible. Merely opening a document does
 not move it. While typing, an entry keeps its previous Document lead until a
@@ -320,8 +320,10 @@ _Avoid_: backup, saved copy, publish
 **Delete document**:
 Permanently removing any one Loomark document without first opening it. Each
 Recent documents entry exposes a direct icon-only trash button with a
-target-specific accessible name and tooltip. Pointer or keyboard activation
-opens Delete confirmation; there is no Actions, context, or overflow menu.
+target-specific accessible name and tooltip. With a hover-capable fine pointer
+it appears while its entry is hovered or holds focus; touch screens always show
+it with a 44px target, and keyboard focus always reveals it. Pointer or
+keyboard activation opens Delete confirmation; there is no Actions, context, or overflow menu.
 Deleting the Editing Document opens the most recently changed remainder, or a
 New document when none remains; Loomark keeps no Trash.
 _Avoid_: archive, trash, soft delete

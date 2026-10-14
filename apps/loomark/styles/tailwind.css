@@ -303,6 +303,8 @@
   --rui-accent-foreground: var(--color-lm-accent);
   --rui-destructive: var(--color-lm-danger);
   --rui-destructive-subtle: var(--color-lm-danger-soft);
+  --rui-dialog-backdrop: oklch(0.2 0.01 70 / 0.22);
+  --loomark-hover: color-mix(in oklab, var(--color-lm-ink) 6%, transparent);
   --loomark-track: color-mix(in oklab, var(--color-lm-ink) 5%, var(--color-lm-paper));
   /* Text and Preview share one measure so switching modes keeps the text edge. */
   --loomark-measure: 680px;
@@ -440,14 +442,15 @@
 .loomark-topbar::before {
   top: 0;
   height: 56px;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-lm-paper) 70%, transparent), transparent);
-  mask-image: linear-gradient(to bottom, black, transparent);
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--color-lm-paper) 88%, transparent) 30%, transparent);
+  mask-image: linear-gradient(to bottom, black 40%, transparent);
 }
 .loomark-footer::before {
   bottom: 0;
   height: 64px;
-  background: linear-gradient(to top, var(--color-lm-paper), transparent);
-  mask-image: linear-gradient(to top, black, transparent);
+  /* Keep the durability caption legible over scrolled text. */
+  background: linear-gradient(to top, var(--color-lm-paper) 45%, transparent);
+  mask-image: linear-gradient(to top, black 55%, transparent);
 }
 .loomark-icon {
   display: inline-flex;
@@ -455,11 +458,13 @@
   height: 36px;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--color-lm-muted);
   cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.loomark-icon:hover:not(:disabled), .loomark-sidebar-trigger:hover { background: var(--color-lm-accent-soft); color: var(--color-lm-accent); }
+.loomark-icon:hover:not(:disabled), .loomark-sidebar-trigger:hover { background: var(--loomark-hover); color: var(--color-lm-ink); }
+.loomark-icon[aria-expanded="true"] { background: var(--loomark-hover); color: var(--color-lm-ink); }
 .loomark-icon:disabled { opacity: 0.5; cursor: default; }
 #loomark-root label:has(> input[type="file"]:disabled) { opacity: 0.5; pointer-events: none; }
 #loomark-root button:focus-visible {
@@ -467,9 +472,25 @@
   outline: 2px solid var(--color-lm-accent) !important;
   outline-offset: 2px;
 }
+/* The selected mode is a raised sheet in a recessed track: shape and accent
+   both carry the selection. */
+.loomark-bottom-actions [role="tablist"] {
+  gap: 2px !important;
+  padding: 3px !important;
+  border-radius: 12px !important;
+  background: var(--loomark-track) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-lm-ink) 5%, transparent);
+}
+.loomark-mode-button {
+  border-radius: 9px !important;
+  color: var(--color-lm-muted) !important;
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease !important;
+}
+.loomark-mode-button:hover:not([aria-selected="true"]) { color: var(--color-lm-ink) !important; }
 .loomark-mode-button[data-state="active"], .loomark-mode-button[aria-selected="true"] {
-  background: var(--color-lm-accent-soft) !important;
+  background: var(--color-lm-surface) !important;
   color: var(--color-lm-accent) !important;
+  box-shadow: 0 1px 2px oklch(0.2 0.01 70 / 0.1), 0 0 0 1px color-mix(in oklab, var(--color-lm-ink) 7%, transparent) !important;
 }
 .loomark-menu {
   position: absolute;
@@ -481,13 +502,19 @@
   max-height: calc(var(--loomark-viewport-height, 100dvh) - 61px);
   overflow-y: auto;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 10px;
-  border: 1px solid var(--color-lm-rule);
-  border-radius: 8px;
-  background: var(--color-lm-paper);
-  box-shadow: 0 10px 30px oklch(0.24 0.018 265 / 0.07);
+  border: 1px solid color-mix(in oklab, var(--color-lm-ink) 9%, transparent);
+  border-radius: 14px;
+  background: var(--color-lm-surface);
+  box-shadow: 0 1px 2px oklch(0.2 0.01 70 / 0.05), 0 12px 32px -6px oklch(0.2 0.01 70 / 0.14);
   font-size: 12px;
+  transform-origin: top right;
+  transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1), transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
 }
 .loomark-menu > * { flex-shrink: 0; }
 .loomark-save-status {
@@ -563,8 +590,33 @@
 }
 #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { font-size: 17px; }
 
+/* Recent documents read as a quiet index card stack: the selected entry has a
+   tinted ground rather than a filled block or an edge bar. */
+.loomark-sidebar {
+  --rui-sidebar-accent: color-mix(in oklab, var(--color-lm-accent) 9%, var(--color-lm-foundation)) !important;
+  --rui-sidebar-accent-foreground: var(--color-lm-ink) !important;
+}
+.loomark-sidebar [data-slot="sidebar-menu"] { gap: 2px; padding-inline: 2px; }
+.loomark-document-row { border-radius: 10px !important; }
+.loomark-sidebar [data-slot="sidebar-footer"] { gap: 12px; padding: 12px; }
+
 .loomark-delete-action {
   --rui-sidebar-action-fg: var(--color-lm-muted);
+}
+
+/* Fingers need a larger target than the 32px pointer control. The row reserves
+   the target's full 48px column and height (overriding its inline 40px), so
+   the target covers neither the lead text nor the next entry. */
+@media (pointer: coarse) {
+  .loomark-document-row {
+    min-height: 3rem !important;
+    padding-inline-end: 3rem !important;
+  }
+  .loomark-delete-action {
+    --rui-sidebar-menu-action-top: 0.125rem;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
 }
 
 .loomark-delete-action:focus-visible {
@@ -597,13 +649,13 @@
 
 @media (hover: hover) and (pointer: fine) {
   [data-slot="sidebar-trigger"]:hover {
-    --rui-button-bg: var(--color-lm-accent-soft);
-    --rui-button-fg: var(--color-lm-accent);
+    --rui-button-bg: var(--loomark-hover);
+    --rui-button-fg: var(--color-lm-ink);
   }
 
   [data-slot="sidebar-menu-action"]:hover {
-    --rui-sidebar-action-bg: var(--color-lm-accent-soft);
-    --rui-sidebar-action-fg: var(--color-lm-accent);
+    --rui-sidebar-action-bg: var(--loomark-hover);
+    --rui-sidebar-action-fg: var(--color-lm-ink);
   }
 
   .loomark-delete-action:hover:not([aria-disabled="true"]) {
@@ -612,8 +664,22 @@
   }
 
   .loomark-new-document:hover:not(:disabled) {
-    --rui-sidebar-item-bg: var(--color-lm-accent-soft);
-    --rui-sidebar-item-fg: var(--color-lm-accent);
+    --rui-sidebar-item-bg: var(--loomark-hover);
+    --rui-sidebar-item-fg: var(--color-lm-ink);
+  }
+
+  /* With a fine pointer, each row's delete control appears with its row so the
+     list reads as content; keyboard focus and touch keep it visible. */
+  .loomark-sidebar [data-slot="sidebar-menu-item"]:not(:hover, :focus-within) .loomark-delete-action:not([aria-disabled="true"]) {
+    --rui-sidebar-action-opacity: 0;
+  }
+
+  .loomark-delete-action {
+    transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease;
+  }
+
+  .loomark-document-row:hover:not([data-active="true"]) {
+    --rui-sidebar-item-bg: color-mix(in oklab, var(--color-lm-ink) 4%, transparent);
   }
 
   .loomark-new-document:hover:not(:disabled) .i-lucide-square-pen {
@@ -626,6 +692,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .loomark-menu {
+    transition: opacity 80ms ease;
+    @starting-style {
+      transform: none;
+    }
+  }
+
   [data-slot="sidebar"][data-collapsible="offcanvas"],
   [data-slot="sidebar-shell"][data-collapsible="offcanvas"] {
     transition: none !important;
@@ -658,4 +731,25 @@
     background: Highlight !important;
     color: HighlightText !important;
   }
+}
+
+/* RUI writes dialog geometry inline; the elevated sheet needs to override it. */
+#loomark-delete-document {
+  border-radius: 16px !important;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-lm-ink) 9%, transparent), 0 24px 56px -12px oklch(0.2 0.01 70 / 0.28) !important;
+}
+#loomark-delete-document::backdrop {
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+#loomark-delete-document [data-slot="alert-dialog-title"] {
+  font-weight: 600;
+}
+/* Delete is irreversible; its confirmation carries the destructive role. */
+#loomark-delete-document [data-slot="alert-dialog-action"] {
+  --rui-button-bg: var(--color-lm-danger);
+  --rui-button-fg: var(--color-lm-paper);
+}
+@media (prefers-color-scheme: dark) {
+  .loomark-viewport { --rui-dialog-backdrop: oklch(0 0 0 / 0.5); }
 }
