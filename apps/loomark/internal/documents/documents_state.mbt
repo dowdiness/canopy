@@ -14,25 +14,89 @@ pub fn Key::replica(
 ///|
 fn Record::key(self : Self) -> Key {
   match self.persistence {
-    Source(_, _) | StartingSync(_, _) => Key::source(self.document.id())
-    Replica(account, _) => Key::replica(account, self.document.id())
-    Forking(_) => Key::source(self.document.id())
+    Source(_, _) | StartingSync(_, _, _) | Forking(_, _) =>
+      Key::source(self.document.id())
+    Replica(account, _, _) => Key::replica(account, self.document.id())
   }
 }
 
 ///|
-fn Record::delete_phase(self : Self) -> DocumentsDeletePhase {
+fn Record::delete_status(self : Self) -> DeleteStatus {
   match self.persistence {
-    Source(_, SourceDeletePhase::Available) => DocumentsDeletePhase::Available
-    Source(_, SourceDeletePhase::Waiting(operation)) => Waiting(operation)
-    Source(_, SourceDeletePhase::Deleting(operation)) => Deleting(operation)
-    Source(_, SourceDeletePhase::Failed(operation, failure)) =>
-      Failed(operation, failure)
-    Replica(_, ReplicaAvailable) => DocumentsDeletePhase::Available
-    Replica(_, ReplicaPending) => ReplicaPending
-    Replica(_, ReplicaFailed(failure)) => ReplicaFailed(failure)
-    StartingSync(_, _) | Forking(_) => Unavailable
+    Source(_, Writable(_, None)) | Replica(_, ReplicaAvailable, _) => Deletable
+    Source(_, Writable(_, Some(failure))) => DeleteFailed(failure.cause)
+    Source(_, WaitingToDelete(_, _, _) | Deleting(_, _))
+    | Replica(_, ReplicaPending, _) => DeletePending
+    Replica(_, ReplicaFailed(failure), _) => DeletePersistenceFailed(failure)
+    StartingSync(_, _, _) | Forking(_, _) => NotDeletable
   }
+}
+
+///|
+fn Record::pending_window(self : Self) -> AutosaveWindow? {
+  match self.persistence {
+    Source(_, Writable(Waiting(window), _))
+    | Source(_, Deleting(_, Waiting(window)))
+    | StartingSync(_, _, Waiting(window))
+    | Replica(_, _, Waiting(window))
+    | Forking(_, Waiting(window)) => Some(window)
+    Source(_, Writable(Saving(_, pending), _) | WaitingToDelete(_, _, pending)) =>
+      pending
+    _ => None
+  }
+}
+
+///|
+fn Record::save_failure(self : Self) -> @source_repository.SaveFailure? {
+  match self.persistence {
+    Source(_, Writable(Failed(failure), _))
+    | Source(_, Deleting(_, Failed(failure)))
+    | StartingSync(_, _, Failed(failure))
+    | Replica(_, _, Failed(failure))
+    | Forking(_, Failed(failure)) => Some(failure)
+    _ => None
+  }
+}
+
+///|
+fn Record::has_source_write(self : Self) -> Bool {
+  match self.persistence {
+    Source(_, Writable(Saving(_, _), _) | WaitingToDelete(_, _, _)) => true
+    _ => false
+  }
+}
+
+///|
+fn SourceSave::from_autosave(autosave : Autosave) -> SourceSave {
+  match autosave {
+    Idle => Idle
+    Waiting(window) => Waiting(window)
+    Failed(failure) => Failed(failure)
+  }
+}
+
+///|
+/// Replace scheduled work without changing the operation that owns the lane.
+fn Record::schedule(self : Self, window : AutosaveWindow?) -> Record {
+  let autosave : Autosave = match window {
+    Some(window) => Waiting(window)
+    None => Idle
+  }
+  let persistence : DocumentPersistence = match self.persistence {
+    Source(origin, Writable(Saving(operation, _), failure)) =>
+      Source(origin, Writable(Saving(operation, window), failure))
+    Source(origin, Writable(_, failure)) =>
+      Source(origin, Writable(SourceSave::from_autosave(autosave), failure))
+    Source(origin, WaitingToDelete(save, deletion, _)) =>
+      Source(origin, WaitingToDelete(save, deletion, window))
+    Source(origin, Deleting(deletion, _)) =>
+      Source(origin, Deleting(deletion, autosave))
+    StartingSync(account, document, _) =>
+      StartingSync(account, document, autosave)
+    Replica(account, deletion, _) => Replica(account, deletion, autosave)
+    Forking(ownership, _) => Forking(ownership, autosave)
+  }
+  { ..self, persistence, }
 }
 
 ///|
@@ -86,7 +150,7 @@ fn prepend_record(records : Array[Record], record : Record) -> Array[Record] {
 }
 
 ///|
-fn is_composing(edit : EditState) -> Bool {
+fn is_composing(edit : Editing) -> Bool {
   match edit {
     ComposingIdle | ComposingWaiting(_) | ComposingReady => true
     Idle | Waiting(_) => false
@@ -94,70 +158,83 @@ fn is_composing(edit : EditState) -> Bool {
 }
 
 ///|
-fn replace_autosave(
-  documents : State,
-  document_id : Key,
-  replica : AutosaveWindow,
-) -> State {
-  {
-    ..documents,
-    records: replace_record(documents.records, document_id, r => {
-      let save = match r.save {
-        DocumentsSaveStatus::Waiting(_) => DocumentsSaveStatus::Waiting(replica)
-        DocumentsSaveStatus::Saving(operation, _) =>
-          DocumentsSaveStatus::Saving(operation, Some(replica))
-        Saved | Failed(_) => r.save
-      }
-      { ..r, save, }
-    }),
-  }
-}
-
-///|
 fn begin_save(
   saved : @source_repository.SavedDocuments,
   record : Record,
-) -> (Record, Array[Action]) {
+) -> (Record, ReadOnlyArray[Action]) {
   match record.persistence {
-    Source(_, _) => {
-      let operation = { key: record.key(), document: record.document, }
+    Source(origin, Writable(Waiting(window), failure)) => {
+      let operation : SaveOperation = {
+        key: record.key(),
+        document: record.document,
+        request_id: window.maximum_id,
+      }
       (
-        { ..record, save: Saving(operation, None), },
-        [Action::PersistSource(operation)],
+        {
+          ..record,
+          persistence: Source(
+            origin,
+            Writable(Saving(operation, None), failure),
+          ),
+        },
+        [PersistSource(operation)],
       )
     }
-    StartingSync(_, _) | Forking(_) => (record, [])
-    Replica(account, ReplicaAvailable | ReplicaFailed(_)) =>
+    Replica(account, ReplicaAvailable | ReplicaFailed(_), _) =>
       match saved.replica(account, record.document.id()) {
         Some(durable) =>
           (
-            // The committed Replica can be older than an active persistence
-            // lane. Submit every eligible value; Replication compares it with
-            // the causal head and coalesces it when no write is needed.
+            { ..record, persistence: Replica(account, ReplicaAvailable, Idle), },
+            [SaveReplica({ durable, document: record.document, })],
+          )
+        None =>
+          (
             {
               ..record,
-              persistence: Replica(account, ReplicaAvailable),
-              save: Saved,
+              persistence: Replica(
+                account,
+                ReplicaAvailable,
+                Failed(InvalidSource),
+              ),
             },
-            [Action::SaveReplica({ durable, document: record.document, })],
+            [],
           )
-        None => ({ ..record, save: Failed(InvalidSource), }, [])
       }
-    Replica(_, ReplicaPending) => (record, [])
+    // Eligibility survives ownership transfer. Its completion starts the write.
+    StartingSync(_, _, _) | Forking(_, _) => (record, [])
+    Source(
+      _,
+      Writable(Idle | Failed(_) | Saving(_, _), _)
+      | WaitingToDelete(_, _, _)
+      | Deleting(_, _)
+    )
+    | Replica(_, ReplicaPending, _) => (record, [])
   }
 }
 
 ///|
-pub fn State::State(saved : @source_repository.SavedDocuments) -> State {
+/// Imports and retries consume a fresh window too: identical text must not
+/// make an earlier Source write acknowledgment current again.
+fn request_save(
+  model : Model,
+  record : Record,
+) -> (Model, Record, ReadOnlyArray[Action]) {
+  let (model, window) = allocate_autosave(model)
+  let record = record.schedule(Some({ ..window, eligibility: Eligible, }))
+  let (record, effects) = begin_save(model.saved, record)
+  (model, record, effects)
+}
+
+///|
+pub fn Model::Model(saved : @source_repository.SavedDocuments) -> Model {
   let sources = saved
     .all()
     .to_owned()
     .map(document => {
-      persistence: Source(Existing, SourceDeletePhase::Available),
+      persistence: Source(Existing, Writable(Idle, None)),
       document,
       version: 0,
       edit: Idle,
-      save: Saved,
       lead_source: Available(document.text()),
     })
   let replicas = saved
@@ -181,17 +258,16 @@ fn replica_record(
   document : @source_repository.Document,
 ) -> Record {
   {
-    persistence: Replica(replica.account(), ReplicaAvailable),
+    persistence: Replica(replica.account(), ReplicaAvailable, Idle),
     document,
     version: 0,
     edit: Idle,
-    save: Saved,
     lead_source: Available(document.text()),
   }
 }
 
 ///|
-pub fn State::project_account(
+pub fn Model::project_account(
   self : Self,
   account : @source_repository.AccountId,
 ) -> Self {
@@ -199,7 +275,7 @@ pub fn State::project_account(
 }
 
 ///|
-pub fn State::open_replica(
+pub fn Model::open_replica(
   self : Self,
   replica : @source_repository.DocumentReplica,
 ) -> RemoteOpen {
@@ -210,11 +286,11 @@ pub fn State::open_replica(
     return Superseded
   }
   let documents = match find_record(self.records, key) {
-    Some(record) if record.persistence is Replica(account, ReplicaAvailable) &&
+    Some(record) if record.persistence
+      is Replica(account, ReplicaAvailable, Idle) &&
       account == replica.account() &&
       record.document == document &&
-      record.save is DocumentsSaveStatus::Saved &&
-      record.edit is EditState::Idle => self
+      record.edit is Idle => self
     Some(_) => return Superseded
     None => {
       let (documents, version) = allocate_working_copy_version(self)
@@ -239,51 +315,41 @@ pub fn ReplicaEdit::document(self : Self) -> @source_repository.Document {
 }
 
 ///|
-pub fn State::hide_accounts(self : Self) -> Self {
+pub fn Model::hide_accounts(self : Self) -> Self {
   { ..self, visible_account: None, }
 }
 
 ///|
-fn State::record_is_visible(self : Self, record : Record) -> Bool {
+fn Model::record_is_visible(self : Self, record : Record) -> Bool {
   match record.persistence {
-    Source(_, _) | StartingSync(_, _) | Forking(_) => true
-    Replica(account, _) => self.visible_account == Some(account)
+    Source(_, _) | StartingSync(_, _, _) | Forking(_, _) => true
+    Replica(account, _, _) => self.visible_account == Some(account)
   }
 }
 
 ///|
-fn allocate_autosave(documents : State) -> (State, AutosaveWindow) {
+fn allocate_autosave(documents : Model) -> (Model, AutosaveWindow) {
   let id = documents.last_autosave_id + 1
   (
     { ..documents, last_autosave_id: id, },
-    {
-      maximum_id: id,
-      maximum_armed: false,
-      eligibility: AutosaveEligibility::Deferred,
-    },
+    { maximum_id: id, maximum_armed: false, eligibility: Deferred, },
   )
 }
 
 ///|
-fn revise_autosave(replica : AutosaveWindow) -> AutosaveWindow {
-  { ..replica, eligibility: AutosaveEligibility::Deferred, }
-}
-
-///|
-fn allocate_working_copy_version(documents : State) -> (State, Int) {
+fn allocate_working_copy_version(documents : Model) -> (Model, Int) {
   let version = documents.last_working_copy_version + 1
   ({ ..documents, last_working_copy_version: version, }, version)
 }
 
 ///|
 fn autosave_effect(
-  replica : AutosaveWindow,
+  window : AutosaveWindow,
   rearm : Bool,
-) -> (AutosaveWindow, Array[Action]) {
-  if replica.eligibility == AutosaveEligibility::Eligible ||
-    (!rearm && replica.maximum_armed) {
-    (replica, [])
+) -> (AutosaveWindow, ReadOnlyArray[Action]) {
+  if window.eligibility == Eligible || (!rearm && window.maximum_armed) {
+    (window, [])
   } else {
-    ({ ..replica, maximum_armed: true, }, [ArmMaximum(replica.maximum_id)])
+    ({ ..window, maximum_armed: true, }, [ArmMaximum(window.maximum_id)])
   }
 }

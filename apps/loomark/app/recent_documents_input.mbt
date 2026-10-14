@@ -18,10 +18,8 @@ fn document_membership(page : Page) -> DocumentMembership {
         keys: editing.documents.known_keys(),
         can_activate: editing.can_activate(),
       }
-    Loading(_)
-    | PreparingNew(_)
-    | NewPreparationFailed(_, _)
-    | Recovery(_, _) => { keys: [], can_activate: false, }
+    Loading(_) | OpeningNew(_, _) | Recovery(_, _) =>
+      { keys: [], can_activate: false, }
   }
 }
 
@@ -70,7 +68,7 @@ fn remote_document_seeds(
 ///|
 /// Resolve app state into the narrow Recent documents feature input.
 fn recent_document_seeds(
-  editing : EditingState,
+  editing : EditingDocument,
   remote : Array[@recent_documents.Seed[@documents.Key]],
 ) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
   let saved = editing.documents
@@ -88,7 +86,7 @@ fn recent_document_seeds(
       } else {
         @recent_documents.Selection::Blocked
       }
-      let deletion = if editing.creation is Creating(_) {
+      let deletion = if creation_in_progress(editing.creation) {
         @recent_documents.DeletionAvailability::Blocked
       } else {
         let scope = match id {

@@ -1,6 +1,6 @@
 ///|
-fn sign_in_documents() -> @documents.State {
-  @documents.State(
+fn sign_in_documents() -> @documents.Model {
+  @documents.Model(
     @source_repository.SavedDocuments::from_documents([]).unwrap(),
   )
 }
@@ -37,14 +37,18 @@ test "late authorization result releases a request without advancing a newer sav
   }
   let new_saving = canceled.state.update(Event::Invoke(restart), ready)
   assert_true(new_saving.effects is [Effect::SaveChanges])
-  let (documents, _) = sign_in_documents().reduce(
-    @documents.Imported(
-      @source_repository.DocumentId::parse(
-        "00000000-0000-4000-8000-000000000001",
+  let documents = match
+    sign_in_documents().update(
+      @documents.Msg::Imported(
+        @source_repository.DocumentId::parse(
+          "00000000-0000-4000-8000-000000000001",
+        ),
+        "pending text",
       ),
-      "pending text",
-    ),
-  )
+    ) {
+    @documents.Update::Applied(transition) => transition.model
+    Unchanged | Superseded => fail("import should be applied")
+  }
   let released = new_saving.state.update(
     Event::AuthorizationReceived(request, None),
     Readiness::SignedOut(

@@ -69,9 +69,7 @@ fn status_model(
   let saved = saved.apply_replica(replica) catch {
     _ => abort("valid test replica")
   }
-  let documents = @documents.State::State(saved).project_account(
-    replica.account(),
-  )
+  let documents = @documents.Model(saved).project_account(replica.account())
   test_model(
     Editing({
       ..test_editing(),
@@ -137,9 +135,8 @@ test "local document status exposes sign-in and sync-start states" {
   assert_eq(action.document_id(), document_id("one"))
 
   guard signed_in.page is Editing(editing) else { fail("editing") }
-  let (documents, _) = editing.documents.reduce(
-    @documents.Msg::New(document_id("new")),
-  )
+  let transition = editing.documents.create(document_id("new"))
+  let documents = transition.model
   let ephemeral = {
     ..signed_in,
     page: Editing({
@@ -153,9 +150,12 @@ test "local document status exposes sign-in and sync-start states" {
   }
   assert_true(ephemeral_view.durability is LocalDurability::NotStarted)
   assert_true(ephemeral_view.sync is DocumentSync::DeviceOnly)
-  let (documents, _) = documents.reduce(
-    @documents.Msg::TextChanged(source_key("new"), "First words"),
+  let transition = expect_document_edit(
+    documents,
+    source_key("new"),
+    "First words",
   )
+  let documents = transition.model
   assert_true(
     local_durability({ ..editing, documents, }, source_key("new"))
     is Some(LocalDurability::Saving),
@@ -305,12 +305,13 @@ test "unsaved visible text projects durability and relation independently" {
   let initial = status_model(synchronized, status_sync(account))
   guard initial.page is Editing(editing) else { fail("editing") }
   let key = editing.activation.key
-  let (documents, _) = editing.documents.reduce(
-    @documents.Msg::TextChanged(key, "edited"),
-  )
-  let (documents, _) = documents.reduce(
+  let transition = expect_document_edit(editing.documents, key, "edited")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
     @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)),
   )
+  let documents = transition.model
   let model : Model = {
     page: Editing({ ..editing, documents, }),
     replication: @replication.State(protocol=status_sync(account), persistence~),
@@ -355,12 +356,13 @@ test "network retry cannot become a saving retry" {
   let initial = status_model(sending, retryable)
   guard initial.page is Editing(editing) else { fail("editing") }
   let key = editing.activation.key
-  let (documents, _) = editing.documents.reduce(
-    @documents.Msg::TextChanged(key, "newer"),
-  )
-  let (documents, _) = documents.reduce(
+  let transition = expect_document_edit(editing.documents, key, "newer")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
     @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)),
   )
+  let documents = transition.model
   let model = { ..initial, page: Editing({ ..editing, documents, }), }
   guard document_sync_view(model) is Some(view) else {
     fail("document sync view")
@@ -395,12 +397,13 @@ test "retry messages restart only their owned lifecycle" {
   }
   guard model.page is Editing(editing) else { fail("editing") }
   let key = editing.activation.key
-  let (documents, _) = editing.documents.reduce(
-    @documents.Msg::TextChanged(key, "edited"),
-  )
-  let (documents, _) = documents.reduce(
+  let transition = expect_document_edit(editing.documents, key, "edited")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
     @documents.Msg::ApplyPendingEdit(key, pending_revision(documents, key)),
   )
+  let documents = transition.model
   let model = { ..model, page: Editing({ ..editing, documents, }), }
   guard document_sync_view(model) is Some(view) &&
     view.persistence is Some(@replica_persistence.Status::Retryable(action, _)) else {
@@ -472,7 +475,7 @@ test "fork persistence belongs to its recovery Source until commit" {
   let saved = @source_repository.SavedDocuments::from_documents([])
     .unwrap()
     .apply_replica(divergence)
-  let documents = @documents.State::State(saved)
+  let documents = @documents.Model(saved)
     .project_account(account)
     .begin_fork(fork) catch {
       _ => abort("forking documents")

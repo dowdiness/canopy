@@ -2,6 +2,8 @@
 priv enum DocumentFailure {
   Save(@source_repository.SaveFailure)
   Create(@source_repository.CreateFailure)
+  OpeningCreate(@source_repository.CreateFailure)
+  OpeningFault(String)
   Example(Activation, String, @source_repository.CreateFailure)
   Delete(@documents.Key, @source_repository.DeleteFailure)
   DeletePersistence(@documents.Key, @source_repository.ReplicaFailure)
@@ -11,6 +13,7 @@ priv enum DocumentFailure {
 priv struct NoticesInput {
   failure : DocumentFailure?
   import_failed : Bool
+  lifecycle_error : String?
 } derive(Eq)
 
 ///|

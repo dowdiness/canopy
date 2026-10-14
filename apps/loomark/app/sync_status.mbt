@@ -43,7 +43,7 @@ fn account_status(sync : @sync.State) -> AccountStatus {
 
 ///|
 fn local_durability(
-  editing : EditingState,
+  editing : EditingDocument,
   key : @documents.Key,
 ) -> LocalDurability? {
   match editing.documents.save_status(key) {

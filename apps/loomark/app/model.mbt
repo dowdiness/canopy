@@ -1,9 +1,8 @@
 ///|
 priv enum Page {
   Loading(Bool)
-  PreparingNew(PreparingNewState)
-  NewPreparationFailed(PreparingNewState, @source_repository.OpenFailure)
-  Editing(EditingState)
+  OpeningNew(OpeningNewContext, Creation)
+  Editing(EditingDocument)
   Recovery(@source_repository.OpenFailure, Bool)
 } derive(Eq)
 
@@ -37,12 +36,12 @@ fn Model::with_page(self : Self, page : Page) -> Self {
 }
 
 ///|
-priv struct PreparingNewState {
-  documents : @documents.State
+priv struct OpeningNewContext {
+  documents : @documents.Model
   mode : EditorMode
   compact : Bool
-  request_id : Int
   next_activation_generation : Int
+  lifecycle_error : String?
 } derive(Eq)
 
 ///|
@@ -59,10 +58,11 @@ priv struct ActivationTarget {
 }
 
 ///|
-priv struct EditingState {
+priv struct EditingDocument {
   activation : Activation
-  documents : @documents.State
-  creation : DocumentCreation
+  documents : @documents.Model
+  creation : Creation?
+  lifecycle_error : String?
   deletion : DocumentDeletion
   mode : EditorMode
   menu_open : Bool
@@ -70,7 +70,7 @@ priv struct EditingState {
   preview : @editor.EditorState
   import_failed : Bool
   imports_pending : Int
-  new_preparation_request_id : Int
+  next_creation_request_id : Int
 } derive(Eq)
 
 ///|
@@ -81,12 +81,32 @@ priv enum EditorMode {
 } derive(Eq)
 
 ///|
-priv enum DocumentCreation {
-  Idle
-  Creating(Int)
-  CreationFailed(@source_repository.CreateFailure)
-  ExampleCreationFailed(String, @source_repository.CreateFailure)
+priv struct Creation {
+  request_id : Int
+  intent : CreationIntent
+  status : CreationStatus
 } derive(Eq)
+
+///|
+priv enum CreationIntent {
+  NewDocument
+  Example(String)
+} derive(Eq)
+
+///|
+priv enum CreationStatus {
+  InProgress
+  Failed(@source_repository.CreateFailure)
+  Fault(String)
+} derive(Eq)
+
+///|
+priv enum DocumentUpdate {
+  Updated(@documents.Transition)
+  Unchanged
+  Obsolete
+  Fault
+}
 
 ///|
 priv enum DocumentDeletion {
@@ -122,7 +142,14 @@ priv enum Msg {
   PreviewEvent(@editor.EditorEvent)
   ScrollClaimed(ScrollPane)
   ViewportChanged(Double)
-  DocumentsLifecycle(@documents.Feedback)
+  DocumentMaximumElapsed(Int)
+  DocumentSaved(@documents.SaveOperation, @source_repository.Document)
+  DocumentSaveFailed(@documents.SaveOperation, @source_repository.SaveFailure)
+  DocumentDeleted(@documents.DeleteOperation, @source_repository.DocumentId)
+  DocumentDeleteFailed(
+    @documents.DeleteOperation,
+    @source_repository.DeleteFailure
+  )
   ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
   PageRestored
@@ -135,6 +162,8 @@ priv enum Msg {
   RetrySelection(@sync.SelectionRetry)
   DocumentSelected(@documents.Key)
   CreateRequested
+  RetryOpeningNewCreation
+  DismissDocumentFault
   CreateCompleted(Int, @source_repository.CreateResult)
   DeleteRequested(@documents.Key)
   DeleteCancelled

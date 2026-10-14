@@ -8,7 +8,7 @@ fn sign_in_readiness(model : Model) -> @sign_in.Readiness {
       guard model.page is Editing(editing) else {
         return @sign_in.EditorUnavailable
       }
-      let editor : @sign_in.Editor = if editing.creation is Creating(_) {
+      let editor : @sign_in.Editor = if creation_in_progress(editing.creation) {
         Creating
       } else if editing.imports_pending > 0 {
         Importing
@@ -41,13 +41,45 @@ fn interrupt_sign_in(model : Model, msg : Msg) -> Model {
 }
 
 ///|
-fn save_changes(model : Model, emit : @rabbita.Emit[Msg]) -> (Model, @cmd.Cmd) {
+fn save_changes(
+  model : Model,
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @cmd.Cmd, Bool) {
   guard model.page is Editing(editing) else {
     abort("sign-in requested saving without an editor")
   }
-  let (documents, actions) = editing.documents.save_changes()
+  let saving = editing.documents.save_changes() catch {
+    error => {
+      let notice = match error {
+        @documents.DeleteError::DocumentMissing(_) =>
+          "A document disappeared before sign-in could save changes. The current text was retained."
+        @documents.DeleteError::OwnershipTransferInProgress(_) =>
+          "A document is being transferred and cannot be saved for sign-in yet. The current text was retained."
+        @documents.DeleteError::ReplicaMissing(_) =>
+          "A synchronized document is unavailable. The current text was retained; retry after synchronization recovers."
+      }
+      let interrupted = model.sign_in.update(
+        @sign_in.Interrupted,
+        sign_in_readiness(model),
+      )
+      return (
+        {
+          ..model,
+          sign_in: interrupted.state,
+          page: Editing({ ..editing, lifecycle_error: Some(notice), }),
+        },
+        @cmd.none,
+        false,
+      )
+    }
+  }
+  let documents = saving.model
+  let actions = saving.effects
   let (model, command) = apply_document_actions(
-    { ..model, page: Editing({ ..editing, documents, }), },
+    {
+      ..model,
+      page: Editing({ ..editing, documents, lifecycle_error: None, }),
+    },
     actions,
     emit,
   )
@@ -71,7 +103,7 @@ fn save_changes(model : Model, emit : @rabbita.Emit[Msg]) -> (Model, @cmd.Cmd) {
       }
     }
   }
-  (model, @cmd.batch(commands))
+  (model, @cmd.batch(commands), true)
 }
 
 ///|
@@ -96,16 +128,20 @@ fn update_sign_in(
   for effect in transition.effects {
     match effect {
       @sign_in.SaveChanges => {
-        let (saved, command) = save_changes(model, emit)
-        // Observe only after document actions have updated persistence ownership.
-        let (advanced, next) = update_sign_in(
-          saved,
-          SignIn(@sign_in.Refresh),
-          emit,
-        )
-        model = advanced
+        let (saved, command, can_advance) = save_changes(model, emit)
         commands.push(command)
-        commands.push(next)
+        if can_advance {
+          // Observe only after document actions have updated persistence ownership.
+          let (advanced, next) = update_sign_in(
+            saved,
+            SignIn(@sign_in.Refresh),
+            emit,
+          )
+          model = advanced
+          commands.push(next)
+        } else {
+          model = saved
+        }
       }
       RequestAuthorizationUrl(request) =>
         commands.push(
