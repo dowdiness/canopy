@@ -86,53 +86,183 @@
   --tw-prose-pre-bg: color-mix(in oklab, var(--color-lm-ink) 4.5%, var(--color-lm-paper));
   --tw-prose-th-borders: var(--color-lm-rule);
   --tw-prose-td-borders: var(--color-lm-rule);
+  font-family: var(--font-lm-reading);
+  font-optical-sizing: auto;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  hanging-punctuation: first;
 }
 
+/* Preview shows Document text; it must not add quotation marks or backticks. */
 .loomark-prose :where(code):not(:where(pre code))::before,
-.loomark-prose :where(code):not(:where(pre code))::after {
+.loomark-prose :where(code):not(:where(pre code))::after,
+.loomark-prose :where(blockquote p:first-of-type)::before,
+.loomark-prose :where(blockquote p:last-of-type)::after {
   content: none;
 }
 
-/* Keep Typography's hierarchy, but stay close to Loomark's former 1rem rhythm. */
 .loomark-prose :where(p) {
-  margin-block: 1.125rem;
+  margin-block: 1.1em;
+  text-wrap: pretty;
 }
 
 .loomark-prose :where(ul, ol, pre, blockquote, figure, table) {
-  margin-block: 1.25rem;
+  margin-block: 1.35em;
+}
+
+.loomark-prose :where(li) {
+  margin-block: 0.3em;
+}
+
+.loomark-prose :where(ul, ol) :where(ul, ol) {
+  margin-block: 0.3em;
+}
+
+.loomark-prose :where(h1, h2, h3, h4, h5, h6) {
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
 }
 
 /* Preserve hierarchy without making document headings dominate the reading pane. */
 .loomark-prose :where(h1) {
-  font-size: 1.75em;
+  font-size: 2em;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+  margin-block: 0 0.9em;
 }
 
 .loomark-prose :where(h2) {
-  font-size: 1.35em;
+  font-size: 1.42em;
+  line-height: 1.3;
+  margin-block: 1.9em 0.7em;
 }
 
 .loomark-prose :where(h3) {
-  font-size: 1.15em;
+  font-size: 1.16em;
+  line-height: 1.4;
+  margin-block: 1.7em 0.6em;
 }
 
 .loomark-prose :where(h4, h5, h6) {
   font-size: 1em;
+  line-height: 1.5;
+  margin-block: 1.5em 0.5em;
 }
 
-.loomark-prose :where(h1) {
-  margin-block: 0 1.25rem;
+.loomark-prose :where(h5, h6) {
+  color: var(--color-lm-muted);
 }
 
-.loomark-prose :where(h2) {
-  margin-block: 1.75rem 1rem;
+.loomark-prose :where(a) {
+  font-weight: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklab, var(--color-lm-accent) 40%, transparent);
+  text-underline-offset: 0.22em;
+  transition: text-decoration-color 150ms ease;
 }
 
-.loomark-prose :where(h3, h4, h5, h6) {
-  margin-block: 1.5rem 0.875rem;
+.loomark-prose :where(a):hover {
+  text-decoration-color: currentColor;
+}
+
+.loomark-prose :where(strong) {
+  font-weight: 650;
+}
+
+/* Quotation keeps its neutral rule; accent color stays with interaction. */
+.loomark-prose :where(blockquote) {
+  border-inline-start-width: 2px;
+  padding-inline-start: 1.1em;
+  font-style: italic;
+  color: color-mix(in oklab, var(--color-lm-ink) 82%, var(--color-lm-paper));
+}
+
+.loomark-prose :where(code):not(:where(pre code)) {
+  padding: 0.12em 0.36em;
+  border-radius: 0.3em;
+  background: color-mix(in oklab, var(--color-lm-ink) 6%, transparent);
+  font-size: 0.84em;
+  font-weight: 450;
+}
+
+.loomark-prose :where(code) {
+  font-family: var(--font-lm-mono);
+}
+
+.loomark-prose :where(pre) {
+  border: 1px solid color-mix(in oklab, var(--color-lm-ink) 7%, transparent);
+  border-radius: 10px;
+  padding: 1em 1.2em;
+  font-size: 0.82em;
+  line-height: 1.7;
 }
 
 .loomark-prose :where(hr) {
-  margin-block: 1.75rem;
+  margin-block: 2.6em;
+  border: 0;
+  height: 1em;
+  text-align: center;
+  overflow: visible;
+}
+
+.loomark-prose :where(hr)::before {
+  content: "\2022\2003\2022\2003\2022";
+  color: var(--color-lm-muted);
+  font-size: 0.7em;
+  letter-spacing: 0.1em;
+}
+
+.loomark-prose :where(img) {
+  border-radius: 6px;
+}
+
+.loomark-prose :where(table) {
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Task lists already carry a checkbox marker; the bullet would repeat it. */
+.loomark-prose :where(ul > li:has(> [data-loomark-task-checkbox])) {
+  list-style: none;
+  padding-inline-start: 0.15em;
+  margin-inline-start: -1.6em;
+}
+
+.loomark-prose [data-loomark-task-checkbox] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0 0.55em 0 0;
+  vertical-align: -0.16em;
+  border: 1.5px solid color-mix(in oklab, var(--color-lm-muted) 70%, transparent);
+  border-radius: 0.28em;
+  background: transparent;
+}
+
+.loomark-prose [data-loomark-task-checkbox]:checked {
+  border-color: var(--color-lm-accent);
+  background: var(--color-lm-accent);
+}
+
+.loomark-prose [data-loomark-task-checkbox]:checked::before {
+  content: "";
+  width: 0.55em;
+  height: 0.3em;
+  margin-top: -0.12em;
+  border: solid var(--color-lm-paper);
+  border-width: 0 0 0.12em 0.12em;
+  transform: rotate(-45deg);
+}
+
+.loomark-prose li:has(> [data-loomark-task-checkbox]:checked) {
+  color: var(--color-lm-muted);
 }
 
 .loomark-prose :where(:first-child) {
@@ -141,6 +271,15 @@
 
 .loomark-prose :where(:last-child) {
   margin-bottom: 0;
+}
+
+@media (forced-colors: active) {
+  .loomark-prose [data-loomark-task-checkbox] {
+    appearance: auto;
+  }
+  .loomark-prose [data-loomark-task-checkbox]:checked::before {
+    content: none;
+  }
 }
 
 /* Keyboard resizing may leave dvh unchanged; the browser binding supplies the
@@ -271,12 +410,6 @@
   font-family: var(--font-lm-reading);
   font-size: 18px;
   line-height: 1.72;
-}
-
-#loomark-preview-scroll .loomark-prose :where(h1) {
-  font-size: 26px;
-  line-height: 1.5;
-  margin-bottom: 22px;
 }
 
 #loomark-editor-panels:has(.loomark-divider:not([hidden])) {
