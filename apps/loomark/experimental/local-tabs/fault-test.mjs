@@ -112,6 +112,21 @@ try{
   await a.evaluate(()=>trial.switchDocument('synthetic-B'));await ready(a);await settled(a);assert.equal(await a.locator('textarea').inputValue(),'B dirty');
   await a.close();await remote.close();
  });
+ await record('save interruption does not mark a queued Undo as already executed',async()=>{
+  const p=await page('queued-undo-save');
+  await p.evaluate(()=>trial.state.beforeCommit=2000);await edit(p,' X');
+  await p.waitForFunction(()=>trial.state.client.checkpoint==='before-commit');
+  await p.evaluate(()=>{trial.history(false);trial.crash();});
+  await p.waitForFunction(()=>trial.state.uncertainHistory||trial.state.ready);
+  assert.equal(await p.evaluate(()=>!!trial.state.uncertainHistory),false);
+  await settled(p);
+  assert.equal(await p.evaluate(()=>trial.state.undoReset),true);
+  assert.equal(await p.locator('textarea').inputValue(),'base X');
+  assert.equal((await p.evaluate(()=>trial.durable())).journal.length,1);
+  await p.reload();await ready(p);
+  assert.equal(await p.locator('textarea').inputValue(),'base X');
+  await p.close();
+ });
  await record('unacknowledged Undo crash is retained as unresolved, never silently Saved',async()=>{
   const p=await page('undo-crash');await edit(p,' X');await settled(p);await p.evaluate(()=>{trial.state.delayEdit=1000;trial.history(false);});await p.waitForTimeout(50);await p.evaluate(()=>trial.crash());
   await p.waitForFunction(()=>trial.state.uncertainHistory);assert.match(await p.locator('#status').innerText(),/Not saved.*Undo\/Redo interrupted/);assert.equal(await p.locator('textarea').inputValue(),'base X');

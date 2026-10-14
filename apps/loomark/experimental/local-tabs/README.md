@@ -92,6 +92,8 @@ Storage is `loomark-egw-worker-experiment-v1`; no previous schema is migrated.
 - An accepted packet reaches main memory before main authorizes its transaction.
   Only the exact IndexedDB transaction completion removes that packet. An old
   save acknowledgement cannot clear later input or another document's dirty state.
+  Eligible saves make progress even while native input remains queued.
+  The input queue can still grow under sustained overload.
 - Worker failure retains native intents and immutable unsaved packets. Recovery
   reconstructs the accepted basis from whole durable packets plus retained ones,
   then retries without changing IDs of already accepted operations. A fresh

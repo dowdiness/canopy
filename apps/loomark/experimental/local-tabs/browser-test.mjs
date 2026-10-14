@@ -207,6 +207,34 @@ try{
     assert.deepEqual(result,{all:['row-0','row-2','row-4'],afterOwn:['row-2','row-4'],afterOther:['row-4'],caughtUp:[],absent:[]});
     await a.close();
   });
+  await record('persistence makes progress while local edits remain queued',async()=>{
+    const a=await page('save-progress','base');
+    await a.evaluate(()=>{
+      const client=trial.state.client,request=client.request.bind(client);
+      let release,firstEdit=true;
+      const gate=new Promise(resolve=>release=resolve);
+      trial.releaseEdit=release;
+      client.request=async(type,args)=>{
+        if(type==='edit'&&firstEdit){firstEdit=false;await gate;}
+        const result=await request(type,args);
+        if(type==='save'&&!trial.firstSave){
+          const {openStore,readJournal}=await import('./store.mjs'),db=await openStore();
+          try{trial.firstSave={queued:trial.state.queue.length,rows:await readJournal(db,trial.state.documentId,0)};}finally{db.close();}
+        }
+        return result;
+      };
+    });
+    await edit(a,4,4,'A');await edit(a,5,5,'B');await edit(a,6,6,'C');
+    await a.waitForFunction(()=>trial.state.queue.length===3);
+    await a.evaluate(()=>trial.releaseEdit());await settled(a);
+    const first=await a.evaluate(()=>trial.firstSave);
+    assert.ok(first.queued>0,'The first durable save must not wait for all queued input');
+    assert.equal(first.rows.length,1);
+    assert.equal(await a.locator('textarea').inputValue(),'baseABC');
+    await a.reload();await a.waitForFunction(()=>globalThis.trial?.state?.ready);await settled(a);
+    assert.equal(await a.locator('textarea').inputValue(),'baseABC');
+    await a.close();
+  });
   assert.deepEqual(errors,[]);
 }catch(e){results.push({passed:false,error:e.stack});console.error(e);process.exitCode=1;}
 finally{await mkdir('evidence',{recursive:true});await writeFile('evidence/browser-results.json',JSON.stringify({date:new Date().toISOString(),browser:browser.version(),headless:process.env.HEADED!=='1',results,errors},null,2));await browser.close();}
