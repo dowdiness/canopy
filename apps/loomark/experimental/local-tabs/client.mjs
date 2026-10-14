@@ -31,6 +31,7 @@ function newSession(documentId,seed){
 }
 async function pump(s){
  if(s.running||disposed||s.blocked)return;s.running=true;
+ let saveNext=false,acceptingHistory=false;
  try{
   if(!s.ready){
    const start=performance.now();s.client.start();
@@ -41,13 +42,15 @@ async function pump(s){
    paint();mark('open',start,{document:s.documentId,...r.timings,navigationReadyMs:performance.now()});
   }
   while(!disposed&&s.ready&&!s.blocked){
-   if(s.queue.length){
+   const canSave=s.packets.length&&!s.paused&&!s.failure&&!s.composing;
+   if(s.queue.length&&(!canSave||!saveNext)){
     const item=s.queue[0],start=performance.now();
+    acceptingHistory=item.type==='history';
     const r=await s.client.request(item.type,{...item,delay:s.delayEdit||0});s.delayEdit=0;
     if(s.queue[0]!==item)throw Error('Local intent lane changed');
     // Retain immutable operations before the Worker can start their commit.
     if(r.packet)s.packets.push(r.packet);
-    s.queue.shift();remember(s,r.info);
+    s.queue.shift();remember(s,r.info);acceptingHistory=false;saveNext=true;
     if(item.type==='history'){
      const selection=current(s)?[element.selectionStart,element.selectionEnd]:s.selection.slice(0,2);
      const result=mapChanges(s.text,selection,r.changes);s.text=result.text;s.historyPending=false;
@@ -55,10 +58,11 @@ async function pump(s){
     }
     s.needPull=true;paint();mark('local-accepted',start,{document:s.documentId});continue;
    }
-   if(s.packets.length&&!s.paused&&!s.failure&&!s.composing){
+   if(canSave){
     const packet=s.packets[0];const fault={abort:!!s.abortNext,hold:s.holdNext||0,beforeCommit:s.beforeCommit||0,crashAfterCommit:!!s.crashAfterCommit};s.abortNext=false;s.holdNext=0;s.beforeCommit=0;s.crashAfterCommit=false;
     const r=await s.client.request('save',{packet,fault});
     if(r.packetId!==packet.id||s.packets[0]!==packet)throw Error('Save acknowledgement identity mismatch');
+    saveNext=false;
     s.packets.shift();s.ackVersion=packet.version;s.metrics.push({kind:'save',...r.timings,document:s.documentId});
     channel.postMessage({type:'changed',document:s.documentId});s.needPull=true;paint();continue;
    }
@@ -83,7 +87,7 @@ async function pump(s){
    break;
   }
  }catch(error){
-  if(s.queue[0]?.type==='history'){
+  if(acceptingHistory){
    s.uncertainHistory=true;s.historyPending=false;s.ready=false;
    s.blocked='Undo/Redo interrupted before acknowledgement. The request and accepted text are retained; editing is blocked. Retry does not cancel it. Use Cancel interrupted Undo/Redo only to deliberately abandon this request and restore accepted text.';
    s.failure=s.blocked;
