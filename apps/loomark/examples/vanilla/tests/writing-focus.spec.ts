@@ -44,6 +44,28 @@ test("typing intent dims other writing groups and blur restores reading", async 
   await expect(text).toHaveValue(documentText)
 })
 
+test("wrapped paragraphs dim along the textarea's own line breaks", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const paragraph = "Quiet tools leave room for long thoughts that wrap. ".repeat(14).trim()
+  await text.fill(paragraph)
+  // Count wrapped lines from the textarea itself, independently of the dimming layer.
+  const wrapped = await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const style = getComputedStyle(area)
+    area.style.height = "0px"
+    const content = area.scrollHeight - Number.parseFloat(style.paddingTop)
+      - Number.parseFloat(style.paddingBottom)
+    area.style.height = ""
+    return Math.round(content / Number.parseFloat(style.lineHeight))
+  })
+  expect(wrapped).toBeGreaterThan(4)
+  await text.fill(`${paragraph}\n\nAfter`)
+  await text.press("Control+End")
+  await expect.poll(() => dimmingAtLine(page, wrapped - 1)).toBe(0.5)
+  expect(await dimmingAtLine(page, wrapped + 1)).toBe(0)
+})
+
 test("focus moves between quoted paragraphs separated by a quote-only line", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })

@@ -239,11 +239,17 @@ fn set_style_if_changed(
 }
 
 ///|
+/// Font longhands, not the `font` shorthand: Chromium serializes the computed
+/// shorthand as "" when a longhand such as font-kerning has no shorthand form,
+/// which left the mirror in the page font and misplaced every wrapped line.
 let text_layout_properties : FixedArray[String] = [
-  "font", "line-height", "font-kerning", "font-feature-settings", "font-variation-settings",
-  "font-variant-ligatures", "letter-spacing", "word-spacing", "text-indent", "text-transform",
-  "text-align", "direction", "unicode-bidi", "white-space", "word-break", "overflow-wrap",
-  "tab-size", "padding-top", "padding-right", "padding-bottom", "padding-left",
+  "font-family", "font-size", "font-weight", "font-style", "font-stretch", "font-variant-caps",
+  "font-variant-east-asian", "font-variant-numeric", "font-variant-position", "font-optical-sizing",
+  "font-synthesis", "font-size-adjust", "line-height", "font-kerning", "font-feature-settings",
+  "font-variation-settings", "font-variant-ligatures", "letter-spacing", "word-spacing",
+  "text-indent", "text-transform", "text-align", "direction", "unicode-bidi", "white-space",
+  "word-break", "overflow-wrap", "tab-size", "padding-top", "padding-right", "padding-bottom",
+  "padding-left",
 ]
 
 ///|
