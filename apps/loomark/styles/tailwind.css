@@ -388,6 +388,12 @@
 [data-loomark-bottom-obscured] .loomark-footer {
   display: none;
 }
+[data-loomark-bottom-obscured] .loomark-footer:has(.loomark-save-status[title="Not saved"]) {
+  display: flex;
+}
+[data-loomark-bottom-obscured] .loomark-bottom-actions {
+  display: none;
+}
 
 .loomark-source {
   /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
