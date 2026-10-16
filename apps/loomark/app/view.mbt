@@ -355,14 +355,7 @@ fn notices_input(model : Model) -> NoticesInput {
           }
         InProgress | Fault(_) => None
       }
-    None =>
-      match editing.documents.delete_status(editing.activation.key) {
-        Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
-          Some(Delete(failure))
-        Some(@documents.DeleteStatus::DeletePersistenceFailed(failure)) =>
-          Some(DeletePersistence(failure))
-        _ => None
-      }
+    None => None
   }
   { failure, import_failed: editing.import_failed, lifecycle_error, }
 }

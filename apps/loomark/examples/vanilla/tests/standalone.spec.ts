@@ -2738,6 +2738,54 @@ test("Delete document removes a non-active Source without moving the editor", as
   await expect(page.getByRole("button", { name: "B", exact: true })).toHaveCount(0)
 })
 
+for (const storage of ["Source", "Replica"] as const) {
+  test(`failed non-active ${storage} deletion notifies on each attempt, not navigation`, async ({ page }) => {
+    const accountId = "account-a"
+    const a = { document_id: fixtureDocumentId("delete-a"), text: "# A\n" }
+    const b = { document_id: fixtureDocumentId("delete-b"), text: "# B\n" }
+    await page.route("**/api/account", route => route.fulfill({
+      contentType: "application/json", body: JSON.stringify({ id: accountId, name: "Account A" }),
+    }))
+    await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
+    await page.goto("/")
+    await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+    const key = storage === "Source" ? sourceKey(b.document_id) : replicaKey(accountId, b.document_id)
+    await replaceStoreRecords(page, [
+      { key: sourceKey(a.document_id), value: encodeStoredDocument(a) },
+      { key, value: storage === "Source" ? encodeStoredDocument(b) : encodeReadyReplica(accountId, b) },
+    ])
+    await page.reload()
+    await openDocuments(page)
+    await page.getByRole("button", { name: "A", exact: true }).click()
+    if (storage === "Replica") {
+      await page.evaluate(installDocumentPutFailure, key)
+    } else {
+      await page.evaluate(key => {
+        const original = IDBObjectStore.prototype.delete
+        IDBObjectStore.prototype.delete = function(recordKey) {
+          if (recordKey === key) throw new DOMException("Storage unavailable", "UnknownError")
+          return original.call(this, recordKey)
+        }
+      }, key)
+    }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await openDeleteConfirmation(page, "B")
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
+      const toast = page.getByRole("alert")
+      await expect(toast).toBeVisible()
+      await expect(toast).toHaveAttribute("data-variant", "destructive")
+      await expect(toast).toContainText(storage === "Source" ? "The document was not deleted." : "The deletion was not saved.")
+      await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(a.text)
+      await toast.getByRole("button", { name: "Close notification" }).click()
+      await expect(toast).toBeHidden()
+    }
+    await page.getByRole("button", { name: "B", exact: true }).click()
+    await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(b.text)
+    await expect(page.getByRole("alert")).toBeHidden()
+    expect(await readStoredDocumentRaw(page, key)).toBeDefined()
+  })
+}
+
 test("Delete icon is disabled while deletion is pending", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)

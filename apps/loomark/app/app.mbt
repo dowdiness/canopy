@@ -31,6 +31,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
           commands.push(toasts.show(title=message, variant=ToastDestructive))
         }
       }
+      if deletion_error(model.page, next.page, msg) is Some(message) {
+        commands.push(toasts.show(title=message, variant=ToastDestructive))
+      }
       (next, @cmd.batch(commands))
     },
     subscriptions=(current, emit) => {
