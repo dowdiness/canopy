@@ -22,7 +22,7 @@ updates still follow the normal Canopy PR and CI workflow.
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
 - **Downstream branch:** `main`
 - **Upstream base:** `b46d141fa3f4971be010d7d5bb5a178dfa20f300` (upstream `main`)
-- **Pinned commit:** `382fd87e9063cfb3c19c3b3100a5409bc7d2a64c`
+- **Pinned commit:** `78160a0f73c18c433a453986303c8d616ff71b73`
 - **Pin tag:** None for the current pin; `canopy-worker-20261004` identifies the earlier Worker binding pin.
 - **History:** 17 rebased fork commits, followed by integration fixes, the upstream-only website deployment guard and the Worker binding; no downstream merge commits.
 - **Canopy submodule:** `deps/rabbita`
