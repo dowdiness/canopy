@@ -100,18 +100,3 @@ fn account_controls(
     ),
   ])
 }
-
-///|
-fn account_notice_message(input : AccountControlsInput) -> String {
-  match input.sign_in {
-    @sign_in.Failed(@sign_in.Save(_), ..) =>
-      "Couldn’t save changes. You have not left this page. Retry sign-in to save again."
-    Failed(Authentication, ..) =>
-      "Couldn’t sign in with Google. Your documents remain on this device."
-    _ =>
-      match input.session {
-        LogoutUnconfirmed(_) => "Couldn’t confirm sign-out. Retry sign-out."
-        _ => ""
-      }
-  }
-}

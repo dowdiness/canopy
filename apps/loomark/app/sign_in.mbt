@@ -63,12 +63,8 @@ fn save_changes(
         sign_in_readiness(model),
       )
       return (
-        {
-          ..model,
-          sign_in: interrupted.state,
-          page: Editing({ ..editing, lifecycle_error: Some(notice), }),
-        },
-        @cmd.none,
+        { ..model, sign_in: interrupted.state, page: Editing(editing), },
+        notify(emit, notice),
         false,
       )
     }
@@ -76,10 +72,7 @@ fn save_changes(
   let documents = saving.model
   let actions = saving.effects
   let (model, command) = apply_document_actions(
-    {
-      ..model,
-      page: Editing({ ..editing, documents, lifecycle_error: None, }),
-    },
+    { ..model, page: Editing({ ..editing, documents, }), },
     actions,
     emit,
   )
@@ -122,9 +115,29 @@ fn update_sign_in(
   if event is @sign_in.Refresh && !model.sign_in.blocks_editing() {
     return (model, @cmd.none)
   }
+  let was_active = model.sign_in.blocks_editing()
   let transition = model.sign_in.update(event, sign_in_readiness(model))
   let mut model = { ..model, sign_in: transition.state, }
   let commands : Array[@cmd.Cmd] = []
+  // Refresh may discover a failed sign-in save, but releasing an obsolete
+  // authorization request while already failed must not replay its notice.
+  if was_active || event is @sign_in.AuthenticationFailed {
+    match model.sign_in.view(sign_in_readiness(model)) {
+      @sign_in.Failed(@sign_in.Save(_), ..) =>
+        commands.push(
+          notify(
+            emit, "Couldn’t save changes. You have not left this page. Retry sign-in to save again.",
+          ),
+        )
+      Failed(Authentication, ..) =>
+        commands.push(
+          notify(
+            emit, "Couldn’t sign in with Google. Your documents remain on this device.",
+          ),
+        )
+      _ => ()
+    }
+  }
   for effect in transition.effects {
     match effect {
       @sign_in.SaveChanges => {

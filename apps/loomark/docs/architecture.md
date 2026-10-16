@@ -28,6 +28,17 @@ This document details the internal architecture, runtime lifecycle, and DOM subs
 
 Loomark follows a unidirectional flow built on [Rabbita](https://github.com/dowdiness/rabbita). The native `<textarea>` owns browser input, composition, and undo. `documents.Model` owns admitted Document text and persistence transitions; previews, document leads, and autosave consume that text.
 
+Explicit operation failures emit `Notify` only after the application accepts the
+result. Notifications are events, not differences between rendered error strings;
+two accepted failures with the same message each notify. Autosave failures remain
+in the persistent **Not saved** indicator without a duplicate toast.
+
+`sonner_host` builds the application once with its notification scope. Sonner owns
+timers, retained DOM slots, and interaction pause state. The application supplies
+a focus-return command that reads its current editor mode; it runs only when a
+closing notification owns focus. Neither notification commands nor focus callbacks
+are stored in the application Model.
+
 ```
                      ┌──────────────────────────────┐
                      │ Native Browser <textarea>   │

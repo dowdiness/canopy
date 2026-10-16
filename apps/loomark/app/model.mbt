@@ -42,7 +42,6 @@ priv struct OpeningNewContext {
   mode : EditorMode
   compact : Bool
   next_activation_generation : Int
-  lifecycle_error : String?
 } derive(Eq)
 
 ///|
@@ -63,13 +62,11 @@ priv struct EditingDocument {
   activation : Activation
   documents : @documents.Model
   creation : Creation?
-  lifecycle_error : String?
   deletion : DocumentDeletion
   mode : EditorMode
   menu_open : Bool
   compact : Bool
   preview : @editor.EditorState
-  import_failed : Bool
   imports_pending : Int
   next_creation_request_id : Int
 } derive(Eq)
@@ -106,7 +103,7 @@ priv enum DocumentUpdate {
   Updated(@documents.Transition)
   Unchanged
   Obsolete
-  Fault
+  Fault(String)
 }
 
 ///|
@@ -123,6 +120,8 @@ priv struct AccountControlsInput {
 
 ///|
 priv enum Msg {
+  Notify(String)
+  NotificationFocusReturn
   AuthenticationReturned(Bool)
   Opened(@source_repository.OpenResult)
   EmptyCreateCompleted(Int, @source_repository.CreateResult)

@@ -100,13 +100,11 @@ fn test_editing() -> EditingDocument {
     activation: { key: source_key("one"), generation: 0, },
     documents,
     creation: None,
-    lifecycle_error: None,
     deletion: NoDeletion,
     mode: Text,
     menu_open: false,
     compact: false,
     preview,
-    import_failed: false,
     imports_pending: 0,
     next_creation_request_id: 1,
   }
@@ -2756,13 +2754,7 @@ test "preparing new preserves documents and mode" {
   let documents = @documents.Model(test_snapshot())
   let (model, _) = test_update(
     OpeningNew(
-      {
-        documents,
-        mode: Split,
-        compact: false,
-        next_activation_generation: 0,
-        lifecycle_error: None,
-      },
+      { documents, mode: Split, compact: false, next_activation_generation: 0, },
       { request_id: 1, intent: NewDocument, status: InProgress, },
     ),
     EmptyCreateCompleted(1, Created(document_id("new"))),
@@ -2821,13 +2813,11 @@ test "final active delete falls back to a new document" {
     activation: { key: source_key("one"), generation: 0, },
     documents,
     creation: None,
-    lifecycle_error: None,
     deletion: NoDeletion,
     mode: Text,
     menu_open: false,
     compact: false,
     preview,
-    import_failed: false,
     imports_pending: 0,
     next_creation_request_id: 1,
   }
@@ -3120,13 +3110,7 @@ test "preparing new reduces unrelated inactive save completion" {
   }
   let (model, _) = test_update(
     OpeningNew(
-      {
-        documents,
-        mode: Text,
-        compact: false,
-        next_activation_generation: 1,
-        lifecycle_error: None,
-      },
+      { documents, mode: Text, compact: false, next_activation_generation: 1, },
       { request_id: 1, intent: NewDocument, status: InProgress, },
     ),
     DocumentSaved(operation, operation.document),
@@ -3154,7 +3138,6 @@ test "failed initial creation preserves context and retry fences stale completio
     mode: Split,
     compact: false,
     next_activation_generation: 4,
-    lifecycle_error: None,
   }
   let creation : Creation = {
     request_id: 5,
@@ -3192,7 +3175,7 @@ test "failed initial creation preserves context and retry fences stale completio
 }
 
 ///|
-test "failed editing creation remains visible and retry fences stale completion" {
+test "failed editing creation releases its request and retry fences stale completion" {
   let initial = test_editing()
   let (started, _) = test_update(Editing(initial), CreateRequested)
   guard started is Editing(creating) &&
@@ -3204,9 +3187,8 @@ test "failed editing creation remains visible and retry fences stale completion"
     Editing(creating),
     CreateCompleted(1, CreateFailed(failure)),
   )
-  guard failed is Editing(failed_editing) &&
-    failed_editing.creation is Some({ status: Failed(_), .. }) else {
-    fail("failed creation retained")
+  guard failed is Editing(failed_editing) && failed_editing.creation is None else {
+    fail("failed creation released")
   }
   assert_eq(failed_editing.documents.text(source_key("one")), Some("one"))
   let (retrying, _) = test_update(Editing(failed_editing), CreateRequested)
@@ -3250,7 +3232,6 @@ test "duplicate Example identity does not overwrite an existing document" {
   guard page is Editing(retained) else { fail("current editor must survive") }
   assert_true(retained.activation == initial.activation)
   assert_eq(retained.documents.text(source_key("two")), Some("two"))
-  assert_true(retained.lifecycle_error is Some(_))
   assert_true(retained.creation is None)
 }
 
@@ -3262,7 +3243,6 @@ test "opening creation retries a rejected identity without losing documents" {
     mode: Split,
     compact: false,
     next_activation_generation: 4,
-    lifecycle_error: None,
   }
   let creation : Creation = {
     request_id: 12,

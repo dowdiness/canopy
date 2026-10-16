@@ -242,7 +242,7 @@ fn install_document_transition(
   editing : EditingDocument,
   transition : @documents.Transition,
 ) -> EditingDocument {
-  { ..editing, documents: transition.model, lifecycle_error: None, }
+  { ..editing, documents: transition.model, }
 }
 
 ///|
@@ -278,11 +278,7 @@ fn document_update(
       Superseded => (editing, DocumentUpdate::Obsolete)
     }
   } catch {
-    error =>
-      (
-        { ..editing, lifecycle_error: Some(document_update_notice(error)), },
-        DocumentUpdate::Fault,
-      )
+    error => (editing, DocumentUpdate::Fault(document_update_notice(error)))
   }
 }
 
@@ -291,18 +287,18 @@ fn reduce_documents(
   editing : EditingDocument,
   event : @documents.Msg,
   actions : Array[@documents.Action],
-) -> EditingDocument {
+  emit : @rabbita.Emit[Msg],
+) -> (EditingDocument, @rabbita.Cmd) {
   let (editing, outcome) = document_update(editing, event)
   match outcome {
     DocumentUpdate::Updated(transition) => {
       for action in transition.effects {
         actions.push(action)
       }
-      editing
+      (editing, @cmd.none)
     }
-    DocumentUpdate::Unchanged
-    | DocumentUpdate::Obsolete
-    | DocumentUpdate::Fault => editing
+    DocumentUpdate::Unchanged | DocumentUpdate::Obsolete => (editing, @cmd.none)
+    DocumentUpdate::Fault(message) => (editing, notify(emit, message))
   }
 }
 
@@ -342,7 +338,7 @@ fn update_page(
           let request_id = creation.request_id + 1
           let retry = { ..creation, request_id, status: InProgress, }
           (
-            OpeningNew({ ..opening, lifecycle_error: None, }, retry),
+            OpeningNew(opening, retry),
             @source_repository.create(
               opening.documents.snapshot(),
               emit.map(result => EmptyCreateCompleted(request_id, result)),
@@ -371,13 +367,11 @@ fn update_page(
               activation,
               documents,
               creation: None,
-              lifecycle_error: None,
               deletion: NoDeletion,
               mode: Text,
               menu_open: false,
               compact,
               preview,
-              import_failed: false,
               imports_pending: 0,
               next_creation_request_id: 1,
             }),
@@ -391,7 +385,6 @@ fn update_page(
             mode: Text,
             compact,
             next_activation_generation: 0,
-            lifecycle_error: None,
           }
           let creation : Creation = {
             request_id: 1,
@@ -417,7 +410,7 @@ fn update_page(
           CreateFailed(failure) =>
             (
               OpeningNew(opening, { ..creation, status: Failed(failure), }),
-              @cmd.none,
+              notify(emit, "A new document could not be created."),
             )
           Created(document_id) => {
             let transition = opening.documents.create(document_id) catch {
@@ -425,7 +418,7 @@ fn update_page(
                 let notice = "The new document identity is already in use. Retry to create a fresh identity."
                 return (
                   OpeningNew(opening, { ..creation, status: Fault(notice), }),
-                  @cmd.none,
+                  notify(emit, notice),
                 )
               }
             }
@@ -448,13 +441,11 @@ fn update_page(
                 activation,
                 documents: transition.model,
                 creation: None,
-                lifecycle_error: None,
                 deletion: NoDeletion,
                 mode: opening.mode,
                 menu_open: false,
                 compact: opening.compact,
                 preview,
-                import_failed: false,
                 imports_pending: 0,
                 next_creation_request_id: creation.request_id + 1,
               }),
@@ -477,7 +468,6 @@ fn update_page(
               intent: Example(text),
               status: InProgress,
             }),
-            lifecycle_error: None,
             next_creation_request_id: editing.next_creation_request_id + 1,
           }),
           @source_repository.create(
@@ -503,14 +493,10 @@ fn update_page(
         let transition = editing.documents.create(document_id) catch {
           DocumentAlreadyExists(_) =>
             return (
-              Editing({
-                ..editing,
-                creation: None,
-                lifecycle_error: Some(
-                  "This document already exists. Reopen the current document to recover.",
-                ),
-              }),
-              @cmd.none,
+              Editing({ ..editing, creation: None, }),
+              notify(
+                emit, "This document already exists. Reopen the current document to recover.",
+              ),
             )
         }
         let editing = install_document_transition(editing, transition)
@@ -520,12 +506,8 @@ fn update_page(
         let edit = editing.documents.edit(key, text) catch {
           error =>
             return (
-              Editing({
-                ..editing,
-                creation: None,
-                lifecycle_error: Some(document_edit_notice(error)),
-              }),
-              @cmd.none,
+              Editing({ ..editing, creation: None, }),
+              notify(emit, document_edit_notice(error)),
             )
         }
         let editing = match edit {
@@ -546,21 +528,11 @@ fn update_page(
           }
         }
       }
-    (
-      Editing(editing),
-      ExampleCreateCompleted(request_id, text, CreateFailed(failure)),
-    ) =>
+    (Editing(editing), ExampleCreateCompleted(request_id, _, CreateFailed(_))) =>
       if creation_request_is_current(editing.creation, request_id) {
         (
-          Editing({
-            ..editing,
-            creation: Some({
-              request_id,
-              intent: Example(text),
-              status: Failed(failure),
-            }),
-          }),
-          @cmd.none,
+          Editing({ ..editing, creation: None, }),
+          notify(emit, "The example document could not be created."),
         )
       } else {
         (Editing(editing), @cmd.none)
@@ -600,11 +572,11 @@ fn update_page(
             let edit = editing.documents.edit(key, text) catch {
               error =>
                 return (
-                  Editing({
-                    ..editing,
-                    lifecycle_error: Some(document_edit_notice(error)),
-                  }),
-                  editor.restore(editing.documents.text(key).unwrap_or("")),
+                  Editing(editing),
+                  @cmd.batch([
+                    editor.restore(editing.documents.text(key).unwrap_or("")),
+                    notify(emit, document_edit_notice(error)),
+                  ]),
                 )
             }
             match edit {
@@ -633,12 +605,13 @@ fn update_page(
         editing.deletion_blocks_document_changes() {
         (Editing(editing), @cmd.none)
       } else {
-        let editing = reduce_documents(
+        let (editing, command) = reduce_documents(
           editing,
           @documents.Msg::CompositionStarted(editing.activation.key),
           actions,
+          emit,
         )
-        (Editing(editing), @cmd.none)
+        (Editing(editing), command)
       }
     (Editing(editing), MenuToggled) =>
       (Editing({ ..editing, menu_open: !editing.menu_open, }), @cmd.none)
@@ -656,11 +629,7 @@ fn update_page(
         None => (Editing(editing), @cmd.none)
         Some(file) =>
           (
-            Editing({
-              ..editing,
-              import_failed: false,
-              imports_pending: editing.imports_pending + 1,
-            }),
+            Editing({ ..editing, imports_pending: editing.imports_pending + 1, }),
             @browser.read(file, emit.map(result => ImportReadCompleted(result))),
           )
       }
@@ -668,10 +637,9 @@ fn update_page(
       (
         Editing({
           ..editing,
-          import_failed: true,
           imports_pending: (editing.imports_pending - 1).max(0),
         }),
-        @cmd.none,
+        notify(emit, "The Markdown file could not be imported."),
       )
     (Editing(editing), ImportReadCompleted(Ok(bytes))) =>
       match decode_import(bytes) {
@@ -679,10 +647,9 @@ fn update_page(
           (
             Editing({
               ..editing,
-              import_failed: true,
               imports_pending: (editing.imports_pending - 1).max(0),
             }),
-            @cmd.none,
+            notify(emit, "The Markdown file could not be imported."),
           )
         Some(text) =>
           (
@@ -697,10 +664,9 @@ fn update_page(
       (
         Editing({
           ..editing,
-          import_failed: true,
           imports_pending: (editing.imports_pending - 1).max(0),
         }),
-        @cmd.none,
+        notify(emit, "The Markdown file could not be imported."),
       )
     (Editing(editing), ImportCreateCompleted(text, Created(document_id))) => {
       let editing = {
@@ -712,7 +678,14 @@ fn update_page(
         @documents.Msg::Imported(document_id, text),
       )
       guard outcome is DocumentUpdate::Updated(transition) else {
-        return (Editing({ ..next, import_failed: true, }), @cmd.none)
+        return (
+          Editing(next),
+          match outcome {
+            DocumentUpdate::Fault(_) =>
+              notify(emit, "The Markdown file could not be imported.")
+            _ => @cmd.none
+          },
+        )
       }
       for action in transition.effects {
         actions.push(action)
@@ -720,18 +693,17 @@ fn update_page(
       // Keep successful imports without replacing the composing textarea.
       // No delayed activation is queued: the user can open it from Documents.
       if next.documents.is_composing(next.activation.key) {
-        (Editing({ ..next, import_failed: false, }), @cmd.none)
+        (Editing(next), @cmd.none)
       } else {
         match
           activation_target(next.documents, @documents.Key::source(document_id)) {
-          None => (Editing({ ..editing, import_failed: true, }), @cmd.none)
+          None =>
+            (
+              Editing(editing),
+              notify(emit, "The Markdown file could not be imported."),
+            )
           Some(target) => {
-            let ready = {
-              ..next,
-              creation: None,
-              deletion: NoDeletion,
-              import_failed: false,
-            }
+            let ready = { ..next, creation: None, deletion: NoDeletion, }
             let (next, surface) = ready.activate(target, emit, editor)
             (Editing(next), surface)
           }
@@ -785,7 +757,6 @@ fn update_page(
               intent: NewDocument,
               status: InProgress,
             }),
-            lifecycle_error: None,
             next_creation_request_id: request_id + 1,
           }),
           @source_repository.create(
@@ -801,14 +772,10 @@ fn update_page(
         let transition = editing.documents.create(document_id) catch {
           DocumentAlreadyExists(_) =>
             return (
-              Editing({
-                ..editing,
-                creation: None,
-                lifecycle_error: Some(
-                  "This document already exists. Reopen the current document to recover.",
-                ),
-              }),
-              @cmd.none,
+              Editing({ ..editing, creation: None, }),
+              notify(
+                emit, "This document already exists. Reopen the current document to recover.",
+              ),
             )
         }
         let editing = install_document_transition(editing, transition)
@@ -828,18 +795,11 @@ fn update_page(
           }
         }
       }
-    (Editing(editing), CreateCompleted(request_id, CreateFailed(failure))) =>
+    (Editing(editing), CreateCompleted(request_id, CreateFailed(_))) =>
       if creation_request_is_current(editing.creation, request_id) {
         (
-          Editing({
-            ..editing,
-            creation: Some({
-              request_id,
-              intent: NewDocument,
-              status: Failed(failure),
-            }),
-          }),
-          @cmd.none,
+          Editing({ ..editing, creation: None, }),
+          notify(emit, "A new document could not be created."),
         )
       } else {
         (Editing(editing), @cmd.none)
@@ -1316,42 +1276,24 @@ fn update_delete(
       } catch {
         @documents.DeleteError::DocumentMissing(_) =>
           (
-            {
-              ..model,
-              page: Editing({
-                ..editing,
-                lifecycle_error: Some(
-                  "The document is no longer available. Refresh the document list and try again.",
-                ),
-              }),
-            },
-            @cmd.none,
+            { ..model, page: Editing(editing), },
+            notify(
+              emit, "The document is no longer available. Refresh the document list and try again.",
+            ),
           )
         @documents.DeleteError::OwnershipTransferInProgress(_) =>
           (
-            {
-              ..model,
-              page: Editing({
-                ..editing,
-                lifecycle_error: Some(
-                  "This document is being transferred and cannot be deleted yet.",
-                ),
-              }),
-            },
-            @cmd.none,
+            { ..model, page: Editing(editing), },
+            notify(
+              emit, "This document is being transferred and cannot be deleted yet.",
+            ),
           )
         @documents.DeleteError::ReplicaMissing(_) =>
           (
-            {
-              ..model,
-              page: Editing({
-                ..editing,
-                lifecycle_error: Some(
-                  "The synchronized document is unavailable. Retry after synchronization recovers.",
-                ),
-              }),
-            },
-            @cmd.none,
+            { ..model, page: Editing(editing), },
+            notify(
+              emit, "The synchronized document is unavailable. Retry after synchronization recovers.",
+            ),
           )
       }
     _ => (model, @cmd.none)
@@ -1425,7 +1367,9 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | StartSync(_)
     | AcceptRemote(_)
     | LogoutRequested => true
-    Opened(_)
+    Notify(_)
+    | NotificationFocusReturn
+    | Opened(_)
     | EmptyCreateCompleted(_, _)
     | CompositionEnded(_)
     | ModeSelected(_)
@@ -1514,7 +1458,14 @@ fn reduce(
           model.page.hide_accounts()
         _ => model.page
       }
-      (model.with_sync(sync).with_page(page), @cmd.none)
+      (
+        model.with_sync(sync).with_page(page),
+        if confirmed {
+          @cmd.none
+        } else {
+          notify(emit, "Couldn’t confirm sign-out. Retry sign-out.")
+        },
+      )
     }
     ApplyPendingEdit(document_id, revision) =>
       update_documents(
@@ -1568,14 +1519,7 @@ fn reduce(
       match model.page {
         Editing(editing) if editing.deletion == DeleteConfirmation(document_id) =>
           update_delete(
-            {
-              ..model,
-              page: Editing({
-                ..editing,
-                deletion: NoDeletion,
-                lifecycle_error: None,
-              }),
-            },
+            { ..model, page: Editing({ ..editing, deletion: NoDeletion, }), },
             document_id,
             emit,
             editor,
@@ -1977,6 +1921,7 @@ fn update(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
+  let before = model.page
   let (model, command) = reduce(model, msg, emit, editor)
   let (model, command) = activate_open(model, command, emit, editor)
   let (model, sign_in_command) = update_sign_in(
@@ -1984,7 +1929,11 @@ fn update(
     SignIn(@sign_in.Refresh),
     emit,
   )
-  (model, @cmd.batch([command, sign_in_command]))
+  let deletion_notification = match deletion_error(before, model.page, msg) {
+    Some(message) => notify(emit, message)
+    None => @cmd.none
+  }
+  (model, @cmd.batch([command, sign_in_command, deletion_notification]))
 }
 
 ///|
@@ -2002,7 +1951,7 @@ fn reduce_page_documents(
         DocumentUpdate::Updated(transition) => transition.effects
         DocumentUpdate::Unchanged
         | DocumentUpdate::Obsolete
-        | DocumentUpdate::Fault => []
+        | DocumentUpdate::Fault(_) => []
       }
       let updated = match event {
         @documents.Msg::Promoted(write) if active.key
@@ -2022,7 +1971,13 @@ fn reduce_page_documents(
         }
         _ => updated
       }
-      let (page, command) = reconcile_active(updated, emit, editor, @cmd.none)
+      let notification = match outcome {
+        DocumentUpdate::Fault(message) => notify(emit, message)
+        _ => @cmd.none
+      }
+      let (page, command) = reconcile_active(
+        updated, emit, editor, notification,
+      )
       (page, actions, command)
     }
     OpeningNew(opening, creation) =>
@@ -2030,14 +1985,7 @@ fn reduce_page_documents(
         match opening.documents.update(event) {
           Applied(transition) =>
             (
-              OpeningNew(
-                {
-                  ..opening,
-                  documents: transition.model,
-                  lifecycle_error: None,
-                },
-                creation,
-              ),
+              OpeningNew({ ..opening, documents: transition.model, }, creation),
               transition.effects,
               @cmd.none,
             )
@@ -2046,15 +1994,9 @@ fn reduce_page_documents(
       } catch {
         error =>
           (
-            OpeningNew(
-              {
-                ..opening,
-                lifecycle_error: Some(document_update_notice(error)),
-              },
-              creation,
-            ),
+            OpeningNew(opening, creation),
             [],
-            @cmd.none,
+            notify(emit, document_update_notice(error)),
           )
       }
     Loading(_) | Recovery(_, _) => (model, [], @cmd.none)
@@ -2088,7 +2030,6 @@ fn reconcile_active(
           mode: editing.mode,
           compact: editing.compact,
           next_activation_generation: editing.activation.generation + 1,
-          lifecycle_error: None,
         }
         let creation : Creation = {
           request_id,

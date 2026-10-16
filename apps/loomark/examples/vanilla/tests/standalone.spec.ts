@@ -1233,6 +1233,7 @@ test("Sonner import notifications preserve the current writing surface", async (
   await text.fill("# Keep my writing\n")
   await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(2, 6, "backward"))
   for (const mode of ["Text", "Split", "Preview"] as const) {
+    await page.setViewportSize({ width: 1280, height: 800 })
     await page.getByRole("tab", { name: mode, exact: true }).click()
     const bounds = await page.locator("#loomark-editor-panels").boundingBox()
     await page.getByLabel("Import Markdown")
@@ -1245,12 +1246,22 @@ test("Sonner import notifications preserve the current writing surface", async (
     await dismiss.focus()
     await dismiss.press("Enter")
     await expect(page.getByRole("alert")).toHaveCount(0)
+    await expect(mode === "Preview" ? page.getByRole("tab", { name: mode, exact: true }) : text).toBeFocused()
     await expect(text).toHaveValue("# Keep my writing\n")
     expect(await text.evaluate(element => {
       const area = element as HTMLTextAreaElement
       return [area.selectionStart, area.selectionEnd, area.selectionDirection]
     })).toEqual([2, 6, "backward"])
   }
+  await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  const toggle = page.locator("#loomark-focus-toggle")
+  await toggle.click()
+  const dismiss = page.getByRole("alert").getByRole("button", { name: "Close notification" })
+  await dismiss.focus()
+  await dismiss.press("Enter")
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(toggle).toBeFocused()
+  await expect(toggle).toHaveAttribute("aria-pressed", "true")
 })
 
 for (const colorScheme of ["light", "dark"] as const) {
@@ -1314,6 +1325,41 @@ test("a replaced Sonner notification does not inherit the previous swipe", async
   // The replacement still expires normally; it does not retain the old hover.
   await page.mouse.move(600, 100)
   await expect(toast).toBeHidden({ timeout: 10_000 })
+})
+
+test("separately completed concurrent import failures each notify", async ({ page }) => {
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  await page.evaluate(() => {
+    const failures: Array<() => void> = []
+    Object.assign(window, { failNextImport: () => failures.shift()!(), pendingImportReads: () => failures.length })
+    File.prototype.arrayBuffer = function () {
+      return new Promise<ArrayBuffer>((_, reject) => {
+        failures.push(() => reject(new Error("Import read failed")))
+      })
+    }
+  })
+  const input = page.getByLabel("Import Markdown")
+  await input.setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  await input.setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as { pendingImportReads(): number }).pendingImportReads(),
+  )).toBe(2)
+  const failNext = () => page.evaluate(() =>
+    (window as unknown as { failNextImport(): void }).failNextImport(),
+  )
+  await failNext()
+  const toast = page.getByRole("alert")
+  await expect(toast).toContainText("The Markdown file could not be imported.")
+  await expect(toast).toHaveAttribute("data-variant", "destructive")
+  const firstId = await toast.getAttribute("data-toast-id")
+  await toast.getByRole("button", { name: "Close notification" }).click()
+  await expect(toast).toBeHidden()
+  await failNext()
+  await expect(toast).toContainText("The Markdown file could not be imported.")
+  await expect(toast).toHaveAttribute("data-variant", "destructive")
+  await expect(toast).not.toHaveAttribute("data-toast-id", firstId!)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
 })
 
 test("Import rejects malformed UTF-8 without creating a Source", async ({ page }) => {
