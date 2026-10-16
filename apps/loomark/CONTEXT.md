@@ -87,6 +87,11 @@ While the textarea has focus, surrounding writing groups fade; normal mode
 never applies this dimming. Blurring the textarea restores full readability
 without leaving Focus Mode. Autosave continues, and failure notices and
 exceptional durability/sync actions remain available.
+Routine controls fade out and back in over 180 ms, and the toggle icons
+crossfade without moving. Controls become inert as soon as Focus Mode starts,
+not after the fade. Reversing a transition retargets it rather than queuing
+another animation. Reduced motion uses immediate switching. Sidebar and editor
+pane layout changes remain immediate; text is not translated or scaled.
 
 **Editor mode**:
 The current way to edit, inspect, or combine views of the selected Document

@@ -640,12 +640,18 @@
 .loomark-focus-toggle[aria-pressed="true"] { color: var(--color-lm-accent); }
 .loomark-focus-enter, .loomark-focus-exit {
   grid-area: 1 / 1;
+  transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .loomark-focus-exit,
 .loomark-focus-toggle[aria-pressed="true"] .loomark-focus-enter { opacity: 0; }
 .loomark-focus-toggle[aria-pressed="true"] .loomark-focus-exit { opacity: 1; }
 .loomark-focus-tooltip {
-  display: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    visibility 0s linear 160ms;
   position: absolute;
   right: 0;
   bottom: calc(100% + 8px);
@@ -658,9 +664,19 @@
   font-size: 12px;
   pointer-events: none;
 }
-.loomark-focus-toggle:focus-visible .loomark-focus-tooltip { display: block; }
+.loomark-focus-toggle:focus-visible .loomark-focus-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
 @media (hover: hover) and (pointer: fine) {
-  .loomark-focus-toggle:hover .loomark-focus-tooltip { display: block; }
+  .loomark-focus-toggle:hover .loomark-focus-tooltip {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0s;
+  }
 }
 
 /* Hide chrome without replacing the textarea or its native undo history. */
@@ -672,6 +688,40 @@
   display: none !important;
 }
 
+/* Retargetable fades, without moving text or delaying the editing state.
+   Browsers without discrete transitions keep the immediate hide/show fallback. */
+@supports (transition-behavior: allow-discrete) {
+  .loomark-topbar,
+  .loomark-sidebar-trigger,
+  .loomark-footer,
+  .loomark-bottom-actions,
+  .loomark-save-status {
+    transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1),
+      display 180ms allow-discrete;
+  }
+  [data-focus-mode="true"] .loomark-topbar,
+  [data-focus-mode="true"] .loomark-sidebar-trigger,
+  [data-focus-mode="true"] .loomark-bottom-actions,
+  [data-focus-mode="true"] .loomark-save-status,
+  .loomark-footer[hidden] { opacity: 0; }
+  @starting-style {
+    .loomark-topbar,
+    .loomark-sidebar-trigger,
+    .loomark-footer,
+    .loomark-bottom-actions,
+    .loomark-save-status { opacity: 0; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loomark-topbar,
+  .loomark-sidebar-trigger,
+  .loomark-footer,
+  .loomark-bottom-actions,
+  .loomark-save-status,
+  .loomark-focus-enter,
+  .loomark-focus-exit,
+  .loomark-focus-tooltip { transition: none; }
+}
 [data-focus-mode="true"] .loomark-source { mask-image: none; }
 /* Keep exceptional durability/sync actions available, even with a keyboard. */
 [data-focus-mode="true"] .loomark-footer[data-attention="true"] {

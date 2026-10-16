@@ -2,6 +2,10 @@ import { expect, test, type Locator, type Page } from "@playwright/test"
 
 const documentText = "# Heading\n\nFirst thought\n\nSecond thought\n\nThird thought"
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/account", route => route.fulfill({ status: 401 }))
+})
+
 async function openFocusMode(page: Page) {
   await page.goto("/")
   await page.getByRole("button", { name: "Focus Mode", exact: true }).click()
@@ -110,6 +114,28 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const text = page.getByRole("textbox", { name: "Text" })
     const toggle = page.locator("#loomark-focus-toggle")
     await text.fill(documentText)
+    // Control the animation clock so the reversal happens before the fade ends.
+    const midpoint = await toggle.evaluate(async element => {
+      (element as HTMLButtonElement).click()
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      const toolbar = document.querySelector<HTMLElement>(".loomark-topbar")!
+      const animations = toolbar.getAnimations()
+      for (const animation of animations) {
+        animation.pause()
+        animation.currentTime = 60
+      }
+      return { opacity: Number(getComputedStyle(toolbar).opacity), inert: toolbar.inert, animations: animations.length }
+    })
+    expect(midpoint.inert).toBe(true)
+    if (reducedMotion === "reduce") {
+      expect(midpoint.animations).toBe(0)
+    } else {
+      expect(midpoint.opacity).toBeGreaterThan(0)
+      expect(midpoint.opacity).toBeLessThan(1)
+    }
+    await toggle.evaluate(element => (element as HTMLButtonElement).click())
+    await expect(toggle).toHaveAttribute("aria-pressed", "false")
+    await expect.poll(() => page.locator(".loomark-topbar").evaluate(element => getComputedStyle(element).opacity)).toBe("1")
     for (const pressed of ["true", "false", "true"]) {
       await toggle.click()
       await expect(toggle).toHaveAttribute("aria-pressed", pressed)
