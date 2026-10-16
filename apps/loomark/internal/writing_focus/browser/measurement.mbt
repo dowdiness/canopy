@@ -266,6 +266,9 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
   let padding_right = @browser_api.parse_css_number(
     style.get_property_value("padding-right"),
   )
+  let (left, content_width) = @writing_focus.calculate_dimming_inline_bounds(
+    self.text_area.get_offset_left(), width, padding_left, padding_right,
+  )
   set_style_if_changed(
     self.dimming_layer,
     "top",
@@ -274,12 +277,12 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
   set_style_if_changed(
     self.dimming_layer,
     "left",
-    "\{self.text_area.get_offset_left() + padding_left}px",
+    "\{left}px",
   )
   set_style_if_changed(
     self.dimming_layer,
     "width",
-    "\{width - padding_left - padding_right}px",
+    "\{content_width}px",
   )
   set_style_if_changed(
     self.dimming_layer,

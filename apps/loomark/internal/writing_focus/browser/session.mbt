@@ -2,7 +2,6 @@
 priv suberror WritingFocusError {
   InvalidAnimationClock
   UnsupportedAnimationState(String)
-  MissingFocusElement(String)
 }
 
 ///|
@@ -35,8 +34,8 @@ priv enum WritingFocusLifetime {
 }
 
 ///|
-priv struct WritingFocus {
-  mut lifetime : WritingFocusLifetime
+pub struct WritingFocus {
+  priv mut lifetime : WritingFocusLifetime
 }
 
 ///|
@@ -95,7 +94,7 @@ fn draw_writing_focus(session : WritingFocusSession) -> Unit raise {
 }
 
 ///|
-fn remove_writing_focus(focus : WritingFocus) -> Unit {
+pub fn WritingFocus::remove(focus : WritingFocus) -> Unit {
   match focus.lifetime {
     Removed => ()
     Attached(session) => {
@@ -136,7 +135,7 @@ fn schedule_writing_focus(focus : WritingFocus) -> Unit {
                   @js.try_sync(() => {
                     draw_writing_focus(session) catch {
                       error => {
-                        remove_writing_focus(focus)
+                        focus.remove()
                         report_writing_focus_error(@js.any(error))
                       }
                     }
@@ -144,7 +143,7 @@ fn schedule_writing_focus(focus : WritingFocus) -> Unit {
                   }),
                 ) catch {
                   @js.JsError(error) => {
-                    remove_writing_focus(focus)
+                    focus.remove()
                     report_writing_focus_error(error)
                   }
                 }
@@ -179,7 +178,7 @@ fn add_focus_listener(
 }
 
 ///|
-fn add_writing_focus(
+pub fn connect(
   text_area : @dom.HTMLTextAreaElement,
   dimming_layer : @dom.HTMLElement,
 ) -> WritingFocus raise @js.JsError {
@@ -210,9 +209,9 @@ fn add_writing_focus(
     @js.any(session)
   }).cast()
   let focus : WritingFocus = { lifetime: Attached(session), }
-  errdefer remove_writing_focus(focus)
+  errdefer focus.remove()
   @js.try_sync(() => {
-    let changed : @dom.Listener = _ => refresh_writing_focus(focus)
+    let changed : @dom.Listener = _ => focus.refresh()
     let selected : @dom.Listener = _ => schedule_writing_focus(focus)
     let resized : @dom.Listener = _ => writing_focus_layout_changed(focus)
     let activate : @dom.Listener = _ => set_writing_intent(focus, Writing)
@@ -274,7 +273,7 @@ fn add_writing_focus(
 }
 
 ///|
-fn refresh_writing_focus(focus : WritingFocus) -> Unit {
+pub fn WritingFocus::refresh(focus : WritingFocus) -> Unit {
   match focus.lifetime {
     Removed => ()
     Attached(session) => {

@@ -2,18 +2,21 @@
 package "dowdiness/loomark/internal/writing_focus/browser"
 
 import {
-  "dowdiness/rabbita_markdown/editor",
-  "moonbit-community/rabbita/sub",
+  "dowdiness/js_ffi",
+  "moonbit-community/rabbita/dom",
 }
 
 // Values
-pub const WRITING_FOCUS_LAYER_ID : String = "loomark-writing-focus"
-
-pub fn subscription(String, Int, @editor.EditorState) -> @sub.Sub
+pub fn connect(@dom.HTMLTextAreaElement, @dom.HTMLElement) -> WritingFocus raise @js_ffi.JsError
 
 // Errors
 
 // Types and methods
+pub struct WritingFocus {
+  // private fields
+}
+pub fn WritingFocus::refresh(Self) -> Unit
+pub fn WritingFocus::remove(Self) -> Unit
 
 // Type aliases
 

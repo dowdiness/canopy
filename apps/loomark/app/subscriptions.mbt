@@ -8,8 +8,7 @@ fn subscriptions(
     viewport,
     match model.page {
       Editing(editing) if model.focus_mode && editing.mode != Preview =>
-        @writing_focus_browser.subscription(
-          EDITOR_TEXT_ID,
+        writing_focus_subscription(
           editing.activation.generation,
           editing.preview,
         )

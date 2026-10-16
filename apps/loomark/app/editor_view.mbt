@@ -228,7 +228,7 @@ fn text_area_view(
       (
         "writing-focus",
         @html.div(
-          id=@writing_focus_browser.WRITING_FOCUS_LAYER_ID,
+          id=WRITING_FOCUS_LAYER_ID,
           class="loomark-writing-dimming",
           attrs=@html.Attrs::build().aria_hidden("true").inert(true),
           ([] : Array[@rabbita.Html]),

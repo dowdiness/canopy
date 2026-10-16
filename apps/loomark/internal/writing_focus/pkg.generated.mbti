@@ -2,6 +2,8 @@
 package "dowdiness/loomark/internal/writing_focus"
 
 // Values
+pub fn calculate_dimming_inline_bounds(Double, Double, Double, Double) -> (Double, Double)
+
 pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double?, animate~ : Bool) -> ArrayView[(Range, Fade)]
 
 pub fn calculate_visible_range(Range, Range) -> Range?

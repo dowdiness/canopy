@@ -126,9 +126,10 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 
 Only in explicit Focus Mode, surrounding paragraphs gently fade to 50% opacity while the textarea has focus; the active paragraph—including block quotes—and current selection remain 100% visible:
 
-- **Core Algorithm (`internal/writing_focus/`):** Pure layout and presentation decisions calculate active block boundaries without touching the browser DOM.
+- **Core Algorithm (`internal/writing_focus/`):** Pure layout and presentation decisions calculate active block boundaries, visible ranges, fades, and dimming-layer bounds from text and measured numbers without touching the browser DOM.
 - **Mode Ownership (`app/model.mbt`, `app/update.mbt`):** `focus_mode` is a presentation flag independent of the editor mode. Entry and exit preserve Text, Preview, or Split and do not invoke the mode-change path. Preview keeps keyboard focus on the toggle; editable views return focus to the existing textarea.
-- **Browser Integration (`internal/writing_focus/browser/`):** Measures DOM node rectangles, applies subtle opacity transitions, and manages subscription lifetimes. Leaving the editor instantly restores full readability across the document.
+- **Connection (`app/writing_focus.mbt`):** Resolves this render's textarea and dimming layer only after rendering, then passes those elements to the browser connection. Subscription removal cancels pending attachment or removes the existing connection; deferred refreshes cannot revive it.
+- **Browser Integration (`internal/writing_focus/browser/`):** Receives elements rather than IDs, measures their geometry, passes measured values to the core, and applies opacity and positioning decisions. Owns listeners, animation frames, and cleanup; its mutable connection handle stays in the shell, never in the application model. Leaving the editor instantly restores full readability across the document.
 - **Chrome (`app/layout.mbt`, `styles/tailwind.css`):** The toggle is a sibling of the footer inside the viewport-sized editor, so keyboard occlusion cannot hide it. CSS hides routine controls without destroying their state. Failure notices and exceptional sync/durability actions remain available.
 
 ### 4.3 Demand-Driven Sidebar (Recent Documents)
