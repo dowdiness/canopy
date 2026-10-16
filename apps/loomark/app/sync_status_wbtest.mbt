@@ -375,7 +375,7 @@ test "network retry cannot become a saving retry" {
 }
 
 ///|
-test "retry messages restart only their owned lifecycle" {
+test "account retry leaves failed replica persistence unchanged" {
   let account = sync_test_account("account")
   let document = documents_test_document("one", "one")
   let synchronized = @source_repository.DocumentReplica::receive(
@@ -407,21 +407,17 @@ test "retry messages restart only their owned lifecycle" {
   let documents = transition.model
   let model = { ..model, page: Editing({ ..editing, documents, }), }
   guard document_sync_view(model) is Some(view) &&
-    view.persistence is Some(@replica_persistence.Status::Retryable(action, _)) else {
+    view.persistence is Some(@replica_persistence.Status::Retryable(_, _)) else {
     fail("retry available")
   }
-  let message : Msg = RetrySaving(action)
-  let (retrying, _) = test_root_update(model, message)
-  assert_true(
-    retrying.replication.status(account, document.id())
-    is @replica_persistence.Persisting,
-  )
-  let (expired, _) = test_root_update(retrying, message)
-  assert_true(expired == retrying)
 
   let unavailable = model.with_sync(@sync.State())
   let (checking, _) = test_root_update(unavailable, RetryAccount)
   assert_true(account_status(checking.sync()) == AccountStatus::Checking)
+  assert_eq(
+    checking.replication.persistence(),
+    unavailable.replication.persistence(),
+  )
 }
 
 ///|

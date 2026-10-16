@@ -15,11 +15,10 @@ priv struct LayoutInput {
   navigation : @rabbita.Html
   tools : @rabbita.Html
   toolbar : @rabbita.Html
-  account_notice : @rabbita.Html
   editor : @rabbita.Html
   footer : @rabbita.Html
-  notices : @rabbita.Html
   dialog : @rabbita.Html
+  creation_action : @rabbita.Html
 } derive(Eq)
 
 ///|
@@ -56,7 +55,7 @@ fn screen_layout(
         CreationScreen =>
           @html.div(
             class="mx-auto w-[min(calc(100%-2rem),36rem)] pt-[max(4rem,20vh)] pb-8 [&_h1]:mt-0 [&_h1]:mb-3 [&_h1]:text-xl [&_h1]:leading-[1.3] [&_p]:m-0 [&_p]:leading-[1.6]",
-            [@html.h1("New document"), input.notices],
+            [@html.h1("New document"), input.creation_action],
           )
         EditingScreen => {
           let editor_inert = !input.focus_mode &&
@@ -81,14 +80,7 @@ fn screen_layout(
                 id="loomark-editor",
                 class="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
                 attrs=@html.Attrs::build().inert(editor_inert),
-                [
-                  input.toolbar,
-                  input.account_notice,
-                  input.editor,
-                  input.footer,
-                  input.focus_toggle,
-                  input.notices,
-                ],
+                [input.toolbar, input.editor, input.footer, input.focus_toggle],
               ),
             ],
           )

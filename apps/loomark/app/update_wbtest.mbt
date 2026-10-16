@@ -2135,7 +2135,7 @@ test "replica revert remains eligible while a newer write may be in flight" {
 }
 
 ///|
-test "replica failure keeps optimistic text and retries the same write" {
+test "replica failure keeps optimistic text unsaved" {
   let account = @source_repository.AccountId::parse("account") catch {
     _ => abort("valid test account")
   }
@@ -2161,7 +2161,6 @@ test "replica failure keeps optimistic text and retries the same write" {
   let document = submission.document()
   let model = test_model(Editing({ ..initial, documents, }), @sync.State())
   let (storing, attempt) = begin_replica(model, owner, document)
-  let replica = attempt.write().replica()
   let (failed, _) = test_root_update(
     storing,
     Sync(
@@ -2177,20 +2176,9 @@ test "replica failure keeps optimistic text and retries the same write" {
     editing.documents.save_status(token) is Some(@documents.SaveStatus::Unsaved),
   )
 
-  guard failed.replication.status(owner, document.id())
-    is @replica_persistence.Status::Retryable(retry_action, _) else {
-    fail("retryable persistence")
-  }
-  let (_, retry_attempt) = failed.replication.persistence().retry(retry_action)
-  let (retrying, _) = test_root_update(failed, RetrySaving(retry_action))
-  assert_true(retry_attempt.write().replica() == replica)
-  let (stored, _) = test_root_update(
-    retrying,
-    Sync(ReplicaWriteCompleted(retry_attempt, Ok(()))),
-  )
-  guard stored.page is Editing(recovered) else { fail("editing") }
   assert_true(
-    recovered.documents.save_status(token) == Some(@documents.SaveStatus::Clean),
+    failed.replication.status(owner, document.id())
+    is @replica_persistence.Status::Retryable(_, _),
   )
 }
 
@@ -2344,7 +2332,8 @@ test "failed active deletion remains visible and retryable" {
   )
   let account = attempt.write().replica().account()
   let document_id = attempt.write().replica().document_id()
-  let (retrying, _) = test_root_update(failed, RetryDelete(key))
+  let (confirming, _) = test_root_update(failed, DeleteRequested(key))
+  let (retrying, _) = test_root_update(confirming, DeleteConfirmed(key))
   assert_true(
     retrying.replication.status(account, document_id)
     is @replica_persistence.Status::Persisting,
@@ -3288,7 +3277,10 @@ test "Focus Mode cannot change during composition or blocking actions" {
   let (composing, _) = test_root_update(initial, CompositionStarted(0))
   let creating = {
     ..initial,
-    page: Editing({ ..editing, creation: Some({ request_id: 0, intent: NewDocument, status: InProgress }), }),
+    page: Editing({
+      ..editing,
+      creation: Some({ request_id: 0, intent: NewDocument, status: InProgress, }),
+    }),
   }
   let deleting = {
     ..initial,

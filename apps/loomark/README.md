@@ -36,7 +36,8 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 - **Mobile Responsive:** Adapts cleanly to on-screen keyboards and device rotation, hiding extraneous bottom bars to maximize vertical writing space.
 
 ### ☕ Local-First Peace of Mind
-- **Quiet Autosave:** Automatically persists to your browser after a short pause in typing or when switching tabs. The footer confirms local save status outside Focus Mode; failures and explicit retry controls remain visible in either mode.
+- **Quiet Autosave:** Automatically persists to your browser after a short pause in typing or when switching tabs. The footer confirms local save status outside Focus Mode; an unsaved indicator remains visible in either mode. After a save failure, the next edit starts saving again without a manual retry button.
+- **Quiet Error Notifications:** Autosave failures use only the existing `Not saved` indicator, without a duplicate toast. RUI Sonner reports explicit operation failures, such as import, creation, and deletion, with its Destructive style without resizing the writing surface. Notifications contain no retry actions; operations can be repeated from their original controls.
 - **Start Immediately:** Open the app and write. Loomark derives recognizable document leads from your first heading or line without requiring you to name or organize files first.
 - **Recent Documents:** A lightweight slide-out sidebar lets you revisit and switch between recent documents seamlessly.
 
@@ -55,7 +56,7 @@ Loomark has zero clutter, keeping all essential tools right at your fingertips:
 - **Top-Right (Pen icon):** Starts a fresh document instantly.
 - **Mode Switcher (Text / Preview / Split):** Toggle between drafting, rendered reading, or side-by-side editing with a draggable divider.
 - **More Actions (`...` menu):** Cleanly export your current note as a `.md` file, import existing Markdown documents, or manage optional cloud sync.
-- **Footer:** Displays quiet durability feedback (`Saved on this device`, `Saving on this device`, or `Not saved`) with explicit retry controls when needed, and the character count on wide screens.
+- **Footer:** Displays quiet durability feedback (`Saved on this device`, `Saving on this device`, or `Not saved`) without a manual save-retry button, and the character count on wide screens.
 - **Bottom-Right (Focus icon):** Toggles Focus Mode. The exit stays available even while the other controls are hidden.
 
 ---

@@ -336,15 +336,6 @@ fn update_page(
   actions : Array[@documents.Action],
 ) -> (Page, @rabbita.Cmd) {
   let (next, command) = match (model, msg) {
-    (Editing(editing), DismissDocumentFault) =>
-      (
-        Editing({ ..editing, lifecycle_error: None, }),
-        editor.restore(
-          editing.documents.text(editing.activation.key).unwrap_or(""),
-        ),
-      )
-    (OpeningNew(opening, creation), DismissDocumentFault) =>
-      (OpeningNew({ ..opening, lifecycle_error: None, }, creation), @cmd.none)
     (OpeningNew(opening, creation), RetryOpeningNewCreation) =>
       match creation.status {
         Failed(_) | Fault(_) => {
@@ -747,11 +738,6 @@ fn update_page(
         }
       }
     }
-    (Editing(editing), DismissImportFailure) =>
-      (
-        Editing({ ..editing, import_failed: false, }),
-        focus_editor_after_render(editing.mode),
-      )
     (Editing(editing), ExportRequested) => {
       let (filename, text) = export_payload(editing)
       (Editing(editing), @browser.download(filename, text))
@@ -896,14 +882,6 @@ fn update_page(
           )
         NoDeletion => (Editing(editing), @cmd.none)
       }
-    (Editing(editing), DismissDeleteFailure(document_id)) => {
-      let editing = reduce_documents(
-        editing,
-        DismissDeleteFailure(document_id),
-        actions,
-      )
-      (Editing(editing), @cmd.none)
-    }
     _ => (model, @cmd.none)
   }
   (next, command)
@@ -1456,12 +1434,10 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | EscapePressed
     | ImportReadCompleted(_)
     | ImportCreateCompleted(_, _)
-    | DismissImportFailure
     | ExportRequested
     | PreviewEvent(_)
     | ScrollClaimed(_)
     | ViewportChanged(_)
-    | DismissDocumentFault
     | DocumentMaximumElapsed(_)
     | DocumentSaved(_, _)
     | DocumentSaveFailed(_, _)
@@ -1470,15 +1446,11 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | ApplyPendingEdit(_, _)
     | VisibilityChanged(_)
     | PageRestored
-    | RetrySave
     | RetryAccount
-    | RetrySaving(_)
     | RetrySync(_)
     | RetrySelection(_)
     | CreateCompleted(_, _)
     | ExampleCreateCompleted(_, _, _)
-    | RetryDelete(_)
-    | DismissDeleteFailure(_)
     | SignIn(_)
     | LogoutCompleted(_, _)
     | AuthenticationReturned(_)
@@ -1610,7 +1582,6 @@ fn reduce(
           )
         _ => (model, @cmd.none)
       }
-    RetryDelete(document_id) => update_delete(model, document_id, emit, editor)
     VisibilityChanged(true) =>
       match model.page {
         Editing(_) =>
@@ -1620,22 +1591,6 @@ fn reduce(
             emit,
             editor,
           )
-        _ => (model, @cmd.none)
-      }
-    RetrySave =>
-      match model.page {
-        Editing(editing) => {
-          let (model, command) = update_documents(
-            model,
-            @documents.Msg::RetrySave(editing.activation.key),
-            emit,
-            editor,
-          )
-          (
-            model,
-            @cmd.batch([command, focus_editor_after_render(editing.mode)]),
-          )
-        }
         _ => (model, @cmd.none)
       }
     RetryAccount => begin_account_lookup(model, emit)
@@ -1701,19 +1656,6 @@ fn reduce(
           (model, @cmd.batch([activate, persist]))
         }
       }
-    }
-    RetrySaving(action) => {
-      guard model.page.saved_documents() is Some(saved) else {
-        return (model, @cmd.none)
-      }
-      let result = Some(model.replication.retry_save(action)) catch {
-        _ => None
-      }
-      guard result is Some((replication, effect)) else {
-        return (model, @cmd.none)
-      }
-      let model = { ..model, replication, }
-      (model, run_replication_effect(saved, effect, emit))
     }
     RetrySync(action) => {
       guard model.page.saved_documents() is Some(saved) else {

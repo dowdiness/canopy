@@ -14,8 +14,7 @@ fn sync_attention_view(
     Some(@documents.RemoteState::DeletedRemotely) => ("Deletion pending", None)
     _ =>
       match persistence {
-        Some(@replica_persistence.Status::Retryable(action, _)) =>
-          ("", Some(("Retry saving", RetrySaving(action))))
+        Some(@replica_persistence.Status::Retryable(_, _)) => ("", None)
         _ =>
           match activity {
             Some(@sync.Activity::Retryable(action)) =>

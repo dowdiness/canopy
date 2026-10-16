@@ -64,7 +64,6 @@ fn view(
       RetryAccount => Msg::RetryAccount
       StartSync(action) => Msg::StartSync(action)
       AcceptRemote(action) => Msg::AcceptRemote(action)
-      RetrySaving(action) => Msg::RetrySaving(action)
       RetrySync(action) => Msg::RetrySync(action)
       RetrySelection(action) => Msg::RetrySelection(action)
     }
@@ -102,7 +101,7 @@ fn view(
     local_durability_option_view(durability)
   })
   let replica_persistence_view = replica_persistence.view(persistence => {
-    replica_persistence_option_view(persistence, on_sync)
+    replica_persistence_option_view(persistence)
   })
   let document_sync_view = document_sync.view(sync => {
     document_sync_option_view(sync, on_sync)
@@ -179,7 +178,6 @@ fn view(
   let account_controls = account_input.view(input => {
     account_controls(input, on_account)
   })
-  let account_notice = account_input.view(account_notice)
   let tools_input = model.map(document_tools_input)
   let tools = tools_input.view(input => {
     match input {
@@ -226,63 +224,12 @@ fn view(
     match mode {
       Some(mode) =>
         document_footer(
-          mode, durability, persistence, sync_attention, focus_mode, characters, on_mode,
+          mode, durability, persistence, sync_attention, focus_mode, characters,
+          on_mode,
         )
       None => @html.nothing
     }
   })
-  let notices = model
-    .map(notices_input)
-    .view(input => {
-      let save_failure = match input.failure {
-        Some(Save(failure)) => Some(failure)
-        _ => None
-      }
-      let failure = match input.failure {
-        None | Some(Save(_)) => @html.nothing
-        Some(Create(failure)) =>
-          creation_failure_view(failure, emit(CreateRequested))
-        Some(OpeningCreate(failure)) =>
-          creation_failure_view(failure, emit(RetryOpeningNewCreation))
-        Some(OpeningFault(message)) =>
-          failure_notice(
-            message,
-            "Retry creating",
-            on_action=Some(emit(RetryOpeningNewCreation)),
-          )
-        Some(Example(activation, text, failure)) =>
-          example_creation_failure_view(
-            failure,
-            emit(ExampleSelected(activation, text)),
-          )
-        Some(Delete(key, failure)) =>
-          delete_failure_view(
-            failure,
-            emit(RetryDelete(key)),
-            emit(DismissDeleteFailure(key)),
-          )
-        Some(DeletePersistence(key, failure)) =>
-          delete_persistence_failure_view(failure, emit(RetryDelete(key)))
-      }
-      @html.fragment([
-        save_failure_view(save_failure, emit(RetrySave)),
-        failure,
-        input.lifecycle_error
-        .map(error => {
-          failure_notice(
-            error,
-            "Dismiss",
-            on_action=Some(emit(DismissDocumentFault)),
-          )
-        })
-        .unwrap_or(@html.nothing),
-        if input.import_failed {
-          import_failure_view(emit(DismissImportFailure))
-        } else {
-          @html.nothing
-        },
-      ])
-    })
   let phase = page.map(page => {
     match page {
       Loading(_) => LoadingScreen
@@ -307,22 +254,20 @@ fn view(
   let focus_controls = focus_mode.map2(focus_disabled, (focused, disabled) => {
     (focused, focus_mode_toggle(focused, disabled, emit(FocusModeToggled)))
   })
-  let controls = toolbar.map4(account_notice, footer, focus_controls, (
+  let controls = toolbar.map3(footer, focus_controls, (
     toolbar,
-    account_notice,
     footer,
     focus_controls,
-  ) => (toolbar, account_notice, footer, focus_controls))
-  let layout_input = phase.map8(
+  ) => (toolbar, footer, focus_controls))
+  let layout_input = phase.map7(
     compact,
     recent_documents_view.navigation(),
     tools,
     controls,
     editor_view,
-    notices,
     recent_documents_view.dialog(),
-    (phase, compact, navigation, tools, controls, editor, notices, dialog) => {
-      let (toolbar, account_notice, footer, focus_controls) = controls
+    (phase, compact, navigation, tools, controls, editor, dialog) => {
+      let (toolbar, footer, focus_controls) = controls
       let (focus_mode, focus_toggle) = focus_controls
       LayoutInput::{
         phase,
@@ -332,11 +277,13 @@ fn view(
         navigation,
         tools,
         toolbar,
-        account_notice,
         editor,
         footer,
-        notices,
         dialog,
+        creation_action: @rui.button(
+          on_click=emit(RetryOpeningNewCreation),
+          "Retry creating",
+        ),
       }
     },
   )
@@ -380,9 +327,9 @@ fn notices_input(model : Model) -> NoticesInput {
     match model.page {
       OpeningNew(_, creation) =>
         match creation.status {
-          Failed(failure) =>
+          Failed(_) =>
             return {
-              failure: Some(OpeningCreate(failure)),
+              failure: Some(Create),
               import_failed: false,
               lifecycle_error,
             }
@@ -398,32 +345,23 @@ fn notices_input(model : Model) -> NoticesInput {
       _ => return { failure: None, import_failed: false, lifecycle_error, }
     }
   }
-  let sign_in_reports_save_failure = account_controls_input(model).sign_in
-    is @sign_in.Failed(@sign_in.Save(_), ..)
-  let failure : DocumentFailure? = match
-    editing.documents.save_status(editing.activation.key) {
-    Some(@documents.SaveStatus::SaveFailed(failure)) if !sign_in_reports_save_failure =>
-      Some(Save(failure))
-    _ =>
-      match editing.creation {
-        Some(creation) =>
-          match creation.status {
-            Failed(failure) =>
-              match creation.intent {
-                NewDocument => Some(Create(failure))
-                Example(text) =>
-                  Some(Example(editing.activation, text, failure))
-              }
-            InProgress | Fault(_) => None
+  let failure : DocumentFailure? = match editing.creation {
+    Some(creation) =>
+      match creation.status {
+        Failed(_) =>
+          match creation.intent {
+            NewDocument => Some(Create)
+            Example(_) => Some(Example)
           }
-        None =>
-          match editing.documents.delete_status(editing.activation.key) {
-            Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
-              Some(Delete(editing.activation.key, failure))
-            Some(@documents.DeleteStatus::DeletePersistenceFailed(failure)) =>
-              Some(DeletePersistence(editing.activation.key, failure))
-            _ => None
-          }
+        InProgress | Fault(_) => None
+      }
+    None =>
+      match editing.documents.delete_status(editing.activation.key) {
+        Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
+          Some(Delete(failure))
+        Some(@documents.DeleteStatus::DeletePersistenceFailed(failure)) =>
+          Some(DeletePersistence(failure))
+        _ => None
       }
   }
   { failure, import_failed: editing.import_failed, lifecycle_error, }

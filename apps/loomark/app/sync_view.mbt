@@ -3,7 +3,6 @@ priv enum SyncIntent {
   RetryAccount
   StartSync(@documents.StartSync)
   AcceptRemote(@documents.AcceptRemote)
-  RetrySaving(@replica_persistence.Retry)
   RetrySync(@sync.Retry)
   RetrySelection(@sync.SelectionRetry)
 }
@@ -111,15 +110,11 @@ fn remote_state_view(
 ///|
 fn replica_persistence_view(
   persistence : @replica_persistence.Status,
-  emit : @rabbita.Emit[SyncIntent],
 ) -> @rabbita.Html {
   match persistence {
     @replica_persistence.Status::Current | Persisting => @html.nothing
-    Retryable(action, _) =>
-      @html.div(class="flex flex-col items-start gap-1", [
-        sync_status_label("Sync information was not saved on this device."),
-        sync_status_button("Retry saving", Some(RetrySaving(action)), emit),
-      ])
+    Retryable(_, _) =>
+      sync_status_label("Sync information was not saved on this device.")
   }
 }
 
@@ -192,11 +187,10 @@ fn document_sync_option_view(
 ///|
 fn replica_persistence_option_view(
   persistence : @replica_persistence.Status?,
-  emit : @rabbita.Emit[SyncIntent],
 ) -> @rabbita.Html {
   match persistence {
     None => @html.nothing
-    Some(persistence) => replica_persistence_view(persistence, emit)
+    Some(persistence) => replica_persistence_view(persistence)
   }
 }
 

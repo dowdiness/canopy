@@ -174,6 +174,9 @@ fn document_footer(
   on_mode : @rabbita.Emit[EditorMode],
 ) -> @rabbita.Html {
   let (attention, has_attention) = attention
+  let has_attention = has_attention ||
+    durability == Some(NotStored) ||
+    persistence is Some(@replica_persistence.Status::Retryable(_, _))
   @html.footer(
     hidden=focus_mode && !has_attention,
     class="loomark-footer flex h-16 shrink-0 items-center justify-between gap-2 px-3 max-[520px]:px-2",

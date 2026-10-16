@@ -389,12 +389,6 @@
   display: none;
 }
 
-#loomark-editor:has(> .loomark-footer ~ [role="alert"]:not([hidden])) .loomark-source {
-  /* Notices already keep the caret clear of the footer. */
-  padding-bottom: 16px;
-  scroll-padding-bottom: 16px;
-}
-
 .loomark-source {
   /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
      only element resizing needs the existing measured-caret correction. */
@@ -619,10 +613,12 @@
 .loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: transparent; }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
 .loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); padding-right: 64px; }
-.loomark-footer ~ [role="alert"] { position: relative; z-index: 20; }
-.loomark-footer ~ [role="alert"]:last-child {
-  /* Keep notice actions above the 44px toggle, its safe-area offset, and a 10px gap. */
-  margin-bottom: max(var(--loomark-bottom-space), calc(54px + max(10px, env(safe-area-inset-bottom))));
+.loomark-notifications {
+  --rui-toast-radius: 8px;
+  --rui-toast-shadow: 0 4px 16px rgb(0 0 0 / 0.06);
+  left: 12px !important;
+  bottom: calc(100dvh - var(--loomark-viewport-top, 0px) - var(--loomark-viewport-height, 100dvh) + max(76px, calc(env(safe-area-inset-bottom) + 60px))) !important;
+  width: min(22.25rem, calc(100vw - 24px)) !important;
 }
 
 /* A sibling of the footer, so keyboard occlusion never hides the exit. */
@@ -684,7 +680,7 @@
 [data-focus-mode="true"] .loomark-sidebar-trigger,
 [data-focus-mode="true"] .loomark-topbar,
 [data-focus-mode="true"] .loomark-bottom-actions,
-[data-focus-mode="true"] .loomark-save-status {
+[data-focus-mode="true"] .loomark-save-status:not([title="Not saved"]) {
   display: none !important;
 }
 
@@ -702,7 +698,7 @@
   [data-focus-mode="true"] .loomark-topbar,
   [data-focus-mode="true"] .loomark-sidebar-trigger,
   [data-focus-mode="true"] .loomark-bottom-actions,
-  [data-focus-mode="true"] .loomark-save-status,
+  [data-focus-mode="true"] .loomark-save-status:not([title="Not saved"]),
   .loomark-footer[hidden] { opacity: 0; }
   @starting-style {
     .loomark-topbar,

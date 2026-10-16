@@ -139,7 +139,6 @@ priv enum Msg {
   ImportFilesSelected(FixedArray[@browser.File])
   ImportReadCompleted(Result[Bytes, Error])
   ImportCreateCompleted(String, @source_repository.CreateResult)
-  DismissImportFailure
   ExportRequested
   PreviewEvent(@editor.EditorEvent)
   ScrollClaimed(ScrollPane)
@@ -155,23 +154,18 @@ priv enum Msg {
   ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
   PageRestored
-  RetrySave
   RetryAccount
   StartSync(@documents.StartSync)
   AcceptRemote(@documents.AcceptRemote)
-  RetrySaving(@replica_persistence.Retry)
   RetrySync(@sync.Retry)
   RetrySelection(@sync.SelectionRetry)
   DocumentSelected(@documents.Key)
   CreateRequested
   RetryOpeningNewCreation
-  DismissDocumentFault
   CreateCompleted(Int, @source_repository.CreateResult)
   DeleteRequested(@documents.Key)
   DeleteCancelled
   DeleteConfirmed(@documents.Key)
-  RetryDelete(@documents.Key)
-  DismissDeleteFailure(@documents.Key)
   SignIn(@sign_in.Event)
   LogoutRequested
   LogoutCompleted(@sync.LogoutAttempt, @account_http.LogoutResult)

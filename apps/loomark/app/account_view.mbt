@@ -102,8 +102,8 @@ fn account_controls(
 }
 
 ///|
-fn account_notice(input : AccountControlsInput) -> @rabbita.Html {
-  let message = match input.sign_in {
+fn account_notice_message(input : AccountControlsInput) -> String {
+  match input.sign_in {
     @sign_in.Failed(@sign_in.Save(_), ..) =>
       "Couldn’t save changes. You have not left this page. Retry sign-in to save again."
     Failed(Authentication, ..) =>
@@ -111,12 +111,7 @@ fn account_notice(input : AccountControlsInput) -> @rabbita.Html {
     _ =>
       match input.session {
         LogoutUnconfirmed(_) => "Couldn’t confirm sign-out. Retry sign-out."
-        _ => return @html.nothing
+        _ => ""
       }
   }
-  @html.p(
-    class="m-0 shrink-0 bg-lm-danger-soft px-3 py-2 text-sm text-lm-danger",
-    attrs=@html.Attrs::build().role("alert"),
-    @html.text(message),
-  )
 }

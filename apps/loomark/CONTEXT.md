@@ -282,10 +282,11 @@ _Avoid_: edit history, backup
 
 **Unsaved document**:
 A Loomark document whose latest text has not reached browser storage. Loomark
-keeps it in memory and marks it in Recent documents. Failed saves expose an
-explicit Retry action; returning to the app does not guarantee a retry. Current
-text remains available to Export without waiting for a successful save. Loomark
-does not prompt when the browser tab closes.
+keeps it in memory and marks it in Recent documents. Failed saves show "Not saved"
+in both normal and Focus Mode, without a duplicate toast or manual save-retry
+button. Subsequent eligible edits retry saving; returning to the app alone does
+not guarantee a retry. Current text remains available to Export without waiting
+for a successful save. Loomark does not prompt when the browser tab closes.
 _Avoid_: conflicted document, invalid document
 
 **Browser storage**:
@@ -353,7 +354,8 @@ consumes an initial UTF-8 BOM, normalizes CRLF and CR to LF, and preserves every
 other decoded character. Empty files are valid. Filename, extension, and media
 type do not affect admission or identity. Every import creates a new identity,
 including repeated content, immediately becomes the Editing Document, and uses
-the existing New-document save and Retry path. An accepted Import supersedes an
+the existing New-document autosave path, including retry on subsequent eligible
+edits after a save failure. An accepted Import supersedes an
 unfinished New action rather than adding a queue or pending-document owner.
 _Avoid_: open file, replace, file sync
 
