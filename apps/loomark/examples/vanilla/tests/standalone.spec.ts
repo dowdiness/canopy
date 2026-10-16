@@ -1257,6 +1257,27 @@ test("Import rejects malformed UTF-8 without creating a Source", async ({ page }
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   expect(await readStoredDocuments(page)).toEqual([])
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.evaluate(() => {
+    Object.defineProperty(window.visualViewport!, "height", { configurable: true, get: () => 360 })
+    window.visualViewport!.dispatchEvent(new Event("resize"))
+  })
+  for (const focused of [false, true]) {
+    if (focused) {
+      await page.locator("#loomark-focus-toggle").click()
+      await page.getByLabel("Import Markdown")
+        .setInputFiles("tests/fixtures/import-malformed-utf8.md")
+    }
+    const dismiss = page.getByRole("alert").getByRole("button", { name: "Dismiss" })
+    await expect.poll(() => dismiss.evaluate(element => {
+      const bounds = element.getBoundingClientRect()
+      return bounds.top >= 0 && bounds.bottom <= 360 &&
+        element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2))
+    })).toBe(true)
+    await dismiss.click()
+    await expect(page.getByRole("alert")).toHaveCount(0)
+    await expect(page.locator("#loomark-focus-toggle")).toHaveAttribute("aria-pressed", String(focused))
+  }
 })
 
 test("mode changes preserve native text selection and Undo", async ({ page }) => {
@@ -4087,12 +4108,14 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
   await page.evaluate(installDocumentPutFailure, sourceKey(baseline.document_id))
+  await page.getByRole("button", { name: "Focus Mode", exact: true }).click()
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Not saved\n")
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Exit Focus Mode", exact: true })).toBeVisible()
   await text.fill("# Latest text\n")
   await expect(text).toHaveValue("# Latest text\n")
   await page.waitForTimeout(300)

@@ -73,6 +73,21 @@ _Avoid_: ordinary content, paragraph
 
 ## 2. Editor Modes & Presentation
 
+**Focus Mode**:
+An explicit, page-local writing presentation, off on every launch or reload.
+The icon-only toggle stays at the bottom-right of the available viewport,
+including above an on-screen keyboard. Its accessible label and tooltip name
+`Focus Mode` or `Exit Focus Mode`, and its pressed state exposes whether it is on.
+Entering hides Recent documents, the top toolbar, view controls, and routine
+save feedback without changing the current Text, Preview, or Split mode.
+Leaving restores the controls and sidebar visibility. Text, selection, and native
+Undo history survive the transition. Escape exits, except during IME composition.
+The toggle cannot change modes during composition or a blocking document action.
+While the textarea has focus, surrounding writing groups fade; normal mode
+never applies this dimming. Blurring the textarea restores full readability
+without leaving Focus Mode. Autosave continues, and failure notices and
+exceptional durability/sync actions remain available.
+
 **Editor mode**:
 The current way to edit, inspect, or combine views of the selected Document
 text. A Document switch keeps the current mode, while reopening Loomark starts
@@ -85,8 +100,8 @@ The editor mode that shows the textarea and hides Preview.
 The writing area disables browser spellchecking so dictionary suggestions do not
 mark document text with red underlines. Autocomplete and autocorrect remain off;
 native IME composition is unchanged.
-Text and Preview share the same edge fade and subtle blur beneath the fixed top
-and bottom controls in every editor mode. Each bar owns its blurred background;
+Outside Focus Mode, Text and Preview share the same edge fade and subtle blur
+beneath the fixed top and bottom controls. Each bar owns its blurred background;
 the editor has no separate decorative overlay. Document spacing stays inside the
 scrollable content rather than an empty outer frame. Native scroll padding keeps
 the current writing line clear of the controls and faded edges without changing
@@ -98,9 +113,11 @@ magnification. It requests native content resizing where supported. The bottom
 bar and its reserved space are removed when visual-viewport occlusion or a
 window-size-adjusted height estimate indicates a keyboard. Panning alone does
 not restore the bar.
-No bottom overlay or reserved bottom gap remains while the bar is hidden.
-The top toolbar and failure notices remain available. The
-bottom bar returns when the visible height recovers. Ordinary window-height
+No bottom overlay remains while the bar is hidden; writing retains enough
+bottom padding to clear the Focus Mode toggle. The top toolbar (outside Focus
+Mode), Focus Mode toggle, and failure notices remain available. Exceptional
+durability/sync actions remain visible in Focus Mode even with a keyboard.
+The bottom bar returns when the visible height recovers. Ordinary window-height
 changes and hardware-keyboard focus alone do not hide it. Keyboard detection
 under content resizing is best-effort, not a browser-provided visibility signal;
 its limitations are described in [Mobile Viewport](docs/architecture.md#mobile-viewport).
@@ -251,8 +268,8 @@ _Avoid_: save-and-open, handoff
 **Saved text**:
 The most recent Document text successfully written to browser storage. It may
 be older than the current Document text.
-The editor footer names local durability beside its status icon: "Saving on
-this device", "Saved on this device", or "Not saved". Untouched New has no
+Outside Focus Mode, the editor footer names local durability beside its status
+icon: "Saving on this device", "Saved on this device", or "Not saved". Untouched New has no
 success indicator. On compact screens, an attention action or message takes
 priority over the caption; the icon retains the complete accessible name.
 This is a browser-storage status, not a sync or publication confirmation.

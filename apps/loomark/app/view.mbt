@@ -5,6 +5,7 @@ fn view(
   editor : @editor.MarkdownEditor,
 ) -> @rabbita.Val[@rabbita.Html] {
   let page = model.map(model => model.page)
+  let focus_mode = model.map(model => model.focus_mode)
   // Profiles follow the settled Recent documents source, not each keystroke.
   let profile = model
     .map(model => {
@@ -187,14 +188,16 @@ fn view(
     }
   })
   let toolbar_input = model.map(toolbar_input)
-  let toolbar = toolbar_input.view3(account_controls, sync_status, (
+  let toolbar = toolbar_input.view4(account_controls, sync_status, focus_mode, (
     input,
     account,
     sync_status,
+    focus_mode,
   ) => {
     match input {
       None => @html.nothing
-      Some(input) => document_toolbar(input, account, sync_status, on_document)
+      Some(input) =>
+        document_toolbar(input, account, sync_status, focus_mode, on_document)
     }
   })
   let mode = page.map(page => {
@@ -212,17 +215,18 @@ fn view(
   let characters = profile.map(profile => {
     profile.map(profile => profile.characters)
   })
-  let footer = mode.view4(durability, sync_attention, characters, (
+  let footer = mode.view5(durability, sync_attention, characters, focus_mode, (
     mode,
     durability,
     attention,
     characters,
+    focus_mode,
   ) => {
     let (sync_attention, persistence) = attention
     match mode {
       Some(mode) =>
         document_footer(
-          mode, durability, persistence, sync_attention, characters, on_mode,
+          mode, durability, persistence, sync_attention, focus_mode, characters, on_mode,
         )
       None => @html.nothing
     }
@@ -291,11 +295,24 @@ fn view(
       Editing(_) => EditingScreen
     }
   })
-  let controls = toolbar.map3(account_notice, footer, (
+  let focus_disabled = model.map(model => {
+    match model.page {
+      Editing(editing) =>
+        !editing.can_activate() ||
+        editing.deletion is DeleteConfirmation(_) ||
+        model.sign_in.blocks_editing()
+      _ => true
+    }
+  })
+  let focus_controls = focus_mode.map2(focus_disabled, (focused, disabled) => {
+    (focused, focus_mode_toggle(focused, disabled, emit(FocusModeToggled)))
+  })
+  let controls = toolbar.map4(account_notice, footer, focus_controls, (
     toolbar,
     account_notice,
     footer,
-  ) => (toolbar, account_notice, footer))
+    focus_controls,
+  ) => (toolbar, account_notice, footer, focus_controls))
   let layout_input = phase.map8(
     compact,
     recent_documents_view.navigation(),
@@ -305,9 +322,12 @@ fn view(
     notices,
     recent_documents_view.dialog(),
     (phase, compact, navigation, tools, controls, editor, notices, dialog) => {
-      let (toolbar, account_notice, footer) = controls
+      let (toolbar, account_notice, footer, focus_controls) = controls
+      let (focus_mode, focus_toggle) = focus_controls
       LayoutInput::{
         phase,
+        focus_mode,
+        focus_toggle,
         compact,
         navigation,
         tools,

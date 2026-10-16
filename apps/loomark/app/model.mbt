@@ -12,6 +12,7 @@ priv struct Model {
   replication : @replication.State
   sign_in : @sign_in.SignIn
   scroll_owner : ScrollPane
+  focus_mode : Bool
 } derive(Eq)
 
 ///|
@@ -132,6 +133,7 @@ priv enum Msg {
   CompositionStarted(Int)
   CompositionEnded(Int)
   ModeSelected(EditorMode)
+  FocusModeToggled
   MenuToggled
   EscapePressed
   ImportFilesSelected(FixedArray[@browser.File])

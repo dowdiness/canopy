@@ -30,6 +30,33 @@ fn editor_mode(mode : EditorMode) -> @editor.Mode {
 }
 
 ///|
+fn Model::change_editor_mode(
+  self : Self,
+  mode : EditorMode,
+  emit : @rabbita.Emit[Msg],
+  editor : @editor.MarkdownEditor,
+) -> (Self, @rabbita.Cmd) {
+  let model = {
+    ..self,
+    scroll_owner: match mode {
+      Text => TextPane
+      Preview => PreviewPane
+      Split => self.scroll_owner
+    },
+  }
+  guard model.page is Editing(editing) else { return (model, @cmd.none) }
+  let (preview, command) = editor.mode_changed(
+    editing.preview,
+    editing.activation.generation,
+    editing.documents.text(editing.activation.key).unwrap_or(""),
+    editor_mode(editing.mode),
+    editor_mode(mode),
+    emit.map(event => PreviewEvent(event)),
+  )
+  (model.with_page(Editing({ ..editing, mode, preview, })), command)
+}
+
+///|
 fn decode_import(bytes : Bytes) -> String? {
   Some(
     @utf8.decode(bytes.exact_view(), ignore_bom=true)
@@ -137,7 +164,7 @@ fn activate_surface(
     editor_mode(mode),
     emit.map(event => PreviewEvent(event)),
   )
-  (preview, @cmd.batch([command, focus_after_render(editor_focus_id(mode))]))
+  (preview, @cmd.batch([command, focus_editor_after_render(mode)]))
 }
 
 ///|
@@ -622,19 +649,6 @@ fn update_page(
         )
         (Editing(editing), @cmd.none)
       }
-    (Editing(editing), ModeSelected(mode)) => {
-      let previous = editing.mode
-      let editing = { ..editing, mode, }
-      let (preview, command) = editor.mode_changed(
-        editing.preview,
-        editing.activation.generation,
-        editing.documents.text(editing.activation.key).unwrap_or(""),
-        editor_mode(previous),
-        editor_mode(mode),
-        emit.map(event => PreviewEvent(event)),
-      )
-      (Editing({ ..editing, preview, }), command)
-    }
     (Editing(editing), MenuToggled) =>
       (Editing({ ..editing, menu_open: !editing.menu_open, }), @cmd.none)
     (Editing(editing), EscapePressed) =>
@@ -736,7 +750,7 @@ fn update_page(
     (Editing(editing), DismissImportFailure) =>
       (
         Editing({ ..editing, import_failed: false, }),
-        focus_after_render(editor_focus_id(editing.mode)),
+        focus_editor_after_render(editing.mode),
       )
     (Editing(editing), ExportRequested) => {
       let (filename, text) = export_payload(editing)
@@ -1285,6 +1299,7 @@ fn initial_state(
       replication: @replication.State(),
       sign_in: @sign_in.SignIn(),
       scroll_owner: TextPane,
+      focus_mode: false,
     },
     @cmd.batch([
       page_command,
@@ -1436,6 +1451,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | EmptyCreateCompleted(_, _)
     | CompositionEnded(_)
     | ModeSelected(_)
+    | FocusModeToggled
     | MenuToggled
     | EscapePressed
     | ImportReadCompleted(_)
@@ -1488,13 +1504,24 @@ fn reduce(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
-  let model = match msg {
-    ModeSelected(Text) => { ..model, scroll_owner: TextPane, }
-    ModeSelected(Preview) => { ..model, scroll_owner: PreviewPane, }
-    _ => model
-  }
   let model = interrupt_sign_in(model, msg)
   match msg {
+    ModeSelected(mode) => model.change_editor_mode(mode, emit, editor)
+    FocusModeToggled | EscapePressed if msg is FocusModeToggled ||
+      model.focus_mode => {
+      guard model.page is Editing(editing) &&
+        editing.can_activate() &&
+        editing.deletion is NoDeletion &&
+        !model.sign_in.blocks_editing() else {
+        return (model, @cmd.none)
+      }
+      let model = {
+        ..model,
+        focus_mode: !model.focus_mode,
+        page: Editing({ ..editing, menu_open: false, }),
+      }
+      (model, focus_editor_after_render(editing.mode))
+    }
     ScrollClaimed(pane) => ({ ..model, scroll_owner: pane, }, @cmd.none)
     AuthenticationReturned(_) | PageRestored | SignIn(_) =>
       update_sign_in(model, msg, emit)
@@ -1606,10 +1633,7 @@ fn reduce(
           )
           (
             model,
-            @cmd.batch([
-              command,
-              focus_after_render(editor_focus_id(editing.mode)),
-            ]),
+            @cmd.batch([command, focus_editor_after_render(editing.mode)]),
           )
         }
         _ => (model, @cmd.none)

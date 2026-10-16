@@ -199,7 +199,11 @@ fn add_writing_focus(
       text_layout,
       cleanup: [],
       frame: None,
-      intent: Reading,
+      intent: if text_area.matches(":focus") {
+        Writing
+      } else {
+        Reading
+      },
       presentation: None,
       shades: [],
     }
@@ -217,10 +221,10 @@ fn add_writing_focus(
     for name in ["input", "compositionend"] {
       add_focus_listener(session, source, name, changed)
     }
-    for name in ["select", "selectionchange", "focus", "scroll"] {
+    for name in ["select", "selectionchange", "scroll"] {
       add_focus_listener(session, source, name, selected)
     }
-    for name in ["pointerdown", "keydown", "input", "compositionstart"] {
+    for name in ["focus", "pointerdown", "keydown", "input", "compositionstart"] {
       add_focus_listener(session, source, name, activate)
     }
     add_focus_listener(session, source, "blur", _ => {

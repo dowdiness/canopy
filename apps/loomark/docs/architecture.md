@@ -124,10 +124,12 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 
 ### 4.2 Writing Focus
 
-While actively typing, surrounding paragraphs gently fade to 50% opacity, while the active paragraph—including block quotes—and current selection remain 100% visible:
+Only in explicit Focus Mode, surrounding paragraphs gently fade to 50% opacity while the textarea has focus; the active paragraph—including block quotes—and current selection remain 100% visible:
 
 - **Core Algorithm (`internal/writing_focus/`):** Pure layout and presentation decisions calculate active block boundaries without touching the browser DOM.
+- **Mode Ownership (`app/model.mbt`, `app/update.mbt`):** `focus_mode` is a presentation flag independent of the editor mode. Entry and exit preserve Text, Preview, or Split and do not invoke the mode-change path. Preview keeps keyboard focus on the toggle; editable views return focus to the existing textarea.
 - **Browser Integration (`internal/writing_focus/browser/`):** Measures DOM node rectangles, applies subtle opacity transitions, and manages subscription lifetimes. Leaving the editor instantly restores full readability across the document.
+- **Chrome (`app/layout.mbt`, `styles/tailwind.css`):** The toggle is a sibling of the footer inside the viewport-sized editor, so keyboard occlusion cannot hide it. CSS hides routine controls without destroying their state. Failure notices and exceptional sync/durability actions remain available.
 
 ### 4.3 Demand-Driven Sidebar (Recent Documents)
 
@@ -146,11 +148,11 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
   2. *Layout Height Deficit:* Under content resizing, baseline height is estimated from the largest observed layout height, adjusted by changes in `window.outerHeight`. A deficit greater than 100 CSS pixels hides the bottom bar. Width changes reset this estimate.
 - **Invariants:**
   - Detection affects **bottom-bar visibility only**, never the editor's available height.
-  - The **top toolbar and failure notices remain available** at all times.
+  - The **Focus Mode toggle and failure notices remain available**; the top toolbar stays available outside Focus Mode.
 - **Known Limitations:**
   - Small or floating keyboards, rotation with the keyboard open, and startup without an unobscured sample can leave the bar visible.
   - Large browser-UI changes (such as dynamic address-bar collapse) can also resemble a keyboard.
-- **Edge Softening & Scroll Padding:** Text and Preview share softened edge fades beneath fixed controls. The bars own their blurred backgrounds, leaving no independent overlay or reserved gap when the bottom bar is hidden. Textarea `scroll-padding` keeps native caret navigation clear of controls without requiring manual per-input DOM measurements; manual reading scrolls remain browser-owned.
+- **Edge Softening & Scroll Padding:** Text and Preview share softened edge fades beneath fixed controls outside Focus Mode. The bars own their blurred backgrounds, leaving no independent overlay when the bottom bar is hidden. Textarea bottom padding keeps writing clear of the persistent Focus Mode toggle even with a keyboard. Textarea `scroll-padding` keeps native caret navigation clear of controls without requiring manual per-input DOM measurements; manual reading scrolls remain browser-owned.
 
 ### 4.5 Element Resizing & Caret Visibility
 

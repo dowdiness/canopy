@@ -14,7 +14,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 **Loomark was built to give you back a calm, reliable desk:**
 
 1. **Text is Ground Truth:** What you type is literally what is saved and exported. No hidden attributes, no arbitrary restructuring, and no lossy conversions.
-2. **The Tool Stays Out of Your Way:** When you write, the editor recedes. Your active thought stays in focus, and surrounding paragraphs gently fade into the background.
+2. **The Tool Stays Out of Your Way:** Choose Focus Mode when you want the editor to recede. Your active thought stays in focus, and surrounding paragraphs gently fade into the background.
 3. **Your Words Belong to You:** Once loaded, Loomark lets you keep writing without an internet connection. It saves directly to your device first, and you can export standard Markdown at any moment.
 4. **Reliability Over Novelty:** Every interaction—from caret navigation to native Undo/Redo—respects your natural muscle memory.
 
@@ -25,7 +25,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 ### ✍️ Pure, Distraction-Free Drafting
 - **Natural Native Typing:** Standard browser text editing keeps IME composition and browser Undo/Redo completely natural.
 - **Zero Visual Noise:** No dictionary red lines, no autocorrect interruptions, and no unexpected formatting jumps. Write freely in any language, dialect, or code snippet.
-- **Writing Focus:** While typing, surrounding paragraphs gently fade into the background so you can focus on the active sentence. Leaving the editor restores full readability immediately.
+- **Focus Mode:** Toggle the bottom-right icon to hide navigation and routine controls without changing your Text, Preview, or Split view. Surrounding paragraphs gently fade while the textarea has focus. Toggle again or press Escape to restore the controls. Normal mode keeps all paragraphs fully readable.
 - **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face paired with IBM Plex Sans JP for Japanese; read in a literary serif paired with BIZ UDMincho. All faces ship with the app, so they work offline once loaded.
 - **Japanese-Aware:** Japanese documents keep kana and kanji upright, show emphasis with emphasis dots (傍点), and use strict line breaking and roomier lines in Preview.
 - **A Quiet Character Count:** Wide screens show the document's character count (excluding spaces and line breaks) beside the mode switcher, settling after a short pause instead of flickering with every keystroke.
@@ -36,7 +36,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 - **Mobile Responsive:** Adapts cleanly to on-screen keyboards and device rotation, hiding extraneous bottom bars to maximize vertical writing space.
 
 ### ☕ Local-First Peace of Mind
-- **Quiet Autosave:** Automatically persists to your browser after a short pause in typing or when switching tabs. The footer always confirms local save status with an explicit retry option if a save fails.
+- **Quiet Autosave:** Automatically persists to your browser after a short pause in typing or when switching tabs. The footer confirms local save status outside Focus Mode; failures and explicit retry controls remain visible in either mode.
 - **Start Immediately:** Open the app and write. Loomark derives recognizable document leads from your first heading or line without requiring you to name or organize files first.
 - **Recent Documents:** A lightweight slide-out sidebar lets you revisit and switch between recent documents seamlessly.
 
@@ -56,13 +56,14 @@ Loomark has zero clutter, keeping all essential tools right at your fingertips:
 - **Mode Switcher (Text / Preview / Split):** Toggle between drafting, rendered reading, or side-by-side editing with a draggable divider.
 - **More Actions (`...` menu):** Cleanly export your current note as a `.md` file, import existing Markdown documents, or manage optional cloud sync.
 - **Footer:** Displays quiet durability feedback (`Saved on this device`, `Saving on this device`, or `Not saved`) with explicit retry controls when needed, and the character count on wide screens.
+- **Bottom-Right (Focus icon):** Toggles Focus Mode. The exit stays available even while the other controls are hidden.
 
 ---
 
 ## When to Reach for Loomark
 
 - **Morning stream of consciousness & journaling:** Open a blank tab and let thoughts flow without deciding on filenames or folder structures first.
-- **Deep writing & long-form drafting:** Enable *Writing Focus* to dim surrounding paragraphs, keeping your eyes on the sentence you are shaping right now.
+- **Deep writing & long-form drafting:** Enable *Focus Mode* to hide distractions and dim surrounding paragraphs, keeping your eyes on the sentence you are shaping right now.
 - **Scratchpad for code & ideas:** Draft technical notes, checklists, or prose with zero red squiggles or autocorrect getting in the way.
 - **Writing on the go:** Keep writing on trains, planes, or off the grid with confidence that your words remain on your device.
 

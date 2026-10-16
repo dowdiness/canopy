@@ -7,7 +7,7 @@ fn subscriptions(
   @sub.batch([
     viewport,
     match model.page {
-      Editing(editing) if editing.mode != Preview =>
+      Editing(editing) if model.focus_mode && editing.mode != Preview =>
         @writing_focus_browser.subscription(
           EDITOR_TEXT_ID,
           editing.activation.generation,
@@ -26,7 +26,7 @@ fn subscriptions(
     @sub.on_resize(viewport => emit(ViewportChanged(viewport.width))),
     @sub.on_visibility_change(hidden => emit(VisibilityChanged(hidden))),
     @sub.on_key_down(key => {
-      if key.key() == "Escape" {
+      if key.key() == "Escape" && !key.is_composing() {
         emit(EscapePressed)
       } else {
         @cmd.none

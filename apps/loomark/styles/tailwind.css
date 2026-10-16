@@ -580,6 +580,7 @@
 .loomark-menu > * { flex-shrink: 0; }
 .loomark-save-status {
   width: 168px;
+  max-width: 100%;
   gap: 6px;
   padding-inline: 8px;
   color: var(--color-lm-muted);
@@ -598,7 +599,7 @@
 .loomark-sync-attention > span { display: block; }
 .loomark-sync-attention > button { max-width: 100%; white-space: normal; }
 @media (max-width: 641px) {
-  .loomark-footer-status:has(.loomark-sync-attention > :not([hidden])) .loomark-save-caption {
+  .loomark-footer[data-attention="true"] .loomark-save-caption {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -609,7 +610,7 @@
     white-space: nowrap;
     border: 0;
   }
-  .loomark-footer-status:has(.loomark-sync-attention > :not([hidden])) .loomark-save-status {
+  .loomark-footer[data-attention="true"] .loomark-save-status {
     width: 36px;
     padding-inline: 0;
     justify-content: center;
@@ -617,9 +618,73 @@
 }
 .loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: transparent; }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
-.loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
+.loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); padding-right: 64px; }
 .loomark-footer ~ [role="alert"] { position: relative; z-index: 20; }
-.loomark-footer ~ [role="alert"]:last-child { margin-bottom: var(--loomark-bottom-space); }
+.loomark-footer ~ [role="alert"]:last-child {
+  /* Keep notice actions above the 44px toggle, its safe-area offset, and a 10px gap. */
+  margin-bottom: max(var(--loomark-bottom-space), calc(54px + max(10px, env(safe-area-inset-bottom))));
+}
+
+/* A sibling of the footer, so keyboard occlusion never hides the exit. */
+.loomark-focus-toggle {
+  display: inline-grid;
+  place-items: center;
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  background: var(--color-lm-paper);
+}
+.loomark-focus-toggle[aria-pressed="true"] { color: var(--color-lm-accent); }
+.loomark-focus-enter, .loomark-focus-exit {
+  grid-area: 1 / 1;
+}
+.loomark-focus-exit,
+.loomark-focus-toggle[aria-pressed="true"] .loomark-focus-enter { opacity: 0; }
+.loomark-focus-toggle[aria-pressed="true"] .loomark-focus-exit { opacity: 1; }
+.loomark-focus-tooltip {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  padding: 4px 8px;
+  border: 1px solid var(--color-lm-rule);
+  border-radius: 6px;
+  background: var(--color-lm-paper);
+  color: var(--color-lm-ink);
+  font-size: 12px;
+  pointer-events: none;
+}
+.loomark-focus-toggle:focus-visible .loomark-focus-tooltip { display: block; }
+@media (hover: hover) and (pointer: fine) {
+  .loomark-focus-toggle:hover .loomark-focus-tooltip { display: block; }
+}
+
+/* Hide chrome without replacing the textarea or its native undo history. */
+[data-focus-mode="true"] [data-slot="sidebar-shell"],
+[data-focus-mode="true"] .loomark-sidebar-trigger,
+[data-focus-mode="true"] .loomark-topbar,
+[data-focus-mode="true"] .loomark-bottom-actions,
+[data-focus-mode="true"] .loomark-save-status {
+  display: none !important;
+}
+
+[data-focus-mode="true"] .loomark-source { mask-image: none; }
+/* Keep exceptional durability/sync actions available, even with a keyboard. */
+[data-focus-mode="true"] .loomark-footer[data-attention="true"] {
+  display: flex;
+}
+[data-focus-mode="true"] {
+  --loomark-bottom-space: 64px;
+  --loomark-content-bottom: 80px;
+}
+[data-loomark-bottom-obscured] .loomark-source {
+  padding-bottom: 64px;
+  scroll-padding-bottom: 64px;
+}
 
 @media (max-width: 720px) {
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }

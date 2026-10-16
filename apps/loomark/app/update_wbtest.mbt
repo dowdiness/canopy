@@ -140,6 +140,7 @@ fn test_model(page : Page, sync : @sync.State) -> Model {
     replication: @replication.State(protocol=sync),
     sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
+    focus_mode: false,
   }
 }
 
@@ -658,6 +659,7 @@ test "intermediate Replica commit cannot discard a pending Undo" {
     ),
     sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
+    focus_mode: false,
   }
 
   let (edited, _) = test_root_update(
@@ -766,6 +768,7 @@ test "network retry waits while a newer replica write is in flight" {
     replication: @replication.State(protocol=retryable, persistence~),
     sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
+    focus_mode: false,
   }
   let (unchanged, _) = test_root_update(model, RetrySync(retry))
   assert_true(unchanged == model)
@@ -798,6 +801,7 @@ test "operation identity failure stays retryable while replica storage is busy" 
     replication: @replication.State(protocol=planning, persistence~),
     sign_in: @sign_in.SignIn(),
     scroll_owner: TextPane,
+    focus_mode: false,
   }
   let (retired, _) = test_root_update(
     model,
@@ -3275,4 +3279,33 @@ test "opening creation retries a rejected identity without losing documents" {
   assert_eq(editing.activation.generation, opening.next_activation_generation)
   assert_eq(editing.documents.text(source_key("one")), Some("one"))
   assert_eq(editing.documents.text(source_key("new")), Some(""))
+}
+
+///|
+test "Focus Mode cannot change during composition or blocking actions" {
+  let editing = test_editing()
+  let initial = test_model(Editing(editing), @sync.State())
+  let (composing, _) = test_root_update(initial, CompositionStarted(0))
+  let creating = {
+    ..initial,
+    page: Editing({ ..editing, creation: Some({ request_id: 0, intent: NewDocument, status: InProgress }), }),
+  }
+  let deleting = {
+    ..initial,
+    page: Editing({
+      ..editing,
+      deletion: DeleteConfirmation(source_key("one")),
+    }),
+  }
+  for blocked in [composing, creating, deleting, redirecting_model()] {
+    for focused in [false, true] {
+      let blocked = { ..blocked, focus_mode: focused, }
+      let (toggled, _) = test_root_update(blocked, FocusModeToggled)
+      assert_true(toggled == blocked)
+      if focused {
+        let (escaped, _) = test_root_update(blocked, EscapePressed)
+        assert_true(escaped == blocked)
+      }
+    }
+  }
 }
