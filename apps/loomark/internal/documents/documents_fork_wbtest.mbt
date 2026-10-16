@@ -93,7 +93,7 @@ test "fork transfers the working copy after an eligible Replica edit" {
 
 ///|
 test "edit during fork remains local and resumes ordinary Source persistence" {
-  let (documents, _, original, write) = fork_fixture()
+  let (documents, account, original, write) = fork_fixture()
   let recovery = Key::source(document_id("recovery"))
   let documents = documents.begin_fork(write) catch { _ => abort("valid fork") }
   let (documents, _) = fork_changed(documents, recovery, "newer local")
@@ -102,7 +102,11 @@ test "edit during fork remains local and resumes ordinary Source persistence" {
       ApplyPendingEdit(recovery, pending_revision(documents, recovery)),
     ),
   )
-  assert_true(effects.is_empty())
+  guard effects is [RetryReplica(owner, original_id)] else {
+    fail("retry the atomic fork before saving the recovery source")
+  }
+  assert_eq(owner, account)
+  assert_eq(original_id, document_id("one"))
 
   let (documents, effects) = fork_applied(
     documents.update(ReplicaSettled(write, None)),
@@ -114,6 +118,11 @@ test "edit during fork remains local and resumes ordinary Source persistence" {
     fail("new recovery edit must persist")
   }
   assert_eq(operation.document.text(), "newer local")
+  let (documents, _) = fork_applied(
+    documents.update(Saved(operation, operation.document)),
+  )
+  let reopened = Model(documents.snapshot())
+  assert_eq(reopened.text(recovery), Some("newer local"))
 }
 
 ///|

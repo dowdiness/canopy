@@ -201,7 +201,9 @@ fn begin_save(
           )
       }
     // Eligibility survives ownership transfer. Its completion starts the write.
-    StartingSync(_, _, _) | Forking(_, _) => (record, [])
+    StartingSync(_, _, _) => (record, [])
+    Forking(ownership, _) =>
+      (record, [RetryReplica(ownership.account, ownership.original)])
     Source(
       _,
       Writable(Idle | Failed(_) | Saving(_, _), _)

@@ -1115,6 +1115,34 @@ test "selected Replica cannot reopen a fork before its durable commit" {
   }
   let model = { ..model, replication, }
 
+  // A failed atomic fork must retry when the recovery document is edited.
+  let (failed, _) = test_root_update(
+    model,
+    Sync(ReplicaWriteCompleted(attempt, Err(@source_repository.WriteFailed))),
+  )
+  guard failed.page is Editing(recovery_editing) else { fail("recovery") }
+  let recovery_key = @documents.Key::source(recovery_id)
+  let (edited, _) = test_root_update(
+    failed,
+    TextChanged(
+      recovery_editing.activation.generation,
+      @text_change.TextChange::ReplaceAll("latest recovery"),
+    ),
+  )
+  guard edited.page is Editing(recovery_editing) else { fail("recovery") }
+  let (retrying, _) = test_root_update(
+    edited,
+    ApplyPendingEdit(
+      recovery_key,
+      pending_revision(recovery_editing.documents, recovery_key),
+    ),
+  )
+  assert_true(
+    retrying.replication.status(account, id)
+    is @replica_persistence.Status::Persisting,
+  )
+  assert_eq(retrying.page.saved_documents().unwrap().find(recovery_id), None)
+
   let (selected, _) = test_root_update(model, DocumentSelected(key))
   let (unchanged, _) = test_root_update(selected, ViewportChanged(900.0))
   guard unchanged.page is Editing(editing) else { fail("editing") }
