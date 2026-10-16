@@ -346,8 +346,7 @@
 
 /* Keyboard resizing may leave dvh unchanged; the browser binding supplies the
    visible viewport. Override the Sidebar provider's inline layout minimum. */
-.loomark-viewport {
-  --rui-sidebar-wrapper-background: transparent;
+.loomark-viewport, .loomark-notifications {
   /* Map RUI's neutral roles onto Loomark paper so both appearances agree. */
   --rui-background: var(--color-lm-paper);
   --rui-foreground: var(--color-lm-ink);
@@ -368,6 +367,9 @@
   --rui-dialog-backdrop: oklch(0.2 0.01 70 / 0.22);
   --loomark-hover: color-mix(in oklab, var(--color-lm-ink) 6%, transparent);
   --loomark-track: color-mix(in oklab, var(--color-lm-ink) 5%, var(--color-lm-paper));
+}
+.loomark-viewport {
+  --rui-sidebar-wrapper-background: transparent;
   /* Text and Preview share one measure so switching modes keeps the text edge. */
   --loomark-measure: 680px;
   --loomark-bottom-space: 64px;
@@ -528,7 +530,8 @@
 .loomark-icon[aria-expanded="true"] { background: var(--loomark-hover); color: var(--color-lm-ink); }
 .loomark-icon:disabled { opacity: 0.5; cursor: default; }
 #loomark-root label:has(> input[type="file"]:disabled) { opacity: 0.5; pointer-events: none; }
-#loomark-root button:focus-visible {
+#loomark-root button:focus-visible,
+.loomark-notifications button:focus-visible {
   /* RUI controls reset outline inline; keyboard focus must remain visible. */
   outline: 2px solid var(--color-lm-accent) !important;
   outline-offset: 2px;
@@ -625,6 +628,13 @@
   left: 12px !important;
   bottom: calc(100dvh - var(--loomark-viewport-top, 0px) - var(--loomark-viewport-height, 100dvh) + max(76px, calc(env(safe-area-inset-bottom) + 60px))) !important;
   width: min(22.25rem, calc(100vw - 24px)) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loomark-notifications [data-slot="toast"] {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
 }
 
 /* A sibling of the footer, so keyboard occlusion never hides the exit. */
@@ -972,8 +982,10 @@
     background: none !important;
   }
   .loomark-topbar, .loomark-footer, .loomark-sidebar, .loomark-sidebar-trigger,
+  .loomark-focus-toggle, .loomark-notifications,
   .loomark-divider, #loomark-text-pane:has(+ .loomark-divider:not([hidden])),
   [role="alert"] {
+    transition: none !important;
     display: none !important;
   }
   #loomark-preview-scroll { mask-image: none !important; }

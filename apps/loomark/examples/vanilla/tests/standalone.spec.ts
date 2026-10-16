@@ -1253,6 +1253,48 @@ test("Sonner import notifications preserve the current writing surface", async (
   }
 })
 
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`Sonner respects ${colorScheme} appearance and keyboard focus`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme })
+    await page.goto("/")
+    await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
+    const toast = page.getByRole("alert")
+    await expect(toast).toBeVisible()
+    const palette = await page.evaluate(() => {
+      const host = getComputedStyle(document.querySelector(".loomark-notifications")!)
+      const editor = getComputedStyle(document.querySelector(".loomark-viewport")!)
+      return ["--rui-background", "--rui-destructive"].map(token => [host.getPropertyValue(token), editor.getPropertyValue(token)])
+    })
+    for (const [actual, expected] of palette) expect(actual).toBe(expected)
+    const close = toast.getByRole("button", { name: "Close notification" })
+    await close.focus()
+    await expect(close).toBeFocused()
+    await expect(close).toHaveCSS("outline-style", "solid")
+    await expect(close).toHaveCSS("outline-width", "2px")
+  })
+}
+
+test("Sonner respects reduced motion and stays out of printed Preview", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("# Printed writing\n")
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  const toast = page.getByRole("alert")
+  await expect(toast).toBeVisible()
+  await expect.soft(toast).toHaveCSS("transition-duration", "0s")
+  for (const focused of [false, true]) {
+    if (focused) await page.locator("#loomark-focus-toggle").click()
+    await page.emulateMedia({ media: "print", reducedMotion: "no-preference" })
+    await expect(page.getByRole("heading", { name: "Printed writing" })).toBeVisible()
+    await expect.soft(page.locator("#loomark-focus-toggle")).toBeHidden()
+    await expect(page.locator(".loomark-notifications")).toBeHidden()
+    await expect(page.locator(".loomark-topbar")).toBeHidden()
+    await expect(page.locator(".loomark-footer")).toBeHidden()
+    await page.emulateMedia({ media: "screen", reducedMotion: "reduce" })
+  }
+})
+
 test("a replaced Sonner notification does not inherit the previous swipe", async ({ page }) => {
   await page.goto("/")
   const input = page.getByLabel("Import Markdown")
