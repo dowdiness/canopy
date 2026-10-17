@@ -66,17 +66,17 @@ fn position_writing_shade(
 ) -> Unit {
   match @writing_focus.calculate_shade_placement(range, viewport_range) {
     Some(placement) => {
-      set_style_if_changed(element, "top", "\{placement.top_in_viewport}px")
-      set_style_if_changed(
-        element,
+      let style = element.get_style()
+      style.set_property("top", "\{placement.top_in_viewport}px")
+      style.set_property(
         "--loomark-shade-top-in-content",
         "\{placement.top_in_content}px",
       )
-      set_style_if_changed(element, "height", "\{placement.height}px")
+      style.set_property("height", "\{placement.height}px")
     }
     None => {
-      set_style_if_changed(element, "top", "0px")
-      set_style_if_changed(element, "height", "0px")
+      element.get_style().set_property("top", "0px")
+      element.get_style().set_property("height", "0px")
     }
   }
 }
@@ -159,7 +159,9 @@ fn render_writing_fades(
         @browser_api.cancel_animation(animation.native)
       Visible(_, None) => ()
     }
-    set_style_if_changed(shade.element, "opacity", "\{fade.target_opacity()}")
+    shade.element
+    .get_style()
+    .set_property("opacity", "\{fade.target_opacity()}")
     position_writing_shade(shade.element, range, viewport_range)
     shade.content = Visible(range, None)
   }

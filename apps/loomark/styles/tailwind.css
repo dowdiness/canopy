@@ -409,7 +409,7 @@
      only element resizing needs the existing measured-caret correction. */
   padding: var(--loomark-first-line-top) max(28px, calc((100% - var(--loomark-measure)) / 2)) var(--loomark-content-bottom);
   scroll-padding-block: var(--loomark-first-line-top) var(--loomark-content-bottom);
-  font-size: 17px;
+  font-size: inherit;
   line-height: var(--loomark-line-height);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: contain;
@@ -439,6 +439,7 @@
   }
 }
 
+/* The writing size; the drawn caret's height follows it. */
 .loomark-source-frame {
   --loomark-first-line-top: 70px;
   /* Every engine lays out whole-pixel lines exactly, so text cannot drift from the grid. */
@@ -448,10 +449,15 @@
   --loomark-dot-edge-radius: 1.5px;
   position: relative;
   isolation: isolate;
+  font-size: 17px;
 }
 
+/* Over the text area, which fills the frame; the session sets the horizontal
+   extent of its content box. */
 .loomark-writing-dimming {
   position: absolute;
+  top: 0;
+  bottom: 0;
   z-index: 1;
   pointer-events: none;
   overflow: hidden;
@@ -856,7 +862,7 @@
   .loomark-source { padding-inline: 24px; }
   #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px var(--loomark-content-bottom); }
   .loomark-menu { right: 12px; top: 49px; }
-  .loomark-source { font-size: 16px; }
+  .loomark-source-frame { font-size: 16px; }
   #loomark-preview-scroll .rmd-preview-content { font-size: 17px; }
 }
 #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { font-size: 17px; }

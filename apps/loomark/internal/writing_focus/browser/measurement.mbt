@@ -250,18 +250,6 @@ fn TextLayout::release_retired_lines(self : TextLayout) -> Unit {
 }
 
 ///|
-fn set_style_if_changed(
-  element : @dom.HTMLElement,
-  property : String,
-  value : String,
-) -> Unit {
-  let style = element.get_style()
-  if style.get_property_value(property) != value {
-    style.set_property(property, value)
-  }
-}
-
-///|
 /// Font longhands, not the `font` shorthand: Chromium serializes the computed
 /// shorthand as "" when a longhand such as font-kerning has no shorthand form,
 /// which left the mirror in the page font and misplaced every wrapped line.
@@ -283,46 +271,18 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> MirrorStyle {
     layout_style.set_property(property, style.get_property_value(property))
   }
   layout_style.set_property("width", "\{width}px")
-  let padding_left = @browser_api.parse_css_number(
-    style.get_property_value("padding-left"),
-  )
-  let padding_right = @browser_api.parse_css_number(
-    style.get_property_value("padding-right"),
-  )
   let (left, content_width) = @writing_focus.calculate_dimming_inline_bounds(
     self.text_area.get_offset_left(),
     width,
-    padding_left,
-    padding_right,
+    @browser_api.parse_css_number(style.get_property_value("padding-left")),
+    @browser_api.parse_css_number(style.get_property_value("padding-right")),
   )
-  set_style_if_changed(
-    self.dimming_layer,
-    "top",
-    "\{self.text_area.get_offset_top()}px",
-  )
-  set_style_if_changed(
-    self.dimming_layer,
-    "--loomark-text-line-height",
-    style.get_property_value("line-height"),
-  )
-  set_style_if_changed(self.dimming_layer, "left", "\{left}px")
-  set_style_if_changed(self.dimming_layer, "width", "\{content_width}px")
-  set_style_if_changed(
-    self.dimming_layer,
-    "height",
-    "\{self.text_area.get_client_height()}px",
-  )
-  // The caret's height follows the writing size.
-  set_style_if_changed(
-    self.dimming_layer,
-    "font-size",
-    style.get_property_value("font-size"),
-  )
-  {
-    client_width: width,
-    line_height: style.get_property_value("line-height"),
-    layer_width: content_width,
-  }
+  let line_height = style.get_property_value("line-height")
+  let layer_style = self.dimming_layer.get_style()
+  layer_style.set_property("--loomark-text-line-height", line_height)
+  layer_style.set_property("left", "\{left}px")
+  layer_style.set_property("width", "\{content_width}px")
+  { client_width: width, line_height, layer_width: content_width, }
 }
 
 ///|

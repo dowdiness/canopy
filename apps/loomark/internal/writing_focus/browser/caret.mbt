@@ -129,11 +129,9 @@ fn WritingCaret::place(
       Glide => "glide"
     },
   )
-  set_style_if_changed(
-    self.element,
-    "transform",
-    "translate(\{at.x}px, \{at.y - at.scroll_top}px)",
-  )
+  self.element
+  .get_style()
+  .set_property("transform", "translate(\{at.x}px, \{at.y - at.scroll_top}px)")
 }
 
 ///|
