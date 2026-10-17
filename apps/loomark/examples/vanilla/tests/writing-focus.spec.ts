@@ -151,24 +151,24 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
   })
 }
 
-test("Focus Mode exit remains reachable above a simulated mobile keyboard", async ({ page }) => {
+test("Focus Mode toggle hides with a simulated mobile keyboard like the view controls", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await openFocusMode(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill(documentText)
   // Exercise visual-viewport occlusion, not an actual OS keyboard.
-  await page.evaluate(() => {
-    for (const [key, value] of Object.entries({ height: 360, offsetTop: 24 })) {
+  const keyboard = (height: number, offsetTop: number) => page.evaluate(({ height, offsetTop }) => {
+    for (const [key, value] of Object.entries({ height, offsetTop })) {
       Object.defineProperty(window.visualViewport!, key, { configurable: true, get: () => value })
     }
     window.visualViewport!.dispatchEvent(new Event("resize"))
-  })
-  const toggle = page.getByRole("button", { name: "Exit Focus Mode", exact: true })
-  await expect.poll(async () => {
-    const bounds = await toggle.boundingBox()
-    return bounds !== null && bounds.y >= 24 && bounds.y + bounds.height <= 384
-  }).toBe(true)
+  }, { height, offsetTop })
+  const toggle = page.locator("#loomark-focus-toggle")
+  await keyboard(360, 24)
+  await expect(toggle).toBeHidden()
   await expect(page.locator(".loomark-footer")).toBeHidden()
+  await keyboard(844, 0)
+  await expect(toggle).toBeVisible()
   await toggle.click()
   await expect(page.getByRole("button", { name: "Focus Mode", exact: true })).toBeVisible()
   await expect(text).toHaveValue(documentText)

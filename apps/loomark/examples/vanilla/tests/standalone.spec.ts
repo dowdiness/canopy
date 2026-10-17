@@ -1377,7 +1377,8 @@ test("Import rejects malformed UTF-8 without creating a Source", async ({ page }
   })
   for (const focused of [false, true]) {
     if (focused) {
-      await page.locator("#loomark-focus-toggle").click()
+      // The toggle is hidden with the keyboard; enter Focus Mode directly.
+      await page.locator("#loomark-focus-toggle").evaluate(element => (element as HTMLButtonElement).click())
       await page.getByLabel("Import Markdown")
         .setInputFiles("tests/fixtures/import-malformed-utf8.md")
     }
@@ -1636,9 +1637,7 @@ for (const mode of ["Text", "Split"] as const) {
     await expect(page.locator(".loomark-save-status")).toBeInViewport()
     await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Not saved")
     await expect(page.locator(".loomark-bottom-actions")).toBeHidden()
-    const focusBounds = await page.locator("#loomark-focus-toggle").boundingBox()
-    expect(focusBounds!.y).toBeGreaterThanOrEqual(0)
-    expect(focusBounds!.y + focusBounds!.height).toBeLessThanOrEqual(320)
+    await expect(page.locator("#loomark-focus-toggle")).toBeHidden()
   })
 }
 

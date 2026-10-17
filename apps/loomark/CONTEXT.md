@@ -75,8 +75,9 @@ _Avoid_: ordinary content, paragraph
 
 **Focus Mode**:
 An explicit, page-local writing presentation, off on every launch or reload.
-The icon-only toggle stays at the bottom-right of the available viewport,
-including above an on-screen keyboard. Its accessible label and tooltip name
+The icon-only toggle stays at the bottom-right of the available viewport and,
+like the view controls, is hidden while an on-screen keyboard is detected.
+Its accessible label and tooltip name
 `Focus Mode` or `Exit Focus Mode`, and its pressed state exposes whether it is on.
 Entering hides Recent documents, the top toolbar, view controls, and routine
 save feedback without changing the current Text, Preview, or Split mode.
@@ -118,9 +119,9 @@ magnification. It requests native content resizing where supported. The bottom
 bar and its reserved space are removed when visual-viewport occlusion or a
 window-size-adjusted height estimate indicates a keyboard. Panning alone does
 not restore the bar.
-No bottom overlay remains while the bar is hidden; writing retains enough
-bottom padding to clear the Focus Mode toggle. The top toolbar (outside Focus
-Mode), Focus Mode toggle, and failure notices remain available. Exceptional
+No bottom overlay or reserved space remains while the bar and Focus Mode
+toggle are hidden. The top toolbar (outside Focus Mode) and failure notices
+remain available. Exceptional
 durability/sync actions remain visible in Focus Mode even with a keyboard.
 The bottom bar returns when the visible height recovers. Ordinary window-height
 changes and hardware-keyboard focus alone do not hide it. Keyboard detection

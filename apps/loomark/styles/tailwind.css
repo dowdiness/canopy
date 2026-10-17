@@ -393,7 +393,8 @@
 [data-loomark-bottom-obscured] .loomark-footer:has(.loomark-save-status[title="Not saved"]) {
   display: flex;
 }
-[data-loomark-bottom-obscured] .loomark-bottom-actions {
+[data-loomark-bottom-obscured] .loomark-bottom-actions,
+[data-loomark-bottom-obscured] .loomark-focus-toggle {
   display: none;
 }
 
@@ -637,7 +638,6 @@
   }
 }
 
-/* A sibling of the footer, so keyboard occlusion never hides the exit. */
 .loomark-focus-toggle {
   display: inline-grid;
   place-items: center;
@@ -738,14 +738,6 @@
 /* Keep exceptional durability/sync actions available, even with a keyboard. */
 [data-focus-mode="true"] .loomark-footer[data-attention="true"] {
   display: flex;
-}
-[data-focus-mode="true"] {
-  --loomark-bottom-space: 64px;
-  --loomark-content-bottom: 80px;
-}
-[data-loomark-bottom-obscured] .loomark-source {
-  padding-bottom: 64px;
-  scroll-padding-bottom: 64px;
 }
 
 @media (max-width: 720px) {

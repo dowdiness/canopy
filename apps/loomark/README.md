@@ -57,7 +57,7 @@ Loomark has zero clutter, keeping all essential tools right at your fingertips:
 - **Mode Switcher (Text / Preview / Split):** Toggle between drafting, rendered reading, or side-by-side editing with a draggable divider.
 - **More Actions (`...` menu):** Cleanly export your current note as a `.md` file, import existing Markdown documents, or manage optional cloud sync.
 - **Footer:** Displays quiet durability feedback (`Saved on this device`, `Saving on this device`, or `Not saved`) without a manual save-retry button, and the character count on wide screens.
-- **Bottom-Right (Focus icon):** Toggles Focus Mode. The exit stays available even while the other controls are hidden.
+- **Bottom-Right (Focus icon):** Toggles Focus Mode. The exit stays available while the other controls are hidden; like the view switcher, it steps aside while an on-screen keyboard is open.
 
 ---
 

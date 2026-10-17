@@ -141,7 +141,7 @@ Only in explicit Focus Mode, surrounding paragraphs gently fade to 50% opacity w
 - **Mode Ownership (`app/model.mbt`, `app/update.mbt`):** `focus_mode` is a presentation flag independent of the editor mode. Entry and exit preserve Text, Preview, or Split and do not invoke the mode-change path. Preview keeps keyboard focus on the toggle; editable views return focus to the existing textarea.
 - **Connection (`app/writing_focus.mbt`):** Resolves this render's textarea and dimming layer only after rendering, then passes those elements to the browser connection. Subscription removal cancels pending attachment or removes the existing connection; deferred refreshes cannot revive it.
 - **Browser Integration (`internal/writing_focus/browser/`):** Receives elements rather than IDs, measures their geometry, passes measured values to the core, and applies opacity and positioning decisions. Owns listeners, animation frames, and cleanup; its mutable connection handle stays in the shell, never in the application model. Leaving the editor instantly restores full readability across the document.
-- **Chrome (`app/layout.mbt`, `styles/tailwind.css`):** The toggle is a sibling of the footer inside the viewport-sized editor, so keyboard occlusion cannot hide it. CSS hides routine controls without destroying their state. Failure notices and exceptional sync/durability actions remain available.
+- **Chrome (`app/layout.mbt`, `styles/tailwind.css`):** The toggle is a sibling of the footer inside the viewport-sized editor and, like the view controls, is hidden while a keyboard is detected. CSS hides routine controls without destroying their state. Failure notices and exceptional sync/durability actions remain available.
 
 ### 4.3 Demand-Driven Sidebar (Recent Documents)
 
@@ -160,11 +160,11 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
   2. *Layout Height Deficit:* Under content resizing, baseline height is estimated from the largest observed layout height, adjusted by changes in `window.outerHeight`. A deficit greater than 100 CSS pixels hides the bottom bar. Width changes reset this estimate.
 - **Invariants:**
   - Detection affects **bottom-bar visibility only**, never the editor's available height.
-  - The **Focus Mode toggle and failure notices remain available**; the top toolbar stays available outside Focus Mode.
+  - The **Focus Mode toggle hides with the bottom bar**; failure notices remain available, and the top toolbar stays available outside Focus Mode.
 - **Known Limitations:**
   - Small or floating keyboards, rotation with the keyboard open, and startup without an unobscured sample can leave the bar visible.
   - Large browser-UI changes (such as dynamic address-bar collapse) can also resemble a keyboard.
-- **Edge Softening & Scroll Padding:** Text and Preview share softened edge fades beneath fixed controls outside Focus Mode. The bars own their blurred backgrounds, leaving no independent overlay when the bottom bar is hidden. Textarea bottom padding keeps writing clear of the persistent Focus Mode toggle even with a keyboard. Textarea `scroll-padding` keeps native caret navigation clear of controls without requiring manual per-input DOM measurements; manual reading scrolls remain browser-owned.
+- **Edge Softening & Scroll Padding:** Text and Preview share softened edge fades beneath fixed controls outside Focus Mode. The bars own their blurred backgrounds, leaving no independent overlay when the bottom bar is hidden. Textarea `scroll-padding` keeps native caret navigation clear of controls without requiring manual per-input DOM measurements; manual reading scrolls remain browser-owned.
 
 ### 4.5 Element Resizing & Caret Visibility
 
