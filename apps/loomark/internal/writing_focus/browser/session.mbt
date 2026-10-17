@@ -24,8 +24,9 @@ struct WritingFocus {
 
 ///|
 fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
-  let (range, geometry_changed) = focus.text_layout.locate_focus()
-  let (caret, scroll_top) = locate_writing_caret(focus)
+  let (mirror, geometry_changed) = focus.text_layout.sync()
+  let range = focus.text_layout.locate_focus()
+  let (caret, scroll_top) = locate_writing_caret(focus, mirror)
   focus.intent = focus.intent.settle(focused=focus.text_area.matches(":focus"))
   let presentation : @writing_focus.Presentation = {
     range,
@@ -176,16 +177,13 @@ pub fn connect(
   }).cast()
   errdefer focus.disconnect()
   @js.try_sync(() => {
-    let changed : @dom.Listener = _ => focus.refresh()
     let selected : @dom.Listener = _ => focus.schedule()
     let resized : @dom.Listener = _ => focus.layout_changed()
     let activate : @dom.Listener = _ => focus.set_intent(Writing)
     let deactivate : @dom.Listener = _ => focus.set_intent(Reading)
     let source = text_area.as_event_target()
-    for name in ["input", "compositionend"] {
-      focus.listen(source, name, changed)
-    }
-    for name in ["select", "selectionchange", "scroll"] {
+    for
+      name in ["input", "compositionend", "select", "selectionchange", "scroll"] {
       focus.listen(source, name, selected)
     }
     for name in ["focus", "pointerdown", "keydown", "input", "compositionstart"] {
@@ -217,18 +215,13 @@ pub fn connect(
 }
 
 ///|
-/// Rereads the text after the editor state changes it.
+/// Redraws after the editor state changes the text.
 pub fn WritingFocus::refresh(self : WritingFocus) -> Unit {
-  self.text_layout.source_pending = true
   self.schedule()
 }
 
 ///|
 fn WritingFocus::layout_changed(self : WritingFocus) -> Unit {
-  let layout = self.text_layout
-  layout.context = TextLayoutContext(
-    @writing_focus.Layout(layout.context.geometry.source()),
-  )
-  layout.source_pending = true
+  self.text_layout.reset()
   self.schedule()
 }

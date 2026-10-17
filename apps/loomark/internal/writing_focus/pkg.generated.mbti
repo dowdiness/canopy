@@ -34,20 +34,6 @@ pub(all) enum ActiveFade {
 }
 pub fn ActiveFade::timing(Self) -> FadeTiming
 
-pub struct Boundary {
-  line : Int
-  layout_sync : LayoutSync
-  // private fields
-}
-pub fn Boundary::at(Self, Double) -> (Range, Layout) raise InvalidRange
-
-pub enum Bounds {
-  Known(Range)
-  Lines(LineBounds)
-  LineStart(Boundary)
-  LineEnd(Boundary)
-}
-
 pub(all) struct Caret {
   x : Double
   y : Double
@@ -104,44 +90,12 @@ pub(all) struct FadeTiming {
   easing : String
 }
 
-pub enum Focus {
-  Document(Range)
-  Lines(LineFocus)
-}
-
-pub struct Layout {
-  // private fields
-}
-pub fn Layout::Layout(TextLines) -> Self
-pub fn Layout::edit_from(Self, TextLines) -> LineEdit?
-pub fn Layout::focus(Self, Int, Int) -> Focus raise InvalidSelection
-pub fn Layout::replace_text(Self, String) -> Self?
-pub fn Layout::source(Self) -> TextLines
-
-pub enum LayoutSync {
-  Reuse
-  CopyStyles(Double)
-}
-
-pub struct LineBounds {
-  lines : LineRange
-  layout_sync : LayoutSync
-  // private fields
-}
-pub fn LineBounds::between(Self, Double, Double) -> (Range, Layout) raise InvalidRange
-
 pub struct LineEdit {
   source : TextLines
   first : Int
   removed : Int
   inserted : ArrayView[String]
 }
-
-pub struct LineFocus {
-  lines : LineRange
-  // private fields
-}
-pub fn LineFocus::bounds(Self, width~ : Double, line_height~ : Double) -> Bounds raise InvalidRange
 
 pub struct LineRange {
   first : Int
@@ -194,8 +148,11 @@ pub struct TextLines {
   // private fields
 }
 pub fn TextLines::TextLines(String) -> Self
+pub fn TextLines::focus_lines(Self, Int, Int) -> LineRange raise InvalidSelection
+pub fn TextLines::focus_range(Self, LineRange, top~ : Double, bottom~ : Double) -> Range raise InvalidRange
 pub fn TextLines::lines(Self) -> ArrayView[String]
 pub fn TextLines::position(Self, Int) -> TextPosition raise InvalidSelection
+pub fn TextLines::replace_text(Self, String) -> LineEdit?
 pub fn TextLines::text(Self) -> String
 
 pub struct TextPosition {

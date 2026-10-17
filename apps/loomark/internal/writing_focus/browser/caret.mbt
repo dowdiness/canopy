@@ -142,6 +142,7 @@ fn WritingCaret::place(
 /// The native caret returns while none is drawn.
 fn locate_writing_caret(
   focus : WritingFocus,
+  mirror : MirrorStyle,
 ) -> ((@writing_focus.Caret, @writing_focus.CaretCause)?, Double) raise {
   let text_area = focus.text_area
   let end = @writing_focus.selection_end(
@@ -154,7 +155,7 @@ fn locate_writing_caret(
   match end {
     Endpoint(_) => (None, scroll_top)
     Collapsed(offset) => {
-      let (measured, cause) = focus.text_layout.locate_caret(offset)
+      let (measured, cause) = focus.text_layout.locate_caret(mirror, offset)
       let caret : @writing_focus.Caret = {
         x: measured.x,
         y: measured.y,

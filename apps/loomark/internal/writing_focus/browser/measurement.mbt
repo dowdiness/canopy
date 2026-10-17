@@ -16,18 +16,13 @@ fn TextLineElement::TextLineElement(
 }
 
 ///|
-priv struct TextLayoutContext {
-  mut geometry : @writing_focus.Layout
-  mut first_observation : Bool
-  mut mirror : MirrorStyle?
-  mut caret : CaretMeasurement?
-}
-
-///|
-/// The text area width the mirror's styles were copied at, and the width of
-/// the dimming layer over its content box.
+/// The text area width and line height the mirror's styles were copied at,
+/// and the width of the dimming layer over its content box.
 priv struct MirrorStyle {
   client_width : Double
+  /// The computed line height; a reader's text-spacing override changes it
+  /// without resizing the text area.
+  line_height : String
   layer_width : Double
 }
 
@@ -45,13 +40,17 @@ priv struct CaretMeasurement {
 }
 
 ///|
-fn TextLayoutContext::TextLayoutContext(
-  geometry : @writing_focus.Layout,
-) -> TextLayoutContext {
-  { geometry, first_observation: true, mirror: None, caret: None, }
+/// The focused range measured for one source text and group of lines; caret
+/// moves within the group and scrolling reuse it without reading layout.
+priv struct FocusMeasurement {
+  source : @writing_focus.TextLines
+  lines : @writing_focus.LineRange
+  range : @writing_focus.Range
 }
 
 ///|
+/// A hidden per-line copy of the text area. Each frame first brings its text
+/// and styles up to date, then measures the focused lines and the caret.
 priv struct TextLayout {
   document : @dom.Document
   window : @dom.Window
@@ -59,11 +58,14 @@ priv struct TextLayout {
   text_area : @dom.HTMLTextAreaElement
   dimming_layer : @dom.HTMLElement
   element : @dom.HTMLElement
-  mut rendered_lines : @writing_focus.TextLines
+  mut source : @writing_focus.TextLines
   mut lines : Array[TextLineElement]
   retired_lines : Array[TextLineElement]
-  mut context : TextLayoutContext
-  mut source_pending : Bool
+  /// `None` until styles are copied, and again after a reflow.
+  mut mirror : MirrorStyle?
+  /// Measurements hold for the copied styles they were read with.
+  mut focus : FocusMeasurement?
+  mut caret : CaretMeasurement?
 }
 
 ///|
@@ -78,8 +80,8 @@ fn TextLayout::TextLayout(
   element.set_attribute("class", "loomark-writing-measure")
   element.set_attribute("aria-hidden", "true")
   element.set_inert(true)
-  let rendered_lines = @writing_focus.TextLines("")
-  let lines = rendered_lines
+  let source = @writing_focus.TextLines("")
+  let lines = source
     .lines()
     .map(text => {
       let line = TextLineElement(document, text)
@@ -94,90 +96,69 @@ fn TextLayout::TextLayout(
     text_area,
     dimming_layer,
     element,
-    rendered_lines,
+    source,
     lines,
     retired_lines: [],
-    context: TextLayoutContext(@writing_focus.Layout(rendered_lines)),
-    source_pending: true,
+    mirror: None,
+    focus: None,
+    caret: None,
   }
 }
 
 ///|
-fn TextLayout::locate_focus(
-  self : TextLayout,
-) -> (@writing_focus.Range, Bool) raise {
-  // A notification may replace self.context during a DOM read. Read and commit
-  // through the captured owner; the new context keeps its own empty cache.
-  let context = self.context
-  let context_changed = context.first_observation
-  context.first_observation = false
-  let source_pending = self.source_pending
-  self.source_pending = false
-  let text_changed = if source_pending {
-    match context.geometry.replace_text(self.text_area.get_value()) {
-      None => false
-      Some(geometry) => {
-        context.geometry = geometry
-        true
-      }
+/// Copies styles again on the next sync, after the text may have reflowed.
+fn TextLayout::reset(self : TextLayout) -> Unit {
+  self.mirror = None
+}
+
+///|
+/// Brings the mirror up to date and reports whether its text or styles
+/// changed, which moves every measured position.
+fn TextLayout::sync(self : TextLayout) -> (MirrorStyle, Bool) {
+  let text_changed = self.sync_text()
+  let width = self.text_area.get_client_width()
+  let line_height = self.window
+    .get_computed_style(self.text_area.as_element())
+    .get_property_value("line-height")
+  match self.mirror {
+    Some(mirror) if mirror.client_width == width &&
+      mirror.line_height == line_height => (mirror, text_changed)
+    _ => {
+      let mirror = self.sync_layout(width)
+      self.mirror = Some(mirror)
+      self.focus = None
+      self.caret = None
+      (mirror, true)
     }
-  } else {
-    false
   }
-  let focus = match
-    context.geometry.focus(
-      self.text_area.get_selection_start(),
-      self.text_area.get_selection_end(),
-    ) {
-    Document(range) => return (range, text_changed || context_changed)
-    Lines(focus) => focus
-  }
-  let text_style = self.window.get_computed_style(self.text_area.as_element())
-  // A `normal` line height parses as NaN, which never matches a measurement, so
-  // every draw re-measures. Loomark sets px; only a reader's override reaches it.
-  // If that slows typing, compare the computed string instead.
-  let bounds = focus.bounds(
-    width=self.text_area.get_client_width(),
-    line_height=@browser_api.parse_css_number(
-      text_style.get_property_value("line-height"),
-    ),
+}
+
+///|
+fn TextLayout::locate_focus(self : TextLayout) -> @writing_focus.Range raise {
+  let source = self.source
+  let lines = source.focus_lines(
+    self.text_area.get_selection_start(),
+    self.text_area.get_selection_end(),
   )
-  let mut layout_synchronized = false
-  let (range, geometry) = match bounds {
-    Known(range) => return (range, text_changed)
-    Lines(pending) => {
-      layout_synchronized = pending.layout_sync is CopyStyles(_)
-      let origin = self.measure_origin(context, pending.layout_sync)
-      pending.between(
-        self.lines[pending.lines.first].element
-        .get_bounding_client_rect()
-        .get_top() -
-        origin,
-        self.lines[pending.lines.last].element
-        .get_bounding_client_rect()
-        .get_bottom() -
-        origin,
+  match self.focus {
+    Some(focus) if physical_equal(focus.source, source) &&
+      focus.lines.first == lines.first &&
+      focus.lines.last == lines.last => focus.range
+    _ => {
+      let origin = self.element.get_bounding_client_rect().get_top()
+      let range = source.focus_range(
+        lines,
+        top=self.lines[lines.first].element.get_bounding_client_rect().get_top() -
+          origin,
+        bottom=self.lines[lines.last].element
+          .get_bounding_client_rect()
+          .get_bottom() -
+          origin,
       )
-    }
-    LineStart(pending) => {
-      layout_synchronized = pending.layout_sync is CopyStyles(_)
-      let origin = self.measure_origin(context, pending.layout_sync)
-      pending.at(
-        self.lines[pending.line].element.get_bounding_client_rect().get_top() -
-        origin,
-      )
-    }
-    LineEnd(pending) => {
-      layout_synchronized = pending.layout_sync is CopyStyles(_)
-      let origin = self.measure_origin(context, pending.layout_sync)
-      pending.at(
-        self.lines[pending.line].element.get_bounding_client_rect().get_bottom() -
-        origin,
-      )
+      self.focus = Some({ source, lines, range, })
+      range
     }
   }
-  context.geometry = geometry
-  (range, text_changed || layout_synchronized)
 }
 
 ///|
@@ -186,12 +167,9 @@ fn TextLayout::remove(self : TextLayout) -> Unit {
 }
 
 ///|
-fn TextLayout::sync_text(
-  self : TextLayout,
-  geometry : @writing_focus.Layout,
-) -> Unit {
-  match geometry.edit_from(self.rendered_lines) {
-    None => ()
+fn TextLayout::sync_text(self : TextLayout) -> Bool {
+  match self.source.replace_text(self.text_area.get_value()) {
+    None => false
     Some(replacement) => {
       let document = self.document
       let inserted_count = replacement.inserted.length()
@@ -202,7 +180,7 @@ fn TextLayout::sync_text(
       }
       for index in 0..<retained_count {
         let position = replacement.first + index
-        let before = self.rendered_lines.lines()[position]
+        let before = self.source.lines()[position]
         let after = replacement.inserted[index]
         if before != after {
           // Replacing only the changed span lets Chromium reuse the line's
@@ -257,7 +235,8 @@ fn TextLayout::sync_text(
           },
         )
       }
-      self.rendered_lines = replacement.source
+      self.source = replacement.source
+      true
     }
   }
 }
@@ -339,40 +318,11 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> MirrorStyle {
     "font-size",
     style.get_property_value("font-size"),
   )
-  { client_width: width, layer_width: content_width, }
-}
-
-///|
-/// Copies the text area's styles at `width` unless this context already did.
-fn TextLayout::style_mirror(
-  self : TextLayout,
-  context : TextLayoutContext,
-  width : Double,
-) -> MirrorStyle {
-  match context.mirror {
-    Some(mirror) if mirror.client_width == width => mirror
-    _ => {
-      let mirror = self.sync_layout(width)
-      context.mirror = Some(mirror)
-      mirror
-    }
+  {
+    client_width: width,
+    line_height: style.get_property_value("line-height"),
+    layer_width: content_width,
   }
-}
-
-///|
-fn TextLayout::measure_origin(
-  self : TextLayout,
-  context : TextLayoutContext,
-  layout_sync : @writing_focus.LayoutSync,
-) -> Double {
-  self.sync_text(context.geometry)
-  match layout_sync {
-    Reuse => ()
-    // Measurements in this context no longer match the text area's width or
-    // line height, so its styles are copied again.
-    CopyStyles(width) => context.mirror = Some(self.sync_layout(width))
-  }
-  self.element.get_bounding_client_rect().get_top()
 }
 
 ///|
@@ -380,12 +330,12 @@ fn TextLayout::measure_origin(
 /// placement.
 fn TextLayout::locate_caret(
   self : TextLayout,
+  mirror : MirrorStyle,
   offset : Int,
 ) -> (@writing_focus.MeasuredCaret, @writing_focus.CaretCause) raise {
-  let context = self.context
-  let source = context.geometry.source()
+  let source = self.source
   let position = source.position(offset)
-  let history : @writing_focus.CaretHistory = match context.caret {
+  let history : @writing_focus.CaretHistory = match self.caret {
     None => Unmeasured
     Some(caret) if physical_equal(caret.source, source) =>
       SameText(caret.measured)
@@ -394,13 +344,6 @@ fn TextLayout::locate_caret(
   let cause = match @writing_focus.caret_measure(history, offset) {
     Cached(measured) => return (measured, Navigation)
     Measure(cause) => cause
-  }
-  self.sync_text(context.geometry)
-  // Any styles copied for this context serve the caret; the text area keeps
-  // its width until a resize replaces the context.
-  let mirror = match context.mirror {
-    Some(mirror) => mirror
-    None => self.style_mirror(context, self.text_area.get_client_width())
   }
   let line = self.lines[position.line]
   let (x, y) = match
@@ -432,7 +375,7 @@ fn TextLayout::locate_caret(
     ),
     y: y - self.element.get_bounding_client_rect().get_top(),
   }
-  context.caret = Some({ source, measured, })
+  self.caret = Some({ source, measured, })
   (measured, cause)
 }
 

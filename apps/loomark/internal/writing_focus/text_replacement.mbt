@@ -1,6 +1,8 @@
 ///|
-priv struct LineReplacement {
-  text_lines : TextLines
+/// `source` replaces lines `first` through `first + removed - 1` with
+/// `inserted`.
+pub struct LineEdit {
+  source : TextLines
   first : Int
   removed : Int
   inserted : ArrayView[String]
@@ -68,7 +70,7 @@ pub fn TextChange::TextChange(before : String, after : String) -> TextChange {
 
 ///|
 /// Returns a new index without changing `self`; unchanged text returns `None`.
-fn TextLines::replace_text(self : TextLines, text : String) -> LineReplacement? {
+pub fn TextLines::replace_text(self : TextLines, text : String) -> LineEdit? {
   if text == self.text {
     return None
   }
@@ -98,7 +100,7 @@ fn TextLines::replace_text(self : TextLines, text : String) -> LineReplacement? 
     }
   })
   Some({
-    text_lines: index_lines(text, lines[:]),
+    source: index_lines(text, lines[:]),
     first,
     removed,
     inserted: lines[first:first + inserted.length()],

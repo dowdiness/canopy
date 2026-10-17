@@ -189,7 +189,13 @@ fn group_at(groups : ArrayView[LineRange], line : Int) -> LineRange? {
 }
 
 ///|
-fn TextLines::focus_lines(
+pub suberror InvalidSelection {
+  OutsideText(start~ : Int, end~ : Int, length~ : Int)
+}
+
+///|
+/// The writing group, or groups, that a selection touches.
+pub fn TextLines::focus_lines(
   self : TextLines,
   selection_start : Int,
   selection_end : Int,
@@ -226,4 +232,28 @@ fn TextLines::focus_lines(
     None => last_line
   }
   { first, last, }
+}
+
+///|
+/// The focused content range from the measured top of its first line and
+/// bottom of its last; the first and last groups extend over the padding to
+/// the document's edges.
+pub fn TextLines::focus_range(
+  self : TextLines,
+  lines : LineRange,
+  top~ : Double,
+  bottom~ : Double,
+) -> Range raise InvalidRange {
+  Range(
+    if lines.first == 0 {
+      0.0
+    } else {
+      top
+    },
+    if lines.last == self.lines.length() - 1 {
+      @double.infinity
+    } else {
+      bottom
+    },
+  )
 }
