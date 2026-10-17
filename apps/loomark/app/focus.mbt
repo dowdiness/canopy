@@ -1,4 +1,28 @@
 ///|
+priv enum FocusDecision {
+  FocusSidebar
+  FocusEditor
+  FocusToggle
+}
+
+///|
+/// An inert editor cannot hold focus; Focus Mode hides Preview's target, so
+/// its toggle receives focus instead.
+fn restored_editor_focus(
+  mode : EditorMode,
+  editor_inert~ : Bool,
+  target_inert~ : Bool,
+) -> FocusDecision {
+  if editor_inert {
+    FocusSidebar
+  } else if mode == Preview && target_inert {
+    FocusToggle
+  } else {
+    FocusEditor
+  }
+}
+
+///|
 /// Resolve the current node after rendering; never retain a node across the render.
 fn focus_after_render(id : String) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=AfterRender, _ => {
@@ -12,22 +36,24 @@ fn focus_after_render(id : String) -> @cmd.Cmd {
 /// Resolve the presentation after rendering, including recovery-driven activation.
 fn focus_editor_after_render(mode : EditorMode) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=AfterRender, scheduler => {
-    if editor_is_inert(@dom.document()) {
-      scheduler.queue_command(
-        @sidebar.sidebar_focus("loomark-document-sidebar"),
-      )
-      return
-    }
-    let id = editor_focus_id(mode)
-    if @dom.document().get_element_by_id(id).to_option() is Some(element) {
-      if mode == Preview && element.closest("[inert]") is Some(_) {
-        if @dom.document().get_element_by_id("loomark-focus-toggle").to_option()
+    let document = @dom.document()
+    let target = document.get_element_by_id(editor_focus_id(mode)).to_option()
+    let decision = restored_editor_focus(
+      mode,
+      editor_inert=editor_is_inert(document),
+      target_inert=target is Some(target) && is_inert(target),
+    )
+    match decision {
+      FocusSidebar =>
+        scheduler.queue_command(
+          @sidebar.sidebar_focus("loomark-document-sidebar"),
+        )
+      FocusEditor => if target is Some(target) { focus_element(target) }
+      FocusToggle =>
+        if document.get_element_by_id("loomark-focus-toggle").to_option()
           is Some(toggle) {
           focus_element(toggle)
         }
-      } else {
-        focus_element(element)
-      }
     }
   })
 }
@@ -47,18 +73,22 @@ fn retain_editor_focus_after_render() -> @cmd.Cmd {
 ///|
 fn editor_is_inert(document : @dom.Document) -> Bool {
   document.get_element_by_id("loomark-editor").to_option() is Some(editor) &&
-  editor.closest("[inert]") is Some(_)
+  is_inert(editor)
+}
+
+///|
+fn is_inert(element : @dom.Element) -> Bool {
+  element.closest("[inert]") is Some(_)
 }
 
 ///|
 /// Native focus remains an effect even when the resolved element is explicit.
 fn focus_element(element : @dom.Element) -> Unit {
   guard !element.has_attribute("disabled") &&
-    element.closest("[inert]") is None &&
-    element.get_client_rects().length() > 0 else {
+    !is_inert(element) &&
+    element.get_client_rects().length() > 0 &&
+    element.to_html_element() is Some(target) else {
     return
   }
-  if element.to_html_element() is Some(target) {
-    target.focus_with_options(prevent_scroll=true)
-  }
+  target.focus_with_options(prevent_scroll=true)
 }
