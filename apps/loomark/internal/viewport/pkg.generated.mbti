@@ -10,6 +10,8 @@ import {
 // Values
 pub fn connect_split_scroll(@dom.Element, @dom.Element, () -> Unit) -> (() -> Unit, () -> Unit)
 
+pub fn expose_scroll_top_to_styles(@dom.HTMLTextAreaElement) -> () -> Unit
+
 pub fn observe_text_area_resize(@dom.HTMLTextAreaElement) -> (() -> Unit) raise @js_ffi.JsError
 
 pub fn visual_viewport_subscription(@dom.Window, @dom.VisualViewport, @dom.HTMLElement) -> @sub.Sub

@@ -427,6 +427,16 @@
   background-attachment: local;
 }
 
+/* Firefox ignores `local` on a textarea, so the rows follow the scroll offset
+   that internal/viewport exposes. */
+@supports (-moz-appearance: none) {
+  .loomark-source {
+    background-attachment: scroll;
+    background-size: 1lh 100%, 100% 1lh;
+    background-position: -0.5lh 0, 0 calc(var(--loomark-scroll-top, 0px) * -1);
+  }
+}
+
 .loomark-source-frame {
   --loomark-first-line-top: 70px;
   /* Every engine lays out whole-pixel lines exactly, so text cannot drift from the grid. */

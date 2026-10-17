@@ -65,7 +65,8 @@ priv suberror TextAreaResizeSubscription {
 
 ///|
 /// Both the activation key and the responsive panel branch can replace the
-/// textarea. Resolve its node after rendering and release the old observation.
+/// textarea. Resolve its node after rendering and release the old observation
+/// and scroll exposure.
 fn text_area_resize_subscription(activation : Int, compact : Bool) -> @sub.Sub {
   @sub.custom_sub(
     "loomark.text-area-resize(\{activation},\{compact})",
@@ -82,20 +83,24 @@ fn text_area_resize_subscription(activation : Int, compact : Bool) -> @sub.Sub {
             element.to_html_text_area_element() is Some(area) else {
             return
           }
-          stop = Some(
-            @viewport.observe_text_area_resize(area) catch {
-              @js.JsError(error) => {
-                @js.global()
-                .get("console")
-                .call("error", [
-                  @js.any("Loomark could not observe the text area:"),
-                  error,
-                ])
-                |> ignore
-                return
-              }
-            },
-          )
+          let stop_exposing_scroll = @viewport.expose_scroll_top_to_styles(area)
+          let stop_observing_resize = @viewport.observe_text_area_resize(area) catch {
+            @js.JsError(error) => {
+              @js.global()
+              .get("console")
+              .call("error", [
+                @js.any("Loomark could not observe the text area:"),
+                error,
+              ])
+              |> ignore
+              stop = Some(stop_exposing_scroll)
+              return
+            }
+          }
+          stop = Some(() => {
+            stop_exposing_scroll()
+            stop_observing_resize()
+          })
         }),
       )
       Some({

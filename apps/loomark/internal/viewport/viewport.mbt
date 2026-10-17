@@ -123,6 +123,22 @@ pub fn observe_text_area_resize(
 }
 
 ///|
+/// Firefox does not scroll a textarea's `local` background with its text, so
+/// its styles shift the dot grid by this scroll offset instead.
+pub fn expose_scroll_top_to_styles(
+  area : @dom.HTMLTextAreaElement,
+) -> () -> Unit {
+  let style = area.get_style()
+  fn expose() {
+    style.set_property("--loomark-scroll-top", "\{area.get_scroll_top()}px")
+  }
+  let listener : @dom.Listener = _ => expose()
+  area.add_event_listener("scroll", listener)
+  expose()
+  () => area.remove_event_listener("scroll", listener)
+}
+
+///|
 priv suberror VisualViewportSubscription {
   FollowViewport
 }
