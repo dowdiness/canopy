@@ -14,12 +14,33 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   } else {
     @sub.none
   }
-  let (model, emit) = @rabbita.create_state_with_init(
-    init=emit => initial_state(emit, initial_compact),
-    update=(model, msg, emit) => update(model, msg, emit, editor),
-    subscriptions=(current, emit) => {
-      subscriptions(current, emit, viewport_subscription)
+  @rui.sonner_host(
+    max_toasts=1,
+    position="bottom-left",
+    class="loomark-notifications",
+    build=toasts => {
+      let (model, emit) = @rabbita.create_state_with_init(
+        init=emit => initial_state(emit, initial_compact),
+        update=(model, msg, emit) => {
+          match msg {
+            Notify(message) =>
+              (model, toasts.show(title=message, variant=ToastDestructive))
+            NotificationFocusReturn =>
+              (
+                model,
+                match model.page {
+                  Editing(editing) => focus_editor_after_render(editing.mode)
+                  _ => @cmd.none
+                },
+              )
+            _ => update(model, msg, emit, editor)
+          }
+        },
+        subscriptions=(current, emit) => {
+          subscriptions(current, emit, viewport_subscription)
+        },
+      )
+      (view(model, emit, editor), () => emit(NotificationFocusReturn))
     },
   )
-  view(model, emit, editor)
 }

@@ -2,7 +2,7 @@
 pub enum Key {
   Source(@source_repository.DocumentId)
   Replica(@source_repository.AccountId, @source_repository.DocumentId)
-} derive(Eq, Hash)
+} derive(Eq, Hash, Debug)
 
 ///|
 priv enum LocalDocumentOrigin {
@@ -13,16 +13,17 @@ priv enum LocalDocumentOrigin {
 
 ///|
 priv enum DocumentPersistence {
-  Source(LocalDocumentOrigin, SourceDeletePhase)
-  StartingSync(@source_repository.AccountId, @source_repository.Document)
-  Replica(@source_repository.AccountId, ReplicaDeletePhase)
-  Forking(ForkOwnership)
+  Source(LocalDocumentOrigin, SourceLifecycle)
+  StartingSync(
+    @source_repository.AccountId,
+    @source_repository.Document,
+    Autosave
+  )
+  Replica(@source_repository.AccountId, ReplicaDeletePhase, Autosave)
+  Forking(ForkOwnership, Autosave)
 } derive(Eq)
 
 ///|
-/// Page-local projection of synchronized deletion. The durable Replica and its
-/// persistence lane remain authoritative; this state only controls visibility
-/// and failure feedback.
 priv enum ReplicaDeletePhase {
   ReplicaAvailable
   ReplicaPending
@@ -37,11 +38,35 @@ priv struct ForkOwnership {
 } derive(Eq)
 
 ///|
-priv enum SourceDeletePhase {
-  Available
-  Waiting(DeleteOperation)
-  Deleting(DeleteOperation)
-  Failed(DeleteOperation, @source_repository.DeleteFailure)
+priv struct DeletionFailure {
+  operation : DeleteOperation
+  cause : @source_repository.DeleteFailure
+} derive(Eq)
+
+///|
+priv enum SourceLifecycle {
+  Writable(SourceSave, DeletionFailure?)
+  WaitingToDelete(SaveOperation, DeleteOperation, AutosaveWindow?)
+  Deleting(DeleteOperation, Autosave)
+} derive(Eq)
+
+///|
+/// Only a writable Source can start a write. WaitingToDelete owns an already
+/// running write; Deleting can retain autosave work but never a running write.
+priv enum SourceSave {
+  Idle
+  Waiting(AutosaveWindow)
+  Saving(SaveOperation, AutosaveWindow?)
+  Failed(@source_repository.SaveFailure)
+} derive(Eq)
+
+///|
+/// Autosave scheduling without a Source write. Idle means no scheduled work,
+/// not a durability acknowledgment; Replica durability belongs to its lane.
+priv enum Autosave {
+  Idle
+  Waiting(AutosaveWindow)
+  Failed(@source_repository.SaveFailure)
 } derive(Eq)
 
 ///|
@@ -58,21 +83,13 @@ priv struct AutosaveWindow {
 } derive(Eq)
 
 ///|
-priv enum DocumentsSaveStatus {
-  Saved
-  Waiting(AutosaveWindow)
-  Saving(SaveOperation, AutosaveWindow?)
-  Failed(@source_repository.SaveFailure)
-} derive(Eq)
-
-///|
 priv enum LeadSource {
   Unlisted
   Available(String)
 } derive(Eq)
 
 ///|
-priv enum EditState {
+priv enum Editing {
   Idle
   Waiting(Int)
   ComposingIdle
@@ -85,8 +102,7 @@ priv struct Record {
   persistence : DocumentPersistence
   document : @source_repository.Document
   version : Int
-  edit : EditState
-  save : DocumentsSaveStatus
+  edit : Editing
   lead_source : LeadSource
 } derive(Eq)
 
@@ -94,6 +110,7 @@ priv struct Record {
 pub struct SaveOperation {
   key : Key
   document : @source_repository.Document
+  priv request_id : Int
 } derive(Eq)
 
 ///|
@@ -104,70 +121,92 @@ pub struct DeleteOperation {
 } derive(Eq)
 
 ///|
-/// One Replica edit admitted by Documents. The durable base and optimistic
-/// working copy are consumed together by the parent in the same update.
 pub struct ReplicaEdit {
   priv durable : @source_repository.DocumentReplica
   priv document : @source_repository.Document
 } derive(Eq)
 
 ///|
-#warnings("-unused_value")
-priv enum DocumentsDeletePhase {
-  Unavailable
-  Available
-  Waiting(DeleteOperation)
-  Deleting(DeleteOperation)
-  Failed(DeleteOperation, @source_repository.DeleteFailure)
-  ReplicaPending
-  ReplicaFailed(@source_repository.ReplicaFailure)
-} derive(Eq)
+pub enum Edit {
+  Changed(Transition)
+  SameText
+}
 
 ///|
-pub(all) enum Feedback {
+pub enum Delete {
+  Accepted(Transition)
+  AlreadyPending
+}
+
+///|
+pub enum Update {
+  Applied(Transition)
+  // The current input is already satisfied; no transition is needed.
+  Unchanged
+  Superseded
+}
+
+///|
+pub struct Transition {
+  model : Model
+  effects : ReadOnlyArray[Action]
+}
+
+///|
+pub(all) enum Msg {
+  Imported(@source_repository.DocumentId, String)
+  CompositionStarted(Key)
+  CompositionEnded(Key)
+  RetrySave(Key)
+  VisibilityFlush(Key)
+  VisibilityFlushAll
+  ApplyPendingEdit(Key, Int)
+  DismissDeleteFailure(Key)
   MaximumElapsed(Int)
-  SaveCompleted(SaveOperation, @source_repository.SaveResult)
+  Saved(SaveOperation, @source_repository.Document)
+  SaveFailed(SaveOperation, @source_repository.SaveFailure)
+  Deleted(DeleteOperation, @source_repository.DocumentId)
+  DeleteFailed(DeleteOperation, @source_repository.DeleteFailure)
   ReplicaAdvanced(@source_repository.ReplicaWrite)
   ReplicaSettled(@source_repository.ReplicaWrite, Key?)
   ReplicaDeletionFailed(
     @source_repository.ReplicaWrite,
     @source_repository.ReplicaFailure
   )
-  PromotionCompleted(
+  Promoted(@source_repository.ReplicaWrite)
+  PromotionFailed(
     @source_repository.ReplicaWrite,
-    Result[Unit, @source_repository.ReplicaFailure]
+    @source_repository.ReplicaFailure
   )
-  DeleteCompleted(DeleteOperation, @source_repository.DeleteResult)
 }
 
 ///|
-/// Translate a settled persistence lane into document lifecycle feedback.
-/// An ordinary failed write remains retryable in the lane, not in Documents.
-pub fn Feedback::from_replica_completion(
+pub fn Msg::from_replica_completion(
   active : @source_repository.ReplicaWrite,
   completion : @replica_persistence.Completion,
   mounted : Key?,
-) -> Feedback? {
-  let (write, result, current) = match completion {
-    @replica_persistence.Completion::Current(write) => (write, Ok(()), true)
-    Superseded(write, _) => (write, Ok(()), false)
-    Retryable(write, _, failure) | Failed(write, failure) =>
-      (write, Err(failure), false)
-  }
-  if active is @source_repository.ReplicaWrite::PromoteSource(_) {
-    return Some(PromotionCompleted(write, result))
-  }
-  match result {
-    Ok(_) =>
+) -> Msg? {
+  match completion {
+    Current(write) =>
       Some(
-        if current {
+        if active is @source_repository.ReplicaWrite::PromoteSource(_) {
+          Promoted(write)
+        } else {
           ReplicaSettled(write, mounted)
+        },
+      )
+    Superseded(write, _) =>
+      Some(
+        if active is @source_repository.ReplicaWrite::PromoteSource(_) {
+          Promoted(write)
         } else {
           ReplicaAdvanced(write)
         },
       )
-    Err(failure) =>
-      if write is @source_repository.ReplicaWrite::Remove(_) ||
+    Retryable(write, _, failure) | Failed(write, failure) =>
+      if active is @source_repository.ReplicaWrite::PromoteSource(_) {
+        Some(PromotionFailed(write, failure))
+      } else if write is @source_repository.ReplicaWrite::Remove(_) ||
         write.replica().is_deleting() ||
         write.replica().is_deleted() {
         Some(ReplicaDeletionFailed(write, failure))
@@ -175,23 +214,6 @@ pub fn Feedback::from_replica_completion(
         None
       }
   }
-}
-
-///|
-pub(all) enum Msg {
-  New(@source_repository.DocumentId)
-  Imported(@source_repository.DocumentId, String)
-  TextChanged(Key, String)
-  CompositionStarted(Key)
-  CompositionEnded(Key)
-  FeedbackReceived(Feedback)
-  RetrySave(Key)
-  VisibilityFlush(Key)
-  VisibilityFlushAll
-  ApplyPendingEdit(Key, Int)
-  DeleteConfirmed(Key)
-  RetryDelete(Key)
-  DismissDeleteFailure(Key)
 }
 
 ///|
@@ -204,6 +226,34 @@ pub(all) enum Action {
   RetryReplica(@source_repository.AccountId, @source_repository.DocumentId)
   DeleteSource(DeleteOperation)
 }
+
+///|
+pub(all) suberror CreateError {
+  DocumentAlreadyExists(Key)
+} derive(Eq, Debug)
+
+///|
+pub(all) suberror EditError {
+  DocumentMissing(Key)
+  PendingDeletion(Key)
+} derive(Eq, Debug)
+
+///|
+pub(all) suberror DeleteError {
+  DocumentMissing(Key)
+  OwnershipTransferInProgress(Key)
+  ReplicaMissing(Key)
+} derive(Eq, Debug)
+
+///|
+pub(all) suberror UpdateError {
+  DocumentMissing(Key)
+  PendingDeletion(Key)
+  CompositionInProgress(Key)
+  DocumentMismatch(Key)
+  DocumentAlreadyExists(Key)
+  InvalidAcknowledgment(Key)
+} derive(Eq, Debug)
 
 ///|
 pub(all) enum SaveStatus {
@@ -257,14 +307,13 @@ pub(all) enum RemoteState {
 
 ///|
 pub(all) enum RemoteAcceptance {
-  Opened(State, @source_repository.Document, @source_repository.ReplicaWrite)
-  Removed(State, @source_repository.ReplicaWrite)
+  Opened(Model, @source_repository.Document, @source_repository.ReplicaWrite)
+  Removed(Model, @source_repository.ReplicaWrite)
 }
 
 ///|
-/// A canonical durable Replica materialized as one exact working copy.
 pub struct OpenedDocument {
-  priv documents : State
+  priv documents : Model
   priv key : Key
   priv document : @source_repository.Document
 }
@@ -281,7 +330,7 @@ pub(all) suberror ActionError {
 } derive(Eq, Debug)
 
 ///|
-pub struct State {
+pub struct Model {
   priv saved : @source_repository.SavedDocuments
   priv records : Array[Record]
   priv visible_account : @source_repository.AccountId?
@@ -327,7 +376,34 @@ pub extend SaveStatus with Eq::{equal, not_equal}
 pub extend StartSync with Eq::{equal, not_equal}
 
 ///|
-pub extend State with Eq::{equal, not_equal}
+pub extend Model with Eq::{equal, not_equal}
 
 ///|
 pub extend SyncStart with Eq::{equal, not_equal}
+
+///|
+pub extend Key with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend CreateError with Eq::{equal, not_equal}
+
+///|
+pub extend CreateError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend EditError with Eq::{equal, not_equal}
+
+///|
+pub extend EditError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DeleteError with Eq::{equal, not_equal}
+
+///|
+pub extend DeleteError with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend UpdateError with Eq::{equal, not_equal}
+
+///|
+pub extend UpdateError with @moonbitlang/core/debug.Debug::{to_repr}

@@ -194,9 +194,9 @@ fn[Id] render_row(
   let children = [
     @html.div(
       class=if row.lead.form() is @document_lead.DocumentLeadForm::Code {
-        "overflow-hidden whitespace-pre-wrap break-words bg-lm-foundation px-1 font-lm-mono text-xs leading-5 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+        "overflow-hidden whitespace-pre-wrap break-words rounded bg-lm-surface px-1 font-lm-mono text-xs leading-5 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
       } else {
-        "overflow-hidden whitespace-pre-wrap break-words text-sm leading-5 font-semibold text-lm-ink [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+        "overflow-hidden whitespace-pre-wrap break-words text-sm leading-5 font-medium text-lm-ink [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
       },
       row.lead.primary(),
     ),

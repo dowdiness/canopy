@@ -46,6 +46,8 @@ pub fn viewport_width() -> Double
 
 pub fn visual_viewport_scale(@dom.VisualViewport) -> Double
 
+pub fn warm_japanese_fonts() -> Unit
+
 pub fn window_outer_height(@dom.Window) -> Double
 
 // Errors

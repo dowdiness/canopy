@@ -1,203 +1,165 @@
 ///|
-fn delete_is_active(phase : DocumentsDeletePhase) -> Bool {
-  match phase {
-    Unavailable | Available | Failed(_, _) | ReplicaFailed(_) => false
-    Waiting(_) | Deleting(_) | ReplicaPending => true
-  }
-}
-
-///|
 fn remove_record(records : Array[Record], key : Key) -> Array[Record] {
-  records.filter(r => r.key() != key)
+  records.filter(record => record.key() != key)
 }
 
 ///|
-fn issue_delete_record(
+fn issue_delete(
   record : Record,
   origin : LocalDocumentOrigin,
   operation : DeleteOperation,
-  retained : DocumentsSaveStatus,
-) -> (Record, Action) {
+  restoration : Autosave,
+) -> (Record, ReadOnlyArray[Action]) {
   (
-    {
-      ..record,
-      save: retained,
-      persistence: Source(origin, SourceDeletePhase::Deleting(operation)),
-    },
-    DeleteSource(operation),
+    { ..record, persistence: Source(origin, Deleting(operation, restoration)), },
+    [DeleteSource(operation)],
   )
 }
 
 ///|
-fn confirm_source_delete(
-  documents : State,
-  id : Key,
-  record : Record,
-  origin : LocalDocumentOrigin,
-  phase : SourceDeletePhase,
-) -> (State, Array[Action]) {
-  guard phase is SourceDeletePhase::Available ||
-    phase is SourceDeletePhase::Failed(_, _) else {
-    return (documents, [])
-  }
-  let request_id = documents.last_delete_request + 1
-  let key = record.key()
-  let operation = { key, document_id: record.document.id(), request_id, }
-  match record.save {
-    Saving(_, _) =>
-      (
-        {
-          ..documents,
-          last_delete_request: request_id,
-          records: replace_record(documents.records, id, r => {
-            ..r,
-            persistence: Source(origin, SourceDeletePhase::Waiting(operation)),
-          }),
-        },
-        [],
-      )
-    _ if documents.saved.find(record.document.id()) is None =>
-      (
-        {
-          ..documents,
-          last_delete_request: request_id,
-          records: remove_record(documents.records, id),
-        },
-        [],
-      )
-    _ => {
-      let (record, decision) = issue_delete_record(
-        record,
-        origin,
-        operation,
-        record.save,
-      )
-      (
-        {
-          ..documents,
-          last_delete_request: request_id,
-          records: replace_record(documents.records, id, _ => record),
-        },
-        [decision],
-      )
-    }
-  }
-}
-
-///|
-fn confirm_replica_delete(
-  documents : State,
-  id : Key,
-  record : Record,
-  account : @source_repository.AccountId,
-  phase : ReplicaDeletePhase,
-) -> (State, Array[Action]) {
-  match phase {
-    ReplicaAvailable =>
-      match documents.saved.replica(account, record.document.id()) {
-        Some(durable) =>
-          (
-            {
-              ..documents,
-              records: replace_record(documents.records, id, current => {
-                ..current,
-                persistence: Replica(account, ReplicaPending),
-              }),
-            },
-            [DeleteReplica({ durable, document: record.document, })],
-          )
-        None => (documents, [])
-      }
-    ReplicaFailed(_) =>
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, id, current => {
-            ..current,
-            persistence: Replica(account, ReplicaPending),
-          }),
-        },
-        [RetryReplica(account, record.document.id())],
-      )
-    ReplicaPending => (documents, [])
-  }
-}
-
-///|
-fn confirm_or_retry_delete(
-  documents : State,
-  id : Key,
-) -> (State, Array[Action]) {
-  guard find_record(documents.records, id) is Some(record) else {
-    return (documents, [])
+pub fn Model::delete(self : Self, key : Key) -> Delete raise DeleteError {
+  guard find_record(self.records, key) is Some(record) else {
+    raise DocumentMissing(key)
   }
   match record.persistence {
-    Source(origin, phase) =>
-      confirm_source_delete(documents, id, record, origin, phase)
-    Replica(account, phase) =>
-      confirm_replica_delete(documents, id, record, account, phase)
-    StartingSync(_, _) | Forking(_) => (documents, [])
+    StartingSync(_, _, _) | Forking(_, _) =>
+      raise OwnershipTransferInProgress(key)
+    Source(_, WaitingToDelete(_, _, _) | Deleting(_, _))
+    | Replica(_, ReplicaPending, _) => AlreadyPending
+    Source(origin, Writable(save, _)) => {
+      let operation : DeleteOperation = {
+        key,
+        document_id: record.document.id(),
+        request_id: self.last_delete_request + 1,
+      }
+      let model = { ..self, last_delete_request: operation.request_id, }
+      let restoration : Autosave = match save {
+        Saving(active, pending) => {
+          let record = {
+            ..record,
+            persistence: Source(
+              origin,
+              WaitingToDelete(active, operation, pending),
+            ),
+          }
+          return Accepted(
+            transition(
+              {
+                ..model,
+                records: replace_record(model.records, key, _ => record),
+              },
+              [],
+            ),
+          )
+        }
+        Idle => Idle
+        Waiting(window) => Waiting(window)
+        Failed(failure) => Failed(failure)
+      }
+      if model.saved.find(record.document.id()) is None {
+        return Accepted(
+          transition({ ..model, records: remove_record(model.records, key), }, []),
+        )
+      }
+      let (record, effects) = issue_delete(
+        record, origin, operation, restoration,
+      )
+      Accepted(
+        transition(
+          { ..model, records: replace_record(model.records, key, _ => record), },
+          effects,
+        ),
+      )
+    }
+    Replica(account, deletion, autosave) => {
+      guard self.saved.replica(account, record.document.id()) is Some(durable) else {
+        raise ReplicaMissing(key)
+      }
+      let effects : ReadOnlyArray[Action] = match deletion {
+        ReplicaFailed(_) => [RetryReplica(account, record.document.id())]
+        ReplicaAvailable =>
+          [DeleteReplica({ durable, document: record.document, })]
+        ReplicaPending => []
+      }
+      let record = {
+        ..record,
+        persistence: Replica(account, ReplicaPending, autosave),
+      }
+      Accepted(
+        transition(
+          { ..self, records: replace_record(self.records, key, _ => record), },
+          effects,
+        ),
+      )
+    }
   }
 }
 
 ///|
-fn finish_delete(
-  documents : State,
+fn delete_succeeded(
+  model : Model,
   operation : DeleteOperation,
-  result : @source_repository.DeleteResult,
-) -> (State, Array[Action]) {
-  let key = operation.key
-  guard find_record(documents.records, key) is Some(record) else {
-    return (documents, [])
-  }
-  guard record.persistence
-    is Source(origin, SourceDeletePhase::Deleting(active)) &&
+  document_id : @source_repository.DocumentId,
+) -> Update raise UpdateError {
+  guard find_record(model.records, operation.key) is Some(record) &&
+    record.persistence is Source(_, Deleting(active, _)) &&
     active == operation else {
-    return (documents, [])
+    return Superseded
   }
-  match result {
-    Deleted(id) => {
-      guard id == operation.document_id else { return (documents, []) }
-      guard documents.saved.apply(
-          @source_repository.RepositoryChange::Deleted(id),
-        )
-        is Some(saved) else {
-        return (documents, [])
-      }
-      (
-        { ..documents, saved, records: remove_record(documents.records, key), },
-        [],
-      )
-    }
-    DeleteFailed(failure) => {
-      let restored = {
-        ..record,
-        persistence: Source(
-          origin,
-          SourceDeletePhase::Failed(operation, failure),
-        ),
-      }
-      let (restored, decisions) = match record.save {
-        Waiting(replica) if replica.eligibility == AutosaveEligibility::Eligible &&
-          !is_composing(record.edit) => begin_save(documents.saved, restored)
-        Waiting(replica) => {
-          let (replica, decisions) = autosave_effect(replica, true)
-          (
-            { ..restored, save: DocumentsSaveStatus::Waiting(replica), },
-            decisions,
-          )
-        }
-        _ => (restored, [])
-      }
-      (
-        {
-          ..documents,
-          records: replace_record(documents.records, key, fn(_) {
-            return restored
-          }),
-        },
-        decisions,
-      )
-    }
+  guard document_id == operation.document_id else {
+    raise DocumentMismatch(operation.key)
   }
+  guard model.saved.apply(
+      @source_repository.RepositoryChange::Deleted(document_id),
+    )
+    is Some(saved) else {
+    raise InvalidAcknowledgment(operation.key)
+  }
+  Applied(
+    transition(
+      { ..model, saved, records: remove_record(model.records, operation.key), },
+      [],
+    ),
+  )
+}
+
+///|
+fn delete_failed(
+  model : Model,
+  operation : DeleteOperation,
+  failure : @source_repository.DeleteFailure,
+) -> Update {
+  guard find_record(model.records, operation.key) is Some(record) &&
+    record.persistence is Source(origin, Deleting(active, restoration)) &&
+    active == operation else {
+    return Superseded
+  }
+  let record = {
+    ..record,
+    persistence: Source(
+      origin,
+      Writable(
+        SourceSave::from_autosave(restoration),
+        Some({ operation, cause: failure, }),
+      ),
+    ),
+  }
+  let (record, effects) = match restoration {
+    Waiting(window) if window.eligibility == Eligible &&
+      !is_composing(record.edit) => begin_save(model.saved, record)
+    Waiting(window) => {
+      let (window, effects) = autosave_effect(window, true)
+      (record.schedule(Some(window)), effects)
+    }
+    Idle | Failed(_) => (record, [])
+  }
+  Applied(
+    transition(
+      {
+        ..model,
+        records: replace_record(model.records, operation.key, _ => record),
+      },
+      effects,
+    ),
+  )
 }

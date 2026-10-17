@@ -1,5 +1,5 @@
 ///|
-fn signed_out_model(editing : EditingState) -> Model {
+fn signed_out_model(editing : EditingDocument) -> Model {
   let (sync, lookup) = @sync.State().begin_lookup() catch {
     _ => abort("fresh session lookup")
   }
@@ -47,12 +47,14 @@ fn redirecting_model() -> Model {
 test "sign-in advances on the final local save completion" {
   let initial = test_editing()
   let key = initial.activation.key
-  let (documents, _) = initial.documents.reduce(
-    @documents.Msg::TextChanged(key, "latest"),
-  )
-  let (documents, actions) = documents.reduce(
+  let transition = expect_document_edit(initial.documents, key, "latest")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
     @documents.Msg::ApplyPendingEdit(key, 1),
   )
+  let documents = transition.model
+  let actions = transition.effects
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
@@ -60,9 +62,7 @@ test "sign-in advances on the final local save completion" {
   assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
   let (ready, _) = test_root_update(
     waiting,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
-    ),
+    DocumentSaved(operation, operation.document),
   )
   assert_true(ready.sign_in is @sign_in.Connecting(..))
   assert_eq(
@@ -80,21 +80,21 @@ test "sign-in advances on the final local save completion" {
 test "local save failure releases editing and sign-in retries the failed save" {
   let initial = test_editing()
   let key = initial.activation.key
-  let (documents, _) = initial.documents.reduce(
-    @documents.Msg::TextChanged(key, "latest"),
-  )
-  let (documents, actions) = documents.reduce(
+  let transition = expect_document_edit(initial.documents, key, "latest")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
     @documents.Msg::ApplyPendingEdit(key, 1),
   )
+  let documents = transition.model
+  let actions = transition.effects
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
   let (waiting, _) = start_sign_in(signed_out_model({ ..initial, documents, }))
   let (failed, _) = test_root_update(
     waiting,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, SaveFailed(WriteFailed)),
-    ),
+    DocumentSaveFailed(operation, WriteFailed),
   )
   assert_true(
     account_controls_input(failed).sign_in
@@ -119,7 +119,7 @@ test "logout fences lookup and hides account membership without discarding open 
   let saved = test_sync_snapshot(account)
   let editing = {
     ..initial,
-    documents: @documents.State::State(saved).project_account(account),
+    documents: @documents.Model(saved).project_account(account),
     activation: { key, generation: 0, },
   }
   let (old_lookup, lookup) = current_sync(account).begin_lookup()
@@ -153,7 +153,7 @@ test "signed-out replica edits enter persistence synchronously during sign-in" {
   let key = @documents.Key::replica(account, document_id("one"))
   let editing = {
     ..test_editing(),
-    documents: @documents.State::State(test_sync_snapshot(account)),
+    documents: @documents.Model(test_sync_snapshot(account)),
     activation: { key, generation: 0, },
   }
   let (edited, _) = test_root_update(
@@ -301,7 +301,15 @@ test "physical completion during a newer save cannot bypass local persistence" {
     connecting,
     TextChanged(0, @text_change.TextChange::ReplaceAll("new text")),
   )
-  let (_, actions) = edited.page.documents_state().unwrap().save_changes()
+  let saved = edited.page.documents_state().unwrap().save_changes() catch {
+      @documents.DeleteError::DocumentMissing(_) =>
+        fail("document missing during test save")
+      @documents.DeleteError::OwnershipTransferInProgress(_) =>
+        fail("document transfer during test save")
+      @documents.DeleteError::ReplicaMissing(_) =>
+        fail("replica missing during test save")
+    }
+  let actions = saved.effects
   guard actions is [@documents.Action::PersistSource(operation)] else {
     fail("latest source persistence")
   }
@@ -314,9 +322,7 @@ test "physical completion during a newer save cannot bypass local persistence" {
   assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
   let (ready, _) = test_root_update(
     waiting,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
-    ),
+    DocumentSaved(operation, operation.document),
   )
   let next = sign_in_request(ready)
   assert_true(next != physical)
@@ -385,12 +391,14 @@ test "explicit cancellation retains the physical request and fences stale cancel
 test "canceling sign-in leaves its save alive and preserves subsequent editing" {
   let initial = test_editing()
   let key = initial.activation.key
-  let (documents, _) = initial.documents.reduce(
-    @documents.Msg::TextChanged(key, "saving"),
-  )
-  let (documents, actions) = documents.reduce(
+  let transition = expect_document_edit(initial.documents, key, "saving")
+  let documents = transition.model
+  let transition = expect_document_update(
+    documents,
     @documents.Msg::ApplyPendingEdit(key, 1),
   )
+  let documents = transition.model
+  let actions = transition.effects
   guard actions[0] is @documents.Action::PersistSource(operation) else {
     fail("source save")
   }
@@ -404,9 +412,7 @@ test "canceling sign-in leaves its save alive and preserves subsequent editing" 
   )
   let (completed, _) = test_root_update(
     edited,
-    DocumentsLifecycle(
-      @documents.Feedback::SaveCompleted(operation, Stored(operation.document)),
-    ),
+    DocumentSaved(operation, operation.document),
   )
   assert_true(
     account_controls_input(completed).sign_in is @sign_in.Available(_),

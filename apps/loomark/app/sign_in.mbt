@@ -8,7 +8,7 @@ fn sign_in_readiness(model : Model) -> @sign_in.Readiness {
       guard model.page is Editing(editing) else {
         return @sign_in.EditorUnavailable
       }
-      let editor : @sign_in.Editor = if editing.creation is Creating(_) {
+      let editor : @sign_in.Editor = if creation_in_progress(editing.creation) {
         Creating
       } else if editing.imports_pending > 0 {
         Importing
@@ -41,11 +41,36 @@ fn interrupt_sign_in(model : Model, msg : Msg) -> Model {
 }
 
 ///|
-fn save_changes(model : Model, emit : @rabbita.Emit[Msg]) -> (Model, @cmd.Cmd) {
+fn save_changes(
+  model : Model,
+  emit : @rabbita.Emit[Msg],
+) -> (Model, @cmd.Cmd, Bool) {
   guard model.page is Editing(editing) else {
     abort("sign-in requested saving without an editor")
   }
-  let (documents, actions) = editing.documents.save_changes()
+  let saving = editing.documents.save_changes() catch {
+    error => {
+      let notice = match error {
+        @documents.DeleteError::DocumentMissing(_) =>
+          "A document disappeared before sign-in could save changes. The current text was retained."
+        @documents.DeleteError::OwnershipTransferInProgress(_) =>
+          "A document is being transferred and cannot be saved for sign-in yet. The current text was retained."
+        @documents.DeleteError::ReplicaMissing(_) =>
+          "A synchronized document is unavailable. The current text was retained; retry after synchronization recovers."
+      }
+      let interrupted = model.sign_in.update(
+        @sign_in.Interrupted,
+        sign_in_readiness(model),
+      )
+      return (
+        { ..model, sign_in: interrupted.state, page: Editing(editing), },
+        notify(emit, notice),
+        false,
+      )
+    }
+  }
+  let documents = saving.model
+  let actions = saving.effects
   let (model, command) = apply_document_actions(
     { ..model, page: Editing({ ..editing, documents, }), },
     actions,
@@ -71,7 +96,7 @@ fn save_changes(model : Model, emit : @rabbita.Emit[Msg]) -> (Model, @cmd.Cmd) {
       }
     }
   }
-  (model, @cmd.batch(commands))
+  (model, @cmd.batch(commands), true)
 }
 
 ///|
@@ -90,22 +115,46 @@ fn update_sign_in(
   if event is @sign_in.Refresh && !model.sign_in.blocks_editing() {
     return (model, @cmd.none)
   }
+  let was_active = model.sign_in.blocks_editing()
   let transition = model.sign_in.update(event, sign_in_readiness(model))
   let mut model = { ..model, sign_in: transition.state, }
   let commands : Array[@cmd.Cmd] = []
+  // Refresh may discover a failed sign-in save, but releasing an obsolete
+  // authorization request while already failed must not replay its notice.
+  if was_active || event is @sign_in.AuthenticationFailed {
+    match model.sign_in.view(sign_in_readiness(model)) {
+      @sign_in.Failed(@sign_in.Save(_), ..) =>
+        commands.push(
+          notify(
+            emit, "Couldn’t save changes. You have not left this page. Retry sign-in to save again.",
+          ),
+        )
+      Failed(Authentication, ..) =>
+        commands.push(
+          notify(
+            emit, "Couldn’t sign in with Google. Your documents remain on this device.",
+          ),
+        )
+      _ => ()
+    }
+  }
   for effect in transition.effects {
     match effect {
       @sign_in.SaveChanges => {
-        let (saved, command) = save_changes(model, emit)
-        // Observe only after document actions have updated persistence ownership.
-        let (advanced, next) = update_sign_in(
-          saved,
-          SignIn(@sign_in.Refresh),
-          emit,
-        )
-        model = advanced
+        let (saved, command, can_advance) = save_changes(model, emit)
         commands.push(command)
-        commands.push(next)
+        if can_advance {
+          // Observe only after document actions have updated persistence ownership.
+          let (advanced, next) = update_sign_in(
+            saved,
+            SignIn(@sign_in.Refresh),
+            emit,
+          )
+          model = advanced
+          commands.push(next)
+        } else {
+          model = saved
+        }
       }
       RequestAuthorizationUrl(request) =>
         commands.push(

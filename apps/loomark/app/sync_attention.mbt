@@ -4,7 +4,7 @@ fn sync_attention_view(
   persistence : @replica_persistence.Status?,
   activity : @sync.Activity?,
   emit : @rabbita.Emit[SyncIntent],
-) -> @rabbita.Html {
+) -> (@rabbita.Html, Bool) {
   let (notice, action) : (String, (String, SyncIntent)?) = match remote {
     Some(@documents.RemoteState::UpdateAvailable(action)) =>
       ("", Some(("Open update", AcceptRemote(action))))
@@ -14,8 +14,7 @@ fn sync_attention_view(
     Some(@documents.RemoteState::DeletedRemotely) => ("Deletion pending", None)
     _ =>
       match persistence {
-        Some(@replica_persistence.Status::Retryable(action, _)) =>
-          ("", Some(("Retry saving", RetrySaving(action))))
+        Some(@replica_persistence.Status::Retryable(_, _)) => ("", None)
         _ =>
           match activity {
             Some(@sync.Activity::Retryable(action)) =>
@@ -28,8 +27,11 @@ fn sync_attention_view(
     Some((label, message)) => (label, Some(message))
     None => ("", None)
   }
-  @html.fragment([
-    sync_status_label(notice),
-    sync_status_button(action_label, message, emit),
-  ])
+  (
+    @html.fragment([
+      sync_status_label(notice),
+      sync_status_button(action_label, message, emit),
+    ]),
+    !notice.is_empty() || action is Some(_),
+  )
 }

@@ -5,7 +5,23 @@ fn view(
   editor : @editor.MarkdownEditor,
 ) -> @rabbita.Val[@rabbita.Html] {
   let page = model.map(model => model.page)
-  let editor_input : @rabbita.Val[EditorInput?] = model.map(model => {
+  let focus_mode = model.map(model => model.focus_mode)
+  // Profiles follow the settled Recent documents source, not each keystroke.
+  let profile = model
+    .map(model => {
+      guard model.page is Editing(editing) else { return None }
+      editing.documents
+      .recent()
+      .iter()
+      .find_first(item => item.0 == editing.activation.key)
+      .map(item => item.1)
+    })
+    .map(source => source.map(text_profile))
+  let japanese = profile.map(profile => profile is Some({ japanese: true, .. }))
+  let editor_input : @rabbita.Val[EditorInput?] = model.map2(japanese, (
+    model,
+    japanese,
+  ) => {
     match model.page {
       Editing(editing) =>
         Some({
@@ -15,24 +31,21 @@ fn view(
             editing.activation.key,
           )
           is Some(NotStarted),
-          disabled: editing.creation is Creating(_) ||
+          disabled: creation_in_progress(editing.creation) ||
           model.sign_in.blocks_editing(),
           read_only: editing.deletion_blocks_document_changes(),
           mode: editing.mode,
           preview: editing.preview,
+          japanese,
         })
-      Loading(_)
-      | PreparingNew(_)
-      | NewPreparationFailed(_, _)
-      | Recovery(_, _) => None
+      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
     }
   })
 
   let compact = page.map(page => {
     match page {
       Loading(compact) => compact
-      PreparingNew(preparing) | NewPreparationFailed(preparing, _) =>
-        preparing.compact
+      OpeningNew(opening, _) => opening.compact
       Editing(editing) => editing.compact
       Recovery(_, compact) => compact
     }
@@ -51,7 +64,6 @@ fn view(
       RetryAccount => Msg::RetryAccount
       StartSync(action) => Msg::StartSync(action)
       AcceptRemote(action) => Msg::AcceptRemote(action)
-      RetrySaving(action) => Msg::RetrySaving(action)
       RetrySync(action) => Msg::RetrySync(action)
       RetrySelection(action) => Msg::RetrySelection(action)
     }
@@ -89,7 +101,7 @@ fn view(
     local_durability_option_view(durability)
   })
   let replica_persistence_view = replica_persistence.view(persistence => {
-    replica_persistence_option_view(persistence, on_sync)
+    replica_persistence_option_view(persistence)
   })
   let document_sync_view = document_sync.view(sync => {
     document_sync_option_view(sync, on_sync)
@@ -123,10 +135,7 @@ fn view(
   let recent_seeds = page.map2(remote_seeds, (page, remote) => {
     match page {
       Editing(editing) => recent_document_seeds(editing, remote)
-      Loading(_)
-      | PreparingNew(_)
-      | NewPreparationFailed(_, _)
-      | Recovery(_, _) => @vector.Vector([])
+      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => @vector.Vector([])
     }
   })
   let delete_confirmation = page.map(page => {
@@ -136,10 +145,7 @@ fn view(
           DeleteConfirmation(id) => Some(id)
           NoDeletion => None
         }
-      Loading(_)
-      | PreparingNew(_)
-      | NewPreparationFailed(_, _)
-      | Recovery(_, _) => None
+      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
     }
   })
   // Resizing must preserve the sidebar state, so it outlives responsive editor branches.
@@ -172,7 +178,6 @@ fn view(
   let account_controls = account_input.view(input => {
     account_controls(input, on_account)
   })
-  let account_notice = account_input.view(account_notice)
   let tools_input = model.map(document_tools_input)
   let tools = tools_input.view(input => {
     match input {
@@ -181,14 +186,16 @@ fn view(
     }
   })
   let toolbar_input = model.map(toolbar_input)
-  let toolbar = toolbar_input.view3(account_controls, sync_status, (
+  let toolbar = toolbar_input.view4(account_controls, sync_status, focus_mode, (
     input,
     account,
     sync_status,
+    focus_mode,
   ) => {
     match input {
       None => @html.nothing
-      Some(input) => document_toolbar(input, account, sync_status, on_document)
+      Some(input) =>
+        document_toolbar(input, account, sync_status, focus_mode, on_document)
     }
   })
   let mode = page.map(page => {
@@ -203,87 +210,80 @@ fn view(
       None => @html.nothing
     }
   })
-  let footer = mode.view3(durability, sync_attention, (
+  let characters = profile.map(profile => {
+    profile.map(profile => profile.characters)
+  })
+  let footer = mode.view5(durability, sync_attention, characters, focus_mode, (
     mode,
     durability,
     attention,
+    characters,
+    focus_mode,
   ) => {
     let (sync_attention, persistence) = attention
     match mode {
       Some(mode) =>
-        document_footer(mode, durability, persistence, sync_attention, on_mode)
+        document_footer(
+          mode, durability, persistence, sync_attention, focus_mode, characters,
+          on_mode,
+        )
       None => @html.nothing
     }
   })
-  let notices = model
-    .map(notices_input)
-    .view(input => {
-      let save_failure = match input.failure {
-        Some(Save(failure)) => Some(failure)
-        _ => None
-      }
-      let failure = match input.failure {
-        None | Some(Save(_)) => @html.nothing
-        Some(Create(failure)) =>
-          creation_failure_view(failure, emit(CreateRequested))
-        Some(Example(activation, text, failure)) =>
-          example_creation_failure_view(
-            failure,
-            emit(ExampleSelected(activation, text)),
-          )
-        Some(Delete(key, failure)) =>
-          delete_failure_view(
-            failure,
-            emit(RetryDelete(key)),
-            emit(DismissDeleteFailure(key)),
-          )
-        Some(DeletePersistence(key, failure)) =>
-          delete_persistence_failure_view(failure, emit(RetryDelete(key)))
-      }
-      @html.fragment([
-        save_failure_view(save_failure, emit(RetrySave)),
-        failure,
-        if input.import_failed {
-          import_failure_view(emit(DismissImportFailure))
-        } else {
-          @html.nothing
-        },
-      ])
-    })
   let phase = page.map(page => {
     match page {
-      Loading(_) | PreparingNew(_) => LoadingScreen
-      Recovery(failure, _) | NewPreparationFailed(_, failure) =>
-        RecoveryScreen(failure)
+      Loading(_) => LoadingScreen
+      OpeningNew(_, creation) =>
+        match creation.status {
+          InProgress => LoadingScreen
+          Failed(_) | Fault(_) => CreationScreen
+        }
+      Recovery(failure, _) => RecoveryScreen(failure)
       Editing(_) => EditingScreen
     }
   })
-  let controls = toolbar.map3(account_notice, footer, (
+  let focus_disabled = model.map(model => {
+    match model.page {
+      Editing(editing) =>
+        !editing.can_activate() ||
+        editing.deletion is DeleteConfirmation(_) ||
+        model.sign_in.blocks_editing()
+      _ => true
+    }
+  })
+  let focus_controls = focus_mode.map2(focus_disabled, (focused, disabled) => {
+    (focused, focus_mode_toggle(focused, disabled, emit(FocusModeToggled)))
+  })
+  let controls = toolbar.map3(footer, focus_controls, (
     toolbar,
-    account_notice,
     footer,
-  ) => (toolbar, account_notice, footer))
-  let layout_input = phase.map8(
+    focus_controls,
+  ) => (toolbar, footer, focus_controls))
+  let layout_input = phase.map7(
     compact,
     recent_documents_view.navigation(),
     tools,
     controls,
     editor_view,
-    notices,
     recent_documents_view.dialog(),
-    (phase, compact, navigation, tools, controls, editor, notices, dialog) => {
-      let (toolbar, account_notice, footer) = controls
+    (phase, compact, navigation, tools, controls, editor, dialog) => {
+      let (toolbar, footer, focus_controls) = controls
+      let (focus_mode, focus_toggle) = focus_controls
       LayoutInput::{
         phase,
+        focus_mode,
+        focus_toggle,
         compact,
         navigation,
         tools,
         toolbar,
-        account_notice,
         editor,
         footer,
-        notices,
         dialog,
+        creation_action: @rui.button(
+          on_click=emit(RetryOpeningNewCreation),
+          "Retry creating",
+        ),
       }
     },
   )
@@ -300,7 +300,7 @@ fn document_tools_input(model : Model) -> DocumentToolsInput? {
   guard model.page is Editing(editing) else { return None }
   Some({
     activation: editing.activation,
-    examples_disabled: editing.creation is Creating(_) ||
+    examples_disabled: creation_in_progress(editing.creation) ||
     model.sign_in.blocks_editing(),
     import_disabled: model.sign_in.blocks_editing(),
   })
@@ -314,33 +314,4 @@ fn toolbar_input(model : Model) -> ToolbarInput? {
     menu_open: editing.menu_open,
     import_disabled: model.sign_in.blocks_editing(),
   })
-}
-
-///|
-fn notices_input(model : Model) -> NoticesInput {
-  guard model.page is Editing(editing) else {
-    return { failure: None, import_failed: false, }
-  }
-  let sign_in_reports_save_failure = account_controls_input(model).sign_in
-    is @sign_in.Failed(@sign_in.Save(_), ..)
-  let failure : DocumentFailure? = match
-    editing.documents.save_status(editing.activation.key) {
-    Some(@documents.SaveStatus::SaveFailed(failure)) if !sign_in_reports_save_failure =>
-      Some(Save(failure))
-    _ =>
-      match editing.creation {
-        CreationFailed(failure) => Some(Create(failure))
-        ExampleCreationFailed(text, failure) =>
-          Some(Example(editing.activation, text, failure))
-        _ =>
-          match editing.documents.delete_status(editing.activation.key) {
-            Some(@documents.DeleteStatus::DeleteFailed(failure)) =>
-              Some(Delete(editing.activation.key, failure))
-            Some(@documents.DeleteStatus::DeletePersistenceFailed(failure)) =>
-              Some(DeletePersistence(editing.activation.key, failure))
-            _ => None
-          }
-      }
-  }
-  { failure, import_failed: editing.import_failed, }
 }

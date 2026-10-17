@@ -348,9 +348,9 @@ test("save failure and recovery preserve native typing Undo and Redo", async ({ 
   await expect(status).toHaveText("Saved on this device")
   await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
   const undone = await editAcrossSaving(text, async () => {
-    await expect(page.getByRole("alert")).toBeVisible()
-    await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeEnabled()
+    await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toHaveCount(0)
     await expect(status).toHaveText("Not saved")
+    await expect(page.getByRole("alert")).toHaveCount(0)
     await page.evaluate(removeDocumentPutFailure)
   }, async () => {
     await expect(status).toHaveText("Saved on this device")
@@ -400,17 +400,17 @@ test("replica save retries preserve native typing history and persist the curren
   await expect(footer.getByRole("button", { name: "Retry sync", exact: true })).toBeHidden()
   await page.evaluate(installDocumentPutFailure, key)
   await text.pressSequentially(" re", { delay: 10 })
-  await expect(retry).toBeEnabled()
+  await expect(retry).toHaveCount(0)
   await expect(page.locator(".loomark-save-caption")).toMatchAriaSnapshot("- text: Not saved")
   await text.pressSequentially("vised", { delay: 10 })
-  await expect(retry).toBeEnabled()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
   await text.press("Control+Z")
   await expect(text).toHaveValue(nativeUndo)
   await text.press("Control+Shift+Z")
   await expect(text).toHaveValue("First revised")
-  await expect(retry).toBeEnabled()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
   await page.evaluate(removeDocumentPutFailure)
-  await retry.click()
+  await text.pressSequentially("!")
   await expect(page.locator(".loomark-save-status")).toHaveText("Saved on this device")
   await expect(retry).toBeHidden()
   await Promise.all(finishRemoteRequests.map(finish => finish()))
@@ -419,8 +419,8 @@ test("replica save retries preserve native typing history and persist the curren
   await page.reload()
   await openDocuments(page)
   await page.getByRole("complementary", { name: "Documents" })
-    .getByRole("button", { name: "First revised", exact: true }).click()
-  await expect(text).toHaveValue("First revised")
+    .getByRole("button", { name: "First revised!", exact: true }).click()
+  await expect(text).toHaveValue("First revised!")
 })
 
 test("native Undo saves an empty document without exporting hint text", async ({ page }) => {
@@ -1087,7 +1087,8 @@ for (const persistence of ["failed", "held"] as const) {
       await expect(editor).toHaveValue(latest)
       await expect(status).not.toHaveAccessibleName("Saved on this device")
       if (persistence === "failed") {
-        await expect(page.getByRole("alert")).toBeVisible()
+        await expect(status).toHaveAccessibleName("Not saved")
+        await expect(page.getByRole("alert")).toHaveCount(0)
         expect((await readStoredDocument(page))?.text).toBe(original)
       } else {
         expect(await page.evaluate(() => (
@@ -1226,27 +1227,139 @@ test("delayed imports preserve composition and remain available after later navi
   await expect(text).toHaveValue("# Composing A\n")
 })
 
-test("dismissing an import error restores the current writing destination", async ({ page }) => {
+test("Sonner import notifications preserve the current writing surface", async ({ page }) => {
   await page.goto("/")
   const text = page.locator("#loomark-text")
   await text.fill("# Keep my writing\n")
   await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(2, 6, "backward"))
   for (const mode of ["Text", "Split", "Preview"] as const) {
+    await page.setViewportSize({ width: 1280, height: 800 })
     await page.getByRole("tab", { name: mode, exact: true }).click()
+    const bounds = await page.locator("#loomark-editor-panels").boundingBox()
     await page.getByLabel("Import Markdown")
       .setInputFiles("tests/fixtures/import-malformed-utf8.md")
-    const dismiss = page.getByRole("alert").getByRole("button", { name: "Dismiss" })
+    const toast = page.locator('[data-slot="sonner"]').getByRole("alert")
+    await expect(toast).toContainText("The Markdown file could not be imported.")
+    await expect(toast.getByRole("button")).toHaveCount(1)
+    expect(await page.locator("#loomark-editor-panels").boundingBox()).toEqual(bounds)
+    const dismiss = toast.getByRole("button", { name: "Close notification" })
     await dismiss.focus()
     await dismiss.press("Enter")
     await expect(page.getByRole("alert")).toHaveCount(0)
-    await expect(mode === "Preview" ? page.getByRole("tab", { name: mode, exact: true }) : text)
-      .toBeFocused()
+    await expect(mode === "Preview" ? page.getByRole("tab", { name: mode, exact: true }) : text).toBeFocused()
     await expect(text).toHaveValue("# Keep my writing\n")
     expect(await text.evaluate(element => {
       const area = element as HTMLTextAreaElement
       return [area.selectionStart, area.selectionEnd, area.selectionDirection]
     })).toEqual([2, 6, "backward"])
   }
+  await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  const toggle = page.locator("#loomark-focus-toggle")
+  await toggle.click()
+  const dismiss = page.getByRole("alert").getByRole("button", { name: "Close notification" })
+  await dismiss.focus()
+  await dismiss.press("Enter")
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(toggle).toBeFocused()
+  await expect(toggle).toHaveAttribute("aria-pressed", "true")
+})
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`Sonner respects ${colorScheme} appearance and keyboard focus`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme })
+    await page.goto("/")
+    await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
+    const toast = page.getByRole("alert")
+    await expect(toast).toBeVisible()
+    const palette = await page.evaluate(() => {
+      const host = getComputedStyle(document.querySelector(".loomark-notifications")!)
+      const editor = getComputedStyle(document.querySelector(".loomark-viewport")!)
+      return ["--rui-background", "--rui-destructive"].map(token => [host.getPropertyValue(token), editor.getPropertyValue(token)])
+    })
+    for (const [actual, expected] of palette) expect(actual).toBe(expected)
+    const close = toast.getByRole("button", { name: "Close notification" })
+    await close.focus()
+    await expect(close).toBeFocused()
+    await expect(close).toHaveCSS("outline-style", "solid")
+    await expect(close).toHaveCSS("outline-width", "2px")
+  })
+}
+
+test("Sonner respects reduced motion and stays out of printed Preview", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill("# Printed writing\n")
+  await page.getByRole("tab", { name: "Preview", exact: true }).click()
+  await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  const toast = page.getByRole("alert")
+  await expect(toast).toBeVisible()
+  await expect.soft(toast).toHaveCSS("transition-duration", "0s")
+  for (const focused of [false, true]) {
+    if (focused) await page.locator("#loomark-focus-toggle").click()
+    await page.emulateMedia({ media: "print", reducedMotion: "no-preference" })
+    await expect(page.getByRole("heading", { name: "Printed writing" })).toBeVisible()
+    await expect.soft(page.locator("#loomark-focus-toggle")).toBeHidden()
+    await expect(page.locator(".loomark-notifications")).toBeHidden()
+    await expect(page.locator(".loomark-topbar")).toBeHidden()
+    await expect(page.locator(".loomark-footer")).toBeHidden()
+    await page.emulateMedia({ media: "screen", reducedMotion: "reduce" })
+  }
+})
+
+test("a replaced Sonner notification does not inherit the previous swipe", async ({ page }) => {
+  await page.goto("/")
+  const input = page.getByLabel("Import Markdown")
+  await input.setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  const toast = page.getByRole("alert")
+  await expect(toast).toBeVisible()
+  const firstId = await toast.getAttribute("data-toast-id")
+  const bounds = (await toast.boundingBox())!
+  await page.mouse.move(bounds.x + 30, bounds.y + 20)
+  await page.mouse.down()
+  await page.mouse.move(bounds.x + 70, bounds.y + 20, { steps: 5 })
+  await input.setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  await expect(toast).not.toHaveAttribute("data-toast-id", firstId!)
+  await page.mouse.move(bounds.x + 240, bounds.y + 20, { steps: 5 })
+  await page.mouse.up()
+  await expect(toast).toHaveAttribute("data-state", "open")
+  // The replacement still expires normally; it does not retain the old hover.
+  await page.mouse.move(600, 100)
+  await expect(toast).toBeHidden({ timeout: 10_000 })
+})
+
+test("separately completed concurrent import failures each notify", async ({ page }) => {
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  await page.evaluate(() => {
+    const failures: Array<() => void> = []
+    Object.assign(window, { failNextImport: () => failures.shift()!(), pendingImportReads: () => failures.length })
+    File.prototype.arrayBuffer = function () {
+      return new Promise<ArrayBuffer>((_, reject) => {
+        failures.push(() => reject(new Error("Import read failed")))
+      })
+    }
+  })
+  const input = page.getByLabel("Import Markdown")
+  await input.setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  await input.setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as { pendingImportReads(): number }).pendingImportReads(),
+  )).toBe(2)
+  const failNext = () => page.evaluate(() =>
+    (window as unknown as { failNextImport(): void }).failNextImport(),
+  )
+  await failNext()
+  const toast = page.getByRole("alert")
+  await expect(toast).toContainText("The Markdown file could not be imported.")
+  await expect(toast).toHaveAttribute("data-variant", "destructive")
+  const firstId = await toast.getAttribute("data-toast-id")
+  await toast.getByRole("button", { name: "Close notification" }).click()
+  await expect(toast).toBeHidden()
+  await failNext()
+  await expect(toast).toContainText("The Markdown file could not be imported.")
+  await expect(toast).toHaveAttribute("data-variant", "destructive")
+  await expect(toast).not.toHaveAttribute("data-toast-id", firstId!)
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
 })
 
 test("Import rejects malformed UTF-8 without creating a Source", async ({ page }) => {
@@ -1257,6 +1370,27 @@ test("Import rejects malformed UTF-8 without creating a Source", async ({ page }
   await expect(page.getByRole("alert")).toBeVisible()
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("")
   expect(await readStoredDocuments(page)).toEqual([])
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.evaluate(() => {
+    Object.defineProperty(window.visualViewport!, "height", { configurable: true, get: () => 360 })
+    window.visualViewport!.dispatchEvent(new Event("resize"))
+  })
+  for (const focused of [false, true]) {
+    if (focused) {
+      await page.locator("#loomark-focus-toggle").click()
+      await page.getByLabel("Import Markdown")
+        .setInputFiles("tests/fixtures/import-malformed-utf8.md")
+    }
+    const dismiss = page.getByRole("alert").getByRole("button", { name: "Close notification" })
+    await expect.poll(() => dismiss.evaluate(element => {
+      const bounds = element.getBoundingClientRect()
+      return bounds.top >= 0 && bounds.bottom <= 360 &&
+        element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2))
+    })).toBe(true)
+    await dismiss.click()
+    await expect(page.getByRole("alert")).toHaveCount(0)
+    await expect(page.locator("#loomark-focus-toggle")).toHaveAttribute("aria-pressed", String(focused))
+  }
 })
 
 test("mode changes preserve native text selection and Undo", async ({ page }) => {
@@ -1492,15 +1626,19 @@ for (const mode of ["Text", "Split"] as const) {
       return [area.selectionStart, area.selectionEnd, area.selectionDirection]
     })).toEqual(selection)
 
-    // Hiding bottom chrome must not hide a save failure or leave its old gap.
+    // Save failure does not add a floating notification over the writing surface.
     await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
     await editor.press("Control+End")
     await editor.pressSequentially(" unsaved")
-    const alert = page.getByRole("alert")
-    await expect(alert).toBeVisible()
-    await expect(footer).toBeHidden()
-    expect(await alert.evaluate(element => element.getBoundingClientRect().bottom))
-      .toBeCloseTo(320, 0)
+    await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
+    await expect(page.getByRole("alert")).toHaveCount(0)
+    await expect(footer).toBeVisible()
+    await expect(page.locator(".loomark-save-status")).toBeInViewport()
+    await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Not saved")
+    await expect(page.locator(".loomark-bottom-actions")).toBeHidden()
+    const focusBounds = await page.locator("#loomark-focus-toggle").boundingBox()
+    expect(focusBounds!.y).toBeGreaterThanOrEqual(0)
+    expect(focusBounds!.y + focusBounds!.height).toBeLessThanOrEqual(320)
   })
 }
 
@@ -1560,10 +1698,10 @@ for (const mode of ["Text", "Split"] as const) {
       // Returning to the preceding scenario's saved text clears its save error.
       // Keep each fixture distinct so typing still leaves an unsaved document.
       await editor.fill(`# Writing ${scenario}\n\n` + "Short line.\n".repeat(80))
-      if (failure) await expect(page.getByRole("alert")).toBeVisible()
+      if (failure) await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
       await editor.press("Control+End")
       await editor.pressSequentially("Current line")
-      if (failure) await expect(page.getByRole("alert")).toBeVisible()
+      if (failure) await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
       await expect.poll(() => editor.evaluate(element => {
         const area = element as HTMLTextAreaElement
         const style = getComputedStyle(area), rect = area.getBoundingClientRect()
@@ -1632,15 +1770,16 @@ test("scrollable text extends behind both bars without a separate blank frame", 
   }
 })
 
-test("first edit reports quota full without creating a Source", async ({ page }) => {
+test("first edit with full storage stays unsaved without a duplicate toast", async ({ page }) => {
   await page.addInitScript(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue("")
   expect(await readStoredDocuments(page)).toEqual([])
   await text.fill("# Full\n")
-  await expect(page.getByRole("alert")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Retry saving" })).toHaveCount(0)
   await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
   expect(await readStoredDocuments(page)).toEqual([])
   await page.getByRole("button", { name: "More actions" }).click()
@@ -1962,7 +2101,7 @@ test("returning a failed Replica edit to saved text cannot replay obsolete text 
   await page.evaluate(installDocumentPutFailure, key)
   await editor.press("ControlOrMeta+A")
   await editor.pressSequentially("B")
-  await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
   await editor.press("ControlOrMeta+A")
   await editor.pressSequentially("A")
   await page.evaluate(removeDocumentPutFailure)
@@ -2315,7 +2454,7 @@ test("account replica edits persist without creating a Source copy", async ({ pa
     .toBeUndefined()
 })
 
-test("Replica write failure changes the save indicator until retry succeeds", async ({ page }) => {
+test("Replica write failure clears when a later edit saves without a retry button", async ({ page }) => {
   const accountId = "account-a"
   const document = { document_id: fixtureDocumentId("failed-replica"), text: "# Synced\n" }
   const key = replicaKey(accountId, document.document_id)
@@ -2336,34 +2475,28 @@ test("Replica write failure changes the save indicator until retry succeeds", as
   await expect(indicator).toHaveAttribute("title", "Saved on this device")
   await page.evaluate(installDocumentPutFailure, key)
   await text.fill("# Edited\n")
-  await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toBeVisible()
   await expect(indicator).toHaveAttribute("title", "Not saved")
-  const retry = page.locator(".loomark-footer").getByRole("button", { name: "Retry saving", exact: true })
   await page.getByRole("button", { name: "Toggle documents" }).click()
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 })
     await expect(indicator).toHaveAccessibleName("Not saved")
-    await expect.poll(async () => {
-      const action = await retry.boundingBox()
-      const modes = await page.locator(".loomark-bottom-actions").boundingBox()
-      return action !== null && modes !== null && action.x + action.width <= modes.x
-    }).toBe(true)
-    await retry.focus()
-    await expect(retry).toBeFocused()
-    expect(await retry.evaluate(element => {
-      const rect = element.getBoundingClientRect()
-      return element.contains(element.ownerDocument.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
-    })).toBe(true)
+    await expect(indicator).toBeInViewport()
+    await expect(page.getByRole("button", { name: "Retry saving", exact: true })).toHaveCount(0)
+    await page.evaluate(() => window.document.documentElement.setAttribute("data-loomark-bottom-obscured", ""))
+    await expect(indicator).toBeVisible()
+    await expect(indicator).toHaveAccessibleName("Not saved")
+    await expect(page.locator(".loomark-bottom-actions")).toBeHidden()
+    await page.evaluate(() => window.document.documentElement.removeAttribute("data-loomark-bottom-obscured"))
   }
   await page.evaluate(removeDocumentPutFailure)
-  await retry.click()
+  await text.fill("# Edited again\n")
   await expect.poll(async () => replicaCurrentText(await readStoredDocumentRaw(page, key)))
-    .toBe("# Edited\n")
+    .toBe("# Edited again\n")
   await expect(indicator).toHaveAttribute("title", "Saved on this device")
 })
 
 for (const lookup of ["signed-out", "unavailable"] as const) {
-  test(`menu retries Replica persistence when account is ${lookup}`, async ({ page }) => {
+  test(`editing resumes Replica persistence when account is ${lookup}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     const accountId = "account-a"
     const document = {
@@ -2393,8 +2526,7 @@ for (const lookup of ["signed-out", "unavailable"] as const) {
     await expect(editor).toHaveValue(document.text)
     await page.evaluate(installDocumentPutFailure, key)
     await editor.fill("# Keep after sign-out\n")
-    await expect(page.locator(".loomark-footer").getByRole("button", { name: "Retry saving" }))
-      .toBeVisible()
+    await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
     await page.getByRole("button", { name: "More actions" }).click()
     const menu = page.locator("#loomark-more-actions-content")
     await expect(menu.getByText("Account A", { exact: true })).toBeVisible()
@@ -2405,10 +2537,12 @@ for (const lookup of ["signed-out", "unavailable"] as const) {
       await expect(menu.getByRole("button", { name: "Check account connection" })).toBeVisible()
     }
     await page.evaluate(removeDocumentPutFailure)
-    await menu.getByRole("button", { name: "Retry saving" }).click()
+    await expect(menu.getByRole("button", { name: "Retry saving" })).toHaveCount(0)
+    await page.getByRole("button", { name: "More actions" }).click()
+    await editor.fill("# Kept after sign-out\n")
     await expect.poll(async () => replicaCurrentText(await readStoredDocumentRaw(page, key)))
-      .toBe("# Keep after sign-out\n")
-    await expect(editor).toHaveValue("# Keep after sign-out\n")
+      .toBe("# Kept after sign-out\n")
+    await expect(editor).toHaveValue("# Kept after sign-out\n")
     await expect(menu.getByRole("button", { name: "Retry saving" })).toHaveCount(0)
   })
 }
@@ -2691,6 +2825,54 @@ test("Delete document removes a non-active Source without moving the editor", as
   await expect(text).toHaveValue(documentA.text)
   await expect(page.getByRole("button", { name: "B", exact: true })).toHaveCount(0)
 })
+
+for (const storage of ["Source", "Replica"] as const) {
+  test(`failed non-active ${storage} deletion notifies on each attempt, not navigation`, async ({ page }) => {
+    const accountId = "account-a"
+    const a = { document_id: fixtureDocumentId("delete-a"), text: "# A\n" }
+    const b = { document_id: fixtureDocumentId("delete-b"), text: "# B\n" }
+    await page.route("**/api/account", route => route.fulfill({
+      contentType: "application/json", body: JSON.stringify({ id: accountId, name: "Account A" }),
+    }))
+    await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
+    await page.goto("/")
+    await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+    const key = storage === "Source" ? sourceKey(b.document_id) : replicaKey(accountId, b.document_id)
+    await replaceStoreRecords(page, [
+      { key: sourceKey(a.document_id), value: encodeStoredDocument(a) },
+      { key, value: storage === "Source" ? encodeStoredDocument(b) : encodeReadyReplica(accountId, b) },
+    ])
+    await page.reload()
+    await openDocuments(page)
+    await page.getByRole("button", { name: "A", exact: true }).click()
+    if (storage === "Replica") {
+      await page.evaluate(installDocumentPutFailure, key)
+    } else {
+      await page.evaluate(key => {
+        const original = IDBObjectStore.prototype.delete
+        IDBObjectStore.prototype.delete = function(recordKey) {
+          if (recordKey === key) throw new DOMException("Storage unavailable", "UnknownError")
+          return original.call(this, recordKey)
+        }
+      }, key)
+    }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await openDeleteConfirmation(page, "B")
+      await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
+      const toast = page.getByRole("alert")
+      await expect(toast).toBeVisible()
+      await expect(toast).toHaveAttribute("data-variant", "destructive")
+      await expect(toast).toContainText(storage === "Source" ? "The document was not deleted." : "The deletion was not saved.")
+      await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(a.text)
+      await toast.getByRole("button", { name: "Close notification" }).click()
+      await expect(toast).toBeHidden()
+    }
+    await page.getByRole("button", { name: "B", exact: true }).click()
+    await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(b.text)
+    await expect(page.getByRole("alert")).toBeHidden()
+    expect(await readStoredDocumentRaw(page, key)).toBeDefined()
+  })
+}
 
 test("Delete icon is disabled while deletion is pending", async ({ page }) => {
   await page.goto("/")
@@ -3203,7 +3385,7 @@ test("Preview links preserve unsaved writing when activated by keyboard", async 
   await page.evaluate(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
   await editor.press("Control+End")
   await editor.pressSequentially("Unsaved latest writing")
-  await expect(page.getByRole("alert")).toBeVisible()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
   const latest = source + "Unsaved latest writing"
   // Both destinations are fulfilled locally; no external server or user data is used.
   await page.context().route(external, route => route.fulfill({ contentType: "text/html", body: "Safe link fixture" }))
@@ -4077,7 +4259,7 @@ test("Preview keeps committed content until IME composition ends", async ({ page
   await expect(page.getByRole("heading", { name: "Before" })).toHaveCount(0)
 })
 
-test("save failure keeps Text editable and Retry saves the latest text", async ({ page }) => {
+test("save failure keeps Text editable and the next edit saves without a retry button", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page)).toEqual({
@@ -4087,28 +4269,38 @@ test("save failure keeps Text editable and Retry saves the latest text", async (
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
   await page.evaluate(installDocumentPutFailure, sourceKey(baseline.document_id))
+  await page.getByRole("button", { name: "Focus Mode", exact: true }).click()
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Not saved\n")
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
-  await expect(page.getByRole("alert")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
+  await expect(page.getByRole("alert")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Retry saving" })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Exit Focus Mode", exact: true })).toBeVisible()
   await text.fill("# Latest text\n")
   await expect(text).toHaveValue("# Latest text\n")
   await page.waitForTimeout(300)
   expect((await readStoredDocument(page))?.text).toBe("# Untitled\n")
 
+  // An explicit operation still reports its failure while autosave is failed.
+  await page.getByLabel("Import Markdown")
+    .setInputFiles("tests/fixtures/import-malformed-utf8.md")
+  await expect(page.getByRole("alert")).toContainText("The Markdown file could not be imported.")
+  await expect(page.getByRole("alert")).toHaveAttribute("data-variant", "destructive")
+  await page.getByRole("button", { name: "Close notification" }).click()
+  await expect(page.getByRole("alert")).toBeHidden()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
+  await expect(page.locator(".loomark-save-status")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Retry saving" })).toHaveCount(0)
   await page.evaluate(removeDocumentPutFailure)
-  const retry = page.getByRole("button", { name: "Retry saving" })
-  await retry.focus()
-  await retry.press("Enter")
+  await text.fill("# Latest saved text\n")
   await expect(page.getByRole("alert")).toHaveCount(0)
   await expect(text).toBeFocused()
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
-    .toBe("# Latest text\n")
+    .toBe("# Latest saved text\n")
   await page.reload()
-  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Latest text\n")
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# Latest saved text\n")
 })
 
 test("failed attempt exact acknowledged revert restores truthful Saved", async ({ page }) => {
@@ -4122,8 +4314,7 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
 
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Not saved\n")
-  await expect(page.getByRole("alert")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Retry saving" })).toBeEnabled()
+  await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
   const failedCalls = await page.evaluate(() => (
     (globalThis as typeof globalThis & {
       __loomarkDocumentPutFailureCalls?: number

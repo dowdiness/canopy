@@ -11,19 +11,94 @@
 @source "../internal/view";
 @source not "../internal/view/*test.mbt";
 
+/* Bundled faces stay local so writing keeps its voice offline. Licenses: public/fonts/LICENSE.txt */
+@font-face {
+  font-family: "iA Writer Quattro";
+  src: url("./fonts/iAWriterQuattroS-Regular-2.000.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+/* Loaded only when Japanese text is shown or warmed (internal/browser/fonts.mbt);
+   IBM Plex shares Quattro's lineage. `swap` changes every element together:
+   with `optional` or `fallback`, Chromium decides per element whether a late
+   face is used, so the textarea and the writing-focus mirror that measures its
+   lines could disagree. */
+@font-face {
+  font-family: "IBM Plex Sans JP";
+  src: url("./fonts/IBMPlexSansJP-Regular-1.004.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2E80-2FDF, U+3000-30FF, U+3190-319F, U+31F0-33FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF, U+20000-2FA1F;
+}
+/* Preview's Japanese Mincho: rational like Plex, built for screen reading
+   like Literata. */
+@font-face {
+  font-family: "BIZ UDMincho";
+  src: url("./fonts/BIZUDMincho-Regular-1.06.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2E80-2FDF, U+3000-30FF, U+3190-319F, U+31F0-33FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF, U+20000-2FA1F;
+}
+@font-face {
+  font-family: "BIZ UDMincho";
+  src: url("./fonts/BIZUDMincho-Bold-1.06.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2E80-2FDF, U+3000-30FF, U+3190-319F, U+31F0-33FF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FE30-FE4F, U+FF00-FFEF, U+20000-2FA1F;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("./fonts/Literata-3.103.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Literata";
+  src: url("./fonts/Literata-Italic-3.103.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 @theme {
-  --color-lm-foundation: #fdfdfb;
-  --color-lm-surface: #fffefc;
-  --color-lm-paper: #fffefc;
-  --color-lm-ink: oklch(0.24 0.018 265);
-  --color-lm-muted: oklch(0.5 0.02 265);
-  --color-lm-rule: oklch(0.87 0.004 255);
-  --color-lm-accent: oklch(0.48 0.12 276);
-  --color-lm-accent-soft: oklch(0.91 0.035 276);
+  --color-lm-foundation: oklch(0.972 0.004 85);
+  --color-lm-surface: oklch(0.994 0.002 85);
+  --color-lm-paper: oklch(0.991 0.003 85);
+  --color-lm-ink: oklch(0.25 0.01 70);
+  --color-lm-muted: oklch(0.53 0.012 70);
+  --color-lm-rule: oklch(0.89 0.006 80);
+  --color-lm-accent: oklch(0.47 0.12 264);
+  --color-lm-accent-soft: oklch(0.94 0.024 264);
   --color-lm-danger: oklch(0.52 0.16 25);
-  --color-lm-danger-soft: oklch(0.94 0.025 25);
+  --color-lm-danger-soft: oklch(0.95 0.022 25);
   --font-lm-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-lm-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-lm-mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  /* Japanese faces precede generic families so Han characters keep Japanese
+     forms even when the content language is unknown. */
+  --font-lm-writing: "iA Writer Quattro", "IBM Plex Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic Medium", "Meiryo", "Noto Sans JP", "Noto Sans CJK JP", ui-monospace, monospace;
+  --font-lm-reading: "Literata", "BIZ UDMincho", "Iowan Old Style", Charter, Georgia, "Hiragino Mincho ProN", "BIZ UDPMincho", "Yu Mincho", "YuMincho", "Noto Serif JP", "Noto Serif CJK JP", serif;
+}
+
+/* Dark paper keeps the same warm hue so switching system appearance does not
+   change the document's character. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-lm-foundation: oklch(0.175 0.005 70);
+    --color-lm-surface: oklch(0.235 0.006 70);
+    --color-lm-paper: oklch(0.2 0.005 70);
+    --color-lm-ink: oklch(0.9 0.008 80);
+    --color-lm-muted: oklch(0.67 0.01 80);
+    --color-lm-rule: oklch(0.32 0.007 70);
+    --color-lm-accent: oklch(0.78 0.1 264);
+    --color-lm-accent-soft: oklch(0.31 0.045 264);
+    --color-lm-danger: oklch(0.74 0.13 25);
+    --color-lm-danger-soft: oklch(0.29 0.05 25);
+  }
 }
 
 /* Typography owns Markdown rhythm while Loomark keeps the established palette. */
@@ -41,56 +116,215 @@
   --tw-prose-captions: var(--color-lm-muted);
   --tw-prose-code: var(--color-lm-ink);
   --tw-prose-pre-code: var(--color-lm-ink);
-  --tw-prose-pre-bg: oklch(0.95 0.003 255);
+  --tw-prose-pre-bg: color-mix(in oklab, var(--color-lm-ink) 4.5%, var(--color-lm-paper));
   --tw-prose-th-borders: var(--color-lm-rule);
   --tw-prose-td-borders: var(--color-lm-rule);
+  font-family: var(--font-lm-reading);
+  font-optical-sizing: auto;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  hanging-punctuation: first;
 }
 
+/* Preview shows Document text; it must not add quotation marks or backticks. */
 .loomark-prose :where(code):not(:where(pre code))::before,
-.loomark-prose :where(code):not(:where(pre code))::after {
+.loomark-prose :where(code):not(:where(pre code))::after,
+.loomark-prose :where(blockquote p:first-of-type)::before,
+.loomark-prose :where(blockquote p:last-of-type)::after {
   content: none;
 }
 
-/* Keep Typography's hierarchy, but stay close to Loomark's former 1rem rhythm. */
 .loomark-prose :where(p) {
-  margin-block: 1.125rem;
+  margin-block: 1.1em;
+  text-wrap: pretty;
 }
 
 .loomark-prose :where(ul, ol, pre, blockquote, figure, table) {
-  margin-block: 1.25rem;
+  margin-block: 1.35em;
+}
+
+.loomark-prose :where(li) {
+  margin-block: 0.3em;
+}
+
+.loomark-prose :where(ul, ol) :where(ul, ol) {
+  margin-block: 0.3em;
+}
+
+.loomark-prose :where(h1, h2, h3, h4, h5, h6) {
+  font-weight: 620;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
 }
 
 /* Preserve hierarchy without making document headings dominate the reading pane. */
 .loomark-prose :where(h1) {
-  font-size: 1.75em;
+  font-size: 2em;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+  margin-block: 0 0.9em;
 }
 
 .loomark-prose :where(h2) {
-  font-size: 1.35em;
+  font-size: 1.42em;
+  line-height: 1.3;
+  margin-block: 1.9em 0.7em;
 }
 
 .loomark-prose :where(h3) {
-  font-size: 1.15em;
+  font-size: 1.16em;
+  line-height: 1.4;
+  margin-block: 1.7em 0.6em;
 }
 
 .loomark-prose :where(h4, h5, h6) {
   font-size: 1em;
+  line-height: 1.5;
+  margin-block: 1.5em 0.5em;
 }
 
-.loomark-prose :where(h1) {
-  margin-block: 0 1.25rem;
+.loomark-prose :where(h5, h6) {
+  color: var(--color-lm-muted);
 }
 
-.loomark-prose :where(h2) {
-  margin-block: 1.75rem 1rem;
+.loomark-prose :where(a) {
+  font-weight: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklab, var(--color-lm-accent) 40%, transparent);
+  text-underline-offset: 0.22em;
+  transition: text-decoration-color 150ms ease;
 }
 
-.loomark-prose :where(h3, h4, h5, h6) {
-  margin-block: 1.5rem 0.875rem;
+.loomark-prose :where(a):hover {
+  text-decoration-color: currentColor;
+}
+
+.loomark-prose :where(strong) {
+  font-weight: 650;
+}
+
+/* Quotation keeps its neutral rule; accent color stays with interaction. */
+.loomark-prose :where(blockquote) {
+  border-inline-start-width: 2px;
+  padding-inline-start: 1.1em;
+  font-style: italic;
+  color: color-mix(in oklab, var(--color-lm-ink) 82%, var(--color-lm-paper));
+}
+
+.loomark-prose :where(code):not(:where(pre code)) {
+  padding: 0.12em 0.36em;
+  border-radius: 0.3em;
+  background: color-mix(in oklab, var(--color-lm-ink) 6%, transparent);
+  font-size: 0.84em;
+  font-weight: 450;
+}
+
+.loomark-prose :where(code) {
+  font-family: var(--font-lm-mono);
+}
+
+.loomark-prose :where(pre) {
+  border: 1px solid color-mix(in oklab, var(--color-lm-ink) 7%, transparent);
+  border-radius: 10px;
+  padding: 1em 1.2em;
+  font-size: 0.82em;
+  line-height: 1.7;
 }
 
 .loomark-prose :where(hr) {
-  margin-block: 1.75rem;
+  margin-block: 2.6em;
+  border: 0;
+  height: 1em;
+  text-align: center;
+  overflow: visible;
+}
+
+.loomark-prose :where(hr)::before {
+  content: "\2022\2003\2022\2003\2022";
+  color: var(--color-lm-muted);
+  font-size: 0.7em;
+  letter-spacing: 0.1em;
+}
+
+.loomark-prose :where(img) {
+  border-radius: 6px;
+}
+
+.loomark-prose :where(table) {
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Japanese: strict kinsoku and spacing between kana/kanji and Latin apply only
+   to CJK text, so they are safe for every document. */
+.loomark-prose {
+  line-break: strict;
+  text-autospace: normal;
+}
+
+/* Documents recognized as Japanese: no synthetic slanting of kana and kanji,
+   emphasis dots for em, roomier lines, and phrase-aware heading breaks. */
+#loomark-preview-scroll .loomark-prose:lang(ja) {
+  line-height: 1.9;
+}
+.loomark-prose:lang(ja) {
+  letter-spacing: 0.02em;
+  font-synthesis-style: none;
+}
+.loomark-prose:lang(ja) :where(h1, h2, h3, h4, h5, h6) {
+  letter-spacing: 0.01em;
+  word-break: auto-phrase;
+  font-feature-settings: "palt";
+}
+.loomark-prose:lang(ja) :where(em) {
+  font-style: normal;
+  text-emphasis: filled dot;
+}
+.loomark-prose:lang(ja) :where(blockquote) {
+  font-style: normal;
+}
+
+/* Task lists already carry a checkbox marker; the bullet would repeat it. */
+.loomark-prose :where(ul > li:has(> [data-loomark-task-checkbox])) {
+  list-style: none;
+  padding-inline-start: 0.15em;
+  margin-inline-start: -1.6em;
+}
+
+.loomark-prose [data-loomark-task-checkbox] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0 0.55em 0 0;
+  vertical-align: -0.16em;
+  border: 1.5px solid color-mix(in oklab, var(--color-lm-muted) 70%, transparent);
+  border-radius: 0.28em;
+  background: transparent;
+}
+
+.loomark-prose [data-loomark-task-checkbox]:checked {
+  border-color: var(--color-lm-accent);
+  background: var(--color-lm-accent);
+}
+
+.loomark-prose [data-loomark-task-checkbox]:checked::before {
+  content: "";
+  width: 0.55em;
+  height: 0.3em;
+  margin-top: -0.12em;
+  border: solid var(--color-lm-paper);
+  border-width: 0 0 0.12em 0.12em;
+  transform: rotate(-45deg);
+}
+
+.loomark-prose li:has(> [data-loomark-task-checkbox]:checked) {
+  color: var(--color-lm-muted);
 }
 
 .loomark-prose :where(:first-child) {
@@ -101,10 +335,43 @@
   margin-bottom: 0;
 }
 
+@media (forced-colors: active) {
+  .loomark-prose [data-loomark-task-checkbox] {
+    appearance: auto;
+  }
+  .loomark-prose [data-loomark-task-checkbox]:checked::before {
+    content: none;
+  }
+}
+
 /* Keyboard resizing may leave dvh unchanged; the browser binding supplies the
    visible viewport. Override the Sidebar provider's inline layout minimum. */
+.loomark-viewport, .loomark-notifications {
+  /* Map RUI's neutral roles onto Loomark paper so both appearances agree. */
+  --rui-background: var(--color-lm-paper);
+  --rui-foreground: var(--color-lm-ink);
+  --rui-muted: var(--loomark-track);
+  --rui-muted-foreground: var(--color-lm-muted);
+  --rui-border: var(--color-lm-rule);
+  --rui-input: var(--color-lm-rule);
+  --rui-popover: var(--color-lm-surface);
+  --rui-popover-foreground: var(--color-lm-ink);
+  --rui-primary: var(--color-lm-ink);
+  --rui-primary-foreground: var(--color-lm-paper);
+  --rui-secondary: var(--loomark-track);
+  --rui-secondary-foreground: var(--color-lm-ink);
+  --rui-accent: var(--color-lm-accent-soft);
+  --rui-accent-foreground: var(--color-lm-accent);
+  --rui-destructive: var(--color-lm-danger);
+  --rui-destructive-subtle: var(--color-lm-danger-soft);
+  --rui-dialog-backdrop: oklch(0.2 0.01 70 / 0.22);
+  --loomark-hover: color-mix(in oklab, var(--color-lm-ink) 6%, transparent);
+  --loomark-track: color-mix(in oklab, var(--color-lm-ink) 5%, var(--color-lm-paper));
+}
 .loomark-viewport {
   --rui-sidebar-wrapper-background: transparent;
+  /* Text and Preview share one measure so switching modes keeps the text edge. */
+  --loomark-measure: 680px;
   --loomark-bottom-space: 64px;
   --loomark-content-bottom: calc(16px + var(--loomark-bottom-space));
   position: fixed !important;
@@ -123,19 +390,21 @@
 [data-loomark-bottom-obscured] .loomark-footer {
   display: none;
 }
-
-#loomark-editor:has(> .loomark-footer ~ [role="alert"]:not([hidden])) .loomark-source {
-  /* Notices already keep the caret clear of the footer. */
-  padding-bottom: 16px;
-  scroll-padding-bottom: 16px;
+[data-loomark-bottom-obscured] .loomark-footer:has(.loomark-save-status[title="Not saved"]) {
+  display: flex;
+}
+[data-loomark-bottom-obscured] .loomark-bottom-actions {
+  display: none;
 }
 
 .loomark-source {
   /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
      only element resizing needs the existing measured-caret correction. */
-  padding: 70px max(28px, calc((100% - 760px) / 2)) var(--loomark-content-bottom);
+  padding: 70px max(28px, calc((100% - var(--loomark-measure)) / 2)) var(--loomark-content-bottom);
   scroll-padding-block: 70px var(--loomark-content-bottom);
-  line-height: 1.875;
+  font-size: 17px;
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--color-lm-rule) transparent;
@@ -202,15 +471,10 @@
 #loomark-preview-scroll .rmd-preview-content {
   width: 100%;
   max-width: none;
-  padding: 70px max(28px, calc((100% - 720px) / 2)) var(--loomark-content-bottom);
-  font-size: 16px;
-  line-height: 1.85;
-}
-
-#loomark-preview-scroll .loomark-prose :where(h1) {
-  font-size: 26px;
-  line-height: 1.5;
-  margin-bottom: 22px;
+  padding: 70px max(28px, calc((100% - var(--loomark-measure)) / 2)) calc(var(--loomark-content-bottom) + 48px);
+  font-family: var(--font-lm-reading);
+  font-size: 18px;
+  line-height: 1.72;
 }
 
 #loomark-editor-panels:has(.loomark-divider:not([hidden])) {
@@ -241,14 +505,15 @@
 .loomark-topbar::before {
   top: 0;
   height: 56px;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-lm-paper) 70%, transparent), transparent);
-  mask-image: linear-gradient(to bottom, black, transparent);
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--color-lm-paper) 88%, transparent) 30%, transparent);
+  mask-image: linear-gradient(to bottom, black 40%, transparent);
 }
 .loomark-footer::before {
   bottom: 0;
   height: 64px;
-  background: linear-gradient(to top, var(--color-lm-paper), transparent);
-  mask-image: linear-gradient(to top, black, transparent);
+  /* Keep the durability caption legible over scrolled text. */
+  background: linear-gradient(to top, var(--color-lm-paper) 45%, transparent);
+  mask-image: linear-gradient(to top, black 55%, transparent);
 }
 .loomark-icon {
   display: inline-flex;
@@ -256,21 +521,40 @@
   height: 36px;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--color-lm-muted);
   cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
 }
-.loomark-icon:hover:not(:disabled), .loomark-sidebar-trigger:hover { background: var(--color-lm-accent-soft); color: var(--color-lm-accent); }
+.loomark-icon:hover:not(:disabled), .loomark-sidebar-trigger:hover { background: var(--loomark-hover); color: var(--color-lm-ink); }
+.loomark-icon[aria-expanded="true"] { background: var(--loomark-hover); color: var(--color-lm-ink); }
 .loomark-icon:disabled { opacity: 0.5; cursor: default; }
 #loomark-root label:has(> input[type="file"]:disabled) { opacity: 0.5; pointer-events: none; }
-#loomark-root button:focus-visible {
+#loomark-root button:focus-visible,
+.loomark-notifications button:focus-visible {
   /* RUI controls reset outline inline; keyboard focus must remain visible. */
   outline: 2px solid var(--color-lm-accent) !important;
   outline-offset: 2px;
 }
+/* The selected mode is a raised sheet in a recessed track: shape and accent
+   both carry the selection. */
+.loomark-bottom-actions [role="tablist"] {
+  gap: 2px !important;
+  padding: 3px !important;
+  border-radius: 12px !important;
+  background: var(--loomark-track) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-lm-ink) 5%, transparent);
+}
+.loomark-mode-button {
+  border-radius: 9px !important;
+  color: var(--color-lm-muted) !important;
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease !important;
+}
+.loomark-mode-button:hover:not([aria-selected="true"]) { color: var(--color-lm-ink) !important; }
 .loomark-mode-button[data-state="active"], .loomark-mode-button[aria-selected="true"] {
-  background: var(--color-lm-accent-soft) !important;
+  background: var(--color-lm-surface) !important;
   color: var(--color-lm-accent) !important;
+  box-shadow: 0 1px 2px oklch(0.2 0.01 70 / 0.1), 0 0 0 1px color-mix(in oklab, var(--color-lm-ink) 7%, transparent) !important;
 }
 .loomark-menu {
   position: absolute;
@@ -282,17 +566,24 @@
   max-height: calc(var(--loomark-viewport-height, 100dvh) - 61px);
   overflow-y: auto;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   padding: 10px;
-  border: 1px solid var(--color-lm-rule);
-  border-radius: 8px;
-  background: var(--color-lm-paper);
-  box-shadow: 0 10px 30px oklch(0.24 0.018 265 / 0.07);
+  border: 1px solid color-mix(in oklab, var(--color-lm-ink) 9%, transparent);
+  border-radius: 14px;
+  background: var(--color-lm-surface);
+  box-shadow: 0 1px 2px oklch(0.2 0.01 70 / 0.05), 0 12px 32px -6px oklch(0.2 0.01 70 / 0.14);
   font-size: 12px;
+  transform-origin: top right;
+  transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1), transform 160ms cubic-bezier(0.23, 1, 0.32, 1);
+  @starting-style {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
 }
 .loomark-menu > * { flex-shrink: 0; }
 .loomark-save-status {
   width: 168px;
+  max-width: 100%;
   gap: 6px;
   padding-inline: 8px;
   color: var(--color-lm-muted);
@@ -311,7 +602,7 @@
 .loomark-sync-attention > span { display: block; }
 .loomark-sync-attention > button { max-width: 100%; white-space: normal; }
 @media (max-width: 641px) {
-  .loomark-footer-status:has(.loomark-sync-attention > :not([hidden])) .loomark-save-caption {
+  .loomark-footer[data-attention="true"] .loomark-save-caption {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -322,7 +613,7 @@
     white-space: nowrap;
     border: 0;
   }
-  .loomark-footer-status:has(.loomark-sync-attention > :not([hidden])) .loomark-save-status {
+  .loomark-footer[data-attention="true"] .loomark-save-status {
     width: 36px;
     padding-inline: 0;
     justify-content: center;
@@ -330,9 +621,132 @@
 }
 .loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: transparent; }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
-.loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); }
-.loomark-footer ~ [role="alert"] { position: relative; z-index: 20; }
-.loomark-footer ~ [role="alert"]:last-child { margin-bottom: var(--loomark-bottom-space); }
+.loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); padding-right: 64px; }
+.loomark-notifications {
+  --rui-toast-radius: 8px;
+  --rui-toast-shadow: 0 4px 16px rgb(0 0 0 / 0.06);
+  left: 12px !important;
+  bottom: calc(100dvh - var(--loomark-viewport-top, 0px) - var(--loomark-viewport-height, 100dvh) + max(76px, calc(env(safe-area-inset-bottom) + 60px))) !important;
+  width: min(22.25rem, calc(100vw - 24px)) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loomark-notifications [data-slot="toast"] {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* A sibling of the footer, so keyboard occlusion never hides the exit. */
+.loomark-focus-toggle {
+  display: inline-grid;
+  place-items: center;
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  background: var(--color-lm-paper);
+}
+.loomark-focus-toggle[aria-pressed="true"] { color: var(--color-lm-accent); }
+.loomark-focus-enter, .loomark-focus-exit {
+  grid-area: 1 / 1;
+  transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.loomark-focus-exit,
+.loomark-focus-toggle[aria-pressed="true"] .loomark-focus-enter { opacity: 0; }
+.loomark-focus-toggle[aria-pressed="true"] .loomark-focus-exit { opacity: 1; }
+.loomark-focus-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    visibility 0s linear 160ms;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  padding: 4px 8px;
+  border: 1px solid var(--color-lm-rule);
+  border-radius: 6px;
+  background: var(--color-lm-paper);
+  color: var(--color-lm-ink);
+  font-size: 12px;
+  pointer-events: none;
+}
+.loomark-focus-toggle:focus-visible .loomark-focus-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .loomark-focus-toggle:hover .loomark-focus-tooltip {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0s;
+  }
+}
+
+/* Hide chrome without replacing the textarea or its native undo history. */
+[data-focus-mode="true"] [data-slot="sidebar-shell"],
+[data-focus-mode="true"] .loomark-sidebar-trigger,
+[data-focus-mode="true"] .loomark-topbar,
+[data-focus-mode="true"] .loomark-bottom-actions,
+[data-focus-mode="true"] .loomark-save-status:not([title="Not saved"]) {
+  display: none !important;
+}
+
+/* Retargetable fades, without moving text or delaying the editing state.
+   Browsers without discrete transitions keep the immediate hide/show fallback. */
+@supports (transition-behavior: allow-discrete) {
+  .loomark-topbar,
+  .loomark-sidebar-trigger,
+  .loomark-footer,
+  .loomark-bottom-actions,
+  .loomark-save-status {
+    transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1),
+      display 180ms allow-discrete;
+  }
+  [data-focus-mode="true"] .loomark-topbar,
+  [data-focus-mode="true"] .loomark-sidebar-trigger,
+  [data-focus-mode="true"] .loomark-bottom-actions,
+  [data-focus-mode="true"] .loomark-save-status:not([title="Not saved"]),
+  .loomark-footer[hidden] { opacity: 0; }
+  @starting-style {
+    .loomark-topbar,
+    .loomark-sidebar-trigger,
+    .loomark-footer,
+    .loomark-bottom-actions,
+    .loomark-save-status { opacity: 0; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loomark-topbar,
+  .loomark-sidebar-trigger,
+  .loomark-footer,
+  .loomark-bottom-actions,
+  .loomark-save-status,
+  .loomark-focus-enter,
+  .loomark-focus-exit,
+  .loomark-focus-tooltip { transition: none; }
+}
+[data-focus-mode="true"] .loomark-source { mask-image: none; }
+/* Keep exceptional durability/sync actions available, even with a keyboard. */
+[data-focus-mode="true"] .loomark-footer[data-attention="true"] {
+  display: flex;
+}
+[data-focus-mode="true"] {
+  --loomark-bottom-space: 64px;
+  --loomark-content-bottom: 80px;
+}
+[data-loomark-bottom-obscured] .loomark-source {
+  padding-bottom: 64px;
+  scroll-padding-bottom: 64px;
+}
 
 @media (max-width: 720px) {
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }
@@ -359,10 +773,38 @@
   .loomark-source { padding-top: 68px; padding-inline: 24px; scroll-padding-top: 68px; }
   #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px var(--loomark-content-bottom); }
   .loomark-menu { right: 12px; top: 49px; }
+  .loomark-source { font-size: 16px; }
+  #loomark-preview-scroll .rmd-preview-content { font-size: 17px; }
 }
+#loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { font-size: 17px; }
+
+/* Recent documents read as a quiet index card stack: the selected entry has a
+   tinted ground rather than a filled block or an edge bar. */
+.loomark-sidebar {
+  --rui-sidebar-accent: color-mix(in oklab, var(--color-lm-accent) 9%, var(--color-lm-foundation)) !important;
+  --rui-sidebar-accent-foreground: var(--color-lm-ink) !important;
+}
+.loomark-sidebar [data-slot="sidebar-menu"] { gap: 2px; padding-inline: 2px; }
+.loomark-document-row { border-radius: 10px !important; }
+.loomark-sidebar [data-slot="sidebar-footer"] { gap: 12px; padding: 12px; }
 
 .loomark-delete-action {
   --rui-sidebar-action-fg: var(--color-lm-muted);
+}
+
+/* Fingers need a larger target than the 32px pointer control. The row reserves
+   the target's full 48px column and height (overriding its inline 40px), so
+   the target covers neither the lead text nor the next entry. */
+@media (pointer: coarse) {
+  .loomark-document-row {
+    min-height: 3rem !important;
+    padding-inline-end: 3rem !important;
+  }
+  .loomark-delete-action {
+    --rui-sidebar-menu-action-top: 0.125rem;
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
 }
 
 .loomark-delete-action:focus-visible {
@@ -395,13 +837,13 @@
 
 @media (hover: hover) and (pointer: fine) {
   [data-slot="sidebar-trigger"]:hover {
-    --rui-button-bg: var(--color-lm-accent-soft);
-    --rui-button-fg: var(--color-lm-accent);
+    --rui-button-bg: var(--loomark-hover);
+    --rui-button-fg: var(--color-lm-ink);
   }
 
   [data-slot="sidebar-menu-action"]:hover {
-    --rui-sidebar-action-bg: var(--color-lm-accent-soft);
-    --rui-sidebar-action-fg: var(--color-lm-accent);
+    --rui-sidebar-action-bg: var(--loomark-hover);
+    --rui-sidebar-action-fg: var(--color-lm-ink);
   }
 
   .loomark-delete-action:hover:not([aria-disabled="true"]) {
@@ -410,8 +852,22 @@
   }
 
   .loomark-new-document:hover:not(:disabled) {
-    --rui-sidebar-item-bg: var(--color-lm-accent-soft);
-    --rui-sidebar-item-fg: var(--color-lm-accent);
+    --rui-sidebar-item-bg: var(--loomark-hover);
+    --rui-sidebar-item-fg: var(--color-lm-ink);
+  }
+
+  /* With a fine pointer, each row's delete control appears with its row so the
+     list reads as content; keyboard focus and touch keep it visible. */
+  .loomark-sidebar [data-slot="sidebar-menu-item"]:not(:hover, :focus-within) .loomark-delete-action:not([aria-disabled="true"]) {
+    --rui-sidebar-action-opacity: 0;
+  }
+
+  .loomark-delete-action {
+    transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease;
+  }
+
+  .loomark-document-row:hover:not([data-active="true"]) {
+    --rui-sidebar-item-bg: color-mix(in oklab, var(--color-lm-ink) 4%, transparent);
   }
 
   .loomark-new-document:hover:not(:disabled) .i-lucide-square-pen {
@@ -424,6 +880,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .loomark-menu {
+    transition: opacity 80ms ease;
+    @starting-style {
+      transform: none;
+    }
+  }
+
   [data-slot="sidebar"][data-collapsible="offcanvas"],
   [data-slot="sidebar-shell"][data-collapsible="offcanvas"] {
     transition: none !important;
@@ -456,4 +919,77 @@
     background: Highlight !important;
     color: HighlightText !important;
   }
+}
+
+/* RUI writes dialog geometry inline; the elevated sheet needs to override it. */
+#loomark-delete-document {
+  border-radius: 16px !important;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-lm-ink) 9%, transparent), 0 24px 56px -12px oklch(0.2 0.01 70 / 0.28) !important;
+}
+#loomark-delete-document::backdrop {
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+#loomark-delete-document [data-slot="alert-dialog-title"] {
+  font-weight: 600;
+}
+/* Delete is irreversible; its confirmation carries the destructive role. */
+#loomark-delete-document [data-slot="alert-dialog-action"] {
+  --rui-button-bg: var(--color-lm-danger);
+  --rui-button-fg: var(--color-lm-paper);
+}
+@media (prefers-color-scheme: dark) {
+  .loomark-viewport { --rui-dialog-backdrop: oklch(0 0 0 / 0.5); }
+}
+
+/* A writing measure, not a status: quiet, tabular, and absent on compact
+   screens where save attention owns the footer. */
+.loomark-character-count {
+  padding-inline: 6px;
+  color: var(--color-lm-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.loomark-character-count:empty { padding: 0; }
+@media (max-width: 641px) {
+  .loomark-character-count { display: none; }
+}
+
+/* Printing Preview yields the reading page alone; the writing chrome stays on
+   screen. Text mode prints as browser-owned textarea content. */
+@media print {
+  @page { margin: 22mm 20mm; }
+  /* Paper is always light: replace every dark-appearance token, not only text. */
+  :root {
+    --color-lm-foundation: #fff;
+    --color-lm-surface: #fff;
+    --color-lm-paper: #fff;
+    --color-lm-ink: #1a1714;
+    --color-lm-muted: #5d5650;
+    --color-lm-rule: oklch(0.89 0.006 80);
+    --color-lm-accent: oklch(0.47 0.12 264);
+    --color-lm-accent-soft: oklch(0.94 0.024 264);
+    --color-lm-danger: oklch(0.52 0.16 25);
+    --color-lm-danger-soft: oklch(0.95 0.022 25);
+  }
+  .loomark-viewport { position: static !important; height: auto !important; }
+  #loomark-root, #loomark-editor, #loomark-editor-panel, #loomark-editor-panels,
+  #loomark-editor-panels > *, #loomark-preview-scroll {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: none !important;
+  }
+  .loomark-topbar, .loomark-footer, .loomark-sidebar, .loomark-sidebar-trigger,
+  .loomark-focus-toggle, .loomark-notifications,
+  .loomark-divider, #loomark-text-pane:has(+ .loomark-divider:not([hidden])),
+  [role="alert"] {
+    transition: none !important;
+    display: none !important;
+  }
+  #loomark-preview-scroll { mask-image: none !important; }
+  #loomark-preview-scroll .rmd-preview-content { padding: 0 !important; font-size: 11.5pt; }
+  .loomark-prose :where(h1, h2, h3) { break-after: avoid; }
+  .loomark-prose :where(pre, blockquote, img, table) { break-inside: avoid; }
 }

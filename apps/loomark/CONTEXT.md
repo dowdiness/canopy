@@ -73,6 +73,26 @@ _Avoid_: ordinary content, paragraph
 
 ## 2. Editor Modes & Presentation
 
+**Focus Mode**:
+An explicit, page-local writing presentation, off on every launch or reload.
+The icon-only toggle stays at the bottom-right of the available viewport,
+including above an on-screen keyboard. Its accessible label and tooltip name
+`Focus Mode` or `Exit Focus Mode`, and its pressed state exposes whether it is on.
+Entering hides Recent documents, the top toolbar, view controls, and routine
+save feedback without changing the current Text, Preview, or Split mode.
+Leaving restores the controls and sidebar visibility. Text, selection, and native
+Undo history survive the transition. Escape exits, except during IME composition.
+The toggle cannot change modes during composition or a blocking document action.
+While the textarea has focus, surrounding writing groups fade; normal mode
+never applies this dimming. Blurring the textarea restores full readability
+without leaving Focus Mode. Autosave continues, and failure notices and
+exceptional durability/sync actions remain available.
+Routine controls fade out and back in over 180 ms, and the toggle icons
+crossfade without moving. Controls become inert as soon as Focus Mode starts,
+not after the fade. Reversing a transition retargets it rather than queuing
+another animation. Reduced motion uses immediate switching. Sidebar and editor
+pane layout changes remain immediate; text is not translated or scaled.
+
 **Editor mode**:
 The current way to edit, inspect, or combine views of the selected Document
 text. A Document switch keeps the current mode, while reopening Loomark starts
@@ -85,8 +105,8 @@ The editor mode that shows the textarea and hides Preview.
 The writing area disables browser spellchecking so dictionary suggestions do not
 mark document text with red underlines. Autocomplete and autocorrect remain off;
 native IME composition is unchanged.
-Text and Preview share the same edge fade and subtle blur beneath the fixed top
-and bottom controls in every editor mode. Each bar owns its blurred background;
+Outside Focus Mode, Text and Preview share the same edge fade and subtle blur
+beneath the fixed top and bottom controls. Each bar owns its blurred background;
 the editor has no separate decorative overlay. Document spacing stays inside the
 scrollable content rather than an empty outer frame. Native scroll padding keeps
 the current writing line clear of the controls and faded edges without changing
@@ -98,9 +118,11 @@ magnification. It requests native content resizing where supported. The bottom
 bar and its reserved space are removed when visual-viewport occlusion or a
 window-size-adjusted height estimate indicates a keyboard. Panning alone does
 not restore the bar.
-No bottom overlay or reserved bottom gap remains while the bar is hidden.
-The top toolbar and failure notices remain available. The
-bottom bar returns when the visible height recovers. Ordinary window-height
+No bottom overlay remains while the bar is hidden; writing retains enough
+bottom padding to clear the Focus Mode toggle. The top toolbar (outside Focus
+Mode), Focus Mode toggle, and failure notices remain available. Exceptional
+durability/sync actions remain visible in Focus Mode even with a keyboard.
+The bottom bar returns when the visible height recovers. Ordinary window-height
 changes and hardware-keyboard focus alone do not hide it. Keyboard detection
 under content resizing is best-effort, not a browser-provided visibility signal;
 its limitations are described in [Mobile Viewport](docs/architecture.md#mobile-viewport).
@@ -150,6 +172,38 @@ newer refresh fails. Loomark marks it as stale; it never becomes Document text
 or carries over to another document.
 _Avoid_: fallback document, recovered text
 
+**Character count**:
+A quiet writing measure beside the Editor-mode control on wide screens. It
+counts the Document text that Recent documents last settled on, so it may lag
+typing by the same short pause. Every visible character counts, including
+Markdown markers and punctuation; spaces and line breaks do not, and combining
+marks, variation selectors, and joined emoji count with the character they
+modify. It is absent for empty text and on compact screens, where save
+attention owns the footer. It is presentation, not a save status.
+_Avoid_: word count, statistics, progress
+
+**Appearance**:
+Loomark follows the system light or dark preference with the same warm paper
+hue. Text uses a duospaced writing face with IBM Plex Sans JP for Japanese, and
+Preview a reading serif with BIZ UDMincho; system fonts cover scripts they
+lack. Japanese faces download only when Japanese text appears, or ahead of time
+while idle for a Japanese-language browser or a Japanese document, and stay
+cached by versioned file name. A face that arrives late replaces the system
+font everywhere at once, and Writing focus re-measures. Printing from
+Preview prints the reading page without controls. Appearance never changes
+Document text, and Preview adds no quotation marks or code delimiters that the
+text does not contain.
+_Avoid_: theme, skin
+
+**Japanese document**:
+A Loomark document whose text contains kana and whose East Asian characters
+outnumber its other words, judged from the same settled text as the Character
+count. Its Text and Preview declare Japanese content for assistive technology
+and Japanese typography: Preview keeps kana and kanji upright, marks emphasis
+with emphasis dots, and widens line spacing. The interface language is
+unchanged.
+_Avoid_: locale, translation
+
 ---
 
 ## 3. Recent Documents & Navigation
@@ -192,8 +246,8 @@ mark with an accessible `Not saved` label rather than visible status text. A
 document whose text is empty has no visible placeholder, while its selectable
 entry retains an accessible `Empty document` label. When no saved documents
 exist, the list shows `No documents yet` rather than unexplained blank space.
-The selected document uses an explicit row highlight with a subtle background
-and slim edge accent; exact visual values remain provisional. A selected cold
+The selected document uses an explicit row highlight with a subtle tinted
+background and no edge bar; exact visual values remain provisional. A selected cold
 target shows a small loading indicator with an accessible `Loading document`
 label while the current document remains visible. Merely opening a document does
 not move it. While typing, an entry keeps its previous Document lead until a
@@ -219,8 +273,8 @@ _Avoid_: save-and-open, handoff
 **Saved text**:
 The most recent Document text successfully written to browser storage. It may
 be older than the current Document text.
-The editor footer names local durability beside its status icon: "Saving on
-this device", "Saved on this device", or "Not saved". Untouched New has no
+Outside Focus Mode, the editor footer names local durability beside its status
+icon: "Saving on this device", "Saved on this device", or "Not saved". Untouched New has no
 success indicator. On compact screens, an attention action or message takes
 priority over the caption; the icon retains the complete accessible name.
 This is a browser-storage status, not a sync or publication confirmation.
@@ -228,10 +282,11 @@ _Avoid_: edit history, backup
 
 **Unsaved document**:
 A Loomark document whose latest text has not reached browser storage. Loomark
-keeps it in memory and marks it in Recent documents. Failed saves expose an
-explicit Retry action; returning to the app does not guarantee a retry. Current
-text remains available to Export without waiting for a successful save. Loomark
-does not prompt when the browser tab closes.
+keeps it in memory and marks it in Recent documents. Failed saves show "Not saved"
+in both normal and Focus Mode, without a duplicate toast or manual save-retry
+button. Subsequent eligible edits retry saving; returning to the app alone does
+not guarantee a retry. Current text remains available to Export without waiting
+for a successful save. Loomark does not prompt when the browser tab closes.
 _Avoid_: conflicted document, invalid document
 
 **Browser storage**:
@@ -299,7 +354,8 @@ consumes an initial UTF-8 BOM, normalizes CRLF and CR to LF, and preserves every
 other decoded character. Empty files are valid. Filename, extension, and media
 type do not affect admission or identity. Every import creates a new identity,
 including repeated content, immediately becomes the Editing Document, and uses
-the existing New-document save and Retry path. An accepted Import supersedes an
+the existing New-document autosave path, including retry on subsequent eligible
+edits after a save failure. An accepted Import supersedes an
 unfinished New action rather than adding a queue or pending-document owner.
 _Avoid_: open file, replace, file sync
 
@@ -312,8 +368,10 @@ _Avoid_: backup, saved copy, publish
 **Delete document**:
 Permanently removing any one Loomark document without first opening it. Each
 Recent documents entry exposes a direct icon-only trash button with a
-target-specific accessible name and tooltip. Pointer or keyboard activation
-opens Delete confirmation; there is no Actions, context, or overflow menu.
+target-specific accessible name and tooltip. With a hover-capable fine pointer
+it appears while its entry is hovered or holds focus; touch screens always show
+it with a 44px target, and keyboard focus always reveals it. Pointer or
+keyboard activation opens Delete confirmation; there is no Actions, context, or overflow menu.
 Deleting the Editing Document opens the most recently changed remainder, or a
 New document when none remains; Loomark keeps no Trash.
 _Avoid_: archive, trash, soft delete

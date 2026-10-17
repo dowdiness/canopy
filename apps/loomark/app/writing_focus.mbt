@@ -1,5 +1,10 @@
 ///|
-pub const WRITING_FOCUS_LAYER_ID : String = "loomark-writing-focus"
+const WRITING_FOCUS_LAYER_ID : String = "loomark-writing-focus"
+
+///|
+priv suberror MissingFocusElement {
+  MissingFocusElement(String)
+}
 
 ///|
 priv suberror WritingFocusSubscription {
@@ -9,33 +14,32 @@ priv suberror WritingFocusSubscription {
 ///|
 priv enum WritingFocusConnection {
   AwaitingRender
-  Connected(WritingFocus)
+  Connected(@writing_focus_browser.WritingFocus)
   Removed
 }
 
 ///|
-fn resolve_writing_focus(editor_id : String) -> WritingFocus raise {
+fn resolve_writing_focus() -> @writing_focus_browser.WritingFocus raise {
   let document = @dom.document()
-  guard document.get_element_by_id(editor_id).to_option() is Some(element) &&
+  guard document.get_element_by_id(EDITOR_TEXT_ID).to_option() is Some(element) &&
     element.to_html_text_area_element() is Some(text_area) else {
-    raise MissingFocusElement(editor_id)
+    raise MissingFocusElement(EDITOR_TEXT_ID)
   }
   guard document.get_element_by_id(WRITING_FOCUS_LAYER_ID).to_option()
     is Some(element) &&
     element.to_html_element() is Some(dimming_layer) else {
     raise MissingFocusElement(WRITING_FOCUS_LAYER_ID)
   }
-  add_writing_focus(text_area, dimming_layer)
+  @writing_focus_browser.connect(text_area, dimming_layer)
 }
 
 ///|
-pub fn subscription(
-  editor_id : String,
+fn writing_focus_subscription(
   activation : Int,
   preview : @editor.EditorState,
 ) -> @sub.Sub {
   @sub.custom_sub(
-    "loomark.writing-focus(\{editor_id},\{activation})",
+    "loomark.writing-focus(\{activation})",
     @sub.Scope::Local,
     WritingFocusSubscription::Refresh(preview),
     (_, scheduler) => {
@@ -45,10 +49,16 @@ pub fn subscription(
         @cmd.custom_cmd(kind=@cmd.after_render, _ => {
           match connection {
             AwaitingRender => {
-              let focus = resolve_writing_focus(editor_id) catch {
+              let focus = resolve_writing_focus() catch {
                 error => {
                   connection = Removed
-                  report_writing_focus_error(@js.any(error))
+                  @js.global()
+                  .get("console")
+                  .call("error", [
+                    @js.any("Loomark could not connect writing focus:"),
+                    @js.any(error),
+                  ])
+                  |> ignore
                   return
                 }
               }
@@ -63,7 +73,7 @@ pub fn subscription(
           let previous = connection
           connection = Removed
           match previous {
-            Connected(focus) => remove_writing_focus(focus)
+            Connected(focus) => focus.remove()
             AwaitingRender | Removed => ()
           }
         },
@@ -77,7 +87,7 @@ pub fn subscription(
             scheduler.add(
               @cmd.custom_cmd(kind=@cmd.after_render, _ => {
                 match connection {
-                  Connected(focus) => refresh_writing_focus(focus)
+                  Connected(focus) => focus.refresh()
                   AwaitingRender | Removed => ()
                 }
               }),

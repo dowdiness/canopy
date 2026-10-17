@@ -22,6 +22,42 @@ priv struct ToolbarInput {
 } derive(Eq)
 
 ///|
+fn focus_mode_toggle(
+  active : Bool,
+  disabled : Bool,
+  toggle : @rabbita.Cmd,
+) -> @rabbita.Html {
+  let label = if active { "Exit Focus Mode" } else { "Focus Mode" }
+  @html.button(
+    type_="button",
+    id="loomark-focus-toggle",
+    class="loomark-icon loomark-focus-toggle",
+    attrs=@html.Attrs::build()
+      .aria_label(label)
+      .aria_pressed(if active { "true" } else { "false" })
+      .disabled(disabled),
+    on_click=toggle,
+    [
+      @html.span(
+        class="loomark-focus-enter i-lucide-shrink block size-4",
+        attrs=@html.Attrs::build().aria_hidden("true"),
+        @html.nothing,
+      ),
+      @html.span(
+        class="loomark-focus-exit i-lucide-expand block size-4",
+        attrs=@html.Attrs::build().aria_hidden("true"),
+        @html.nothing,
+      ),
+      @html.span(
+        class="loomark-focus-tooltip",
+        attrs=@html.Attrs::build().aria_hidden("true"),
+        label,
+      ),
+    ],
+  )
+}
+
+///|
 fn file_actions(
   input_id : String,
   import_disabled : Bool,
@@ -82,10 +118,12 @@ fn document_toolbar(
   input : ToolbarInput,
   account : @rabbita.Html,
   sync_status : @rabbita.Html,
+  focus_mode : Bool,
   emit : @rabbita.Emit[DocumentIntent],
 ) -> @rabbita.Html {
   @html.header(
     class="loomark-topbar flex h-12 shrink-0 items-center justify-end gap-1 px-6 max-[520px]:h-[52px] max-[520px]:px-3",
+    attrs=@html.Attrs::build().inert(focus_mode),
     [
       @html.button(
         type_="button",
@@ -130,11 +168,21 @@ fn document_footer(
   mode : EditorMode,
   durability : LocalDurability?,
   persistence : @replica_persistence.Status?,
-  attention : @rabbita.Html,
+  attention : (@rabbita.Html, Bool),
+  focus_mode : Bool,
+  characters : Int?,
   on_mode : @rabbita.Emit[EditorMode],
 ) -> @rabbita.Html {
+  let (attention, has_attention) = attention
+  let has_attention = has_attention ||
+    durability == Some(NotStored) ||
+    persistence is Some(@replica_persistence.Status::Retryable(_, _))
   @html.footer(
+    hidden=focus_mode && !has_attention,
     class="loomark-footer flex h-16 shrink-0 items-center justify-between gap-2 px-3 max-[520px]:px-2",
+    attrs=@html.Attrs::build()
+      .inert(focus_mode && !has_attention)
+      .data_set("attention", if has_attention { "true" } else { "false" }),
     [
       @html.div(
         class="loomark-footer-status flex min-w-0 flex-1 items-center gap-2",
@@ -145,7 +193,17 @@ fn document_footer(
       ),
       @html.div(
         class="loomark-bottom-actions flex shrink-0 items-center gap-2",
+        attrs=@html.Attrs::build().inert(focus_mode),
         [
+          // The measure stays mounted: inserting it during the first typing
+          // burst would split Chromium's native Undo group.
+          @html.span(
+            class="loomark-character-count",
+            match characters {
+              Some(count) if count > 0 => character_count_label(count)
+              _ => ""
+            },
+          ),
           @rui.tabs_root(
             value=mode_name(mode).to_lower(),
             style=["width:auto"],

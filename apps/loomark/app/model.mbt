@@ -1,9 +1,8 @@
 ///|
 priv enum Page {
   Loading(Bool)
-  PreparingNew(PreparingNewState)
-  NewPreparationFailed(PreparingNewState, @source_repository.OpenFailure)
-  Editing(EditingState)
+  OpeningNew(OpeningNewContext, Creation)
+  Editing(EditingDocument)
   Recovery(@source_repository.OpenFailure, Bool)
 } derive(Eq)
 
@@ -13,6 +12,7 @@ priv struct Model {
   replication : @replication.State
   sign_in : @sign_in.SignIn
   scroll_owner : ScrollPane
+  focus_mode : Bool
 } derive(Eq)
 
 ///|
@@ -37,11 +37,10 @@ fn Model::with_page(self : Self, page : Page) -> Self {
 }
 
 ///|
-priv struct PreparingNewState {
-  documents : @documents.State
+priv struct OpeningNewContext {
+  documents : @documents.Model
   mode : EditorMode
   compact : Bool
-  request_id : Int
   next_activation_generation : Int
 } derive(Eq)
 
@@ -59,18 +58,17 @@ priv struct ActivationTarget {
 }
 
 ///|
-priv struct EditingState {
+priv struct EditingDocument {
   activation : Activation
-  documents : @documents.State
-  creation : DocumentCreation
+  documents : @documents.Model
+  creation : Creation?
   deletion : DocumentDeletion
   mode : EditorMode
   menu_open : Bool
   compact : Bool
   preview : @editor.EditorState
-  import_failed : Bool
   imports_pending : Int
-  new_preparation_request_id : Int
+  next_creation_request_id : Int
 } derive(Eq)
 
 ///|
@@ -81,12 +79,32 @@ priv enum EditorMode {
 } derive(Eq)
 
 ///|
-priv enum DocumentCreation {
-  Idle
-  Creating(Int)
-  CreationFailed(@source_repository.CreateFailure)
-  ExampleCreationFailed(String, @source_repository.CreateFailure)
+priv struct Creation {
+  request_id : Int
+  intent : CreationIntent
+  status : CreationStatus
 } derive(Eq)
+
+///|
+priv enum CreationIntent {
+  NewDocument
+  Example(String)
+} derive(Eq)
+
+///|
+priv enum CreationStatus {
+  InProgress
+  Failed(@source_repository.CreateFailure)
+  Fault(String)
+} derive(Eq)
+
+///|
+priv enum DocumentUpdate {
+  Updated(@documents.Transition)
+  Unchanged
+  Obsolete
+  Fault(String)
+}
 
 ///|
 priv enum DocumentDeletion {
@@ -102,6 +120,8 @@ priv struct AccountControlsInput {
 
 ///|
 priv enum Msg {
+  Notify(String)
+  NotificationFocusReturn
   AuthenticationReturned(Bool)
   Opened(@source_repository.OpenResult)
   EmptyCreateCompleted(Int, @source_repository.CreateResult)
@@ -112,35 +132,39 @@ priv enum Msg {
   CompositionStarted(Int)
   CompositionEnded(Int)
   ModeSelected(EditorMode)
+  FocusModeToggled
   MenuToggled
   EscapePressed
   ImportFilesSelected(FixedArray[@browser.File])
   ImportReadCompleted(Result[Bytes, Error])
   ImportCreateCompleted(String, @source_repository.CreateResult)
-  DismissImportFailure
   ExportRequested
   PreviewEvent(@editor.EditorEvent)
   ScrollClaimed(ScrollPane)
   ViewportChanged(Double)
-  DocumentsLifecycle(@documents.Feedback)
+  DocumentMaximumElapsed(Int)
+  DocumentSaved(@documents.SaveOperation, @source_repository.Document)
+  DocumentSaveFailed(@documents.SaveOperation, @source_repository.SaveFailure)
+  DocumentDeleted(@documents.DeleteOperation, @source_repository.DocumentId)
+  DocumentDeleteFailed(
+    @documents.DeleteOperation,
+    @source_repository.DeleteFailure
+  )
   ApplyPendingEdit(@documents.Key, Int)
   VisibilityChanged(Bool)
   PageRestored
-  RetrySave
   RetryAccount
   StartSync(@documents.StartSync)
   AcceptRemote(@documents.AcceptRemote)
-  RetrySaving(@replica_persistence.Retry)
   RetrySync(@sync.Retry)
   RetrySelection(@sync.SelectionRetry)
   DocumentSelected(@documents.Key)
   CreateRequested
+  RetryOpeningNewCreation
   CreateCompleted(Int, @source_repository.CreateResult)
   DeleteRequested(@documents.Key)
   DeleteCancelled
   DeleteConfirmed(@documents.Key)
-  RetryDelete(@documents.Key)
-  DismissDeleteFailure(@documents.Key)
   SignIn(@sign_in.Event)
   LogoutRequested
   LogoutCompleted(@sync.LogoutAttempt, @account_http.LogoutResult)

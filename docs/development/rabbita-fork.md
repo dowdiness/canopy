@@ -22,8 +22,8 @@ updates still follow the normal Canopy PR and CI workflow.
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
 - **Downstream branch:** `main`
 - **Upstream base:** `b46d141fa3f4971be010d7d5bb5a178dfa20f300` (upstream `main`)
-- **Pinned commit:** `8fcdacd3edd35b6be267849b1098140901033ad5`
-- **Pin tag:** `canopy-worker-20261004`
+- **Pinned commit:** `78160a0f73c18c433a453986303c8d616ff71b73`
+- **Pin tag:** None for the current pin; `canopy-worker-20261004` identifies the earlier Worker binding pin.
 - **History:** 17 rebased fork commits, followed by integration fixes, the upstream-only website deployment guard and the Worker binding; no downstream merge commits.
 - **Canopy submodule:** `deps/rabbita`
 
@@ -35,6 +35,8 @@ branch reference at checkout time.
 
 The pinned fork contains:
 
+- a composable RUI Sonner host with stable notification slots that preserve native
+  editor Undo, and isolated timer, hover, and swipe lifecycles;
 - typed `DOMExceptionError` effects for `set_pointer_capture` and
   `release_pointer_capture`;
 - preservation of standard DOM exception `name` and `message`, with safe

@@ -239,11 +239,17 @@ fn set_style_if_changed(
 }
 
 ///|
+/// Font longhands, not the `font` shorthand: Chromium serializes the computed
+/// shorthand as "" when a longhand such as font-kerning has no shorthand form,
+/// which left the mirror in the page font and misplaced every wrapped line.
 let text_layout_properties : FixedArray[String] = [
-  "font", "line-height", "font-kerning", "font-feature-settings", "font-variation-settings",
-  "font-variant-ligatures", "letter-spacing", "word-spacing", "text-indent", "text-transform",
-  "text-align", "direction", "unicode-bidi", "white-space", "word-break", "overflow-wrap",
-  "tab-size", "padding-top", "padding-right", "padding-bottom", "padding-left",
+  "font-family", "font-size", "font-weight", "font-style", "font-stretch", "font-variant-caps",
+  "font-variant-east-asian", "font-variant-numeric", "font-variant-position", "font-optical-sizing",
+  "font-synthesis", "font-size-adjust", "line-height", "font-kerning", "font-feature-settings",
+  "font-variation-settings", "font-variant-ligatures", "letter-spacing", "word-spacing",
+  "text-indent", "text-transform", "text-align", "direction", "unicode-bidi", "white-space",
+  "word-break", "overflow-wrap", "tab-size", "padding-top", "padding-right", "padding-bottom",
+  "padding-left",
 ]
 
 ///|
@@ -260,21 +266,19 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
   let padding_right = @browser_api.parse_css_number(
     style.get_property_value("padding-right"),
   )
+  let (left, content_width) = @writing_focus.calculate_dimming_inline_bounds(
+    self.text_area.get_offset_left(),
+    width,
+    padding_left,
+    padding_right,
+  )
   set_style_if_changed(
     self.dimming_layer,
     "top",
     "\{self.text_area.get_offset_top()}px",
   )
-  set_style_if_changed(
-    self.dimming_layer,
-    "left",
-    "\{self.text_area.get_offset_left() + padding_left}px",
-  )
-  set_style_if_changed(
-    self.dimming_layer,
-    "width",
-    "\{width - padding_left - padding_right}px",
-  )
+  set_style_if_changed(self.dimming_layer, "left", "\{left}px")
+  set_style_if_changed(self.dimming_layer, "width", "\{content_width}px")
   set_style_if_changed(
     self.dimming_layer,
     "height",

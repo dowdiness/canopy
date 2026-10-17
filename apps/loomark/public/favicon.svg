@@ -1,4 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#f7f4ed" />
-  <path d="M10 7v17h13" fill="none" stroke="#5d4fa3" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
+  <style>
+    rect { fill: #f7f4ed; }
+    path { stroke: #37579e; }
+    @media (prefers-color-scheme: dark) {
+      rect { fill: #24211e; }
+      path { stroke: #97b7f8; }
+    }
+  </style>
+  <rect width="32" height="32" rx="7" />
+  <path d="M10 7v17h13" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" />
 </svg>

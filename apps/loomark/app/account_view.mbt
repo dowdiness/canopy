@@ -77,7 +77,7 @@ fn account_controls(
     @html.button(
       type_="button",
       class=if google_sign_in {
-        "flex min-h-11 w-full min-w-0 cursor-pointer items-center justify-center gap-2.5 rounded-full border border-lm-rule bg-white px-4 py-2 text-sm font-medium text-lm-ink hover:bg-lm-foundation active:bg-lm-foundation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent disabled:cursor-default disabled:opacity-60"
+        "flex min-h-11 w-full min-w-0 cursor-pointer items-center justify-center gap-2.5 rounded-full border border-lm-rule bg-lm-surface px-4 py-2 text-sm font-medium text-lm-ink hover:bg-lm-foundation active:bg-lm-foundation focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lm-accent disabled:cursor-default disabled:opacity-60"
       } else {
         "min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-ink hover:bg-lm-foundation focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent disabled:cursor-default disabled:opacity-60 max-[641px]:min-h-11"
       },
@@ -99,24 +99,4 @@ fn account_controls(
       ],
     ),
   ])
-}
-
-///|
-fn account_notice(input : AccountControlsInput) -> @rabbita.Html {
-  let message = match input.sign_in {
-    @sign_in.Failed(@sign_in.Save(_), ..) =>
-      "Couldn’t save changes. You have not left this page. Retry sign-in to save again."
-    Failed(Authentication, ..) =>
-      "Couldn’t sign in with Google. Your documents remain on this device."
-    _ =>
-      match input.session {
-        LogoutUnconfirmed(_) => "Couldn’t confirm sign-out. Retry sign-out."
-        _ => return @html.nothing
-      }
-  }
-  @html.p(
-    class="m-0 shrink-0 bg-lm-danger-soft px-3 py-2 text-sm text-lm-danger",
-    attrs=@html.Attrs::build().role("alert"),
-    @html.text(message),
-  )
 }

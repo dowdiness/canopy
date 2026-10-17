@@ -3,7 +3,6 @@ priv enum SyncIntent {
   RetryAccount
   StartSync(@documents.StartSync)
   AcceptRemote(@documents.AcceptRemote)
-  RetrySaving(@replica_persistence.Retry)
   RetrySync(@sync.Retry)
   RetrySelection(@sync.SelectionRetry)
 }
@@ -22,7 +21,7 @@ fn sync_status_button(
   @html.button(
     type_="button",
     hidden=message is None,
-    class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-[oklch(0.955_0.003_255)] hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
+    class="min-h-8 shrink-0 cursor-pointer rounded-md border border-lm-rule bg-transparent px-2 py-1 text-xs text-lm-muted transition-colors duration-150 hover:bg-lm-foundation hover:text-lm-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lm-accent max-[641px]:min-h-11",
     on_click?=message.map(message => emit(message)),
     text,
   )
@@ -111,15 +110,11 @@ fn remote_state_view(
 ///|
 fn replica_persistence_view(
   persistence : @replica_persistence.Status,
-  emit : @rabbita.Emit[SyncIntent],
 ) -> @rabbita.Html {
   match persistence {
     @replica_persistence.Status::Current | Persisting => @html.nothing
-    Retryable(action, _) =>
-      @html.div(class="flex flex-col items-start gap-1", [
-        sync_status_label("Sync information was not saved on this device."),
-        sync_status_button("Retry saving", Some(RetrySaving(action)), emit),
-      ])
+    Retryable(_, _) =>
+      sync_status_label("Sync information was not saved on this device.")
   }
 }
 
@@ -192,11 +187,10 @@ fn document_sync_option_view(
 ///|
 fn replica_persistence_option_view(
   persistence : @replica_persistence.Status?,
-  emit : @rabbita.Emit[SyncIntent],
 ) -> @rabbita.Html {
   match persistence {
     None => @html.nothing
-    Some(persistence) => replica_persistence_view(persistence, emit)
+    Some(persistence) => replica_persistence_view(persistence)
   }
 }
 

@@ -1,4 +1,4 @@
-/// Shared fixtures and state extraction for document reducer tests.
+/// Shared fixtures and state extraction for document lifecycle tests.
 
 ///|
 fn document_id(value : String) -> @source_repository.DocumentId {
@@ -44,7 +44,25 @@ fn documents_test_document(
 }
 
 ///|
-fn pending_revision(documents : State, id : Key) -> Int {
+fn begin_sync_start(
+  documents : Model,
+  account : @source_repository.AccountId,
+) -> (Model, @source_repository.DocumentReplica) {
+  let action = match documents.sync_start(source_key("one"), account) {
+    Ready(action) => action
+    Starting | Unavailable => abort("source must be ready for sync")
+  }
+  let (documents, effects) = documents.start_sync(action) catch {
+    _ => abort("valid sync start")
+  }
+  match effects {
+    [StoreReplica(write)] => (documents, write.replica())
+    _ => abort("sync start must submit promotion")
+  }
+}
+
+///|
+fn pending_revision(documents : Model, id : Key) -> Int {
   match find_record(documents.records, id).unwrap().edit {
     Waiting(revision) | ComposingWaiting(revision) => revision
     Idle | ComposingIdle | ComposingReady => abort("no pending revision")
@@ -52,7 +70,7 @@ fn pending_revision(documents : State, id : Key) -> Int {
 }
 
 ///|
-fn has_pending(documents : State, id : Key) -> Bool {
+fn has_pending(documents : Model, id : Key) -> Bool {
   match find_record(documents.records, id).unwrap().edit {
     Waiting(_) | ComposingWaiting(_) => true
     Idle | ComposingIdle | ComposingReady => false
@@ -88,12 +106,12 @@ test "replica completion classifies promotion independently of a newer write" {
   guard completion is @replica_persistence.Completion::Superseded(_, _) else {
     fail("superseded promotion")
   }
-  guard Feedback::from_replica_completion(
+  guard Msg::from_replica_completion(
       promotion,
       completion,
       Some(source_key("one")),
     )
-    is Some(PromotionCompleted(write, Ok(_))) &&
+    is Some(Promoted(write)) &&
     write == promotion else {
     fail("promotion must rekey even when superseded")
   }
@@ -107,7 +125,7 @@ test "replica completion distinguishes current, superseded, and deletion failure
   )
   let write = replica.store()
   let mounted = Key::replica(replica.account(), replica.document_id())
-  guard Feedback::from_replica_completion(
+  guard Msg::from_replica_completion(
       write,
       @replica_persistence.Completion::Current(write),
       Some(mounted),
@@ -121,12 +139,12 @@ test "replica completion distinguishes current, superseded, and deletion failure
   let (lane, next) = lane.submit(replica.rewrite())
   guard next is None else { fail("newer write must wait") }
   let (_, completion) = lane.complete(active, Ok(()))
-  guard Feedback::from_replica_completion(write, completion, Some(mounted))
+  guard Msg::from_replica_completion(write, completion, Some(mounted))
     is Some(ReplicaAdvanced(_)) else {
     fail("superseded success cannot settle current working copy")
   }
   let deletion = replica.request_deletion()
-  guard Feedback::from_replica_completion(
+  guard Msg::from_replica_completion(
       deletion,
       @replica_persistence.Completion::Failed(deletion, StorageUnavailable),
       Some(mounted),
@@ -134,7 +152,7 @@ test "replica completion distinguishes current, superseded, and deletion failure
     is Some(ReplicaDeletionFailed(_, StorageUnavailable)) else {
     fail("deletion failure must be shown")
   }
-  guard Feedback::from_replica_completion(
+  guard Msg::from_replica_completion(
       write,
       @replica_persistence.Completion::Failed(write, StorageUnavailable),
       Some(mounted),
@@ -171,8 +189,14 @@ test "same document id remains isolated across source and accounts" {
   let source = Key::source(id)
   let replica_a = Key::replica(account_a, id)
   let replica_b = Key::replica(account_b, id)
-  let state = State(saved).project_account(account_a).project_account(account_b)
-  let (state, _) = state.reduce(TextChanged(replica_a, "edited A"))
+  let state = Model(saved).project_account(account_a).project_account(account_b)
+  guard (state.edit(replica_a, "edited A") catch {
+      _ => abort("unexpected edit error")
+    })
+    is Changed(transition) else {
+    fail("replica edit")
+  }
+  let state = transition.model
   assert_eq(state.text(source), Some("source"))
   assert_eq(state.text(replica_a), Some("edited A"))
   assert_eq(state.text(replica_b), Some("account B"))
