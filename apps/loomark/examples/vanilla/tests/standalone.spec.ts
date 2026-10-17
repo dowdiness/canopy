@@ -1678,6 +1678,105 @@ test("increased text spacing preserves readable status and native caret navigati
   }
 })
 
+type PaintedTextArea = {
+  height: number
+  lineHeight: number
+  firstLineTop: number
+  dotRows: number[]
+  textLines: { top: number; bottom: number }[]
+}
+
+// Reads painted pixels rather than computed styles: the grid has drifted from
+// the text while every computed value looked right.
+async function readPaintedTextArea(page: Page): Promise<PaintedTextArea> {
+  const layout = await page.getByRole("textbox", { name: "Text" }).evaluate(element => {
+    const bounds = element.getBoundingClientRect(), style = getComputedStyle(element)
+    const top = document.querySelector(".loomark-topbar")!.getBoundingClientRect().bottom
+    const bottom = document.querySelector(".loomark-footer")!.getBoundingClientRect().top
+    return {
+      clip: { x: bounds.left, y: top, width: bounds.width, height: bottom - top },
+      contentLeft: Number.parseFloat(style.paddingLeft),
+      lineHeight: Number.parseFloat(style.lineHeight),
+      firstLineTop: bounds.top + Number.parseFloat(style.paddingTop) - element.scrollTop - top,
+    }
+  })
+  const image = await page.screenshot({ clip: layout.clip, scale: "css" })
+  const painted = await page.evaluate(async ({ encoded, contentLeft }) => {
+    const bytes = Uint8Array.from(atob(encoded), value => value.charCodeAt(0))
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }))
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const context = canvas.getContext("2d")!
+    context.drawImage(bitmap, 0, 0)
+    const { data, width, height } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+    bitmap.close()
+    const brightness = (x: number, y: number) => data[(y * width + x) * 4 + 1]
+    let paper = 0
+    for (let y = 0; y < height; y++) paper = Math.max(paper, brightness(8, y))
+    const markedRuns = (left: number, right: number, contrast: number) => {
+      const runs: number[][] = []
+      for (let y = 0; y < height; y++) {
+        let marked = false
+        for (let x = left; x < right && !marked; x++) marked = brightness(x, y) < paper - contrast
+        if (!marked) continue
+        const run = runs.at(-1)
+        if (run && y - run.at(-1)! <= 1) run.push(y)
+        else runs.push([y])
+      }
+      return runs
+    }
+    // Dots are read in the empty margin and glyphs at the start of the measure,
+    // so neither is mistaken for the other.
+    return {
+      height,
+      dotRows: markedRuns(8, contentLeft - 8, 8).map(run => (run[0] + run.at(-1)!) / 2),
+      textLines: markedRuns(contentLeft, contentLeft + 60, 80).map(run => ({ top: run[0], bottom: run.at(-1)! })),
+    }
+  }, { encoded: image.toString("base64"), contentLeft: layout.contentLeft })
+  return { ...painted, lineHeight: layout.lineHeight, firstLineTop: layout.firstLineTop }
+}
+
+function expectDotGridOnTextLines(painted: PaintedTextArea, label: string) {
+  const { height, lineHeight, firstLineTop, dotRows, textLines } = painted
+  for (const row of dotRows) {
+    const offset = (((row - firstLineTop) % lineHeight) + lineHeight) % lineHeight
+    expect(Math.min(offset, lineHeight - offset), `${label}: dot row ${row} on a line boundary`).toBeLessThanOrEqual(1)
+  }
+  // Lines near the bars may have their dot rows hidden beneath them.
+  const visibleLines = textLines.filter(line => line.top > lineHeight && line.bottom < height - lineHeight)
+  expect(visibleLines.length, label).toBeGreaterThan(10)
+  const gapsToDotsAbove = visibleLines.map(line => {
+    const above = Math.max(...dotRows.filter(row => row < line.top))
+    const below = Math.min(...dotRows.filter(row => row > line.bottom))
+    expect(Math.abs(below - above - lineHeight), `${label}: line ${line.top} between adjacent dot rows`).toBeLessThanOrEqual(1)
+    return line.top - above
+  })
+  // Drift shows as this gap changing down the page.
+  expect(Math.max(...gapsToDotsAbove) - Math.min(...gapsToDotsAbove), `${label}: drift`).toBeLessThanOrEqual(1.5)
+}
+
+for (const spacing of ["default", "increased"] as const) {
+  test(`dot grid stays between Text lines through a long document with ${spacing} line spacing`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "light" })
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.goto("/")
+    if (spacing === "increased") await page.addStyleTag({ content: "* { line-height:1.5 !important }" })
+    const area = page.getByRole("textbox", { name: "Text" })
+    await area.fill(Array.from({ length: 400 }, (_, i) => `Line ${i + 1}`).join("\n"))
+    await area.blur()
+    // Halfway through a line, a grid that ignores scrolling cannot line up by chance.
+    for (const position of ["top", "halfway through a line", "end"] as const) {
+      await area.evaluate((element, position) => {
+        const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight)
+        const scrollTops = { top: 0, "halfway through a line": Math.round(160.5 * lineHeight), end: element.scrollHeight }
+        element.scrollTop = scrollTops[position]
+      }, position)
+      await page.evaluate(() => new Promise(resolve =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))))
+      expectDotGridOnTextLines(await readPaintedTextArea(page), `scrolled to ${position}`)
+    }
+  })
+}
+
 for (const mode of ["Text", "Split"] as const) {
   test(`current native writing line stays visible outside chrome in ${mode}`, async ({ page }) => {
     for (const [scenario, { width, height, failure, minimumSplit = false }] of [
