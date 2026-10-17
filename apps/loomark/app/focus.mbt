@@ -1,24 +1,26 @@
 ///|
-priv enum FocusDecision {
-  FocusSidebar
-  FocusEditor
-  FocusToggle
+/// Where focus belongs once the editor has rendered.
+priv enum FocusTarget {
+  /// The current mode's element: the textarea, or the Preview tab.
+  CurrentMode
+  /// Focus Mode makes the Preview tab inert; its toggle stands in.
+  FocusModeToggle
+  /// An inert editor cannot hold focus, so Recent documents receives it.
+  RecentDocuments
 }
 
 ///|
-/// An inert editor cannot hold focus; Focus Mode hides Preview's target, so
-/// its toggle receives focus instead.
-fn restored_editor_focus(
+fn editor_focus_target(
   mode : EditorMode,
   editor_inert~ : Bool,
-  target_inert~ : Bool,
-) -> FocusDecision {
+  mode_element_inert~ : Bool,
+) -> FocusTarget {
   if editor_inert {
-    FocusSidebar
-  } else if mode == Preview && target_inert {
-    FocusToggle
+    RecentDocuments
+  } else if mode == Preview && mode_element_inert {
+    FocusModeToggle
   } else {
-    FocusEditor
+    CurrentMode
   }
 }
 
@@ -37,23 +39,22 @@ fn focus_after_render(id : String) -> @cmd.Cmd {
 fn focus_editor_after_render(mode : EditorMode) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=AfterRender, scheduler => {
     let document = @dom.document()
-    let target = document.get_element_by_id(editor_focus_id(mode)).to_option()
-    let decision = restored_editor_focus(
+    let mode_element = document
+      .get_element_by_id(editor_focus_id(mode))
+      .to_option()
+    let target = editor_focus_target(
       mode,
       editor_inert=editor_is_inert(document),
-      target_inert=target is Some(target) && is_inert(target),
+      mode_element_inert=mode_element is Some(element) && is_inert(element),
     )
-    match decision {
-      FocusSidebar =>
-        scheduler.queue_command(
-          @sidebar.sidebar_focus("loomark-document-sidebar"),
-        )
-      FocusEditor => if target is Some(target) { focus_element(target) }
-      FocusToggle =>
+    match target {
+      CurrentMode => if mode_element is Some(element) { focus_element(element) }
+      FocusModeToggle =>
         if document.get_element_by_id("loomark-focus-toggle").to_option()
           is Some(toggle) {
           focus_element(toggle)
         }
+      RecentDocuments => scheduler.queue_command(focus_recent_documents())
     }
   })
 }
@@ -63,11 +64,14 @@ fn focus_editor_after_render(mode : EditorMode) -> @cmd.Cmd {
 fn retain_editor_focus_after_render() -> @cmd.Cmd {
   @cmd.custom_cmd(kind=AfterRender, scheduler => {
     if editor_is_inert(@dom.document()) {
-      scheduler.queue_command(
-        @sidebar.sidebar_focus("loomark-document-sidebar"),
-      )
+      scheduler.queue_command(focus_recent_documents())
     }
   })
+}
+
+///|
+fn focus_recent_documents() -> @cmd.Cmd {
+  @sidebar.sidebar_focus("loomark-document-sidebar")
 }
 
 ///|
