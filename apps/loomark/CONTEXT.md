@@ -76,7 +76,8 @@ _Avoid_: ordinary content, paragraph
 **Focus Mode**:
 An explicit, page-local writing presentation, off on every launch or reload.
 The icon-only toggle stays at the bottom-right of the available viewport and,
-like the view controls, is hidden while an on-screen keyboard is detected.
+like the view controls, is hidden while an on-screen keyboard is detected and
+the textarea has focus, so a mistaken detection cannot remove the only exit.
 Toggling only switches the presentation; it never focuses the textarea, so it
 cannot summon an on-screen keyboard. Its accessible label and tooltip name
 `Focus Mode` or `Exit Focus Mode`, and its pressed state exposes whether it is on.

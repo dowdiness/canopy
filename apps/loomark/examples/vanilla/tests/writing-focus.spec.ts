@@ -168,6 +168,10 @@ test("Focus Mode toggle hides with a simulated mobile keyboard like the view con
   await keyboard(360, 24)
   await expect(toggle).toBeHidden()
   await expect(page.locator(".loomark-footer")).toBeHidden()
+  // No on-screen keyboard can be open without textarea focus, so a mistaken
+  // detection must not remove the only Focus Mode exit.
+  await text.blur()
+  await expect(toggle).toBeVisible()
   await keyboard(844, 0)
   await expect(toggle).toBeVisible()
   await toggle.click()

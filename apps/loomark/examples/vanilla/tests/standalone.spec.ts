@@ -1377,7 +1377,7 @@ test("Import rejects malformed UTF-8 without creating a Source", async ({ page }
   })
   for (const focused of [false, true]) {
     if (focused) {
-      // The toggle is hidden with the keyboard; enter Focus Mode directly.
+      // The simulated keyboard can hide the toggle; enter Focus Mode directly.
       await page.locator("#loomark-focus-toggle").evaluate(element => (element as HTMLButtonElement).click())
       await page.getByLabel("Import Markdown")
         .setInputFiles("tests/fixtures/import-malformed-utf8.md")
