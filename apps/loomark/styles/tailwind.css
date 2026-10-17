@@ -405,8 +405,8 @@
 .loomark-source {
   /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
      only element resizing needs the existing measured-caret correction. */
-  padding: 70px max(28px, calc((100% - var(--loomark-measure)) / 2)) var(--loomark-content-bottom);
-  scroll-padding-block: 70px var(--loomark-content-bottom);
+  padding: var(--loomark-first-line-top) max(28px, calc((100% - var(--loomark-measure)) / 2)) var(--loomark-content-bottom);
+  scroll-padding-block: var(--loomark-first-line-top) var(--loomark-content-bottom);
   font-size: 17px;
   line-height: 1.85;
   -webkit-font-smoothing: antialiased;
@@ -416,6 +416,7 @@
 }
 
 .loomark-source-frame {
+  --loomark-first-line-top: 70px;
   position: relative;
   isolation: isolate;
 }
@@ -758,7 +759,8 @@
   /* Override RUI inline sizes to retain a writing line when notices reduce height. */
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text-pane { min-height: 112px !important; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) [data-side="second"] { flex-shrink: 1 !important; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding: 68px 24px 16px; scroll-padding-block: 68px 16px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame { --loomark-first-line-top: 68px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding-inline: 24px; padding-bottom: 16px; scroll-padding-bottom: 16px; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px var(--loomark-content-bottom); }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source {
     mask-image: linear-gradient(to bottom, transparent, black 52px);
@@ -775,7 +777,8 @@
   #loomark-preview-scroll .rmd-preview-content { padding-inline: 32px; }
 }
 @media (max-width: 520px) {
-  .loomark-source { padding-top: 68px; padding-inline: 24px; scroll-padding-top: 68px; }
+  .loomark-source-frame { --loomark-first-line-top: 68px; }
+  .loomark-source { padding-inline: 24px; }
   #loomark-preview-scroll .rmd-preview-content { padding: 68px 24px var(--loomark-content-bottom); }
   .loomark-menu { right: 12px; top: 49px; }
   .loomark-source { font-size: 16px; }
