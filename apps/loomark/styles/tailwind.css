@@ -19,7 +19,7 @@
   font-style: normal;
   font-display: swap;
 }
-/* Loaded only when Japanese text is shown or warmed (internal/browser/fonts.mbt);
+/* Loaded ahead of Japanese text (app/fonts.mbt) or warmed (internal/browser/fonts.mbt);
    IBM Plex shares Quattro's lineage. `swap` changes every element together:
    with `optional` or `fallback`, Chromium decides per element whether a late
    face is used, so the textarea and the writing-focus mirror that measures its

@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/fonts"
+
+// Values
+pub const JAPANESE_SAMPLE : String = "あ"
+
+pub const WRITING_FACE : String = "1em \"IBM Plex Sans JP\""
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

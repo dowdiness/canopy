@@ -12,6 +12,7 @@ import {
   "dowdiness/loomark/internal/viewport",
   "dowdiness/loomark/internal/examples",
   "dowdiness/loomark/internal/browser",
+  "dowdiness/loomark/internal/fonts",
   "dowdiness/loomark/internal/document_lead",
   "dowdiness/loomark/internal/recent_documents",
   "dowdiness/loomark/internal/view",

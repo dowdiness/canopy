@@ -190,11 +190,12 @@ _Avoid_: word count, statistics, progress
 Loomark follows the system light or dark preference with the same warm paper
 hue. Text uses a duospaced writing face with IBM Plex Sans JP for Japanese, and
 Preview a reading serif with BIZ UDMincho; system fonts cover scripts they
-lack. Japanese faces download only when Japanese text appears, or ahead of time
-while idle for a Japanese-language browser or a Japanese document, and stay
-cached by versioned file name. A face that arrives late replaces the system
-font everywhere at once, and Writing focus re-measures. Printing from
-Preview prints the reading page without controls. Appearance never changes
+lack. Each Japanese face is one file, cached by versioned file name. The
+writing face loads as the app starts for every visitor unless the browser asks
+to save data; Preview's face downloads ahead of time while idle for a Japanese
+document. A face that arrives late replaces the system font everywhere at once,
+and Writing focus re-measures. Printing from Preview prints the reading page
+without controls. Appearance never changes
 Document text, and Preview adds no quotation marks or code delimiters that the
 text does not contain.
 _Avoid_: theme, skin

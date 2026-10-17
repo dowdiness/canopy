@@ -22,6 +22,8 @@ pub fn animation_start_time(@dom.Animation) -> @js.Nullable[Double]
 
 pub fn cancel_animation(@dom.Animation) -> Unit
 
+pub fn document_font_faces(@dom.Document) -> FontFaceSet
+
 pub fn document_fonts(@dom.Document) -> @dom.EventTarget
 
 pub fn document_timeline_time(@dom.Document) -> @js.Nullable[Double]
@@ -32,9 +34,13 @@ pub fn download(String, String) -> @cmd.Cmd
 
 pub fn element_document(@dom.Element) -> @dom.Document
 
+pub fn load_font_faces(FontFaceSet, String, String) -> Unit
+
 pub fn parse_css_number(String) -> Double
 
 pub fn read(@dom.File, @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd
+
+pub fn save_data_requested(@dom.Window) -> Bool
 
 pub fn set_animation_current_time(@dom.Animation, Double) -> Unit
 
@@ -51,6 +57,8 @@ pub fn window_outer_height(@dom.Window) -> Double
 // Errors
 
 // Types and methods
+#external
+pub type FontFaceSet
 
 // Type aliases
 pub using @dom {type File}

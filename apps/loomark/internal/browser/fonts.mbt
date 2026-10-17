@@ -1,39 +1,53 @@
 ///|
-/// Downloads the Japanese faces into the HTTP cache while the page is idle.
-///
-/// Warming lets IBM Plex Sans JP arrive before Japanese text does, so the
-/// writing area rarely swaps faces while someone writes. `document.fonts.load`
-/// would also start the face's display timeline, so the warm-up only fills the
-/// cache, where `public/_headers` keeps the versioned files immutable. Plex is
-/// warmed for Japanese-language browsers or
-/// a Japanese document (marked `lang="ja"`); BIZ UDMincho only for a Japanese
-/// document, whose Preview needs it. Paths match styles/tailwind.css.
+/// The document's `FontFaceSet`.
+#external
+pub type FontFaceSet
+
+///|
+pub extern "js" fn document_font_faces(document : @dom.Document) -> FontFaceSet =
+  #| document => document.fonts
+
+///|
+/// Loads the faces that `font` needs for `text`; text without characters in
+/// their unicode ranges loads nothing.
+pub extern "js" fn load_font_faces(
+  faces : FontFaceSet,
+  font : String,
+  text : String,
+) -> Unit =
+  #| (faces, font, text) => { faces.load(font, text).catch(() => {}) }
+
+///|
+/// Whether the browser asks pages to reduce data use (Save-Data).
+pub extern "js" fn save_data_requested(window : @dom.Window) -> Bool =
+  #| window => window.navigator.connection?.saveData === true
+
+///|
+/// Downloads BIZ UDMincho into the HTTP cache while the page is idle once a
+/// Japanese document (marked `lang="ja"`) appears, since its Preview needs it.
+/// `public/_headers` keeps the versioned file immutable. The path matches
+/// styles/tailwind.css.
 pub extern "js" fn warm_japanese_fonts() -> Unit =
   #| () => {
   #|   if (typeof fetch !== "function") return
   #|   const idle = callback => typeof requestIdleCallback === "function"
   #|     ? requestIdleCallback(callback, { timeout: 3000 })
   #|     : setTimeout(callback, 1500)
-  #|   const warmed = new Set()
-  #|   const warm = path => {
-  #|     if (warmed.has(path)) return
-  #|     warmed.add(path)
-  #|     fetch(path).then(response => response.arrayBuffer()).catch(() => {})
-  #|   }
-  #|   const warmFor = japaneseDocument => {
-  #|     warm("./fonts/IBMPlexSansJP-Regular-1.004.woff2")
-  #|     if (japaneseDocument) warm("./fonts/BIZUDMincho-Regular-1.06.woff2")
+  #|   let warmed = false
+  #|   const warm = () => {
+  #|     if (warmed) return
+  #|     warmed = true
+  #|     fetch("./fonts/BIZUDMincho-Regular-1.06.woff2")
+  #|       .then(response => response.arrayBuffer()).catch(() => {})
   #|   }
   #|   const japaneseDocument = () => document.querySelector('[lang="ja"]') !== null
-  #|   const languages = navigator.languages || [navigator.language]
   #|   idle(() => {
-  #|     if (japaneseDocument()) warmFor(true)
-  #|     else if (languages.some(language => /^ja(-|$)/i.test(language))) warmFor(false)
+  #|     if (japaneseDocument()) warm()
   #|   })
   #|   const observer = new MutationObserver(() => {
   #|     if (!japaneseDocument()) return
   #|     observer.disconnect()
-  #|     idle(() => warmFor(true))
+  #|     idle(warm)
   #|   })
   #|   observer.observe(document.documentElement, {
   #|     subtree: true,
