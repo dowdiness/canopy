@@ -137,7 +137,6 @@ fn test_model(page : Page, sync : @sync.State) -> Model {
     page,
     replication: @replication.State(protocol=sync),
     sign_in: @sign_in.SignIn(),
-    scroll_owner: TextPane,
     focus_mode: false,
   }
 }
@@ -656,7 +655,6 @@ test "intermediate Replica commit cannot discard a pending Undo" {
       persistence~,
     ),
     sign_in: @sign_in.SignIn(),
-    scroll_owner: TextPane,
     focus_mode: false,
   }
 
@@ -765,7 +763,6 @@ test "network retry waits while a newer replica write is in flight" {
     page,
     replication: @replication.State(protocol=retryable, persistence~),
     sign_in: @sign_in.SignIn(),
-    scroll_owner: TextPane,
     focus_mode: false,
   }
   let (unchanged, _) = test_root_update(model, RetrySync(retry))
@@ -798,7 +795,6 @@ test "operation identity failure stays retryable while replica storage is busy" 
     page,
     replication: @replication.State(protocol=planning, persistence~),
     sign_in: @sign_in.SignIn(),
-    scroll_owner: TextPane,
     focus_mode: false,
   }
   let (retired, _) = test_root_update(
@@ -2754,13 +2750,18 @@ test "preparing new preserves documents and mode" {
   let documents = @documents.Model(test_snapshot())
   let (model, _) = test_update(
     OpeningNew(
-      { documents, mode: Split, compact: false, next_activation_generation: 0, },
+      {
+        documents,
+        mode: Split(reading=TextPane),
+        compact: false,
+        next_activation_generation: 0,
+      },
       { request_id: 1, intent: NewDocument, status: InProgress, },
     ),
     EmptyCreateCompleted(1, Created(document_id("new"))),
   )
   guard model is Editing(editing) else { fail("editing") }
-  assert_true(editing.mode is Split)
+  assert_true(editing.mode is Split(..))
   assert_eq(editing.documents.text(source_key("one")), Some("one"))
   assert_eq(editing.documents.text(source_key("two")), Some("two"))
 }
@@ -2790,7 +2791,7 @@ test "delete-to-New advances Preview ownership" {
   let (model, _) = preparing_after_active_delete()
   guard model is OpeningNew(preparing, creation) else { fail("preparing") }
   let (model, _) = test_update(
-    OpeningNew({ ..preparing, mode: Split, }, creation),
+    OpeningNew({ ..preparing, mode: Split(reading=TextPane), }, creation),
     EmptyCreateCompleted(creation.request_id, Created(document_id("new"))),
   )
   guard model is Editing(editing) else { fail("editing") }
@@ -3126,7 +3127,7 @@ test "preparing new reduces unrelated inactive save completion" {
 ///|
 test "writing focus destination follows editor mode without reading the DOM" {
   assert_eq(editor_focus_id(Text), EDITOR_TEXT_ID)
-  assert_eq(editor_focus_id(Split), EDITOR_TEXT_ID)
+  assert_eq(editor_focus_id(Split(reading=TextPane)), EDITOR_TEXT_ID)
   assert_eq(editor_focus_id(Preview), mode_dom_id(Preview))
 }
 
@@ -3135,7 +3136,7 @@ test "failed initial creation preserves context and retry fences stale completio
   let documents = @documents.Model(test_snapshot())
   let opening : OpeningNewContext = {
     documents,
-    mode: Split,
+    mode: Split(reading=TextPane),
     compact: false,
     next_activation_generation: 4,
   }
@@ -3158,7 +3159,7 @@ test "failed initial creation preserves context and retry fences stale completio
     fail("initial creation failure retained")
   }
   assert_eq(retained.documents.text(source_key("one")), Some("one"))
-  assert_true(retained.mode is Split)
+  assert_true(retained.mode is Split(..))
 
   let (retried, _) = test_update(failed, RetryOpeningNewCreation)
   guard retried is OpeningNew(reopened, retry) && retry.status is InProgress else {
@@ -3166,7 +3167,7 @@ test "failed initial creation preserves context and retry fences stale completio
   }
   assert_eq(retry.request_id, 6)
   assert_true(reopened.documents == retained.documents)
-  assert_true(reopened.mode is Split)
+  assert_true(reopened.mode is Split(..))
   let (stale, _) = test_update(
     retried,
     EmptyCreateCompleted(5, Created(document_id("stale"))),
@@ -3240,7 +3241,7 @@ test "opening creation retries a rejected identity without losing documents" {
   let initial = test_editing()
   let opening : OpeningNewContext = {
     documents: initial.documents,
-    mode: Split,
+    mode: Split(reading=TextPane),
     compact: false,
     next_activation_generation: 4,
   }

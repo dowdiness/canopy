@@ -131,7 +131,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 - **Incremental Syntax Parsing:** Changes feed into a long-lived `SyntaxParser`, re-parsing only the affected CST subtrees.
 - **Demand-Driven Preparation:** Text mode creates no syntax parser. Choosing Preview or Split creates at most one parser for the selected document. Returning to Text retains the parser and keeps it updated with committed Document text without producing hidden preview output.
 - **Quiet-Window Refresh:** Preview lowering waits for a 24 ms candidate-text quiet window so rapid keystrokes produce a single coherent syntax snapshot, lowered directly to MarkdownIR and rendered to typed HTML.
-- **Split Scroll Alignment (`internal/viewport/split_scroll.mbt`):** Split mode attaches directly to the resolved scroll owner, synchronizing textarea and preview positions. The connection cleanly resets across document switches, mode changes, or layout breakpoint transitions.
+- **Split Scroll Alignment (`internal/viewport/split_scroll.mbt`):** Split mode attaches directly to the reading pane (the pane last engaged), synchronizing textarea and preview positions. The connection cleanly resets across document switches, mode changes, or layout breakpoint transitions.
 
 ### 4.2 Writing Focus
 

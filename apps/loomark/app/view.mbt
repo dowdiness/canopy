@@ -30,7 +30,7 @@ fn view(
           disabled: creation_in_progress(editing.creation) ||
           model.sign_in.blocks_editing(),
           read_only: editing.deletion_blocks_document_changes(),
-          mode: editing.mode,
+          mode: editing.mode.kind(),
           preview: editing.preview,
           japanese,
         })
@@ -51,7 +51,7 @@ fn view(
       InputChanged(generation, input) => Msg::InputChanged(generation, input)
       CompositionStarted(generation) => Msg::CompositionStarted(generation)
       CompositionEnded(generation) => Msg::CompositionEnded(generation)
-      ScrollClaimed(pane) => Msg::ScrollClaimed(pane)
+      PaneEngaged(pane) => Msg::PaneEngaged(pane)
     }
   })
   let editor_panes = build_editor_view(editor_input, compact, editor, on_editor)
@@ -196,7 +196,7 @@ fn view(
   })
   let mode = page.map(page => {
     match page {
-      Editing(editing) => Some(editing.mode)
+      Editing(editing) => Some(editing.mode.kind())
       _ => None
     }
   })

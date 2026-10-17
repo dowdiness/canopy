@@ -44,8 +44,8 @@ fn subscriptions(
     page_restore_subscription(emit(PageRestored)),
     lead_subscriptions(model.page, emit),
     match model.page {
-      Editing(editing) if editing.mode == Split =>
-        match model.scroll_owner {
+      Editing({ mode: Split(reading~), .. } as editing) =>
+        match reading {
           TextPane =>
             split_scroll_subscription(
               "loomark-text",
@@ -133,7 +133,7 @@ priv suberror SplitScrollSubscription {
 
 ///|
 /// Resolve this render's pair once. Activation and breakpoint changes replace
-/// nodes; mode and scroll-owner changes also release the old connection.
+/// nodes; mode and reading-pane changes also release the old connection.
 fn split_scroll_subscription(
   source : String,
   target : String,

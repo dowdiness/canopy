@@ -4,7 +4,7 @@ priv struct EditorInput {
   show_new_document_hint : Bool
   disabled : Bool
   read_only : Bool
-  mode : EditorMode
+  mode : @editor.Mode
   preview : @editor.EditorState
   /// Declares Japanese content so assistive technology and typography use it.
   japanese : Bool
@@ -15,7 +15,7 @@ priv enum EditorUiEvent {
   InputChanged(Int, @editor.InputEdit)
   CompositionStarted(Int)
   CompositionEnded(Int)
-  ScrollClaimed(ScrollPane)
+  PaneEngaged(ScrollPane)
 }
 
 ///|
@@ -51,9 +51,9 @@ fn build_editor_view(
                 attrs=@html.Attrs::build()
                   .id("loomark-text-pane")
                   .hidden(!text_visible)
-                  .on_wheel(_ => on_event(ScrollClaimed(TextPane)))
-                  .on_pointerdown(_ => on_event(ScrollClaimed(TextPane)))
-                  .on_keydown(_ => on_event(ScrollClaimed(TextPane))),
+                  .on_wheel(_ => on_event(PaneEngaged(TextPane)))
+                  .on_pointerdown(_ => on_event(PaneEngaged(TextPane)))
+                  .on_keydown(_ => on_event(PaneEngaged(TextPane))),
                 style=if split {
                   ["overflow:hidden"]
                 } else if text_visible {
@@ -85,9 +85,9 @@ fn build_editor_view(
                 class="flex min-h-0 min-w-0 overflow-hidden bg-lm-paper",
                 attrs=content_language(input.japanese)
                   .hidden(!preview_visible)
-                  .on_wheel(_ => on_event(ScrollClaimed(PreviewPane)))
-                  .on_pointerdown(_ => on_event(ScrollClaimed(PreviewPane)))
-                  .on_keydown(_ => on_event(ScrollClaimed(PreviewPane))),
+                  .on_wheel(_ => on_event(PaneEngaged(PreviewPane)))
+                  .on_pointerdown(_ => on_event(PaneEngaged(PreviewPane)))
+                  .on_keydown(_ => on_event(PaneEngaged(PreviewPane))),
                 style=if split {
                   ["overflow:hidden"]
                 } else if preview_visible {
@@ -126,7 +126,7 @@ fn build_editor_view(
 }
 
 ///|
-fn mode_name(mode : EditorMode) -> String {
+fn mode_name(mode : @editor.Mode) -> String {
   match mode {
     Text => "Text"
     Preview => "Preview"
@@ -135,15 +135,15 @@ fn mode_name(mode : EditorMode) -> String {
 }
 
 ///|
-fn mode_dom_id(mode : EditorMode) -> String {
+fn mode_dom_id(mode : @editor.Mode) -> String {
   "loomark-mode-\{mode_name(mode).to_lower()}"
 }
 
 ///|
 fn mode_tab(
-  mode : EditorMode,
-  selected_mode : EditorMode,
-  on_select : @rabbita.Emit[EditorMode],
+  mode : @editor.Mode,
+  selected_mode : @editor.Mode,
+  on_select : @rabbita.Emit[@editor.Mode],
 ) -> @rabbita.Html {
   let name = mode_name(mode)
   let icon_class = "pointer-events-none block size-4"
@@ -169,7 +169,7 @@ fn mode_tab(
 }
 
 ///|
-fn mode_content(mode : EditorMode, content : @rabbita.Html) -> @rabbita.Html {
+fn mode_content(mode : @editor.Mode, content : @rabbita.Html) -> @rabbita.Html {
   @rui.tabs_content(
     value=mode_name(mode).to_lower(),
     selected=true,

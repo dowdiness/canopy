@@ -11,7 +11,6 @@ priv struct Model {
   page : Page
   replication : @replication.State
   sign_in : @sign_in.SignIn
-  scroll_owner : ScrollPane
   focus_mode : Bool
 } derive(Eq)
 
@@ -86,7 +85,8 @@ fn EditingDocument::settled_text(self : Self) -> String? {
 priv enum EditorMode {
   Text
   Preview
-  Split
+  /// `reading` is the pane the user last engaged; the other pane follows it.
+  Split(reading~ : ScrollPane)
 } derive(Eq)
 
 ///|
@@ -142,7 +142,7 @@ priv enum Msg {
   TextChanged(Int, @text_change.TextChange)
   CompositionStarted(Int)
   CompositionEnded(Int)
-  ModeSelected(EditorMode)
+  ModeSelected(@editor.Mode)
   FocusModeToggled
   MenuToggled
   EscapePressed
@@ -151,7 +151,7 @@ priv enum Msg {
   ImportCreateCompleted(String, @source_repository.CreateResult)
   ExportRequested
   PreviewEvent(@editor.EditorEvent)
-  ScrollClaimed(ScrollPane)
+  PaneEngaged(ScrollPane)
   ViewportChanged(Double)
   DocumentMaximumElapsed(Int)
   DocumentSaved(@documents.SaveOperation, @source_repository.Document)

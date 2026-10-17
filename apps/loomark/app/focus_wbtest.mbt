@@ -1,6 +1,7 @@
 ///|
 test "an inert editor sends focus to Recent documents in every mode" {
-  for mode in [Text, Split, Preview] {
+  for
+    mode in [Text, Split(reading=TextPane), Split(reading=PreviewPane), Preview] {
     assert_true(
       editor_focus_target(mode, editor_inert=true, mode_element_inert=true)
       is RecentDocuments,

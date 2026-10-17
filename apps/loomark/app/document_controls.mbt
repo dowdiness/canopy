@@ -165,13 +165,13 @@ fn document_toolbar(
 
 ///|
 fn document_footer(
-  mode : EditorMode,
+  mode : @editor.Mode,
   durability : LocalDurability?,
   persistence : @replica_persistence.Status?,
   attention : (@rabbita.Html, Bool),
   focus_mode : Bool,
   characters : Int?,
-  on_mode : @rabbita.Emit[EditorMode],
+  on_mode : @rabbita.Emit[@editor.Mode],
 ) -> @rabbita.Html {
   let (attention, has_attention) = attention
   let has_attention = has_attention ||

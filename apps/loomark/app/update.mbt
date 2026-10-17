@@ -15,45 +15,30 @@ const EDITOR_TEXT_ID : String = "loomark-text"
 ///|
 fn editor_focus_id(mode : EditorMode) -> String {
   match mode {
-    Text | Split => EDITOR_TEXT_ID
+    Text | Split(..) => EDITOR_TEXT_ID
     Preview => mode_dom_id(Preview)
-  }
-}
-
-///|
-fn editor_mode(mode : EditorMode) -> @editor.Mode {
-  match mode {
-    Text => @editor.Text
-    Preview => @editor.Preview
-    Split => @editor.Split
   }
 }
 
 ///|
 fn Model::change_editor_mode(
   self : Self,
-  mode : EditorMode,
+  kind : @editor.Mode,
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (Self, @rabbita.Cmd) {
-  let model = {
-    ..self,
-    scroll_owner: match mode {
-      Text => TextPane
-      Preview => PreviewPane
-      Split => self.scroll_owner
-    },
-  }
-  guard model.page is Editing(editing) else { return (model, @cmd.none) }
+  guard self.page is Editing(editing) else { return (self, @cmd.none) }
+  let previous = editing.mode
+  let mode = previous.chosen(kind)
   let (preview, command) = editor.mode_changed(
     editing.preview,
     editing.activation.generation,
     editing.documents.text(editing.activation.key).unwrap_or(""),
-    editor_mode(editing.mode),
-    editor_mode(mode),
+    previous.kind(),
+    mode.kind(),
     emit.map(event => PreviewEvent(event)),
   )
-  (model.with_page(Editing({ ..editing, mode, preview, })), command)
+  (self.with_page(Editing({ ..editing, mode, preview, })), command)
 }
 
 ///|
@@ -161,7 +146,7 @@ fn activate_surface(
   let (preview, command) = editor.activate(
     activation.generation,
     text,
-    editor_mode(mode),
+    mode.kind(),
     emit.map(event => PreviewEvent(event)),
   )
   (preview, @cmd.batch([command, focus_editor_after_render(mode)]))
@@ -613,6 +598,8 @@ fn update_page(
         )
         (Editing(editing), command)
       }
+    (Editing(editing), PaneEngaged(pane)) =>
+      (Editing({ ..editing, mode: editing.mode.engaged(pane), }), @cmd.none)
     (Editing(editing), MenuToggled) =>
       (Editing({ ..editing, menu_open: !editing.menu_open, }), @cmd.none)
     (Editing(editing), EscapePressed) =>
@@ -1236,7 +1223,6 @@ fn initial_state(
       page,
       replication: @replication.State(),
       sign_in: @sign_in.SignIn(),
-      scroll_owner: TextPane,
       focus_mode: false,
     },
     @cmd.batch([
@@ -1380,7 +1366,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | ImportCreateCompleted(_, _)
     | ExportRequested
     | PreviewEvent(_)
-    | ScrollClaimed(_)
+    | PaneEngaged(_)
     | ViewportChanged(_)
     | DocumentMaximumElapsed(_)
     | DocumentSaved(_, _)
@@ -1422,7 +1408,7 @@ fn reduce(
 ) -> (Model, @rabbita.Cmd) {
   let model = interrupt_sign_in(model, msg)
   match msg {
-    ModeSelected(mode) => model.change_editor_mode(mode, emit, editor)
+    ModeSelected(kind) => model.change_editor_mode(kind, emit, editor)
     FocusModeToggled | EscapePressed if msg is FocusModeToggled ||
       model.focus_mode => {
       guard model.page is Editing(editing) &&
@@ -1439,7 +1425,6 @@ fn reduce(
       // Toggling never focuses the textarea, so it cannot summon a keyboard.
       (model, retain_editor_focus_after_render())
     }
-    ScrollClaimed(pane) => ({ ..model, scroll_owner: pane, }, @cmd.none)
     AuthenticationReturned(_) | PageRestored | SignIn(_) =>
       update_sign_in(model, msg, emit)
     LogoutRequested => begin_logout(model, emit)
