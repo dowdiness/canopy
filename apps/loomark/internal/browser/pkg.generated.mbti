@@ -40,6 +40,8 @@ pub fn parse_css_number(String) -> Double
 
 pub fn read(@dom.File, @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd
 
+pub fn request_idle(@dom.Window, Int, () -> Unit) -> Unit
+
 pub fn save_data_requested(@dom.Window) -> Bool
 
 pub fn set_animation_current_time(@dom.Animation, Double) -> Unit
@@ -50,7 +52,7 @@ pub fn set_animation_start_time(@dom.Animation, Double) -> Unit
 
 pub fn visual_viewport_scale(@dom.VisualViewport) -> Double
 
-pub fn warm_japanese_fonts() -> Unit
+pub fn when_font_faces_ready(FontFaceSet, () -> Unit) -> Unit
 
 pub fn window_outer_height(@dom.Window) -> Double
 

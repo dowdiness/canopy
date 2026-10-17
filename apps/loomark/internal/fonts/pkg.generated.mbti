@@ -6,6 +6,10 @@ pub const JAPANESE_SAMPLE : String = "あ"
 
 pub const WRITING_FACE : String = "1em \"IBM Plex Sans JP\""
 
+pub fn distinct_characters(String) -> String
+
+pub fn reading_faces() -> Array[String]
+
 // Errors
 
 // Types and methods

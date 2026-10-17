@@ -61,6 +61,21 @@ test("document activation lets keyboard users continue writing immediately", asy
   await expect(text).toHaveValue("# First document\nContinued")
 })
 
+test("a reopened document has Preview's Japanese face ready before Preview opens", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  // A few Japanese words in English text still draw in Preview's Mincho.
+  const content = "# 京都 notes\n\nWe drank 抹茶 at 清水寺.\n"
+  await text.fill(content)
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: content })
+  await page.reload()
+  await expect(text).toHaveValue(content)
+  await expect.poll(() => page.evaluate(() =>
+    document.fonts.check('1em "BIZ UDMincho"', "京都抹茶清水寺") &&
+    document.fonts.check('bold 1em "BIZ UDMincho"', "京都")
+  )).toBe(true)
+})
+
 test("responsive reflow preserves native text selection and undo", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await page.goto("/")

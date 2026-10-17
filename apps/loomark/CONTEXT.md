@@ -192,10 +192,11 @@ hue. Text uses a duospaced writing face with IBM Plex Sans JP for Japanese, and
 Preview a reading serif with BIZ UDMincho; system fonts cover scripts they
 lack. Each Japanese face is one file, cached by versioned file name. The
 writing face loads as the app starts for every visitor unless the browser asks
-to save data; Preview's face downloads ahead of time while idle for a Japanese
-document. A face that arrives late replaces the system font everywhere at once,
-and Writing focus re-measures. Printing from Preview prints the reading page
-without controls. Appearance never changes
+to save data; Preview's faces load for a Japanese document while the page is
+idle, after the writing face, before Preview opens. A face that arrives late
+replaces the system font everywhere at once, and Writing focus re-measures.
+Printing from Preview prints the reading page without controls. Appearance
+never changes
 Document text, and Preview adds no quotation marks or code delimiters that the
 text does not contain.
 _Avoid_: theme, skin

@@ -23,35 +23,24 @@ pub extern "js" fn save_data_requested(window : @dom.Window) -> Bool =
   #| window => window.navigator.connection?.saveData === true
 
 ///|
-/// Downloads BIZ UDMincho into the HTTP cache while the page is idle once a
-/// Japanese document (marked `lang="ja"`) appears, since its Preview needs it.
-/// `public/_headers` keeps the versioned file immutable. The path matches
-/// styles/tailwind.css.
-pub extern "js" fn warm_japanese_fonts() -> Unit =
-  #| () => {
-  #|   if (typeof fetch !== "function") return
-  #|   const idle = callback => typeof requestIdleCallback === "function"
-  #|     ? requestIdleCallback(callback, { timeout: 3000 })
-  #|     : setTimeout(callback, 1500)
-  #|   let warmed = false
-  #|   const warm = () => {
-  #|     if (warmed) return
-  #|     warmed = true
-  #|     fetch("./fonts/BIZUDMincho-Regular-1.06.woff2")
-  #|       .then(response => response.arrayBuffer()).catch(() => {})
+/// Runs `callback` once the page is idle, or after `timeout_ms` at the latest.
+pub extern "js" fn request_idle(
+  window : @dom.Window,
+  timeout_ms : Int,
+  callback : () -> Unit,
+) -> Unit =
+  #| (window, timeout, callback) => {
+  #|   if (typeof window.requestIdleCallback === "function") {
+  #|     window.requestIdleCallback(() => callback(), { timeout })
+  #|   } else {
+  #|     window.setTimeout(() => callback(), 0)
   #|   }
-  #|   const japaneseDocument = () => document.querySelector('[lang="ja"]') !== null
-  #|   idle(() => {
-  #|     if (japaneseDocument()) warm()
-  #|   })
-  #|   const observer = new MutationObserver(() => {
-  #|     if (!japaneseDocument()) return
-  #|     observer.disconnect()
-  #|     idle(warm)
-  #|   })
-  #|   observer.observe(document.documentElement, {
-  #|     subtree: true,
-  #|     attributes: true,
-  #|     attributeFilter: ["lang"],
-  #|   })
   #| }
+
+///|
+/// Runs `callback` once the faces that are loading have arrived.
+pub extern "js" fn when_font_faces_ready(
+  faces : FontFaceSet,
+  callback : () -> Unit,
+) -> Unit =
+  #| (faces, callback) => { faces.ready.then(() => callback()) }

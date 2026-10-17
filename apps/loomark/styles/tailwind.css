@@ -19,7 +19,9 @@
   font-style: normal;
   font-display: swap;
 }
-/* Loaded ahead of Japanese text (app/fonts.mbt) or warmed (internal/browser/fonts.mbt);
+/* Japanese faces stay one file each: a paragraph drawn from many unicode-range
+   slices is shaped in pieces, which made editing a long Japanese document
+   several times slower. app/fonts.mbt loads them ahead of the text.
    IBM Plex shares Quattro's lineage. `swap` changes every element together:
    with `optional` or `fallback`, Chromium decides per element whether a late
    face is used, so the textarea and the writing-focus mirror that measures its

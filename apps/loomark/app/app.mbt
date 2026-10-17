@@ -36,7 +36,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
           }
         },
         subscriptions=(current, emit) => {
-          subscriptions(current, emit, viewport_subscription)
+          subscriptions(
+            current, emit, window, font_faces, viewport_subscription,
+          )
         },
       )
       (view(model, emit, editor), () => emit(NotificationFocusReturn))

@@ -2,6 +2,8 @@
 fn subscriptions(
   model : Model,
   emit : @rabbita.Emit[Msg],
+  window : @dom.Window,
+  font_faces : @browser.FontFaceSet,
   viewport : @sub.Sub,
 ) -> @sub.Sub {
   @sub.batch([
@@ -12,6 +14,14 @@ fn subscriptions(
           editing.activation.generation,
           editing.preview,
         )
+      _ => @sub.none
+    },
+    match model.page {
+      Editing(editing) =>
+        match editing.settled_text() {
+          Some(text) => reading_face_subscription(window, font_faces, text)
+          None => @sub.none
+        }
       _ => @sub.none
     },
     match model.page {

@@ -1,6 +1,5 @@
 import {
   "dowdiness/loomark/app",
-  "dowdiness/loomark/internal/browser",
   "moonbit-community/rabbita",
 }
 
