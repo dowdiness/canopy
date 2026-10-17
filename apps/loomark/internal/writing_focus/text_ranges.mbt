@@ -153,6 +153,25 @@ fn TextLines::line_at(self : TextLines, position : Int) -> Int {
 }
 
 ///|
+pub struct TextPosition {
+  line : Int
+  column : Int
+}
+
+///|
+/// A position after a line break belongs to the following line.
+pub fn TextLines::position(
+  self : TextLines,
+  offset : Int,
+) -> TextPosition raise InvalidSelection {
+  guard 0 <= offset && offset <= self.text.length() else {
+    raise OutsideText(start=offset, end=offset, length=self.text.length())
+  }
+  let line = self.line_at(offset)
+  { line, column: offset - self.starts[line], }
+}
+
+///|
 fn group_at(groups : ArrayView[LineRange], line : Int) -> LineRange? {
   match
     groups.binary_search_by(group => {

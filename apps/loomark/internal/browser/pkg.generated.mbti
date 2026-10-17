@@ -32,11 +32,17 @@ pub fn download(String, String) -> @cmd.Cmd
 
 pub fn element_document(@dom.Element) -> @dom.Document
 
+pub fn idle_opacity_animation(@dom.HTMLElement, ArrayView[OpacityKeyframe], duration_ms~ : Double, iterations~ : Double) -> @dom.Animation
+
 pub fn load_font_faces(FontFaceSet, String, String) -> Unit
 
 pub fn parse_css_number(String) -> Double
 
+pub fn play_animation(@dom.Animation) -> Unit
+
 pub fn read(@dom.File, @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd
+
+pub fn replace_text_data(@dom.Node, Int, Int, String) -> Unit
 
 pub fn request_idle(@dom.Window, Int, () -> Unit) -> Unit
 
@@ -47,6 +53,8 @@ pub fn set_animation_current_time(@dom.Animation, Double) -> Unit
 pub fn set_animation_playback_rate(@dom.Animation, Double) -> Unit
 
 pub fn set_animation_start_time(@dom.Animation, Double) -> Unit
+
+pub fn text_range_rects(@dom.Node, Int, Int) -> @dom.DOMRectList
 
 pub fn visual_viewport_scale(@dom.VisualViewport) -> Double
 
@@ -69,6 +77,12 @@ pub enum AnimationClock {
 
 #external
 pub type FontFaceSet
+
+pub(all) struct OpacityKeyframe {
+  offset : Double
+  opacity : Double
+  easing : String
+}
 
 // Type aliases
 pub using @dom {type File}

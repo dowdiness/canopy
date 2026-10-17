@@ -97,3 +97,47 @@ pub extern "js" fn set_animation_playback_rate(
   rate : Double,
 ) -> Unit =
   #| (animation, rate) => { animation.playbackRate = rate; }
+
+///|
+/// Plays a cancelled animation from its start.
+pub extern "js" fn play_animation(animation : @dom.Animation) -> Unit =
+  #| animation => animation.play()
+
+///|
+pub(all) struct OpacityKeyframe {
+  offset : Double
+  opacity : Double
+  /// The easing from this keyframe to the next.
+  easing : String
+}
+
+///|
+extern "js" fn idle_animation(
+  element : @dom.HTMLElement,
+  keyframes : @js.Any,
+  duration_ms : Double,
+  iterations : Double,
+) -> @dom.Animation =
+  #| (element, keyframes, duration, iterations) => new Animation(
+  #|   new KeyframeEffect(element, keyframes, { duration, iterations }),
+  #|   element.ownerDocument.timeline
+  #| )
+
+///|
+/// An opacity animation that waits, idle, until it is played.
+pub fn idle_opacity_animation(
+  element : @dom.HTMLElement,
+  keyframes : ArrayView[OpacityKeyframe],
+  duration_ms~ : Double,
+  iterations~ : Double,
+) -> @dom.Animation {
+  let frames = @js.array()
+  for keyframe in keyframes {
+    let frame = @js.object()
+    frame.set("offset", @js.any(keyframe.offset))
+    frame.set("opacity", @js.any(keyframe.opacity))
+    frame.set("easing", @js.any(keyframe.easing))
+    frames.call("push", [frame]) |> ignore
+  }
+  idle_animation(element, frames, duration_ms, iterations)
+}

@@ -42,7 +42,16 @@ fn common_suffix_length(before : String, after : String, limit : Int) -> Int {
 }
 
 ///|
-fn replacement_bounds(before : String, after : String) -> (Int, Int, Int) {
+/// The single UTF-16 span that differs: `before[start:old_end]` became
+/// `after[start:new_end]`.
+pub struct TextChange {
+  start : Int
+  old_end : Int
+  new_end : Int
+}
+
+///|
+pub fn TextChange::TextChange(before : String, after : String) -> TextChange {
   let shared_length = if before.length() < after.length() {
     before.length()
   } else {
@@ -50,7 +59,11 @@ fn replacement_bounds(before : String, after : String) -> (Int, Int, Int) {
   }
   let start = common_prefix_length(before, after, shared_length)
   let suffix = common_suffix_length(before, after, shared_length - start)
-  (start, before.length() - suffix, after.length() - suffix)
+  {
+    start,
+    old_end: before.length() - suffix,
+    new_end: after.length() - suffix,
+  }
 }
 
 ///|
@@ -59,7 +72,7 @@ fn TextLines::replace_text(self : TextLines, text : String) -> LineReplacement? 
   if text == self.text {
     return None
   }
-  let (start, old_end, new_end) = replacement_bounds(self.text, text)
+  let { start, old_end, new_end, } = TextChange(self.text, text)
   let first = self.line_at(start)
   let last = self.line_at(old_end)
   // Native selection and edit offsets may split UTF-16 surrogate pairs.

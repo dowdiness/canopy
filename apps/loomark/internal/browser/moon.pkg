@@ -1,5 +1,6 @@
 import {
   "dowdiness/dom_boundary",
+  "dowdiness/js_ffi" @js,
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js" @dom_js,

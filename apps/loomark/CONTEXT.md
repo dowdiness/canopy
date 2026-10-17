@@ -209,6 +209,19 @@ Document text, and Preview adds no quotation marks or code delimiters that the
 text does not contain.
 _Avoid_: theme, skin
 
+**Writing caret**:
+The drawn caret in the Text area, with or without Focus Mode, while it is
+focused and editable with a collapsed selection, including the caret inside an
+IME composition: a thin bar that clears the neighbouring glyphs. It fades in when it appears, glides briefly
+when moved through unchanged text, as by arrow keys or a click, keeps pace with
+each typed or deleted character, moves with the text when scrolling or
+reflowing, and breathes in and out after a pause instead of flashing, settling
+solid after about ten still seconds. It is presentation over the native
+textarea: text, selection, IME composition, and native Undo stay browser-owned.
+The native caret returns for a selection range, including a converted IME
+clause, and in forced colors. Reduced motion removes the glide.
+_Avoid_: cursor, pointer
+
 **Japanese document**:
 A Loomark document whose text contains kana and whose East Asian characters
 outnumber its other words, judged from the same settled text as the Character

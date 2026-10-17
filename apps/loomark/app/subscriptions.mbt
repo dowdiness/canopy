@@ -9,9 +9,10 @@ fn subscriptions(
   @sub.batch([
     viewport,
     match model.page {
-      Editing(editing) if model.focus_mode && editing.mode != Preview =>
+      Editing(editing) if editing.mode != Preview =>
         writing_focus_subscription(
           editing.activation.generation,
+          model.focus_mode,
           editing.preview,
         )
       _ => @sub.none

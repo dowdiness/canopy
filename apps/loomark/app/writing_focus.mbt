@@ -13,13 +13,15 @@ priv suberror WritingFocusSubscription {
 
 ///|
 /// The activation key replaces the text area and its dimming layer. Resolve
-/// both after rendering and release the old connection.
+/// both after rendering and release the old connection. The session draws the
+/// caret in Text and Split, and dims surrounding paragraphs only in Focus Mode.
 fn writing_focus_subscription(
   activation : Int,
+  focus_mode : Bool,
   preview : @editor.EditorState,
 ) -> @sub.Sub {
   @sub.custom_sub(
-    "loomark.writing-focus(\{activation})",
+    "loomark.writing-focus(\{activation},\{focus_mode})",
     @sub.Scope::Local,
     WritingFocusSubscription::Refresh(preview),
     (_, scheduler) => {
@@ -40,12 +42,17 @@ fn writing_focus_subscription(
             return None
           }
           Some(
-            @writing_focus_browser.connect(text_area, dimming_layer, on_failure=error => {
-              report_browser_error(
-                "Loomark could not update writing focus:", error,
-              )
-              connection.detach()
-            }) catch {
+            @writing_focus_browser.connect(
+              text_area,
+              dimming_layer,
+              dims=focus_mode,
+              on_failure=error => {
+                report_browser_error(
+                  "Loomark could not update writing focus:", error,
+                )
+                connection.detach()
+              },
+            ) catch {
               @js.JsError(error) => {
                 report_browser_error(
                   "Loomark could not connect writing focus:", error,

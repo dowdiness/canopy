@@ -8,6 +8,16 @@ pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double
 
 pub fn calculate_shade_placement(Range, Range) -> ShadePlacement?
 
+pub fn caret_glyph(String, Int) -> CaretGlyph
+
+pub fn caret_measure(CaretHistory, Int) -> CaretMeasure
+
+pub fn caret_move(Caret, Caret, CaretCause) -> CaretMove
+
+pub fn drawn_caret_x(Double, layer_width~ : Double, half_width~ : Double) -> Double
+
+pub fn selection_end(Int, Int, backward~ : Bool, editable_focus~ : Bool) -> SelectionEnd
+
 // Errors
 pub suberror InvalidRange {
   UnorderedEndpoints(start~ : Double, end~ : Double)
@@ -36,6 +46,42 @@ pub enum Bounds {
   Lines(LineBounds)
   LineStart(Boundary)
   LineEnd(Boundary)
+}
+
+pub(all) struct Caret {
+  x : Double
+  y : Double
+  scroll_top : Double
+}
+
+pub(all) enum CaretCause {
+  Navigation
+  Edit
+  Reflow
+}
+
+pub enum CaretGlyph {
+  EmptyLine
+  Before(start~ : Int, end~ : Int)
+  After(start~ : Int, end~ : Int)
+}
+
+pub(all) enum CaretHistory {
+  Unmeasured
+  OtherText
+  SameText(MeasuredCaret)
+}
+
+pub enum CaretMeasure {
+  Cached(MeasuredCaret)
+  Measure(CaretCause)
+}
+
+pub enum CaretMove {
+  Still
+  Scroll
+  Jump
+  Glide
 }
 
 pub enum Dimming {
@@ -102,6 +148,12 @@ pub struct LineRange {
   last : Int
 }
 
+pub(all) struct MeasuredCaret {
+  offset : Int
+  x : Double
+  y : Double
+}
+
 pub(all) enum OpacitySample {
   Still(Double)
   Animating(Double, ActiveFade)
@@ -120,18 +172,36 @@ pub struct Range {
 }
 pub fn Range::Range(Double, Double) -> Self raise InvalidRange
 
+pub enum SelectionEnd {
+  Collapsed(Int)
+  Endpoint(Int)
+}
+
 pub struct ShadePlacement {
   top_in_viewport : Double
   top_in_content : Double
   height : Double
 }
 
+pub struct TextChange {
+  start : Int
+  old_end : Int
+  new_end : Int
+}
+pub fn TextChange::TextChange(String, String) -> Self
+
 pub struct TextLines {
   // private fields
 }
 pub fn TextLines::TextLines(String) -> Self
 pub fn TextLines::lines(Self) -> ArrayView[String]
+pub fn TextLines::position(Self, Int) -> TextPosition raise InvalidSelection
 pub fn TextLines::text(Self) -> String
+
+pub struct TextPosition {
+  line : Int
+  column : Int
+}
 
 pub(all) enum WritingIntent {
   Reading

@@ -271,12 +271,64 @@ test("reduced motion settles immediately and forced colors removes dimming", asy
   await text.fill(documentText)
   await text.press("Control+Home")
   await expect.poll(() => dimmingAtLine(page, 2)).toBe(0.5)
-  expect(await page.locator(".loomark-writing-dimming").evaluate(element =>
-    element.getAnimations({ subtree: true }).length)).toBe(0)
+  expect(await page.locator(".loomark-writing-shade").evaluateAll(shades =>
+    shades.flatMap(shade => shade.getAnimations()).length)).toBe(0)
+  await text.press("ArrowRight")
+  await expect(page.locator(".loomark-writing-caret")).toHaveCSS("transition-property", "opacity")
   await page.emulateMedia({ forcedColors: "active" })
   await expect.poll(() => dimmingAtLine(page, 2)).toBe(0)
   await page.emulateMedia({ forcedColors: "none" })
   await expect.poll(() => dimmingAtLine(page, 2)).toBe(0.5)
+})
+
+// The caret centres on its glyph box, which the font may place up to a pixel
+// off the line box centre.
+async function caretOffset(page: Page, line: number) {
+  return page.getByRole("textbox", { name: "Text" }).evaluate((element, line) => {
+    const textarea = element as HTMLTextAreaElement
+    const bounds = textarea.getBoundingClientRect()
+    const style = getComputedStyle(textarea)
+    const caret = document.querySelector(".loomark-writing-caret")!.getBoundingClientRect()
+    const x = bounds.left + Number.parseFloat(style.paddingLeft)
+    const y = bounds.top + Number.parseFloat(style.paddingTop)
+      + (line + 0.5) * Number.parseFloat(style.lineHeight) - textarea.scrollTop
+    return Math.max(Math.abs(caret.left - x), Math.abs(caret.top + caret.height / 2 - y))
+  }, line)
+}
+
+test("the drawn caret replaces the native caret only while it is shown", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const caret = page.locator(".loomark-writing-caret")
+  await text.fill(documentText)
+  await text.press("Control+Home")
+  await expect.poll(() => caretOffset(page, 0)).toBeLessThan(1)
+  await expect(text).toHaveCSS("caret-color", "rgba(0, 0, 0, 0)")
+  await text.press("ArrowDown")
+  await text.press("ArrowDown")
+  await expect.poll(() => caretOffset(page, 2)).toBeLessThan(1)
+  await expect(caret).toHaveCSS("transition-property", "opacity, transform")
+  await text.press("x")
+  await expect(caret).toHaveCSS("transition-property", "opacity")
+  await text.press("Backspace")
+  await text.press("Shift+ArrowRight")
+  await expect(caret).toBeHidden()
+  await text.press("ArrowRight")
+  await expect(caret).toBeVisible()
+  // The browser reports an IME composition caret as a collapsed selection and a
+  // converted clause as a range, so composition needs no separate state.
+  const ime = await page.context().newCDPSession(page)
+  const caretLeft = () => caret.evaluate(element => element.getBoundingClientRect().left)
+  const beforeComposition = await caretLeft()
+  await ime.send("Input.imeSetComposition", { text: "かん", selectionStart: 2, selectionEnd: 2 })
+  await expect.poll(caretLeft).toBeGreaterThan(beforeComposition + 20)
+  await ime.send("Input.imeSetComposition", { text: "漢字", selectionStart: 0, selectionEnd: 2 })
+  await expect(caret).toBeHidden()
+  await expect(text).not.toHaveCSS("caret-color", "rgba(0, 0, 0, 0)")
+  await ime.send("Input.insertText", { text: "漢字" })
+  await expect(caret).toBeVisible()
+  await text.blur()
+  await expect(caret).toBeHidden()
 })
 
 test("a retired document cannot change the current writing focus", async ({ page }) => {

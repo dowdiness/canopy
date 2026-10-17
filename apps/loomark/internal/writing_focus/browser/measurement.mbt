@@ -19,6 +19,36 @@ fn TextLineElement::TextLineElement(
 priv struct TextLayoutContext {
   mut geometry : @writing_focus.Layout
   mut first_observation : Bool
+  mut mirror : MirrorStyle?
+  mut caret : CaretMeasurement?
+}
+
+///|
+/// The text area width the mirror's styles were copied at, and the width of
+/// the dimming layer over its content box.
+priv struct MirrorStyle {
+  client_width : Double
+  layer_width : Double
+}
+
+///|
+priv suberror MirrorMeasurement {
+  UnrenderedGlyph
+}
+
+///|
+/// A caret measured against one source text; scrolling and repeated selection
+/// events reuse it without reading layout.
+priv struct CaretMeasurement {
+  source : @writing_focus.TextLines
+  measured : @writing_focus.MeasuredCaret
+}
+
+///|
+fn TextLayoutContext::TextLayoutContext(
+  geometry : @writing_focus.Layout,
+) -> TextLayoutContext {
+  { geometry, first_observation: true, mirror: None, caret: None, }
 }
 
 ///|
@@ -67,10 +97,7 @@ fn TextLayout::TextLayout(
     rendered_lines,
     lines,
     retired_lines: [],
-    context: {
-      geometry: @writing_focus.Layout(rendered_lines),
-      first_observation: true,
-    },
+    context: TextLayoutContext(@writing_focus.Layout(rendered_lines)),
     source_pending: true,
   }
 }
@@ -175,9 +202,17 @@ fn TextLayout::sync_text(
       }
       for index in 0..<retained_count {
         let position = replacement.first + index
-        if self.rendered_lines.lines()[position] != replacement.inserted[index] {
-          self.lines[position].text_node.set_node_value(
-            @dom_js.Nullable::from_option(Some(replacement.inserted[index])),
+        let before = self.rendered_lines.lines()[position]
+        let after = replacement.inserted[index]
+        if before != after {
+          // Replacing only the changed span lets Chromium reuse the line's
+          // shaping; replacing the whole value reshapes every character.
+          let change = @writing_focus.TextChange(before, after)
+          @browser_api.replace_text_data(
+            self.lines[position].text_node,
+            change.start,
+            change.old_end - change.start,
+            after.unsafe_substring(start=change.start, end=change.new_end),
           )
         }
       }
@@ -262,7 +297,7 @@ let text_layout_properties : FixedArray[String] = [
 ]
 
 ///|
-fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
+fn TextLayout::sync_layout(self : TextLayout, width : Double) -> MirrorStyle {
   let style = self.window.get_computed_style(self.text_area.as_element())
   let layout_style = self.element.get_style()
   for property in text_layout_properties {
@@ -298,6 +333,30 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
     "height",
     "\{self.text_area.get_client_height()}px",
   )
+  // The caret's height follows the writing size.
+  set_style_if_changed(
+    self.dimming_layer,
+    "font-size",
+    style.get_property_value("font-size"),
+  )
+  { client_width: width, layer_width: content_width, }
+}
+
+///|
+/// Copies the text area's styles at `width` unless this context already did.
+fn TextLayout::style_mirror(
+  self : TextLayout,
+  context : TextLayoutContext,
+  width : Double,
+) -> MirrorStyle {
+  match context.mirror {
+    Some(mirror) if mirror.client_width == width => mirror
+    _ => {
+      let mirror = self.sync_layout(width)
+      context.mirror = Some(mirror)
+      mirror
+    }
+  }
 }
 
 ///|
@@ -309,7 +368,75 @@ fn TextLayout::measure_origin(
   self.sync_text(context.geometry)
   match layout_sync {
     Reuse => ()
-    CopyStyles(width) => self.sync_layout(width)
+    // Measurements in this context no longer match the text area's width or
+    // line height, so its styles are copied again.
+    CopyStyles(width) => context.mirror = Some(self.sync_layout(width))
   }
   self.element.get_bounding_client_rect().get_top()
+}
+
+///|
+/// Returns the caret's content position and what moved it since the previous
+/// placement.
+fn TextLayout::locate_caret(
+  self : TextLayout,
+  offset : Int,
+) -> (@writing_focus.MeasuredCaret, @writing_focus.CaretCause) raise {
+  let context = self.context
+  let source = context.geometry.source()
+  let position = source.position(offset)
+  let history : @writing_focus.CaretHistory = match context.caret {
+    None => Unmeasured
+    Some(caret) if physical_equal(caret.source, source) =>
+      SameText(caret.measured)
+    Some(_) => OtherText
+  }
+  let cause = match @writing_focus.caret_measure(history, offset) {
+    Cached(measured) => return (measured, Navigation)
+    Measure(cause) => cause
+  }
+  self.sync_text(context.geometry)
+  // Any styles copied for this context serve the caret; the text area keeps
+  // its width until a resize replaces the context.
+  let mirror = match context.mirror {
+    Some(mirror) => mirror
+    None => self.style_mirror(context, self.text_area.get_client_width())
+  }
+  let line = self.lines[position.line]
+  let (x, y) = match
+    @writing_focus.caret_glyph(source.lines()[position.line], position.column) {
+    EmptyLine => {
+      let box = line.element.get_bounding_client_rect()
+      (box.get_left(), box.get_top() + box.get_height() / 2)
+    }
+    // A rendered glyph always has a box; a wrapped one has one per line.
+    Before(start~, end~) => {
+      guard glyph_rects(line.text_node, start, end) is [glyph, ..] else {
+        raise UnrenderedGlyph
+      }
+      (glyph.get_left(), glyph.get_top() + glyph.get_height() / 2)
+    }
+    After(start~, end~) => {
+      guard glyph_rects(line.text_node, start, end) is [.., glyph] else {
+        raise UnrenderedGlyph
+      }
+      (glyph.get_right(), glyph.get_top() + glyph.get_height() / 2)
+    }
+  }
+  let measured : @writing_focus.MeasuredCaret = {
+    offset,
+    x: @writing_focus.drawn_caret_x(
+      x - line.element.get_bounding_client_rect().get_left(),
+      layer_width=mirror.layer_width,
+      half_width=CARET_WIDTH / 2.0,
+    ),
+    y: y - self.element.get_bounding_client_rect().get_top(),
+  }
+  context.caret = Some({ source, measured, })
+  (measured, cause)
+}
+
+///|
+fn glyph_rects(text : @dom.Node, start : Int, end : Int) -> Array[@dom.DOMRect] {
+  @browser_api.text_range_rects(text, start, end).iter().collect()
 }

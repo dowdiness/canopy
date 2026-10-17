@@ -1,5 +1,5 @@
 ///|
-/// Writing focus, attached to one text area and its
+/// Writing focus and the drawn caret, attached to one text area and its
 /// dimming layer from `connect` until `disconnect`. `disconnect` releases every
 /// listener, frame and timer, so none of them runs afterwards.
 struct WritingFocus {
@@ -11,23 +11,27 @@ struct WritingFocus {
   reduced_motion : @dom.MediaQueryList
   text_layout : TextLayout
   cleanup : Array[() -> Unit]
+  /// Whether writing focus dims surrounding paragraphs, as in Focus Mode;
+  /// otherwise the session draws only the caret.
+  dims : Bool
   fail : (@js.Any) -> Unit
   mut frame : Double?
   mut intent : @writing_focus.WritingIntent
   mut presentation : @writing_focus.Presentation?
   shades : Array[WritingShade]
+  caret : WritingCaret
 }
 
 ///|
 fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
   let (range, geometry_changed) = focus.text_layout.locate_focus()
+  let (caret, scroll_top) = locate_writing_caret(focus)
   focus.intent = focus.intent.settle(focused=focus.text_area.matches(":focus"))
   let presentation : @writing_focus.Presentation = {
     range,
-    engaged: focus.intent is Writing,
+    engaged: focus.dims && focus.intent is Writing,
     reduced_motion: focus.reduced_motion.get_matches(),
   }
-  let scroll_top = focus.text_area.get_scroll_top()
   let viewport_range = @writing_focus.Range(
     scroll_top,
     scroll_top + focus.text_area.get_client_height(),
@@ -65,6 +69,7 @@ fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
     }
   }
   focus.presentation = Some(presentation)
+  render_writing_caret(focus.caret, caret)
 }
 
 ///|
@@ -137,6 +142,7 @@ fn WritingFocus::listen(
 pub fn connect(
   text_area : @dom.HTMLTextAreaElement,
   dimming_layer : @dom.HTMLElement,
+  dims~ : Bool,
   on_failure~ : (@js.Any) -> Unit,
 ) -> WritingFocus raise @js.JsError {
   let focus : WritingFocus = @js.try_sync(() => {
@@ -154,6 +160,7 @@ pub fn connect(
       reduced_motion,
       text_layout,
       cleanup: [],
+      dims,
       fail: on_failure,
       frame: None,
       intent: if text_area.matches(":focus") {
@@ -163,6 +170,7 @@ pub fn connect(
       },
       presentation: None,
       shades: [],
+      caret: WritingCaret(document, window, dimming_layer),
     }
     @js.any(focus)
   }).cast()
@@ -199,6 +207,7 @@ pub fn connect(
     focus.listen(focus.reduced_motion.as_event_target(), "change", selected)
     let resize = @dom.ResizeObserver::new((_, _) => focus.layout_changed())
     focus.cleanup.push(() => resize.disconnect())
+    focus.cleanup.push(() => focus.caret.release())
     resize.observe(text_area.as_element())
     focus.schedule()
     @js.any(())
@@ -217,10 +226,9 @@ pub fn WritingFocus::refresh(self : WritingFocus) -> Unit {
 ///|
 fn WritingFocus::layout_changed(self : WritingFocus) -> Unit {
   let layout = self.text_layout
-  layout.context = {
-    geometry: @writing_focus.Layout(layout.context.geometry.source()),
-    first_observation: true,
-  }
+  layout.context = TextLayoutContext(
+    @writing_focus.Layout(layout.context.geometry.source()),
+  )
   layout.source_pending = true
   self.schedule()
 }
