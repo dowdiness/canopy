@@ -1,4 +1,5 @@
 import {
+  "dowdiness/loomark/internal/local_tabs",
   "dowdiness/js_ffi" @js,
   "dowdiness/loomark/internal/account_http",
   "dowdiness/loomark/internal/sign_in",

@@ -1,0 +1,18 @@
+{
+  "name": "loomark-local-tabs-trial",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "node serve.mjs",
+    "test": "node --test core.test.mjs protocol.test.mjs",
+    "test:browser": "node browser-test.mjs",
+    "test:worker": "node worker-test.mjs"
+  },
+  "dependencies": {
+    "diff": "9.0.0"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

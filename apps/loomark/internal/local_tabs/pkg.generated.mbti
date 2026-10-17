@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/local_tabs"
+
+import {
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+pub fn app() -> @rabbita.Val[@html.Html]
+
+pub fn enabled() -> Bool
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
