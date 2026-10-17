@@ -181,12 +181,7 @@ fn render_writing_fades(
         @browser_api.cancel_animation(animation.native)
       Visible(_, None) => ()
     }
-    let target_opacity = match fade {
-      SetOpacity(opacity) => opacity
-      Start(timing) => timing.to_opacity
-      Continue(active) => active.timing().to_opacity
-    }
-    set_style_if_changed(shade.element, "opacity", "\{target_opacity}")
+    set_style_if_changed(shade.element, "opacity", "\{fade.target_opacity()}")
     position_writing_shade(shade.element, range, viewport_range)
     shade.content = Visible(range, None)
   }

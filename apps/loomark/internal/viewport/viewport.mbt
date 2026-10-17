@@ -48,9 +48,8 @@ fn CaretLayout::CaretLayout(document : @dom.Document) -> CaretLayout {
 fn CaretLayout::measure(
   self : CaretLayout,
   area : @dom.HTMLTextAreaElement,
-  measured : (Double, Double, Double, Double, Double, Double) -> Unit,
-) -> Unit {
-  guard area.get_client_height() > 0.0 else { return }
+) -> CaretMeasurement? {
+  guard area.get_client_height() > 0.0 else { return None }
   let style = self.window.get_computed_style(area.as_element())
   let layout_style = self.element.get_style()
   for property in caret_layout_properties {
@@ -75,21 +74,27 @@ fn CaretLayout::measure(
       Some(if remainder.is_empty() { "." } else { remainder }),
     ),
   )
-  let top = self.caret
+  let caret_top = self.caret
     .get_client_rects()
     .item(0.0)
     .to_option()
     .unwrap()
     .get_top() -
     self.element.get_bounding_client_rect().get_top()
-  measured(
-    top,
-    @browser.parse_css_number(style.get_property_value("line-height")),
-    area.get_scroll_top(),
-    area.get_client_height(),
-    @browser.parse_css_number(style.get_property_value("padding-top")),
-    @browser.parse_css_number(style.get_property_value("padding-bottom")),
-  )
+  Some({
+    caret_top,
+    line_height: @browser.parse_css_number(
+      style.get_property_value("line-height"),
+    ),
+    scroll_top: area.get_scroll_top(),
+    viewport_height: area.get_client_height(),
+    padding_top: @browser.parse_css_number(
+      style.get_property_value("padding-top"),
+    ),
+    padding_bottom: @browser.parse_css_number(
+      style.get_property_value("padding-bottom"),
+    ),
+  })
 }
 
 ///|
@@ -97,27 +102,16 @@ fn CaretLayout::measure(
 pub fn observe_text_area_resize(
   area : @dom.HTMLTextAreaElement,
 ) -> (() -> Unit) raise @js.JsError {
-  let apply_measurement = (
-    top,
-    line_height,
-    scroll_top,
-    height,
-    padding_top,
-    padding_bottom,
-  ) => {
-    let next = caret_scroll_top(
-      top, line_height, scroll_top, height, padding_top, padding_bottom,
-    )
-    if next != scroll_top {
-      area.set_scroll_top(next)
-    }
-  }
   @js.try_sync(() => {
     let document = @browser.element_document(area.as_element())
     let body = document.get_body().unwrap()
     let layout = CaretLayout(document)
     let observer = @dom.ResizeObserver::new((_, _) => {
-      layout.measure(area, apply_measurement)
+      guard layout.measure(area) is Some(caret) else { return }
+      let revealing = scroll_top_revealing_caret(caret)
+      if revealing != caret.scroll_top {
+        area.set_scroll_top(revealing)
+      }
     })
     observer.observe(area.as_element())
     body.append_child(layout.element.as_node())

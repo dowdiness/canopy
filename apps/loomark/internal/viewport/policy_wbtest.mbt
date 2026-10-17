@@ -1,16 +1,28 @@
 ///|
+fn caret_at(caret_top : Double, line_height : Double) -> CaretMeasurement {
+  {
+    caret_top,
+    line_height,
+    scroll_top: 86.0,
+    viewport_height: 200.0,
+    padding_top: 14.0,
+    padding_bottom: 16.0,
+  }
+}
+
+///|
 test "caret resize preserves a line exactly within the padded viewport" {
-  assert_eq(caret_scroll_top(100.0, 170.0, 86.0, 200.0, 14.0, 16.0), 86.0)
+  assert_eq(scroll_top_revealing_caret(caret_at(100.0, 170.0)), 86.0)
 }
 
 ///|
 test "caret resize reveals a line below the viewport with bottom padding" {
-  assert_eq(caret_scroll_top(270.0, 30.0, 86.0, 200.0, 14.0, 16.0), 116.0)
+  assert_eq(scroll_top_revealing_caret(caret_at(270.0, 30.0)), 116.0)
 }
 
 ///|
 test "caret resize reveals a line above the viewport with top padding" {
-  assert_eq(caret_scroll_top(60.0, 30.0, 86.0, 200.0, 14.0, 16.0), 46.0)
+  assert_eq(scroll_top_revealing_caret(caret_at(60.0, 30.0)), 46.0)
 }
 
 ///|

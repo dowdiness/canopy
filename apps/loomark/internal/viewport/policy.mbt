@@ -1,21 +1,26 @@
 ///|
+/// The caret line and the textarea viewport, as measured in content pixels.
+priv struct CaretMeasurement {
+  caret_top : Double
+  line_height : Double
+  scroll_top : Double
+  viewport_height : Double
+  padding_top : Double
+  padding_bottom : Double
+}
+
+///|
 /// Compute the scroll position from measured geometry without reading live DOM.
 /// Preserve the current position when the whole caret line is already visible.
-fn caret_scroll_top(
-  caret_top : Double,
-  line_height : Double,
-  scroll_top : Double,
-  viewport_height : Double,
-  padding_top : Double,
-  padding_bottom : Double,
-) -> Double {
-  let caret_bottom = caret_top + line_height
-  if caret_bottom > scroll_top + viewport_height - padding_bottom {
-    caret_bottom - viewport_height + padding_bottom
-  } else if caret_top < scroll_top + padding_top {
-    caret_top - padding_top
+fn scroll_top_revealing_caret(caret : CaretMeasurement) -> Double {
+  let caret_bottom = caret.caret_top + caret.line_height
+  if caret_bottom >
+    caret.scroll_top + caret.viewport_height - caret.padding_bottom {
+    caret_bottom - caret.viewport_height + caret.padding_bottom
+  } else if caret.caret_top < caret.scroll_top + caret.padding_top {
+    caret.caret_top - caret.padding_top
   } else {
-    scroll_top
+    caret.scroll_top
   }
 }
 

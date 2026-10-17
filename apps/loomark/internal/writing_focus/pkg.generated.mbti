@@ -49,6 +49,7 @@ pub enum Fade {
   Start(FadeTiming)
   SetOpacity(Double)
 }
+pub fn Fade::target_opacity(Self) -> Double
 
 pub(all) struct FadeTiming {
   from_opacity : Double

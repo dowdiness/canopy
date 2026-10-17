@@ -37,6 +37,16 @@ pub enum Fade {
 }
 
 ///|
+/// The opacity a shade settles at when this fade ends.
+pub fn Fade::target_opacity(self : Fade) -> Double {
+  match self {
+    SetOpacity(opacity) => opacity
+    Start(timing) => timing.to_opacity
+    Continue(active) => active.timing().to_opacity
+  }
+}
+
+///|
 pub fn ActiveFade::timing(self : ActiveFade) -> FadeTiming {
   match self {
     Pending(timing, ..) | Running(timing, ..) => timing

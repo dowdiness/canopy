@@ -1,9 +1,9 @@
 ///|
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
   let editor = @editor.MarkdownEditor::MarkdownEditor(EDITOR_TEXT_ID)
-  let initial_compact = compact_viewport(@browser.viewport_width())
   // Resolve stable browser handles once at the composition boundary.
   let window = @dom.window()
+  let initial_compact = compact_viewport(window.inner_width())
   let viewport_subscription = if window.get_visual_viewport() is Some(viewport) &&
     @dom.document().get_document_element() is Some(root) &&
     root.to_html_element() is Some(root) {
