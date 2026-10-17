@@ -25,6 +25,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 ### ✍️ Pure, Distraction-Free Drafting
 - **Natural Native Typing:** Standard browser text editing keeps IME composition and browser Undo/Redo completely natural.
 - **Zero Visual Noise:** No dictionary red lines, no autocorrect interruptions, and no unexpected formatting jumps. Write freely in any language, dialect, or code snippet.
+- **Dot-Grid Paper:** Text sits on faint dots that follow its lines, giving quiet order without ruled lines.
 - **Focus Mode:** Toggle the bottom-right icon to hide navigation and routine controls without changing your Text, Preview, or Split view. Surrounding paragraphs gently fade while the textarea has focus. Toggle again or press Escape to restore the controls. Normal mode keeps all paragraphs fully readable.
 - **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face paired with IBM Plex Sans JP for Japanese; read in a literary serif paired with BIZ UDMincho. All faces ship with the app, so they work offline once loaded.
 - **Japanese-Aware:** Japanese documents keep kana and kanji upright, show emphasis with emphasis dots (傍点), and use strict line breaking and roomier lines in Preview.
