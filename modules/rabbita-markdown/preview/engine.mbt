@@ -36,6 +36,7 @@ priv struct PendingMarkdownRender {
 priv struct PreviewOutput {
   html : @rabbita.Html
   empty : Bool
+  block_ranges : Array[SourceRange]
   acceptance : PreviewAcceptance
 } derive(Eq)
 
@@ -173,9 +174,17 @@ fn PreviewEngine::output(
   }
   self.next_acceptance_sequence += 1
   let render = { previous: update.as_previous(), lazy_keys: keys, }
+  let document = update.document()
   let output = {
     html: render_top_level_blocks(blocks, keys),
     empty: blocks.is_empty(),
+    block_ranges: blocks.map(block => {
+      guard document.source_span(block.node()) is Some(span) else {
+        abort("Markdown top-level block outside its document")
+      }
+      let range = span.range()
+      { start: range.start().value(), end: range.end().value(), }
+    }),
     acceptance,
   }
   self.pending_render = Some({

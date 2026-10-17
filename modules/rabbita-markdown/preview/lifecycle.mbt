@@ -22,6 +22,7 @@ priv struct RenderedPreview {
   document_text : String
   html : @rabbita.Html
   empty : Bool
+  block_ranges : Array[SourceRange]
 } derive(Eq)
 
 ///|
@@ -407,6 +408,7 @@ fn completed_preview(input : Input, output : PreviewOutput) -> RenderedPreview {
     document_text: input.document_text,
     html: output.html,
     empty: output.empty,
+    block_ranges: output.block_ranges,
   }
 }
 

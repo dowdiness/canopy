@@ -4,10 +4,12 @@ package "dowdiness/rabbita_markdown/preview"
 import {
   "dowdiness/text_change",
   "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/html",
 }
 
 // Values
+pub fn observe_preview_layout(@dom.Element, () -> Unit) -> () -> Unit
 
 // Errors
 
@@ -33,11 +35,21 @@ pub fn PreviewEngine::request(Self, State, Input, @cmd.Emit[Event]) -> (State, @
 pub fn PreviewEngine::suspend(Self, State, Input) -> (State, @cmd.Cmd)
 pub fn PreviewEngine::update(Self, State, Input, Event, @cmd.Emit[Event]) -> (State, @cmd.Cmd)
 
+pub struct PreviewGeometry {
+  // private fields
+}
+pub fn PreviewGeometry::measure(@dom.Element) -> Self?
+pub fn PreviewGeometry::offset_at(Self, Double) -> Int
+pub fn PreviewGeometry::readable(Self) -> (Double, Double)
+pub fn PreviewGeometry::scroll_by(Self, Double) -> Unit
+pub fn PreviewGeometry::top_of(Self, Int) -> Double
+
 pub struct State {
   // private fields
 } derive(Eq)
 pub fn State::equal(Self, Self) -> Bool
 pub fn State::not_equal(Self, Self) -> Bool
+pub fn State::shows_blocks(Self) -> Bool
 pub fn State::view(Self, id? : String) -> @html.Html
 
 // Type aliases

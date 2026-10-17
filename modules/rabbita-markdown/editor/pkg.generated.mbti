@@ -28,6 +28,7 @@ pub struct EditorState {
 } derive(Eq)
 pub fn EditorState::equal(Self, Self) -> Bool
 pub fn EditorState::not_equal(Self, Self) -> Bool
+pub fn EditorState::preview_shows_blocks(Self) -> Bool
 
 pub struct InputEdit {
   // private fields

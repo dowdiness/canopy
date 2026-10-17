@@ -305,3 +305,26 @@ test "PreviewEngine replaces only an unusable parser on allowed refresh" {
   }
   assert_true(engine.next_lazy_key > replacement_key_floor)
 }
+
+///|
+test "PreviewEngine reports current block ranges after an edit shifts blocks" {
+  let source = "Alpha.\n\n- one\n- two\n\nGamma.\n"
+  let engine = PreviewEngine::PreviewEngine()
+  guard engine.prepare(source) is Ok(initial) else {
+    abort("initial preparation failed")
+  }
+  assert_true(engine.accept(initial))
+  let updated = "Alpha beta.\n\n- one\n- two\n\nGamma.\n"
+  let change = @text_change.ReplaceRange(
+    start=5,
+    delete_len=0,
+    inserted=" beta",
+  )
+  assert_eq(engine.apply(change, updated), Ok(()))
+  guard engine.refresh(updated) is Ok(refreshed) else {
+    abort("refresh failed")
+  }
+  assert_eq(encode_source_ranges(initial.block_ranges), "0:7 8:20 21:28")
+  // The list and paragraph after the edit are reused, yet their ranges move.
+  assert_eq(encode_source_ranges(refreshed.block_ranges), "0:12 13:25 26:33")
+}

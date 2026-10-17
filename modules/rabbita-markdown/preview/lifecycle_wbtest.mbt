@@ -57,6 +57,7 @@ test "suspended Preview advances Parser and catches up once requested" {
       document_text: previous.document_text,
       html: @html.p("Previous"),
       empty: false,
+      block_ranges: [{ start: 0, end: 11, }],
     }),
   }
   let (suspended, _) = engine.suspend(visible, previous)
@@ -318,6 +319,7 @@ test "Preview view distinguishes initial failure and retained stale Preview" {
         document_text: "# Previous\n",
         html: @html.p("Previous preview"),
         empty: false,
+        block_ranges: [{ start: 0, end: 11, }],
       }),
     ),
   })

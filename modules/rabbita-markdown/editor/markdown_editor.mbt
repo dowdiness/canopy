@@ -202,6 +202,13 @@ pub fn MarkdownEditor::preview_view(
 }
 
 ///|
+/// Whether `preview_view` shows blocks that `@preview.PreviewGeometry` can
+/// measure.
+pub fn EditorState::preview_shows_blocks(self : EditorState) -> Bool {
+  self.preview.shows_blocks()
+}
+
+///|
 pub fn MarkdownEditor::restore(
   self : MarkdownEditor,
   text : String,
