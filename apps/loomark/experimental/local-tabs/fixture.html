@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loomark — isolated local tabs experiment</title>
+<style>
+body{margin:0;background:#faf9f6;color:#252925;font:16px system-ui}.loomark-experiment{max-width:1000px;margin:30px auto;padding:0 24px}header,nav{display:flex;align-items:center;gap:12px;flex-wrap:wrap}h1{font-size:24px;margin-right:12px}#status{margin-left:auto;font-size:14px}nav{margin:12px 0}button,input{font:inherit;padding:7px;background:white;border:1px solid #c6cdc6;border-radius:5px}button{cursor:pointer}button:disabled{opacity:.4}.loomark-source-frame{height:60vh}.loomark-source{box-sizing:border-box;width:100%;height:100%;padding:24px;font:16px/1.6 ui-monospace,monospace;border:1px solid #bfc7bf;border-radius:6px;resize:vertical;color:#252925;background:white;tab-size:2}p{font-size:12px;line-height:1.5;color:#59615a}#alignment{color:#805d28}:focus-visible{outline:2px solid #416c9a;outline-offset:2px}
+</style><div id="app"></div>
+<script type="module">
+if(new URLSearchParams(location.search).get('local-tabs-worker')==='1')await import('./client.mjs');
+await import('./fixture.js');
+</script></html>
