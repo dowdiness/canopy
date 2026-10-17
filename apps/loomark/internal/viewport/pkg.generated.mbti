@@ -7,9 +7,11 @@ import {
 }
 
 // Values
-pub fn connect_split_scroll(@dom.Element, @dom.Element, () -> Unit) -> (() -> Unit, () -> Unit)
-
 pub fn expose_scroll_top_to_styles(@dom.HTMLTextAreaElement) -> () -> Unit
+
+pub fn follow_preview_in_text(@dom.Element, @dom.HTMLTextAreaElement) -> SplitFollowing
+
+pub fn follow_text_in_preview(@dom.HTMLTextAreaElement, @dom.Element) -> SplitFollowing
 
 pub fn hold_preview_anchor(@dom.Element, ReadingAnchor, () -> Unit) -> () -> Unit
 
@@ -31,9 +33,16 @@ pub struct ReadingAnchor {
 pub fn ReadingAnchor::equal(Self, Self) -> Bool
 pub fn ReadingAnchor::not_equal(Self, Self) -> Bool
 
+pub struct SplitFollowing {
+  // private fields
+}
+pub fn SplitFollowing::disconnect(Self) -> Unit
+pub fn SplitFollowing::resync(Self) -> Unit
+
 pub(all) enum TextPlacement {
   RevealCaret
   HoldAnchor(ReadingAnchor)
+  FollowPreview
 } derive(Eq)
 pub fn TextPlacement::equal(Self, Self) -> Bool
 pub fn TextPlacement::not_equal(Self, Self) -> Bool

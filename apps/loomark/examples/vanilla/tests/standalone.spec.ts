@@ -4105,6 +4105,94 @@ test("an element inserted into Preview leaves Split without measurements, not br
   expect(errors).toEqual([])
 })
 
+test("Split shows the text at the top of the pane being read at the same depth in the other", async ({ page }) => {
+  for (const width of [900, 640]) {
+    await page.setViewportSize({ width, height: 700 })
+    await page.goto("/")
+    await page.getByRole("textbox", { name: "Text" }).fill(unevenSections)
+    await page.getByRole("tab", { name: "Split" }).click()
+    await expect(page.getByRole("heading", { name: "Section 59" })).toBeVisible()
+    for (const [reading, marker, depth] of [
+      ["text", "Section 20", 10], ["text", "Section 45", 10],
+      ["preview", "Section 33", 4], ["preview", "Section 8", 4],
+    ] as const) {
+      await page.evaluate(({ reading, marker, depth }) => {
+        const area = document.getElementById("loomark-text") as HTMLTextAreaElement
+        const scroll = document.getElementById("loomark-preview-scroll")!
+        const element = reading === "text" ? area : scroll
+        element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+        if (reading === "text") {
+          const style = getComputedStyle(area)
+          const line = area.value.slice(0, area.value.indexOf(`## ${marker}\n`)).split("\n").length - 1
+          area.scrollTop = line * Number.parseFloat(style.lineHeight) - depth
+        } else {
+          const content = scroll.querySelector<HTMLElement>(".rmd-preview-content")!
+          const heading = [...content.querySelectorAll("h2")].find(heading => heading.textContent === marker)!
+          const top = scroll.getBoundingClientRect().top + Number.parseFloat(getComputedStyle(content).paddingTop)
+          scroll.scrollTop += heading.getBoundingClientRect().top - top - depth
+        }
+      }, { reading, marker, depth })
+      await expect.poll(async () => {
+        const geometry = await readingGeometry(page)
+        return [geometry.text[marker] - geometry.textTop!, geometry.preview[marker] - geometry.previewTop!]
+          .every(actual => Math.abs(actual - depth) < 2)
+      }, { message: `${marker} read in ${reading} at ${width} px` }).toBe(true)
+    }
+
+    // Reading to the end shows the end of the other pane too.
+    await page.locator("#loomark-preview-scroll").evaluate(element => {
+      element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+      element.scrollTop = element.scrollHeight
+    })
+    await expect.poll(() => page.locator("#loomark-text").evaluate(element => (
+      element.scrollHeight - element.clientHeight - element.scrollTop
+    ))).toBeLessThan(1)
+  }
+})
+
+test("Split follows wrapped text in a pane of fractional width", async ({ page }) => {
+  // Long paragraphs give many lines that only just fit or just wrap.
+  const words = "lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore".split(" ")
+  let seed = 1
+  const word = () => words[(seed = seed * 16807 % 2147483647) % words.length]
+  const wrapped = Array.from({ length: 300 }, (_, index) => [
+    `## Section ${index}`,
+    "",
+    Array.from({ length: 20 + index % 50 }, word).join(" "),
+  ].join("\n")).join("\n\n")
+  await page.setViewportSize({ width: 901, height: 700 })
+  await page.goto("/")
+  await page.getByRole("textbox", { name: "Text" }).fill(wrapped)
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("heading", { name: "Section 299" })).toBeVisible()
+  const marker = "Section 280"
+  const fractional = await page.evaluate(marker => {
+    const area = document.getElementById("loomark-text") as HTMLTextAreaElement
+    const width = area.getBoundingClientRect().width
+    // A clone of the textarea itself lays out the text before the marker.
+    const clone = area.cloneNode() as HTMLTextAreaElement
+    clone.removeAttribute("id")
+    Object.assign(clone.style, { position: "absolute", top: "0", left: "0", width: `${width}px`, height: "0", visibility: "hidden" })
+    area.after(clone)
+    const height = (value: string) => {
+      clone.value = value
+      return clone.scrollHeight
+    }
+    const linesAbove = height(area.value.slice(0, area.value.indexOf(`## ${marker}\n`))) - height("")
+    clone.remove()
+    area.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    area.scrollTop = linesAbove - 10
+    return width % 1 !== 0
+  }, marker)
+  expect(fractional).toBe(true)
+  // Whole-pixel scroll heights and sub-pixel line rounding blur the expected
+  // depth by a few pixels; a wrapping mismatch moves it by whole lines.
+  await expect.poll(async () => {
+    const geometry = await readingGeometry(page)
+    return Math.abs(geometry.preview[marker] - geometry.previewTop! - 10) < 4
+  }).toBe(true)
+})
+
 test("document names follow committed edits across reflow and IME composition", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)

@@ -124,28 +124,3 @@ fn viewport_baseline_height(
     )
   }
 }
-
-///|
-/// Keep the same relative reading position in the other Split pane.
-/// No write is needed for non-scrolling panes or a subpixel difference.
-fn split_scroll_top(
-  source_top : Double,
-  source_height : Double,
-  source_client_height : Double,
-  target_top : Double,
-  target_height : Double,
-  target_client_height : Double,
-) -> Double? {
-  let source_distance = source_height - source_client_height
-  let target_distance = target_height - target_client_height
-  if source_distance > 0.0 && target_distance > 0.0 {
-    let next = source_top / source_distance * target_distance
-    if (target_top - next).abs() >= 1.0 {
-      Some(next)
-    } else {
-      None
-    }
-  } else {
-    None
-  }
-}

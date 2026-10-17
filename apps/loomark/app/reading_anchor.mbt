@@ -37,6 +37,15 @@ fn EditorMode::engaged(self : Self, pane : ScrollPane) -> EditorMode {
 }
 
 ///|
+/// Distinguishes subscriptions bound to each pane.
+fn ScrollPane::name(self : Self) -> String {
+  match self {
+    TextPane => "text"
+    PreviewPane => "preview"
+  }
+}
+
+///|
 fn editor_text_area() -> @dom.HTMLTextAreaElement? {
   guard @dom.document().get_element_by_id(EDITOR_TEXT_ID).to_option()
     is Some(element) else {

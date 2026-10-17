@@ -133,26 +133,3 @@ test "a glyph locates the top of its line box" {
   // A taller fallback glyph starts above its line but is centred within it.
   assert_eq(line_box_top(32.0 + 27.0 + 13.5, 32.0, 27.0), 59.0)
 }
-
-///|
-test "Split maps reading position across unequal scroll ranges" {
-  assert_eq(
-    split_scroll_top(300.0, 800.0, 200.0, 0.0, 1200.0, 400.0),
-    Some(400.0),
-  )
-  assert_eq(
-    split_scroll_top(800.0, 1200.0, 400.0, 0.0, 800.0, 200.0),
-    Some(600.0),
-  )
-}
-
-///|
-test "Split leaves non-scrolling panes and subpixel echoes unchanged" {
-  assert_eq(split_scroll_top(0.0, 200.0, 200.0, 40.0, 800.0, 200.0), None)
-  assert_eq(split_scroll_top(300.0, 800.0, 200.0, 0.0, 400.0, 400.0), None)
-  assert_eq(split_scroll_top(300.0, 800.0, 200.0, 399.5, 1200.0, 400.0), None)
-  assert_eq(
-    split_scroll_top(300.0, 800.0, 200.0, 399.0, 1200.0, 400.0),
-    Some(400.0),
-  )
-}

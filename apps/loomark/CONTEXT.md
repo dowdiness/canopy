@@ -107,7 +107,8 @@ _Avoid_: layout, workspace
 The text the user is reading: the caret's paragraph while the caret is in view,
 otherwise the text at the top of the pane. Changing the editor mode keeps it at
 the same height on screen until the user scrolls, clicks, or types in a pane, or
-the text changes.
+the text changes. In Split mode the pane being read is the one last used, and the other pane shows
+the same text at the same height.
 _Avoid_: scroll position, scroll sync
 
 **Text mode**:

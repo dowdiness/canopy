@@ -59,24 +59,12 @@ fn subscriptions(
     lead_subscriptions(model.page, emit),
     match model.page {
       Editing({ mode: Split(reading~), .. } as editing) =>
-        match reading {
-          TextPane =>
-            split_scroll_subscription(
-              "loomark-text",
-              "loomark-preview-scroll",
-              editing.activation.generation,
-              editing.compact,
-              editing.preview,
-            )
-          PreviewPane =>
-            split_scroll_subscription(
-              "loomark-preview-scroll",
-              "loomark-text",
-              editing.activation.generation,
-              editing.compact,
-              editing.preview,
-            )
-        }
+        split_follow_subscription(
+          reading,
+          editing.activation.generation,
+          editing.compact,
+          editing.preview,
+        )
       _ => @sub.none
     },
   ])
@@ -87,7 +75,8 @@ fn subscriptions(
 fn EditingDocument::text_placement(self : Self) -> @viewport.TextPlacement {
   match (self.mode.reading_pane(), self.reading_anchor) {
     (TextPane, Some(anchor)) => HoldAnchor(anchor)
-    (TextPane, None) | (PreviewPane, _) => RevealCaret
+    (TextPane, None) => RevealCaret
+    (PreviewPane, _) => FollowPreview
   }
 }
 
@@ -159,7 +148,10 @@ fn text_placement_subscription(
                 }),
               )
             // A released anchor must not realign before the next render.
-            RevealCaret => if placing is Some(placing) { placing.place(next) }
+            RevealCaret | FollowPreview =>
+              if placing is Some(placing) {
+                placing.place(next)
+              }
           }
         },
       })
@@ -168,70 +160,65 @@ fn text_placement_subscription(
 }
 
 ///|
-priv suberror SplitScrollSubscription {
+priv suberror SplitFollowSubscription {
   Follow(@editor.EditorState)
 }
 
 ///|
-/// Resolve this render's pair once. Activation and breakpoint changes replace
-/// nodes; mode and reading-pane changes also release the old connection.
-fn split_scroll_subscription(
-  source : String,
-  target : String,
+/// Keep the other Split pane showing what the reading pane shows at its top.
+/// Activation and breakpoint changes replace nodes; a reading pane change
+/// reconnects in the other direction.
+fn split_follow_subscription(
+  reading : ScrollPane,
   activation : Int,
   compact : Bool,
   preview : @editor.EditorState,
 ) -> @sub.Sub {
   @sub.custom_sub(
-    "loomark.split-scroll(\{source},\{target},\{activation},\{compact})",
+    "loomark.split-follow(\{reading.name()},\{activation},\{compact})",
     @sub.Scope::Local,
-    SplitScrollSubscription::Follow(preview),
+    SplitFollowSubscription::Follow(preview),
     (payload, scheduler) => {
-      guard payload is SplitScrollSubscription::Follow(preview) else {
+      guard payload is SplitFollowSubscription::Follow(preview) else {
         return None
       }
       let mut active = true
       let mut previous_preview = preview
-      let mut connection : (() -> Unit, () -> Unit)? = None
-      fn sync_after_render() {
-        scheduler.add(
-          @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-            guard active && connection is Some((sync, _)) else { return }
-            sync()
-          }),
-        )
-      }
+      let mut following : @viewport.SplitFollowing? = None
       scheduler.add(
         @cmd.custom_cmd(kind=@cmd.after_render, _ => {
           guard active &&
-            @dom.document().get_element_by_id(source).to_option() is Some(from) &&
-            @dom.document().get_element_by_id(target).to_option() is Some(to) else {
+            editor_text_area() is Some(area) &&
+            editor_preview_scroll() is Some(scroll) else {
             return
           }
-          let connected = @viewport.connect_split_scroll(
-            from, to, sync_after_render,
+          following = Some(
+            match reading {
+              TextPane => @viewport.follow_text_in_preview(area, scroll)
+              PreviewPane => @viewport.follow_preview_in_text(scroll, area)
+            },
           )
-          connection = Some(connected)
-          // A scroll can precede this after-render connection when its owner
-          // changes. Catch up from live geometry once the listener is attached.
-          let (sync, _) = connected
-          sync()
         }),
       )
       Some({
         unload: _ => {
           active = false
-          if connection is Some((_, stop)) {
-            stop()
+          if following is Some(following) {
+            following.disconnect()
           }
-          connection = None
+          following = None
         },
         update_tagger: payload => {
-          guard payload is SplitScrollSubscription::Follow(next) else { return }
-          if previous_preview != next {
-            previous_preview = next
-            sync_after_render()
-          }
+          guard payload is SplitFollowSubscription::Follow(next) else { return }
+          guard previous_preview != next else { return }
+          previous_preview = next
+          // A new rendering moves blocks without resizing either pane.
+          scheduler.add(
+            @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+              guard active && following is Some(following) else { return }
+              following.resync()
+            }),
+          )
         },
       })
     },

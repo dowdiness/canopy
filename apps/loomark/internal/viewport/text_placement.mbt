@@ -5,6 +5,8 @@ pub(all) enum TextPlacement {
   /// Keep the anchor at its height, also when a late font rewraps the text,
   /// until a scroll leaves it elsewhere.
   HoldAnchor(ReadingAnchor)
+  /// Preview is being read, so Split scrolls the textarea to follow it.
+  FollowPreview
 } derive(Eq)
 
 ///|
@@ -14,6 +16,7 @@ pub extend TextPlacement with Eq::{equal, not_equal}
 priv enum Placing {
   Revealing
   Holding(AnchorHold)
+  Following
 }
 
 ///|
@@ -39,6 +42,7 @@ fn Placing::Placing(placement : TextPlacement) -> Placing {
   match placement {
     RevealCaret => Revealing
     HoldAnchor(anchor) => Holding(AnchorHold(anchor))
+    FollowPreview => Following
   }
 }
 
@@ -56,6 +60,7 @@ pub fn place_text_area(
     match placing {
       Revealing => reveal(geometry, caret_offset(area))
       Holding(hold) => hold.realign(geometry)
+      Following => ()
     }
   }
 
