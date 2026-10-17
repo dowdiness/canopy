@@ -10,11 +10,7 @@ fn view(
   let profile = model
     .map(model => {
       guard model.page is Editing(editing) else { return None }
-      editing.documents
-      .recent()
-      .iter()
-      .find_first(item => item.0 == editing.activation.key)
-      .map(item => item.1)
+      editing.settled_text()
     })
     .map(source => source.map(text_profile))
   let japanese = profile.map(profile => profile is Some({ japanese: true, .. }))

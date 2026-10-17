@@ -72,6 +72,17 @@ priv struct EditingDocument {
 } derive(Eq)
 
 ///|
+/// The active document's text as Recent documents last settled it, which
+/// lags typing by a short pause.
+fn EditingDocument::settled_text(self : Self) -> String? {
+  self.documents
+  .recent()
+  .iter()
+  .find_first(item => item.0 == self.activation.key)
+  .map(item => item.1)
+}
+
+///|
 priv enum EditorMode {
   Text
   Preview
