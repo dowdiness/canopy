@@ -77,7 +77,8 @@ _Avoid_: ordinary content, paragraph
 An explicit, page-local writing presentation, off on every launch or reload.
 The icon-only toggle stays at the bottom-right of the available viewport and,
 like the view controls, is hidden while an on-screen keyboard is detected.
-Its accessible label and tooltip name
+Toggling only switches the presentation; it never focuses the textarea, so it
+cannot summon an on-screen keyboard. Its accessible label and tooltip name
 `Focus Mode` or `Exit Focus Mode`, and its pressed state exposes whether it is on.
 Entering hides Recent documents, the top toolbar, view controls, and routine
 save feedback without changing the current Text, Preview, or Split mode.

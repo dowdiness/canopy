@@ -10,7 +10,8 @@ async function openFocusMode(page: Page) {
   await page.goto("/")
   await page.getByRole("button", { name: "Focus Mode", exact: true }).click()
   await expect(page.locator("#loomark-focus-toggle")).toHaveAttribute("aria-pressed", "true")
-  await expect(page.getByRole("textbox", { name: "Text" })).toBeFocused()
+  // Toggling must not focus the textarea, which would summon a mobile keyboard.
+  await expect(page.getByRole("textbox", { name: "Text" })).not.toBeFocused()
 }
 
 async function dimmingAtLines(page: Page, lines: number[]) {
@@ -79,7 +80,7 @@ for (const mode of ["Text", "Split", "Preview"]) {
     await toggle.focus()
     await toggle.press("Enter")
     await expect(toggle).toHaveAttribute("aria-pressed", "true")
-    await expect(mode === "Preview" ? toggle : text).toBeFocused()
+    await expect(toggle).toBeFocused()
     await expect(page.locator('[role="tab"][aria-selected="true"]')).toHaveAttribute("aria-label", mode)
     await expect(text).toBeVisible({ visible: mode !== "Preview" })
     expect(await text.evaluate(element => {
@@ -140,12 +141,12 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
       await toggle.click()
       await expect(toggle).toHaveAttribute("aria-pressed", pressed)
     }
-    await expect(text).toBeFocused()
+    await expect(toggle).toBeFocused()
     await text.press("Tab")
     await expect(toggle).toBeFocused()
     await toggle.press("Escape")
     await expect(toggle).toHaveAttribute("aria-pressed", "false")
-    await expect(text).toBeFocused()
+    await expect(toggle).toBeFocused()
     await expect(text).toHaveValue(documentText)
     await expect(page.getByRole("button", { name: "More actions" })).toBeVisible()
   })
@@ -171,6 +172,7 @@ test("Focus Mode toggle hides with a simulated mobile keyboard like the view con
   await expect(toggle).toBeVisible()
   await toggle.click()
   await expect(page.getByRole("button", { name: "Focus Mode", exact: true })).toBeVisible()
+  await expect(text).not.toBeFocused()
   await expect(text).toHaveValue(documentText)
 })
 

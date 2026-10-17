@@ -1436,7 +1436,8 @@ fn reduce(
         focus_mode: !model.focus_mode,
         page: Editing({ ..editing, menu_open: false, }),
       }
-      (model, focus_editor_after_render(editing.mode))
+      // Toggling never focuses the textarea, so it cannot summon a keyboard.
+      (model, retain_editor_focus_after_render())
     }
     ScrollClaimed(pane) => ({ ..model, scroll_owner: pane, }, @cmd.none)
     AuthenticationReturned(_) | PageRestored | SignIn(_) =>

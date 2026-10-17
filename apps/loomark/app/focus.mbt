@@ -12,9 +12,7 @@ fn focus_after_render(id : String) -> @cmd.Cmd {
 /// Resolve the presentation after rendering, including recovery-driven activation.
 fn focus_editor_after_render(mode : EditorMode) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=AfterRender, scheduler => {
-    if @dom.document().get_element_by_id("loomark-editor").to_option()
-      is Some(editor) &&
-      editor.closest("[inert]") is Some(_) {
+    if editor_is_inert(@dom.document()) {
       scheduler.queue_command(
         @sidebar.sidebar_focus("loomark-document-sidebar"),
       )
@@ -32,6 +30,24 @@ fn focus_editor_after_render(mode : EditorMode) -> @cmd.Cmd {
       }
     }
   })
+}
+
+///|
+/// Leave focus where it is unless the editor holding it has become inert.
+fn retain_editor_focus_after_render() -> @cmd.Cmd {
+  @cmd.custom_cmd(kind=AfterRender, scheduler => {
+    if editor_is_inert(@dom.document()) {
+      scheduler.queue_command(
+        @sidebar.sidebar_focus("loomark-document-sidebar"),
+      )
+    }
+  })
+}
+
+///|
+fn editor_is_inert(document : @dom.Document) -> Bool {
+  document.get_element_by_id("loomark-editor").to_option() is Some(editor) &&
+  editor.closest("[inert]") is Some(_)
 }
 
 ///|
