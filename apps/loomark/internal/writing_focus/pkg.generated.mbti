@@ -6,7 +6,7 @@ pub fn calculate_dimming_inline_bounds(Double, Double, Double, Double) -> (Doubl
 
 pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double?, animate~ : Bool) -> ArrayView[(Range, Fade)]
 
-pub fn calculate_visible_range(Range, Range) -> Range?
+pub fn calculate_shade_placement(Range, Range) -> ShadePlacement?
 
 // Errors
 pub suberror InvalidRange {
@@ -119,6 +119,12 @@ pub struct Range {
   end : Double
 }
 pub fn Range::Range(Double, Double) -> Self raise InvalidRange
+
+pub struct ShadePlacement {
+  top_in_viewport : Double
+  top_in_content : Double
+  height : Double
+}
 
 pub struct TextLines {
   // private fields

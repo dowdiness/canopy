@@ -286,6 +286,11 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> Unit {
     "top",
     "\{self.text_area.get_offset_top()}px",
   )
+  set_style_if_changed(
+    self.dimming_layer,
+    "--loomark-text-line-height",
+    style.get_property_value("line-height"),
+  )
   set_style_if_changed(self.dimming_layer, "left", "\{left}px")
   set_style_if_changed(self.dimming_layer, "width", "\{content_width}px")
   set_style_if_changed(

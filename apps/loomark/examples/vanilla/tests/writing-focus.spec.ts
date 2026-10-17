@@ -540,3 +540,68 @@ test("native composition retains its text, selection and focus through reflow", 
   await browser.detach()
   await original?.dispose()
 })
+
+test("dimming fades the text around the writing group but not the dot grid", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" })
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await openFocusMode(page)
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(Array.from({ length: 120 }, (_, i) => `Paragraph ${i + 1}`).join("\n\n"))
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const start = area.value.indexOf("Paragraph 80")
+    area.setSelectionRange(start, start)
+    area.scrollTop = 4321
+  })
+  await text.pressSequentially("x")
+  const tallestShade = () => page.evaluate(() => {
+    const shades = [...document.querySelectorAll<HTMLElement>(".loomark-writing-shade:not([hidden])")]
+      .filter(shade => getComputedStyle(shade).opacity === "0.5")
+      .map(shade => shade.getBoundingClientRect())
+    return shades.sort((a, b) => b.height - a.height)[0]?.toJSON() as DOMRect | undefined
+  })
+  await expect.poll(async () => (await tallestShade())?.height ?? 0).toBeGreaterThan(200)
+  const shade = (await tallestShade())!
+  const column = await text.evaluate(element => {
+    const bounds = element.getBoundingClientRect(), style = getComputedStyle(element)
+    return {
+      left: bounds.left + Number.parseFloat(style.paddingLeft),
+      right: bounds.right - Number.parseFloat(style.paddingRight),
+    }
+  })
+  const rows = { top: shade.top + 40, bottom: shade.bottom - 40 }
+  // The margin sits outside the shades; past the short paragraphs, the text
+  // column under a shade holds only dots.
+  const [margin, shaded] = await darknessIn(page, [
+    { ...rows, left: 20, right: column.left - 20 },
+    { ...rows, left: column.left + 160, right: column.right - 10 },
+  ])
+  expect(margin.darkest, "the margin shows dots").toBeLessThan(margin.paper - 8)
+  expect(Math.abs(shaded.darkest - margin.darkest), "dots under a shade match margin dots").toBeLessThanOrEqual(2)
+})
+
+type Region = { top: number; bottom: number; left: number; right: number }
+
+async function darknessIn(page: Page, regions: Region[]) {
+  const image = await page.screenshot({ scale: "css" })
+  return page.evaluate(async ({ encoded, regions }) => {
+    const bytes = Uint8Array.from(atob(encoded), value => value.charCodeAt(0))
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }))
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height)
+    const context = canvas.getContext("2d")!
+    context.drawImage(bitmap, 0, 0)
+    const { data, width } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+    bitmap.close()
+    const brightness = (x: number, y: number) => data[(y * width + x) * 4 + 1]
+    return regions.map(region => {
+      let darkest = 255, paper = 0
+      for (let y = Math.ceil(region.top); y < region.bottom; y++) {
+        for (let x = Math.ceil(region.left); x < region.right; x++) {
+          darkest = Math.min(darkest, brightness(x, y))
+          paper = Math.max(paper, brightness(x, y))
+        }
+      }
+      return { darkest, paper }
+    })
+  }, { encoded: image.toString("base64"), regions })
+}

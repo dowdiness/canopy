@@ -87,14 +87,15 @@ fn position_writing_shade(
   range : @writing_focus.Range,
   viewport_range : @writing_focus.Range,
 ) -> Unit {
-  match @writing_focus.calculate_visible_range(range, viewport_range) {
-    Some(visible) => {
-      set_style_if_changed(element, "top", "\{visible.start}px")
+  match @writing_focus.calculate_shade_placement(range, viewport_range) {
+    Some(placement) => {
+      set_style_if_changed(element, "top", "\{placement.top_in_viewport}px")
       set_style_if_changed(
         element,
-        "height",
-        "\{visible.end - visible.start}px",
+        "--loomark-shade-top-in-content",
+        "\{placement.top_in_content}px",
       )
+      set_style_if_changed(element, "height", "\{placement.height}px")
     }
     None => {
       set_style_if_changed(element, "top", "0px")

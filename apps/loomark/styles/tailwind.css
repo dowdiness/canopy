@@ -461,6 +461,17 @@
   left: 0;
   width: 100%;
   background: var(--color-lm-paper);
+  /* Holes keep the dots beneath undimmed. They are wider than a dot so a pixel
+     of misalignment cannot dim or double one. The pitch comes from the textarea
+     because a line-height override on every element changes the shade's 1lh. */
+  --loomark-hole-core-radius: 3px;
+  --loomark-hole-edge-radius: 3.5px;
+  --loomark-dot-row-in-shade: calc(var(--loomark-first-line-top) - var(--loomark-shade-top-in-content));
+  mask-image:
+    linear-gradient(to right, black calc(50% - var(--loomark-hole-edge-radius)), transparent calc(50% - var(--loomark-hole-core-radius)), transparent calc(50% + var(--loomark-hole-core-radius)), black calc(50% + var(--loomark-hole-edge-radius))),
+    repeating-linear-gradient(to bottom, black calc(var(--loomark-dot-row-in-shade) - var(--loomark-hole-edge-radius)), transparent calc(var(--loomark-dot-row-in-shade) - var(--loomark-hole-core-radius)), transparent calc(var(--loomark-dot-row-in-shade) + var(--loomark-hole-core-radius)), black calc(var(--loomark-dot-row-in-shade) + var(--loomark-hole-edge-radius)), black calc(var(--loomark-dot-row-in-shade) - var(--loomark-hole-edge-radius) + var(--loomark-text-line-height)));
+  mask-size: var(--loomark-text-line-height) 100%, auto;
+  mask-position: calc(var(--loomark-text-line-height) / -2) 0, 0 0;
 }
 
 .loomark-writing-measure {
