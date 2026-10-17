@@ -68,6 +68,9 @@ priv struct EditingDocument {
   preview : @editor.EditorState
   imports_pending : Int
   next_creation_request_id : Int
+  /// The reading position held in the pane being read since the latest
+  /// Editor-mode change, until the user engages a pane or the text changes.
+  reading_anchor : @viewport.ReadingAnchor?
 } derive(Eq)
 
 ///|
@@ -144,6 +147,7 @@ priv enum Msg {
   CompositionEnded(Int)
   ModeSelected(@editor.Mode)
   FocusModeToggled
+  ReadingAnchored(Int, @viewport.ReadingAnchor)
   MenuToggled
   EscapePressed
   ImportFilesSelected(FixedArray[@browser.File])

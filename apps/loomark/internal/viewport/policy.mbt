@@ -1,27 +1,63 @@
 ///|
-/// The caret line and the textarea viewport, as measured in content pixels.
-priv struct CaretMeasurement {
-  caret_top : Double
-  line_height : Double
-  scroll_top : Double
-  viewport_height : Double
-  padding_top : Double
-  padding_bottom : Double
+/// The viewport top for a line asked to sit at `requested`, moved just enough
+/// to lie within the readable area. A line already inside stays put.
+fn fitted_top(
+  requested : Double,
+  line_height : Double,
+  readable_top : Double,
+  readable_bottom : Double,
+) -> Double {
+  if requested + line_height > readable_bottom {
+    readable_bottom - line_height
+  } else if requested < readable_top {
+    readable_top
+  } else {
+    requested
+  }
 }
 
 ///|
-/// Compute the scroll position from measured geometry without reading live DOM.
-/// Preserve the current position when the whole caret line is already visible.
-fn scroll_top_revealing_caret(caret : CaretMeasurement) -> Double {
-  let caret_bottom = caret.caret_top + caret.line_height
-  if caret_bottom >
-    caret.scroll_top + caret.viewport_height - caret.padding_bottom {
-    caret_bottom - caret.viewport_height + caret.padding_bottom
-  } else if caret.caret_top < caret.scroll_top + caret.padding_top {
-    caret.caret_top - caret.padding_top
-  } else {
-    caret.scroll_top
+/// The top of the line box holding a glyph whose middle is `middle`, both
+/// measured from the top of the text's border box. Glyph boxes sit inside
+/// their line by half the leading, and taller fallback glyphs reach out of it,
+/// but their middle stays within it.
+fn line_box_top(
+  middle : Double,
+  padding_top : Double,
+  line_height : Double,
+) -> Double {
+  padding_top + ((middle - padding_top) / line_height).floor() * line_height
+}
+
+///|
+/// The character whose box locates the line of `offset`, and how many lines
+/// below that character's line `offset` lies. Line breaks have no box, so an
+/// empty line counts from the nearest character before it, or after it at the
+/// start of the text. `None` when the text has no characters to measure.
+fn line_reference(text : String, offset : Int) -> (Int, Int)? {
+  let offset = offset.clamp(min=0, max=text.length())
+  fn is_break(index : Int) -> Bool {
+    text.code_unit_at(index) == '\n'
   }
+
+  if offset < text.length() && !is_break(offset) {
+    return Some((offset, 0))
+  }
+  let mut lines = 0
+  for index = offset - 1; index >= 0; index = index - 1 {
+    if !is_break(index) {
+      return Some((index, lines))
+    }
+    lines += 1
+  }
+  lines = 0
+  for index = offset; index < text.length(); index = index + 1 {
+    if !is_break(index) {
+      return Some((index, -lines))
+    }
+    lines += 1
+  }
+  None
 }
 
 ///|

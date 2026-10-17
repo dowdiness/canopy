@@ -132,6 +132,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html]
 - **Demand-Driven Preparation:** Text mode creates no syntax parser. Choosing Preview or Split creates at most one parser for the selected document. Returning to Text retains the parser and keeps it updated with committed Document text without producing hidden preview output.
 - **Quiet-Window Refresh:** Preview lowering waits for a 24 ms candidate-text quiet window so rapid keystrokes produce a single coherent syntax snapshot, lowered directly to MarkdownIR and rendered to typed HTML.
 - **Split Scroll Alignment (`internal/viewport/split_scroll.mbt`):** Split mode attaches directly to the reading pane (the pane last engaged), synchronizing textarea and preview positions. The connection cleanly resets across document switches, mode changes, or layout breakpoint transitions.
+- **Reading Position (`internal/viewport/`):** Text and Preview answer the same geometry questions: where a source offset is shown, which offset is shown at a height, and where the readable area lies. `TextGeometry` reads them from a hidden mirror of the textarea; `@preview.PreviewGeometry` reads them from the rendered Preview, whose blocks record their source ranges. A mode change records a `ReadingAnchor` in the pane being read and holds it in the next pane until the user engages a pane, scrolls it away, or edits. The held anchor decides what keeps the textarea in place: it reveals the caret or holds the anchor (`TextPlacement`).
 
 ### 4.2 Writing Focus
 
@@ -169,8 +170,8 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
 ### 4.5 Element Resizing & Caret Visibility
 
 - **ResizeObserver Integration:** Loomark uses Rabbita's typed `@dom.ResizeObserver` to observe the textarea after rendering.
-- **Safe Fallback:** Observer creation and registration run inside `@js.try_sync`, preserving safety on browsers without full modern API support. The subscription disconnects the observer when that node is replaced. Width and height changes trigger caret measurement independently of visual-viewport events.
-- **Pure Calculation Engine (`internal/viewport/policy.mbt`):** Contains pure arithmetic for caret scrolling, viewport bounds, keyboard baselines, and split alignments. It neither reads nor mutates retained state. Shared resolved CSS numeric parsing lives in `internal/browser/css.mbt` and preserves NaN for nonnumeric keywords such as `normal`.
+- **Node Replacement:** The subscription disconnects the observer when that node is replaced. Width and height changes place the textarea again (`TextPlacement`) independently of visual-viewport events.
+- **Pure Calculation Engine (`internal/viewport/policy.mbt`):** Contains pure arithmetic for fitting lines into the readable area, locating textarea lines, viewport bounds, keyboard baselines, and split alignments. It neither reads nor mutates retained state. Shared resolved CSS numeric parsing lives in `internal/browser/css.mbt` and preserves NaN for nonnumeric keywords such as `normal`.
 - **DOM Access Boundary (`internal/browser/`):** Encapsulates missing native DOM accessors in object-specific files, isolating native browser calls from application logic. Viewport scheduling and retained measurements remain in `internal/viewport/`.
 
 ### 4.6 Document Lifecycle

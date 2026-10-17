@@ -3983,6 +3983,128 @@ test("Split preserves reading-position synchronization across document and mode 
   await verify("loomark-text", 0.55)
 })
 
+// Sections differ in height between the panes: Preview headings and code
+// blocks are taller than their source lines. Every line fits without wrapping.
+const unevenSections = Array.from({ length: 60 }, (_, index) => [
+  `## Section ${index}`,
+  "",
+  index % 3 === 0
+    ? ["```", ...Array.from({ length: index % 7 + 1 }, (_, line) => `code ${index}.${line}`), "```"].join("\n")
+    : `Paragraph ${index}.`,
+].join("\n")).join("\n\n")
+
+const readingGeometry = (page: Page) => page.evaluate(() => {
+  const area = document.getElementById("loomark-text") as HTMLTextAreaElement
+  const scroll = document.getElementById("loomark-preview-scroll")!
+  const content = scroll.querySelector<HTMLElement>(".rmd-preview-content")
+  const style = getComputedStyle(area)
+  const lineHeight = Number.parseFloat(style.lineHeight)
+  const areaTop = area.getBoundingClientRect().top + area.clientTop
+  const lineTop = (offset: number) =>
+    areaTop + Number.parseFloat(style.paddingTop) +
+    (area.value.slice(0, offset).split("\n").length - 1) * lineHeight - area.scrollTop
+  const headings = content
+    ? [...content.querySelectorAll("h2")].map(heading => [heading.textContent!, heading.getBoundingClientRect().top] as const)
+    : []
+  return {
+    textTop: area.clientHeight > 0 ? areaTop + Number.parseFloat(style.paddingTop) : null,
+    previewTop: content && scroll.clientHeight > 0
+      ? scroll.getBoundingClientRect().top + Number.parseFloat(getComputedStyle(content).paddingTop)
+      : null,
+    caret: area.clientHeight > 0 ? lineTop(area.selectionEnd) : null,
+    text: Object.fromEntries([...area.value.matchAll(/^## (Section \d+)$/gm)].map(match => [match[1], lineTop(match.index!)])),
+    preview: Object.fromEntries(headings),
+  }
+})
+
+test("mode changes keep the paragraph being read at the same height", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(unevenSections)
+  const scrollTextTo = (marker: string, top: number) => text.evaluate((element, { marker, top }) => {
+    const area = element as HTMLTextAreaElement
+    const line = area.value.slice(0, area.value.indexOf(`## ${marker}\n`)).split("\n").length - 1
+    const style = getComputedStyle(area)
+    area.scrollTop = area.getBoundingClientRect().top + area.clientTop + Number.parseFloat(style.paddingTop) +
+      line * Number.parseFloat(style.lineHeight) - top
+  }, { marker, top })
+  const near = (actual: number | null | undefined, expected: number) =>
+    actual != null && Math.abs(actual - expected) < 2
+
+  // A readable caret keeps its paragraph in place in each mode.
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const offset = area.value.indexOf("## Section 30\n")
+    area.setSelectionRange(offset, offset)
+  })
+  await scrollTextTo("Section 30", 300)
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect.poll(async () => near((await readingGeometry(page)).preview["Section 30"], 300)).toBe(true)
+  await page.getByRole("tab", { name: "Text" }).click()
+  await expect.poll(async () => near((await readingGeometry(page)).caret, 300)).toBe(true)
+
+  // An off-screen caret leaves the text at the top of the readable area in place.
+  await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(0, 0))
+  const { textTop } = await readingGeometry(page)
+  await scrollTextTo("Section 44", textTop! + 10)
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await expect.poll(async () => near((await readingGeometry(page)).preview["Section 44"], textTop! + 10)).toBe(true)
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect.poll(async () => near((await readingGeometry(page)).preview["Section 44"], textTop! + 10)).toBe(true)
+  // Switching again before reading on keeps the first position instead of
+  // accumulating each pane's rounding.
+  for (const mode of ["Preview", "Split", "Preview", "Text"]) {
+    await page.getByRole("tab", { name: mode, exact: true }).click()
+  }
+  await expect.poll(async () => near((await readingGeometry(page)).text["Section 44"], textTop! + 10)).toBe(true)
+})
+
+test("engaging a pane releases the held reading position at once", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(unevenSections)
+  // The caret is at the end, so the text at the top is held.
+  await text.evaluate(element => { element.scrollTop = 1000 })
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("heading", { name: "Section 59" })).toBeAttached()
+  // A face that arrives right after the reader scrolls must not pull the text
+  // back to the anchor the scroll released.
+  const kept = await text.evaluate(async element => {
+    const area = element as HTMLTextAreaElement
+    area.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    await Promise.resolve()
+    area.scrollTop = 0
+    document.fonts.dispatchEvent(new Event("loadingdone"))
+    return area.scrollTop
+  })
+  expect(kept).toBe(0)
+})
+
+test("an element inserted into Preview leaves Split without measurements, not broken", async ({ page }) => {
+  const errors: Error[] = []
+  page.on("pageerror", error => errors.push(error))
+  await page.setViewportSize({ width: 900, height: 700 })
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill(unevenSections)
+  await page.getByRole("tab", { name: "Split" }).click()
+  await expect(page.getByRole("heading", { name: "Section 59" })).toBeAttached()
+  // As a browser extension might.
+  await page.locator("#loomark-preview-scroll .rmd-preview-content").evaluate(content => {
+    content.prepend(document.createElement("div"))
+  })
+  await text.evaluate(element => {
+    element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+    element.scrollTop = 1000
+  })
+  await page.getByRole("tab", { name: "Preview" }).click()
+  await page.getByRole("tab", { name: "Text" }).click()
+  await expect(text).toBeVisible()
+  expect(errors).toEqual([])
+})
+
 test("document names follow committed edits across reflow and IME composition", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)

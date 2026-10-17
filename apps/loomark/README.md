@@ -32,7 +32,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 - **A Quiet Character Count:** Wide screens show the document's character count (excluding spaces and line breaks) beside the mode switcher, settling after a short pause instead of flickering with every keystroke.
 
 ### 🍃 Thoughtful Modes & Viewport
-- **Three Views:** Toggle effortlessly between **Text** (pure drafting), **Preview** (clean formatted reading), and **Split** (side-by-side with a draggable divider).
+- **Three Views:** Toggle effortlessly between **Text** (pure drafting), **Preview** (clean formatted reading), and **Split** (side-by-side with a draggable divider). Switching keeps your place: the paragraph you are writing, or the one you are reading, stays at the same height on screen.
 - **Light & Dark:** Follows your system appearance with the same warm paper tone; printing from Preview produces a clean reading page.
 - **Mobile Responsive:** Adapts cleanly to on-screen keyboards and device rotation, hiding extraneous bottom bars to maximize vertical writing space.
 

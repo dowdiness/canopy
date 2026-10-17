@@ -107,6 +107,7 @@ fn test_editing() -> EditingDocument {
     preview,
     imports_pending: 0,
     next_creation_request_id: 1,
+    reading_anchor: None,
   }
 }
 
@@ -2821,6 +2822,7 @@ test "final active delete falls back to a new document" {
     preview,
     imports_pending: 0,
     next_creation_request_id: 1,
+    reading_anchor: None,
   }
   let transition = expect_document_delete(initial.documents, source_key("one"))
   let documents = transition.model

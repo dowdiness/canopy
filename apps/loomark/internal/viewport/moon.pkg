@@ -1,6 +1,6 @@
 import {
-  "dowdiness/js_ffi" @js,
   "dowdiness/loomark/internal/browser",
+  "dowdiness/rabbita_markdown/preview",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js" @dom_js,
   "moonbit-community/rabbita/sub",

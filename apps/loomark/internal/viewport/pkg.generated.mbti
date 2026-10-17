@@ -2,7 +2,6 @@
 package "dowdiness/loomark/internal/viewport"
 
 import {
-  "dowdiness/js_ffi",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/sub",
 }
@@ -12,13 +11,38 @@ pub fn connect_split_scroll(@dom.Element, @dom.Element, () -> Unit) -> (() -> Un
 
 pub fn expose_scroll_top_to_styles(@dom.HTMLTextAreaElement) -> () -> Unit
 
-pub fn observe_text_area_resize(@dom.HTMLTextAreaElement) -> (() -> Unit) raise @js_ffi.JsError
+pub fn hold_preview_anchor(@dom.Element, ReadingAnchor, () -> Unit) -> () -> Unit
+
+pub fn place_text_area(@dom.HTMLTextAreaElement, TextPlacement, () -> Unit) -> TextPlacing
+
+pub fn preview_reading_anchor(@dom.HTMLTextAreaElement, @dom.Element) -> ReadingAnchor?
+
+pub fn text_reading_anchor(@dom.HTMLTextAreaElement) -> ReadingAnchor?
 
 pub fn visual_viewport_subscription(@dom.Window, @dom.VisualViewport, @dom.HTMLElement) -> @sub.Sub
 
 // Errors
 
 // Types and methods
+pub struct ReadingAnchor {
+  offset : Int
+  top : Double
+} derive(Eq)
+pub fn ReadingAnchor::equal(Self, Self) -> Bool
+pub fn ReadingAnchor::not_equal(Self, Self) -> Bool
+
+pub(all) enum TextPlacement {
+  RevealCaret
+  HoldAnchor(ReadingAnchor)
+} derive(Eq)
+pub fn TextPlacement::equal(Self, Self) -> Bool
+pub fn TextPlacement::not_equal(Self, Self) -> Bool
+
+pub struct TextPlacing {
+  // private fields
+}
+pub fn TextPlacing::disconnect(Self) -> Unit
+pub fn TextPlacing::place(Self, TextPlacement) -> Unit
 
 // Type aliases
 

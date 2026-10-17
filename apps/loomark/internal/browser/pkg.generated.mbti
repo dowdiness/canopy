@@ -20,11 +20,15 @@ pub fn animation_playback_rate(@dom.Animation) -> Double
 
 pub fn animation_start_time(@dom.Animation) -> @js.Nullable[Double]
 
+pub fn attach_closed_shadow(@dom.Element) -> @dom.Node
+
 pub fn cancel_animation(@dom.Animation) -> Unit
 
 pub fn document_font_faces(@dom.Document) -> FontFaceSet
 
 pub fn document_fonts(@dom.Document) -> @dom.EventTarget
+
+pub fn document_text_middle(@dom.Document, @dom.Node, Int, Int) -> Double
 
 pub fn document_timeline_time(@dom.Document) -> @js.Nullable[Double]
 

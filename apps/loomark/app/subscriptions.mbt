@@ -26,7 +26,9 @@ fn subscriptions(
     },
     match model.page {
       Editing(editing) =>
-        text_area_resize_subscription(
+        text_placement_subscription(
+          editing.text_placement(),
+          emit(PaneEngaged(TextPane)),
           editing.activation.generation,
           editing.compact,
         )
@@ -42,6 +44,18 @@ fn subscriptions(
       }
     }),
     page_restore_subscription(emit(PageRestored)),
+    match model.page {
+      Editing(editing) if editing.mode.reading_pane() is PreviewPane &&
+        editing.reading_anchor is Some(anchor) &&
+        editing.preview.preview_shows_blocks() =>
+        preview_anchor_subscription(
+          anchor,
+          emit(PaneEngaged(PreviewPane)),
+          editing.activation.generation,
+          editing.compact,
+        )
+      _ => @sub.none
+    },
     lead_subscriptions(model.page, emit),
     match model.page {
       Editing({ mode: Split(reading~), .. } as editing) =>
@@ -69,58 +83,85 @@ fn subscriptions(
 }
 
 ///|
-priv suberror TextAreaResizeSubscription {
-  RevealResizedCaret
+/// The textarea's placement follows from the mode and the held anchor.
+fn EditingDocument::text_placement(self : Self) -> @viewport.TextPlacement {
+  match (self.mode.reading_pane(), self.reading_anchor) {
+    (TextPane, Some(anchor)) => HoldAnchor(anchor)
+    (TextPane, None) | (PreviewPane, _) => RevealCaret
+  }
+}
+
+///|
+priv suberror TextPlacementSubscription {
+  Place(@viewport.TextPlacement)
 }
 
 ///|
 /// Both the activation key and the responsive panel branch can replace the
-/// textarea. Resolve its node after rendering and release the old observation
+/// textarea. Resolve its node after rendering and release the old placement
 /// and scroll exposure.
-fn text_area_resize_subscription(activation : Int, compact : Bool) -> @sub.Sub {
+fn text_placement_subscription(
+  placement : @viewport.TextPlacement,
+  scrolled_away : @rabbita.Cmd,
+  activation : Int,
+  compact : Bool,
+) -> @sub.Sub {
   @sub.custom_sub(
-    "loomark.text-area-resize(\{activation},\{compact})",
+    "loomark.text-placement(\{activation},\{compact})",
     @sub.Scope::Local,
-    TextAreaResizeSubscription::RevealResizedCaret,
-    (_, scheduler) => {
+    TextPlacementSubscription::Place(placement),
+    (payload, scheduler) => {
+      guard payload is TextPlacementSubscription::Place(placement) else {
+        return None
+      }
+      let mut placement = placement
       let mut active = true
-      let mut stop : (() -> Unit)? = None
+      let mut placing : @viewport.TextPlacing? = None
+      let mut stop_exposing_scroll : (() -> Unit)? = None
       scheduler.add(
         @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-          guard active &&
-            @dom.document().get_element_by_id(EDITOR_TEXT_ID).to_option()
-            is Some(element) &&
-            element.to_html_text_area_element() is Some(area) else {
-            return
-          }
-          let stop_exposing_scroll = @viewport.expose_scroll_top_to_styles(area)
-          let stop_observing_resize = @viewport.observe_text_area_resize(area) catch {
-            @js.JsError(error) => {
-              @js.global()
-              .get("console")
-              .call("error", [
-                @js.any("Loomark could not observe the text area:"),
-                error,
-              ])
-              |> ignore
-              stop = Some(stop_exposing_scroll)
-              return
-            }
-          }
-          stop = Some(() => {
-            stop_exposing_scroll()
-            stop_observing_resize()
-          })
+          guard active && editor_text_area() is Some(area) else { return }
+          stop_exposing_scroll = Some(
+            @viewport.expose_scroll_top_to_styles(area),
+          )
+          placing = Some(
+            @viewport.place_text_area(area, placement, () => {
+              if active {
+                scheduler.add(scrolled_away)
+              }
+            }),
+          )
         }),
       )
       Some({
         unload: _ => {
           active = false
-          if stop is Some(stop) {
+          if placing is Some(placing) {
+            placing.disconnect()
+          }
+          if stop_exposing_scroll is Some(stop) {
             stop()
           }
         },
-        update_tagger: _ => (),
+        update_tagger: payload => {
+          guard payload is TextPlacementSubscription::Place(next) &&
+            next != placement else {
+            return
+          }
+          placement = next
+          match next {
+            // A new anchor aligns in the mode it was taken for.
+            HoldAnchor(_) =>
+              scheduler.add(
+                @cmd.custom_cmd(kind=@cmd.after_render, _ => {
+                  guard active && placing is Some(placing) else { return }
+                  placing.place(placement)
+                }),
+              )
+            // A released anchor must not realign before the next render.
+            RevealCaret => if placing is Some(placing) { placing.place(next) }
+          }
+        },
       })
     },
   )

@@ -30,6 +30,20 @@ fn Model::change_editor_mode(
   guard self.page is Editing(editing) else { return (self, @cmd.none) }
   let previous = editing.mode
   let mode = previous.chosen(kind)
+  guard mode != previous else { return (self, @cmd.none) }
+  // A held anchor is still the reading position: measuring it again would
+  // only add each pane's rounding. This includes one waiting for a Preview
+  // that is still being prepared.
+  let capture = match editing.reading_anchor {
+    Some(_) => @cmd.none
+    None => {
+      let generation = editing.activation.generation
+      capture_reading_anchor(
+        previous.reading_pane(),
+        emit.map(anchor => ReadingAnchored(generation, anchor)),
+      )
+    }
+  }
   let (preview, command) = editor.mode_changed(
     editing.preview,
     editing.activation.generation,
@@ -38,7 +52,10 @@ fn Model::change_editor_mode(
     mode.kind(),
     emit.map(event => PreviewEvent(event)),
   )
-  (self.with_page(Editing({ ..editing, mode, preview, })), command)
+  (
+    self.with_page(Editing({ ..editing, mode, preview, })),
+    @cmd.batch([capture, command]),
+  )
 }
 
 ///|
@@ -176,7 +193,7 @@ fn EditingDocument::activate(
     None => @cmd.none
   }
   (
-    { ..self, activation, preview, menu_open: false, },
+    { ..self, activation, preview, menu_open: false, reading_anchor: None, },
     @cmd.batch([surface, remember]),
   )
 }
@@ -359,6 +376,7 @@ fn update_page(
               preview,
               imports_pending: 0,
               next_creation_request_id: 1,
+              reading_anchor: None,
             }),
             command,
           )
@@ -433,6 +451,7 @@ fn update_page(
                 preview,
                 imports_pending: 0,
                 next_creation_request_id: creation.request_id + 1,
+                reading_anchor: None,
               }),
               command,
             )
@@ -599,7 +618,20 @@ fn update_page(
         (Editing(editing), command)
       }
     (Editing(editing), PaneEngaged(pane)) =>
-      (Editing({ ..editing, mode: editing.mode.engaged(pane), }), @cmd.none)
+      (
+        Editing({
+          ..editing,
+          mode: editing.mode.engaged(pane),
+          reading_anchor: None,
+        }),
+        @cmd.none,
+      )
+    (Editing(editing), ReadingAnchored(generation, anchor)) =>
+      if generation == editing.activation.generation {
+        (Editing({ ..editing, reading_anchor: Some(anchor), }), @cmd.none)
+      } else {
+        (Editing(editing), @cmd.none)
+      }
     (Editing(editing), MenuToggled) =>
       (Editing({ ..editing, menu_open: !editing.menu_open, }), @cmd.none)
     (Editing(editing), EscapePressed) =>
@@ -1360,6 +1392,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | CompositionEnded(_)
     | ModeSelected(_)
     | FocusModeToggled
+    | ReadingAnchored(_, _)
     | MenuToggled
     | EscapePressed
     | ImportReadCompleted(_)
@@ -1901,21 +1934,41 @@ fn reduce(
 }
 
 ///|
+/// An anchor names an offset in the text it was taken from.
+fn release_anchor_on_text_change(previous : Model, model : Model) -> Model {
+  guard model.page is Editing(editing) &&
+    editing.reading_anchor is Some(_) &&
+    previous.page is Editing(before) &&
+    before.activation == editing.activation else {
+    return model
+  }
+  let text_before = before.documents.text(before.activation.key)
+  let text_after = editing.documents.text(editing.activation.key)
+  match (text_before, text_after) {
+    (Some(before), Some(after)) if physical_equal(before, after) ||
+      before == after => model
+    _ => model.with_page(Editing({ ..editing, reading_anchor: None, }))
+  }
+}
+
+///|
 fn update(
   model : Model,
   msg : Msg,
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
-  let before = model.page
+  let previous = model
   let (model, command) = reduce(model, msg, emit, editor)
+  let model = release_anchor_on_text_change(previous, model)
   let (model, command) = activate_open(model, command, emit, editor)
   let (model, sign_in_command) = update_sign_in(
     model,
     SignIn(@sign_in.Refresh),
     emit,
   )
-  let deletion_notification = match deletion_error(before, model.page, msg) {
+  let deletion_notification = match
+    deletion_error(previous.page, model.page, msg) {
     Some(message) => notify(emit, message)
     None => @cmd.none
   }

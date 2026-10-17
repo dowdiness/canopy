@@ -1,28 +1,32 @@
 ///|
-fn caret_at(caret_top : Double, line_height : Double) -> CaretMeasurement {
-  {
-    caret_top,
-    line_height,
-    scroll_top: 86.0,
-    viewport_height: 200.0,
-    padding_top: 14.0,
-    padding_bottom: 16.0,
-  }
+test "a line exactly within the readable area stays put" {
+  assert_eq(fitted_top(14.0, 170.0, 14.0, 184.0), 14.0)
 }
 
 ///|
-test "caret resize preserves a line exactly within the padded viewport" {
-  assert_eq(scroll_top_revealing_caret(caret_at(100.0, 170.0)), 86.0)
+test "a line below the readable area moves up to its bottom" {
+  assert_eq(fitted_top(184.0, 30.0, 14.0, 184.0), 154.0)
 }
 
 ///|
-test "caret resize reveals a line below the viewport with bottom padding" {
-  assert_eq(scroll_top_revealing_caret(caret_at(270.0, 30.0)), 116.0)
+test "a line above the readable area moves down to its top" {
+  assert_eq(fitted_top(-26.0, 30.0, 14.0, 184.0), 14.0)
 }
 
 ///|
-test "caret resize reveals a line above the viewport with top padding" {
-  assert_eq(scroll_top_revealing_caret(caret_at(60.0, 30.0)), 46.0)
+test "line reference locates characters, line ends, and empty lines" {
+  let text = "ab\n\ncd\n"
+  assert_eq(line_reference(text, 0), Some((0, 0)))
+  // The end of a line uses the character before the line break.
+  assert_eq(line_reference(text, 2), Some((1, 0)))
+  // The empty line and the end of the text count lines below "b" and "d".
+  assert_eq(line_reference(text, 3), Some((1, 1)))
+  assert_eq(line_reference(text, 4), Some((4, 0)))
+  assert_eq(line_reference(text, 7), Some((5, 1)))
+  // Leading empty lines count upward from the first character.
+  assert_eq(line_reference("\n\nab", 0), Some((2, -2)))
+  assert_eq(line_reference("\n\nab", 1), Some((2, -1)))
+  assert_eq(line_reference("\n\n", 1), None)
 }
 
 ///|
@@ -119,6 +123,15 @@ test "unavailable outer height resets rather than retaining keyboard occlusion" 
     viewport_baseline_height(635.0, 0.0, 360.0, 448.0, 800.0, 360.0),
     448.0,
   )
+}
+
+///|
+test "a glyph locates the top of its line box" {
+  // 17 px glyphs in 27 px lines sit 5 px below the line's top.
+  assert_eq(line_box_top(32.0 + 5.0 + 8.5, 32.0, 27.0), 32.0)
+  assert_eq(line_box_top(32.0 + 27.0 * 3.0 + 5.0 + 8.5, 32.0, 27.0), 113.0)
+  // A taller fallback glyph starts above its line but is centred within it.
+  assert_eq(line_box_top(32.0 + 27.0 + 13.5, 32.0, 27.0), 59.0)
 }
 
 ///|

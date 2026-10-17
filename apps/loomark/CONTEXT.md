@@ -103,6 +103,13 @@ in Text mode; modes never own a second text authority or a separate browser undo
 history.
 _Avoid_: layout, workspace
 
+**Reading position**:
+The text the user is reading: the caret's paragraph while the caret is in view,
+otherwise the text at the top of the pane. Changing the editor mode keeps it at
+the same height on screen until the user scrolls, clicks, or types in a pane, or
+the text changes.
+_Avoid_: scroll position, scroll sync
+
 **Text mode**:
 The editor mode that shows the textarea and hides Preview.
 The writing area disables browser spellchecking so dictionary suggestions do not
