@@ -3,24 +3,24 @@
 Concrete patterns for MoonBit code in this project. See [API Reuse](api-reuse.md)
 for API discovery and implementation guidance.
 
-## Custom constructors for structs
+## Custom constructors
 
-When defining public structs, declare a custom constructor via `fn new(...)` inside the struct body. This enables `StructName(args)` construction syntax with labelled/optional parameters, validation, and defaults. Prefer this over bare struct literals `{ field: value }`.
+Declare a custom constructor as a toplevel `fn Type::Type(...)`. This enables `Type(args)` construction syntax with labelled/optional parameters, validation, and defaults, for structs and enums alike. Prefer it over bare struct literals `{ field: value }` and over `Type::new`.
 
 ```moonbit
 struct MyStruct {
   x : Int
   y : Int
+}
 
-  fn new(x~ : Int, y? : Int) -> MyStruct  // declaration inside struct
-} derive(Debug)
-
-fn MyStruct::new(x~ : Int, y? : Int = x) -> MyStruct {  // implementation
+fn MyStruct::MyStruct(x~ : Int, y? : Int = x) -> MyStruct {
   { x, y }
 }
 
 let s = MyStruct(x=1)  // usage — like enum constructors
 ```
+
+Do not declare `fn new(...)` inside the type body; the compiler deprecates it.
 
 ## StringView/ArrayView patterns
 

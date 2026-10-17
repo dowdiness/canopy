@@ -46,6 +46,29 @@ foo(label~=42)                // Correct: ~ suffix in call
 foo(label=42)                 // Also valid without ~
 ```
 
+### Custom constructors: `fn new` inside the type body (DEPRECATED)
+
+**Old syntax (deprecated):**
+```moonbit
+struct Point {
+  x : Int
+  fn new(x : Int) -> Point  // WRONG: declaration inside the struct
+}
+fn Point::new(x : Int) -> Point { { x, } }
+let p = Point::new(1)        // WRONG: prefer the constructor syntax
+```
+
+**Current syntax:**
+```moonbit
+struct Point {
+  x : Int
+}
+fn Point::Point(x : Int) -> Point { { x, } }  // toplevel, named after the type
+let p = Point(1)
+```
+
+The same toplevel form gives enums a custom constructor.
+
 ---
 
 ## Maintenance
