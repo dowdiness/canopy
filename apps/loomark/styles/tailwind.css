@@ -739,6 +739,15 @@
 [data-focus-mode="true"] .loomark-footer[data-attention="true"] {
   display: flex;
 }
+/* Clear only a footer that stays visible with a keyboard. :where keeps compact
+   Split's own textarea padding, where the footer covers Preview instead. */
+:where(
+  [data-loomark-bottom-obscured] #loomark-editor:has(.loomark-save-status[title="Not saved"]),
+  [data-loomark-bottom-obscured] [data-focus-mode="true"] #loomark-editor:has(.loomark-footer[data-attention="true"])
+) .loomark-source {
+  padding-bottom: 64px;
+  scroll-padding-bottom: 64px;
+}
 
 @media (max-width: 720px) {
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) { padding-inline: 0; }

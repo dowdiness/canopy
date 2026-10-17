@@ -164,7 +164,7 @@ Loomark uses Rabbita's typed `@dom.VisualViewport` for native viewport access an
 - **Known Limitations:**
   - Small or floating keyboards, rotation with the keyboard open, and startup without an unobscured sample can leave the bar visible.
   - Large browser-UI changes (such as dynamic address-bar collapse) can also resemble a keyboard.
-- **Edge Softening & Scroll Padding:** Text and Preview share softened edge fades beneath fixed controls outside Focus Mode. The bars own their blurred backgrounds, leaving no independent overlay when the bottom bar is hidden. Textarea `scroll-padding` keeps native caret navigation clear of controls without requiring manual per-input DOM measurements; manual reading scrolls remain browser-owned.
+- **Edge Softening & Scroll Padding:** Text and Preview share softened edge fades beneath fixed controls outside Focus Mode. The bars own their blurred backgrounds, leaving no independent overlay when the bottom bar is hidden. Textarea bottom padding returns only while a footer, such as `Not saved` or Focus Mode attention actions, stays visible with a keyboard. Textarea `scroll-padding` keeps native caret navigation clear of controls without requiring manual per-input DOM measurements; manual reading scrolls remain browser-owned.
 
 ### 4.5 Element Resizing & Caret Visibility
 

@@ -120,9 +120,10 @@ magnification. It requests native content resizing where supported. The bottom
 bar and its reserved space are removed when visual-viewport occlusion or a
 window-size-adjusted height estimate indicates a keyboard. Panning alone does
 not restore the bar.
-No bottom overlay or reserved space remains while the bar and Focus Mode
-toggle are hidden. The top toolbar (outside Focus Mode) and failure notices
-remain available. Exceptional
+No bottom overlay remains while the bar and Focus Mode toggle are hidden;
+writing reserves bottom space only while a footer stays visible, such as
+`Not saved`. The top toolbar (outside Focus Mode) and failure notices remain
+available. Exceptional
 durability/sync actions remain visible in Focus Mode even with a keyboard.
 The bottom bar returns when the visible height recovers. Ordinary window-height
 changes and hardware-keyboard focus alone do not hide it. Keyboard detection

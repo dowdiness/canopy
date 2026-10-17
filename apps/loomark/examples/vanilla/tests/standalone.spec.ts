@@ -1638,6 +1638,10 @@ for (const mode of ["Text", "Split"] as const) {
     await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Not saved")
     await expect(page.locator(".loomark-bottom-actions")).toBeHidden()
     await expect(page.locator("#loomark-focus-toggle")).toBeHidden()
+    // The footer that stays above the keyboard must not cover the writing line.
+    await editor.press("Enter")
+    await editor.press("y")
+    await expect.poll(lineIsVisible).toBe(true)
   })
 }
 
