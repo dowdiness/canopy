@@ -465,6 +465,29 @@ test("font changes during whole-text focus invalidate earlier line measurements"
   expect(await dimmingAtLine(page, 4)).toBe(0.5)
 })
 
+test("a reader's line-height override keeps dimming on the writing group", async ({ page }) => {
+  const failures: string[] = []
+  page.on("console", message => {
+    if (message.type() === "error" && message.text().includes("writing focus")) failures.push(message.text())
+  })
+  await openFocusMode(page)
+  const text = page.getByRole("textbox", { name: "Text" })
+  // Paragraph 9 sits on line 16, far enough down that old and new line
+  // heights disagree by more than a line.
+  await text.fill(Array.from({ length: 12 }, (_, i) => `Paragraph ${i + 1}`).join("\n\n"))
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const end = area.value.indexOf("Paragraph 9") + "Paragraph 9".length
+    area.setSelectionRange(end, end)
+  })
+  await expect.poll(() => dimmingAtLines(page, [14, 16, 18])).toEqual([0.5, 0, 0.5])
+  // Text-spacing tools change line height without resizing the textarea.
+  await page.addStyleTag({ content: "* { line-height:1.5 !important }" })
+  await text.pressSequentially(" more")
+  await expect.poll(() => dimmingAtLines(page, [14, 16, 18])).toEqual([0.5, 0, 0.5])
+  expect(failures).toEqual([])
+})
+
 test("a layout notification during measurement cannot commit geometry into the new layout", async ({ page }) => {
   await openFocusMode(page)
   const text = page.getByRole("textbox", { name: "Text" })

@@ -7,7 +7,7 @@ pub enum Bounds {
 }
 
 ///|
-/// Reuse covers styles and width only; mirror text may still need updating.
+/// Reuse covers styles, width and line height only; mirror text may still need updating.
 pub enum LayoutSync {
   Reuse
   CopyStyles(Double)
@@ -18,6 +18,7 @@ pub struct LineBounds {
   lines : LineRange
   priv focus : LineFocus
   priv width : Double
+  priv line_height : Double
   layout_sync : LayoutSync
 }
 
@@ -33,16 +34,19 @@ pub struct Boundary {
   priv known : Endpoint
   priv focus : LineFocus
   priv width : Double
+  priv line_height : Double
   layout_sync : LayoutSync
 }
 
 ///|
 pub fn LineFocus::bounds(
   self : LineFocus,
-  width : Double,
+  width~ : Double,
+  line_height~ : Double,
 ) -> Bounds raise InvalidRange {
   let reusable = match self.layout.measurement {
-    Some(measurement) if measurement.width == width => Some(measurement)
+    Some(measurement) if measurement.width == width &&
+      measurement.line_height == line_height => Some(measurement)
     _ => None
   }
   let start = if self.lines.first == 0 {
@@ -78,13 +82,14 @@ pub fn LineFocus::bounds(
       Known(range)
     }
     (None, None) =>
-      Lines({ lines: self.lines, focus: self, width, layout_sync, })
+      Lines({ lines: self.lines, focus: self, width, line_height, layout_sync, })
     (None, Some(end)) =>
       LineStart({
         line: self.lines.first,
         known: End(end),
         focus: self,
         width,
+        line_height,
         layout_sync,
       })
     (Some(start), None) =>
@@ -93,6 +98,7 @@ pub fn LineFocus::bounds(
         known: Start(start),
         focus: self,
         width,
+        line_height,
         layout_sync,
       })
   }
@@ -104,7 +110,7 @@ pub fn LineBounds::between(
   start : Double,
   end : Double,
 ) -> (Range, Layout) raise InvalidRange {
-  self.focus.measured(self.width, Range(start, end))
+  self.focus.measured(self.width, self.line_height, Range(start, end))
 }
 
 ///|
@@ -116,19 +122,20 @@ pub fn Boundary::at(
     Start(start) => Range(start, position)
     End(end) => Range(position, end)
   }
-  self.focus.measured(self.width, range)
+  self.focus.measured(self.width, self.line_height, range)
 }
 
 ///|
 fn LineFocus::measured(
   self : LineFocus,
   width : Double,
+  line_height : Double,
   range : Range,
 ) -> (Range, Layout) {
   let next : Layout = {
     reference: self.layout.source(),
     replacement: None,
-    measurement: Some({ width, lines: self.lines, range, }),
+    measurement: Some({ width, line_height, lines: self.lines, range, }),
   }
   (range, next)
 }

@@ -105,7 +105,16 @@ fn TextLayout::locate_focus(
     Document(range) => return (range, text_changed || context_changed)
     Lines(focus) => focus
   }
-  let bounds = focus.bounds(self.text_area.get_client_width())
+  let text_style = self.window.get_computed_style(self.text_area.as_element())
+  // A `normal` line height parses as NaN, which never matches a measurement, so
+  // every draw re-measures. Loomark sets px; only a reader's override reaches it.
+  // If that slows typing, compare the computed string instead.
+  let bounds = focus.bounds(
+    width=self.text_area.get_client_width(),
+    line_height=@browser_api.parse_css_number(
+      text_style.get_property_value("line-height"),
+    ),
+  )
   let mut layout_synchronized = false
   let (range, geometry) = match bounds {
     Known(range) => return (range, text_changed)

@@ -8,6 +8,7 @@ pub struct Layout {
 ///|
 priv struct Measurement {
   width : Double
+  line_height : Double
   lines : LineRange
   range : Range
 }

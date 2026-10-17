@@ -1,12 +1,12 @@
 ///|
-test "measurement is reused only for matching width and unchanged focus lines" {
+test "measurement is reused only for matching width, line height and unchanged focus lines" {
   let source = @writing_focus.TextLines("Before\n\nWriting\n\nAfter")
   let layout = @writing_focus.Layout(source)
   let focus = match layout.focus(8, 8) {
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let pending = match focus.bounds(320.0) {
+  let pending = match focus.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::Lines(pending) => pending
     _ => fail("fresh layout must request line measurements")
   }
@@ -16,13 +16,14 @@ test "measurement is reused only for matching width and unchanged focus lines" {
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let retained = match focus_after_edit.bounds(320.0) {
+  let retained = match focus_after_edit.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::Known(range) => range
     _ => fail("unchanged focus lines must retain their measured range")
   }
   assert_eq(retained.start, 80.0)
   assert_eq(retained.end, 120.0)
-  let wrong_width = match focus_after_edit.bounds(400.0) {
+  let wrong_width = match
+    focus_after_edit.bounds(width=400.0, line_height=31.0) {
     @writing_focus.Bounds::Lines(pending) => pending
     _ => fail("a width change must request a fresh measurement")
   }
@@ -30,12 +31,21 @@ test "measurement is reused only for matching width and unchanged focus lines" {
     @writing_focus.LayoutSync::CopyStyles(width) => assert_eq(width, 400.0)
     _ => fail("a width change must synchronize mirror styles")
   }
+  let new_line_height = match
+    focus_after_edit.bounds(width=320.0, line_height=25.5) {
+    @writing_focus.Bounds::Lines(pending) => pending
+    _ => fail("a line height change must request a fresh measurement")
+  }
+  match new_line_height.layout_sync {
+    @writing_focus.LayoutSync::CopyStyles(width) => assert_eq(width, 320.0)
+    _ => fail("a line height change must synchronize mirror styles")
+  }
   let fresh = @writing_focus.Layout(measured.source())
   let fresh_focus = match fresh.focus(8, 8) {
     @writing_focus.Focus::Lines(focus) => focus
     _ => fail("expected a line focus")
   }
-  let fresh_bounds = match fresh_focus.bounds(320.0) {
+  let fresh_bounds = match fresh_focus.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::Lines(pending) => pending
     _ => fail("a fresh context must not reuse prior measurements")
   }
@@ -54,7 +64,7 @@ test "appending text measures the former EOF instead of retaining infinity" {
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let boundary = match focus.bounds(280.0) {
+  let boundary = match focus.bounds(width=280.0, line_height=31.0) {
     @writing_focus.Bounds::LineStart(boundary) => boundary
     _ => fail("former final paragraph must have a start boundary")
   }
@@ -70,13 +80,16 @@ test "appending text measures the former EOF instead of retaining infinity" {
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  assert_true(confirmed_focus.bounds(280.0) is @writing_focus.Bounds::Known(_))
+  assert_true(
+    confirmed_focus.bounds(width=280.0, line_height=31.0)
+    is @writing_focus.Bounds::Known(_),
+  )
   let appended = measured.replace_text("Before\n\nWriting\n\nAfter").unwrap()
   let focus_before_eof = match appended.focus(15, 15) {
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let boundary = match focus_before_eof.bounds(280.0) {
+  let boundary = match focus_before_eof.bounds(width=280.0, line_height=31.0) {
     @writing_focus.Bounds::LineEnd(boundary) => boundary
     _ => fail("the former document end needs a finite line end")
   }
@@ -94,7 +107,7 @@ test "deferred edits invalidate only changed focus edges and restoration reuses 
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let pending = match focus.bounds(320.0) {
+  let pending = match focus.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::Lines(pending) => pending
     _ => fail("fresh layout must request line measurements")
   }
@@ -108,7 +121,8 @@ test "deferred edits invalidate only changed focus edges and restoration reuses 
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let missing_edge = match deferred_focus.bounds(320.0) {
+  let missing_edge = match
+    deferred_focus.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::LineEnd(boundary) => boundary
     _ => fail("an edited focus edge must be measured again")
   }
@@ -121,7 +135,8 @@ test "deferred edits invalidate only changed focus edges and restoration reuses 
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let restored_range = match restored_focus.bounds(320.0) {
+  let restored_range = match
+    restored_focus.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::Known(range) => range
     _ => fail("restored text must reuse its original measurement")
   }
@@ -138,7 +153,7 @@ test "invalid completion leaves original layout available for a valid completion
     @writing_focus.Focus::Lines(focus) => focus
     @writing_focus.Focus::Document(_) => fail("expected a line focus")
   }
-  let pending = match focus.bounds(320.0) {
+  let pending = match focus.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::Lines(pending) => pending
     _ => fail("fresh layout must request line measurements")
   }
@@ -147,7 +162,7 @@ test "invalid completion leaves original layout available for a valid completion
     @writing_focus.InvalidRange,
   ] = Ok(pending.between(100.0, 50.0)) catch { error => Err(error) }
   assert_true(invalid is Err(_))
-  let still_pending = match focus.bounds(320.0) {
+  let still_pending = match focus.bounds(width=320.0, line_height=31.0) {
     @writing_focus.Bounds::Lines(pending) => pending
     _ => fail("failed completion must not mutate the original focus")
   }

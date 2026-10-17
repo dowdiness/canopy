@@ -95,7 +95,7 @@ pub struct LineFocus {
   lines : LineRange
   // private fields
 }
-pub fn LineFocus::bounds(Self, Double) -> Bounds raise InvalidRange
+pub fn LineFocus::bounds(Self, width~ : Double, line_height~ : Double) -> Bounds raise InvalidRange
 
 pub struct LineRange {
   first : Int
