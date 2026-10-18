@@ -93,31 +93,19 @@ fn preview_anchor_subscription(
     @sub.Scope::Local,
     PreviewAnchorSubscription::Hold,
     (_, scheduler) => {
-      let mut active = true
-      let mut release : (() -> Unit)? = None
-      scheduler.add(
-        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-          guard active && editor_preview_scroll() is Some(scroll) else {
-            return
-          }
-          release = Some(
+      let connection : AfterRender[() -> Unit] = AfterRender(
+        scheduler,
+        connection => {
+          guard editor_preview_scroll() is Some(scroll) else { return None }
+          Some(
             @viewport.hold_preview_anchor(scroll, anchor, () => {
-              if active {
-                scheduler.add(scrolled_away)
-              }
+              connection.with_attached(_ => scheduler.add(scrolled_away))
             }),
           )
-        }),
-      )
-      Some({
-        unload: _ => {
-          active = false
-          if release is Some(release) {
-            release()
-          }
         },
-        update_tagger: _ => (),
-      })
+        release=release => release(),
+      )
+      Some({ unload: _ => connection.detach(), update_tagger: _ => (), })
     },
   )
 }

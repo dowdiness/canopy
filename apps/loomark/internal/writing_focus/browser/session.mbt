@@ -1,18 +1,8 @@
 ///|
-priv suberror WritingFocusError {
-  InvalidAnimationClock
-  UnsupportedAnimationState(String)
-}
-
-///|
-priv enum WritingIntent {
-  Reading
-  Writing
-  TabNavigation
-}
-
-///|
-priv struct WritingFocusSession {
+/// Writing focus, attached to one text area and its
+/// dimming layer from `connect` until `disconnect`. `disconnect` releases every
+/// listener, frame and timer, so none of them runs afterwards.
+struct WritingFocus {
   text_area : @dom.HTMLTextAreaElement
   dimming_layer : @dom.HTMLElement
   document : @dom.Document
@@ -21,47 +11,31 @@ priv struct WritingFocusSession {
   reduced_motion : @dom.MediaQueryList
   text_layout : TextLayout
   cleanup : Array[() -> Unit]
+  fail : (@js.Any) -> Unit
   mut frame : Double?
-  mut intent : WritingIntent
+  mut intent : @writing_focus.WritingIntent
   mut presentation : @writing_focus.Presentation?
   shades : Array[WritingShade]
 }
 
 ///|
-priv enum WritingFocusLifetime {
-  Attached(WritingFocusSession)
-  Removed
-}
-
-///|
-pub struct WritingFocus {
-  priv mut lifetime : WritingFocusLifetime
-}
-
-///|
-fn draw_writing_focus(session : WritingFocusSession) -> Unit raise {
-  let (range, geometry_changed) = session.text_layout.locate_focus()
-  if session.intent is TabNavigation {
-    session.intent = if session.text_area.matches(":focus") {
-      Writing
-    } else {
-      Reading
-    }
-  }
+fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
+  let (range, geometry_changed) = focus.text_layout.locate_focus()
+  focus.intent = focus.intent.settle(focused=focus.text_area.matches(":focus"))
   let presentation : @writing_focus.Presentation = {
     range,
-    engaged: session.intent is Writing,
-    reduced_motion: session.reduced_motion.get_matches(),
+    engaged: focus.intent is Writing,
+    reduced_motion: focus.reduced_motion.get_matches(),
   }
-  let scroll_top = session.text_area.get_scroll_top()
+  let scroll_top = focus.text_area.get_scroll_top()
   let viewport_range = @writing_focus.Range(
     scroll_top,
-    scroll_top + session.text_area.get_client_height(),
+    scroll_top + focus.text_area.get_client_height(),
   )
-  let dimming = presentation.dimming(session.presentation, geometry_changed~)
+  let dimming = presentation.dimming(focus.presentation, geometry_changed~)
   match dimming {
     Unchanged =>
-      for shade in session.shades {
+      for shade in focus.shades {
         if shade.content is Visible(range, _) {
           position_writing_shade(shade.element, range, viewport_range)
         }
@@ -69,8 +43,8 @@ fn draw_writing_focus(session : WritingFocusSession) -> Unit raise {
     Immediate(focus_range) | Animated(focus_range) => {
       let animate = dimming is Animated(_)
       let samples = if animate {
-        session.shades.filter_map(shade => {
-          sample_writing_shade(session.window, shade)
+        focus.shades.filter_map(shade => {
+          sample_writing_shade(focus.window, shade)
         })
       } else {
         []
@@ -78,117 +52,100 @@ fn draw_writing_focus(session : WritingFocusSession) -> Unit raise {
       let fades = @writing_focus.calculate_dimming_ranges(
         focus_range,
         samples[:],
-        @browser_api.document_timeline_time(session.document).to_option(),
+        @browser_api.document_timeline_time(focus.document).to_option(),
         animate~,
       )
       render_writing_fades(
-        session.document,
-        session.dimming_layer,
-        session.shades,
+        focus.document,
+        focus.dimming_layer,
+        focus.shades,
         viewport_range,
         fades,
       )
     }
   }
-  session.presentation = Some(presentation)
+  focus.presentation = Some(presentation)
 }
 
 ///|
-pub fn WritingFocus::remove(focus : WritingFocus) -> Unit {
-  match focus.lifetime {
-    Removed => ()
-    Attached(session) => {
-      focus.lifetime = Removed
-      if session.frame is Some(frame) {
-        session.window.cancel_animation_frame(frame)
+/// Releases every listener, frame, animation and node the session added.
+pub fn WritingFocus::disconnect(self : WritingFocus) -> Unit {
+  if self.frame is Some(frame) {
+    self.window.cancel_animation_frame(frame)
+  }
+  for stop in self.cleanup {
+    stop()
+  }
+  clear_writing_shades(self.dimming_layer, self.shades[:])
+  self.text_layout.remove()
+}
+
+///|
+/// Hands a failed frame to the owner, which disconnects the session.
+fn WritingFocus::draw(self : WritingFocus) -> Unit {
+  ignore(
+    @js.try_sync(() => {
+      draw_writing_focus(self) catch {
+        error => (self.fail)(@js.any(error))
       }
-      for stop in session.cleanup {
-        stop()
-      }
-      clear_writing_shades(session.dimming_layer, session.shades[:])
-      session.text_layout.remove()
-    }
+      @js.any(())
+    }),
+  ) catch {
+    @js.JsError(error) => (self.fail)(error)
   }
 }
 
 ///|
-fn report_writing_focus_error(error : @js.Any) -> Unit {
-  @js.global()
-  .get("console")
-  .call("error", [@js.any("Loomark could not update writing focus:"), error])
-  |> ignore
-}
-
-///|
-fn schedule_writing_focus(focus : WritingFocus) -> Unit {
-  match focus.lifetime {
-    Removed => ()
-    Attached(session) =>
-      if session.frame is None {
-        session.frame = Some(
-          session.window.request_animation_frame(_ => {
-            match focus.lifetime {
-              Removed => ()
-              Attached(session) => {
-                session.frame = None
-                ignore(
-                  @js.try_sync(() => {
-                    draw_writing_focus(session) catch {
-                      error => {
-                        focus.remove()
-                        report_writing_focus_error(@js.any(error))
-                      }
-                    }
-                    @js.any(())
-                  }),
-                ) catch {
-                  @js.JsError(error) => {
-                    focus.remove()
-                    report_writing_focus_error(error)
-                  }
-                }
-              }
-            }
-          }),
-        )
-      }
+/// Coalesces every change before the next frame into one draw.
+fn WritingFocus::schedule(self : WritingFocus) -> Unit {
+  match self.frame {
+    Some(_) => ()
+    None =>
+      self.frame = Some(
+        self.window.request_animation_frame(_ => {
+          self.frame = None
+          self.draw()
+        }),
+      )
   }
 }
 
 ///|
-fn set_writing_intent(focus : WritingFocus, intent : WritingIntent) -> Unit {
-  match focus.lifetime {
-    Removed => ()
-    Attached(session) => {
-      session.intent = intent
-      schedule_writing_focus(focus)
-    }
-  }
+fn WritingFocus::set_intent(
+  self : WritingFocus,
+  intent : @writing_focus.WritingIntent,
+) -> Unit {
+  self.intent = intent
+  self.schedule()
 }
 
 ///|
-fn add_focus_listener(
-  session : WritingFocusSession,
+fn WritingFocus::listen(
+  self : WritingFocus,
   target : @dom.EventTarget,
   name : String,
   listener : @dom.Listener,
 ) -> Unit {
   target.add_event_listener(name, listener)
-  session.cleanup.push(() => target.remove_event_listener(name, listener))
+  self.cleanup.push(() => target.remove_event_listener(name, listener))
 }
 
 ///|
+/// Connects to already-resolved nodes: the caller resolves them after
+/// rendering and disconnects before they are replaced, or when `on_failure`
+/// reports that a frame could not be drawn.
 pub fn connect(
   text_area : @dom.HTMLTextAreaElement,
   dimming_layer : @dom.HTMLElement,
+  on_failure~ : (@js.Any) -> Unit,
 ) -> WritingFocus raise @js.JsError {
-  let session : WritingFocusSession = @js.try_sync(() => {
+  let focus : WritingFocus = @js.try_sync(() => {
     let document = @browser_api.element_document(text_area.as_element())
     let window = @browser_api.document_window(document)
     let fonts = @browser_api.document_fonts(document)
     let reduced_motion = window.match_media("(prefers-reduced-motion: reduce)")
     let text_layout = TextLayout(document, window, text_area, dimming_layer)
-    let session : WritingFocusSession = {
+    let focus : WritingFocus = {
       text_area,
       dimming_layer,
       document,
@@ -197,6 +154,7 @@ pub fn connect(
       reduced_motion,
       text_layout,
       cleanup: [],
+      fail: on_failure,
       frame: None,
       intent: if text_area.matches(":focus") {
         Writing
@@ -206,66 +164,43 @@ pub fn connect(
       presentation: None,
       shades: [],
     }
-    @js.any(session)
+    @js.any(focus)
   }).cast()
-  let focus : WritingFocus = { lifetime: Attached(session), }
-  errdefer focus.remove()
+  errdefer focus.disconnect()
   @js.try_sync(() => {
     let changed : @dom.Listener = _ => focus.refresh()
-    let selected : @dom.Listener = _ => schedule_writing_focus(focus)
-    let resized : @dom.Listener = _ => writing_focus_layout_changed(focus)
-    let activate : @dom.Listener = _ => set_writing_intent(focus, Writing)
-    let deactivate : @dom.Listener = _ => set_writing_intent(focus, Reading)
+    let selected : @dom.Listener = _ => focus.schedule()
+    let resized : @dom.Listener = _ => focus.layout_changed()
+    let activate : @dom.Listener = _ => focus.set_intent(Writing)
+    let deactivate : @dom.Listener = _ => focus.set_intent(Reading)
     let source = text_area.as_event_target()
     for name in ["input", "compositionend"] {
-      add_focus_listener(session, source, name, changed)
+      focus.listen(source, name, changed)
     }
     for name in ["select", "selectionchange", "scroll"] {
-      add_focus_listener(session, source, name, selected)
+      focus.listen(source, name, selected)
     }
     for name in ["focus", "pointerdown", "keydown", "input", "compositionstart"] {
-      add_focus_listener(session, source, name, activate)
+      focus.listen(source, name, activate)
     }
-    add_focus_listener(session, source, "blur", _ => {
-      set_writing_intent(focus, Reading)
-      session.text_layout.release_retired_lines()
+    focus.listen(source, "blur", _ => {
+      focus.set_intent(Reading)
+      focus.text_layout.release_retired_lines()
     })
-    add_focus_listener(
-      session,
-      session.window.as_event_target(),
-      "blur",
-      deactivate,
-    )
-    add_focus_listener(
-      session,
-      session.document.as_event_target(),
-      "selectionchange",
-      selected,
-    )
-    add_focus_listener(session, session.document.as_event_target(), "keydown", event => {
+    focus.listen(focus.window.as_event_target(), "blur", deactivate)
+    focus.listen(focus.document.as_event_target(), "selectionchange", selected)
+    focus.listen(focus.document.as_event_target(), "keydown", event => {
       if event.to_keyboard_event() is Some(key) && key.key() == "Tab" {
-        set_writing_intent(focus, TabNavigation)
+        focus.set_intent(TabNavigation)
       }
     })
-    add_focus_listener(session, session.fonts, "loadingdone", resized)
-    add_focus_listener(
-      session,
-      session.window.as_event_target(),
-      "resize",
-      resized,
-    )
-    add_focus_listener(
-      session,
-      session.reduced_motion.as_event_target(),
-      "change",
-      selected,
-    )
-    let resize = @dom.ResizeObserver::new((_, _) => {
-      writing_focus_layout_changed(focus)
-    })
-    session.cleanup.push(() => resize.disconnect())
+    focus.listen(focus.fonts, "loadingdone", resized)
+    focus.listen(focus.window.as_event_target(), "resize", resized)
+    focus.listen(focus.reduced_motion.as_event_target(), "change", selected)
+    let resize = @dom.ResizeObserver::new((_, _) => focus.layout_changed())
+    focus.cleanup.push(() => resize.disconnect())
     resize.observe(text_area.as_element())
-    schedule_writing_focus(focus)
+    focus.schedule()
     @js.any(())
   })
   |> ignore
@@ -273,28 +208,19 @@ pub fn connect(
 }
 
 ///|
-pub fn WritingFocus::refresh(focus : WritingFocus) -> Unit {
-  match focus.lifetime {
-    Removed => ()
-    Attached(session) => {
-      session.text_layout.source_pending = true
-      schedule_writing_focus(focus)
-    }
-  }
+/// Rereads the text after the editor state changes it.
+pub fn WritingFocus::refresh(self : WritingFocus) -> Unit {
+  self.text_layout.source_pending = true
+  self.schedule()
 }
 
 ///|
-fn writing_focus_layout_changed(focus : WritingFocus) -> Unit {
-  match focus.lifetime {
-    Removed => ()
-    Attached(session) => {
-      let layout = session.text_layout
-      layout.context = {
-        geometry: @writing_focus.Layout(layout.context.geometry.source()),
-        first_observation: true,
-      }
-      layout.source_pending = true
-      schedule_writing_focus(focus)
-    }
+fn WritingFocus::layout_changed(self : WritingFocus) -> Unit {
+  let layout = self.text_layout
+  layout.context = {
+    geometry: @writing_focus.Layout(layout.context.geometry.source()),
+    first_observation: true,
   }
+  layout.source_pending = true
+  self.schedule()
 }

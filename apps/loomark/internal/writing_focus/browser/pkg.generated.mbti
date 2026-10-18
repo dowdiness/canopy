@@ -7,16 +7,14 @@ import {
 }
 
 // Values
-pub fn connect(@dom.HTMLTextAreaElement, @dom.HTMLElement) -> WritingFocus raise @js_ffi.JsError
+pub fn connect(@dom.HTMLTextAreaElement, @dom.HTMLElement, on_failure~ : (@js_ffi.Any) -> Unit) -> WritingFocus raise @js_ffi.JsError
 
 // Errors
 
 // Types and methods
-pub struct WritingFocus {
-  // private fields
-}
+type WritingFocus
+pub fn WritingFocus::disconnect(Self) -> Unit
 pub fn WritingFocus::refresh(Self) -> Unit
-pub fn WritingFocus::remove(Self) -> Unit
 
 // Type aliases
 

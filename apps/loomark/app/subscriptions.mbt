@@ -86,6 +86,12 @@ priv suberror TextPlacementSubscription {
 }
 
 ///|
+priv struct PlacedText {
+  placing : @viewport.TextPlacing
+  stop_exposing_scroll : () -> Unit
+}
+
+///|
 /// Both the activation key and the responsive panel branch can replace the
 /// textarea. Resolve its node after rendering and release the old placement
 /// and scroll exposure.
@@ -104,34 +110,23 @@ fn text_placement_subscription(
         return None
       }
       let mut placement = placement
-      let mut active = true
-      let mut placing : @viewport.TextPlacing? = None
-      let mut stop_exposing_scroll : (() -> Unit)? = None
-      scheduler.add(
-        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-          guard active && editor_text_area() is Some(area) else { return }
-          stop_exposing_scroll = Some(
-            @viewport.expose_scroll_top_to_styles(area),
-          )
-          placing = Some(
-            @viewport.place_text_area(area, placement, () => {
-              if active {
-                scheduler.add(scrolled_away)
-              }
-            }),
-          )
-        }),
+      let connection : AfterRender[PlacedText] = AfterRender(
+        scheduler,
+        connection => {
+          guard editor_text_area() is Some(area) else { return None }
+          let stop_exposing_scroll = @viewport.expose_scroll_top_to_styles(area)
+          let placing = @viewport.place_text_area(area, placement, () => {
+            connection.with_attached(_ => scheduler.add(scrolled_away))
+          })
+          Some({ placing, stop_exposing_scroll, })
+        },
+        release=placed => {
+          placed.placing.disconnect()
+          (placed.stop_exposing_scroll)()
+        },
       )
       Some({
-        unload: _ => {
-          active = false
-          if placing is Some(placing) {
-            placing.disconnect()
-          }
-          if stop_exposing_scroll is Some(stop) {
-            stop()
-          }
-        },
+        unload: _ => connection.detach(),
         update_tagger: payload => {
           guard payload is TextPlacementSubscription::Place(next) &&
             next != placement else {
@@ -141,17 +136,12 @@ fn text_placement_subscription(
           match next {
             // A new anchor aligns in the mode it was taken for.
             HoldAnchor(_) =>
-              scheduler.add(
-                @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-                  guard active && placing is Some(placing) else { return }
-                  placing.place(placement)
-                }),
-              )
+              connection.after_render(scheduler, placed => {
+                placed.placing.place(placement)
+              })
             // A released anchor must not realign before the next render.
             RevealCaret | FollowPreview =>
-              if placing is Some(placing) {
-                placing.place(next)
-              }
+              connection.with_attached(placed => placed.placing.place(next))
           }
         },
       })
@@ -182,43 +172,33 @@ fn split_follow_subscription(
       guard payload is SplitFollowSubscription::Follow(preview) else {
         return None
       }
-      let mut active = true
       let mut previous_preview = preview
-      let mut following : @viewport.SplitFollowing? = None
-      scheduler.add(
-        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-          guard active &&
-            editor_text_area() is Some(area) &&
+      let connection : AfterRender[@viewport.SplitFollowing] = AfterRender(
+        scheduler,
+        _ => {
+          guard editor_text_area() is Some(area) &&
             editor_preview_scroll() is Some(scroll) else {
-            return
+            return None
           }
-          following = Some(
+          Some(
             match reading {
               TextPane => @viewport.follow_text_in_preview(area, scroll)
               PreviewPane => @viewport.follow_preview_in_text(scroll, area)
             },
           )
-        }),
+        },
+        release=following => following.disconnect(),
       )
       Some({
-        unload: _ => {
-          active = false
-          if following is Some(following) {
-            following.disconnect()
-          }
-          following = None
-        },
+        unload: _ => connection.detach(),
         update_tagger: payload => {
-          guard payload is SplitFollowSubscription::Follow(next) else { return }
-          guard previous_preview != next else { return }
+          guard payload is SplitFollowSubscription::Follow(next) &&
+            previous_preview != next else {
+            return
+          }
           previous_preview = next
           // A new rendering moves blocks without resizing either pane.
-          scheduler.add(
-            @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-              guard active && following is Some(following) else { return }
-              following.resync()
-            }),
-          )
+          connection.after_render(scheduler, following => following.resync())
         },
       })
     },

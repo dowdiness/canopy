@@ -133,6 +133,13 @@ pub fn TextLines::TextLines(String) -> Self
 pub fn TextLines::lines(Self) -> ArrayView[String]
 pub fn TextLines::text(Self) -> String
 
+pub(all) enum WritingIntent {
+  Reading
+  Writing
+  TabNavigation
+}
+pub fn WritingIntent::settle(Self, focused~ : Bool) -> Self
+
 // Type aliases
 
 // Traits

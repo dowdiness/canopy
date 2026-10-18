@@ -2,8 +2,8 @@
 const WRITING_FOCUS_LAYER_ID : String = "loomark-writing-focus"
 
 ///|
-priv suberror MissingFocusElement {
-  MissingFocusElement(String)
+fn report_browser_error(message : String, error : @js.Any) -> Unit {
+  @js.global().get("console").call("error", [@js.any(message), error]) |> ignore
 }
 
 ///|
@@ -12,28 +12,8 @@ priv suberror WritingFocusSubscription {
 }
 
 ///|
-priv enum WritingFocusConnection {
-  AwaitingRender
-  Connected(@writing_focus_browser.WritingFocus)
-  Removed
-}
-
-///|
-fn resolve_writing_focus() -> @writing_focus_browser.WritingFocus raise {
-  let document = @dom.document()
-  guard document.get_element_by_id(EDITOR_TEXT_ID).to_option() is Some(element) &&
-    element.to_html_text_area_element() is Some(text_area) else {
-    raise MissingFocusElement(EDITOR_TEXT_ID)
-  }
-  guard document.get_element_by_id(WRITING_FOCUS_LAYER_ID).to_option()
-    is Some(element) &&
-    element.to_html_element() is Some(dimming_layer) else {
-    raise MissingFocusElement(WRITING_FOCUS_LAYER_ID)
-  }
-  @writing_focus_browser.connect(text_area, dimming_layer)
-}
-
-///|
+/// The activation key replaces the text area and its dimming layer. Resolve
+/// both after rendering and release the old connection.
 fn writing_focus_subscription(
   activation : Int,
   preview : @editor.EditorState,
@@ -43,55 +23,49 @@ fn writing_focus_subscription(
     @sub.Scope::Local,
     WritingFocusSubscription::Refresh(preview),
     (_, scheduler) => {
-      let mut connection : WritingFocusConnection = AwaitingRender
       let mut previous_preview = preview
-      scheduler.add(
-        @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-          match connection {
-            AwaitingRender => {
-              let focus = resolve_writing_focus() catch {
-                error => {
-                  connection = Removed
-                  @js.global()
-                  .get("console")
-                  .call("error", [
-                    @js.any("Loomark could not connect writing focus:"),
-                    @js.any(error),
-                  ])
-                  |> ignore
-                  return
-                }
-              }
-              connection = Connected(focus)
-            }
-            Connected(_) | Removed => ()
+      let connection = AfterRender(
+        scheduler,
+        connection => {
+          guard editor_text_area() is Some(text_area) &&
+            @dom.document()
+            .get_element_by_id(WRITING_FOCUS_LAYER_ID)
+            .to_option()
+            is Some(layer) &&
+            layer.to_html_element() is Some(dimming_layer) else {
+            report_browser_error(
+              "Loomark rendered no text area and writing-focus layer:",
+              @js.any(activation),
+            )
+            return None
           }
-        }),
+          Some(
+            @writing_focus_browser.connect(text_area, dimming_layer, on_failure=error => {
+              report_browser_error(
+                "Loomark could not update writing focus:", error,
+              )
+              connection.detach()
+            }) catch {
+              @js.JsError(error) => {
+                report_browser_error(
+                  "Loomark could not connect writing focus:", error,
+                )
+                return None
+              }
+            },
+          )
+        },
+        release=focus => focus.disconnect(),
       )
       Some({
-        unload: _ => {
-          let previous = connection
-          connection = Removed
-          match previous {
-            Connected(focus) => focus.remove()
-            AwaitingRender | Removed => ()
-          }
-        },
+        unload: _ => connection.detach(),
         update_tagger: payload => {
-          let next = match payload {
-            WritingFocusSubscription::Refresh(next) => next
-            _ => abort("Unexpected writing-focus subscription payload")
+          guard payload is WritingFocusSubscription::Refresh(next) else {
+            abort("Unexpected writing-focus subscription payload")
           }
-          if next != previous_preview {
+          if previous_preview != next {
             previous_preview = next
-            scheduler.add(
-              @cmd.custom_cmd(kind=@cmd.after_render, _ => {
-                match connection {
-                  Connected(focus) => focus.refresh()
-                  AwaitingRender | Removed => ()
-                }
-              }),
-            )
+            connection.after_render(scheduler, focus => focus.refresh())
           }
         },
       })

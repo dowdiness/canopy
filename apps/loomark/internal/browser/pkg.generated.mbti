@@ -10,15 +10,9 @@ import {
 // Values
 pub fn animate_opacity(@dom.HTMLElement, Double, Double, Double, String) -> @dom.Animation
 
-pub fn animation_current_time(@dom.Animation) -> @js.Nullable[Double]
-
-pub fn animation_pending(@dom.Animation) -> Bool
-
-pub fn animation_play_state(@dom.Animation) -> String
+pub fn animation_clock(@dom.Animation) -> AnimationClock raise InvalidAnimationClock
 
 pub fn animation_playback_rate(@dom.Animation) -> Double
-
-pub fn animation_start_time(@dom.Animation) -> @js.Nullable[Double]
 
 pub fn attach_closed_shadow(@dom.Element) -> @dom.Node
 
@@ -61,8 +55,18 @@ pub fn when_font_faces_ready(FontFaceSet, () -> Unit) -> Unit
 pub fn window_outer_height(@dom.Window) -> Double
 
 // Errors
+pub suberror InvalidAnimationClock {
+  UnresolvedRunningTime
+  UnknownPlayState(String)
+}
 
 // Types and methods
+pub enum AnimationClock {
+  Pending(current_time_ms~ : Double?)
+  Running(start_time_ms~ : Double, current_time_ms~ : Double)
+  Settled
+}
+
 #external
 pub type FontFaceSet
 

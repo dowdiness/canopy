@@ -26,42 +26,19 @@ fn sample_writing_shade(
     .get_computed_style(shade.element.as_element())
     .get_property_value("opacity")
   let opacity = @string.parse_double(computed_opacity.view())
-  let sample = match animation {
-    None => @writing_focus.OpacitySample::Still(opacity)
-    Some(animation) => {
-      let current_time = @browser_api.animation_current_time(animation.native).to_option()
-      let rate = @browser_api.animation_playback_rate(animation.native)
-      if @browser_api.animation_pending(animation.native) {
-        @writing_focus.OpacitySample::Animating(
-          opacity,
-          @writing_focus.ActiveFade::Pending(
-            animation.timing,
-            current_time_ms=current_time,
-            playback_rate=rate,
-          ),
-        )
-      } else {
-        match @browser_api.animation_play_state(animation.native) {
-          "running" => {
-            let start_time = @browser_api.animation_start_time(animation.native).to_option()
-            match (start_time, current_time) {
-              (Some(start), Some(current)) =>
-                @writing_focus.OpacitySample::Animating(
-                  opacity,
-                  @writing_focus.ActiveFade::Running(
-                    animation.timing,
-                    start_time_ms=start,
-                    current_time_ms=current,
-                    playback_rate=rate,
-                  ),
-                )
-              _ => raise InvalidAnimationClock
-            }
-          }
-          "idle" | "finished" | "paused" =>
-            @writing_focus.OpacitySample::Still(opacity)
-          state => raise UnsupportedAnimationState(state)
-        }
+  let sample : @writing_focus.OpacitySample = match animation {
+    None => Still(opacity)
+    Some({ native, timing, }) => {
+      let playback_rate = @browser_api.animation_playback_rate(native)
+      match @browser_api.animation_clock(native) {
+        Pending(current_time_ms~) =>
+          Animating(opacity, Pending(timing, current_time_ms~, playback_rate~))
+        Running(start_time_ms~, current_time_ms~) =>
+          Animating(
+            opacity,
+            Running(timing, start_time_ms~, current_time_ms~, playback_rate~),
+          )
+        Settled => Still(opacity)
       }
     }
   }
