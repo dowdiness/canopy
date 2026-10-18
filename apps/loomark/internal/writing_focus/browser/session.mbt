@@ -1,7 +1,14 @@
 ///|
-/// Writing focus and the drawn caret, attached to one text area and its
-/// dimming layer from `connect` until `disconnect`. `disconnect` releases every
-/// listener, frame and timer, so none of them runs afterwards.
+/// Dimming of the paragraphs around the writing group, as in Focus Mode.
+priv struct Dimming {
+  mut intent : @writing_focus.WritingIntent
+  mut presentation : @writing_focus.Presentation?
+}
+
+///|
+/// The drawn caret, and dimming while it is attached, over one text area and
+/// its dimming layer from `connect` until `disconnect`. `disconnect` releases
+/// every listener, frame and timer, so none of them runs afterwards.
 struct WritingFocus {
   text_area : @dom.HTMLTextAreaElement
   dimming_layer : @dom.HTMLElement
@@ -11,34 +18,53 @@ struct WritingFocus {
   reduced_motion : @dom.MediaQueryList
   text_layout : TextLayout
   cleanup : Array[() -> Unit]
-  /// Whether writing focus dims surrounding paragraphs, as in Focus Mode;
-  /// otherwise the session draws only the caret.
-  dims : Bool
   fail : (@js.Any) -> Unit
   mut frame : Double?
-  mut intent : @writing_focus.WritingIntent
-  mut presentation : @writing_focus.Presentation?
+  mut dimming : Dimming?
+  /// Shade elements stay in the layer once created and are hidden when
+  /// unused: removing nodes interrupts Chromium's native typing undo group.
   shades : Array[WritingShade]
   caret : WritingCaret
 }
 
 ///|
+/// Reads every layout this frame needs before any rendering writes, so one
+/// frame forces at most one layout.
 fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
   let (mirror, geometry_changed) = focus.text_layout.sync()
-  let range = focus.text_layout.locate_focus()
+  let dimmed = match focus.dimming {
+    Some(dimming) => Some((dimming, focus.text_layout.locate_focus()))
+    None => None
+  }
   let (caret, scroll_top) = locate_writing_caret(focus, mirror)
-  focus.intent = focus.intent.settle(focused=focus.text_area.matches(":focus"))
+  if dimmed is Some((dimming, range)) {
+    render_dimming(focus, dimming, range, scroll_top, geometry_changed~)
+  }
+  render_writing_caret(focus.caret, caret)
+}
+
+///|
+fn render_dimming(
+  focus : WritingFocus,
+  dimming : Dimming,
+  range : @writing_focus.Range,
+  scroll_top : Double,
+  geometry_changed~ : Bool,
+) -> Unit raise {
+  dimming.intent = dimming.intent.settle(
+    focused=focus.text_area.matches(":focus"),
+  )
   let presentation : @writing_focus.Presentation = {
     range,
-    engaged: focus.dims && focus.intent is Writing,
+    engaged: dimming.intent is Writing,
     reduced_motion: focus.reduced_motion.get_matches(),
   }
   let viewport_range = @writing_focus.Range(
     scroll_top,
     scroll_top + focus.text_area.get_client_height(),
   )
-  let dimming = presentation.dimming(focus.presentation, geometry_changed~)
-  match dimming {
+  let dimmed = presentation.dimming(dimming.presentation, geometry_changed~)
+  match dimmed {
     Unchanged =>
       for shade in focus.shades {
         if shade.content is Visible(range, _) {
@@ -46,7 +72,7 @@ fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
         }
       }
     Immediate(focus_range) | Animated(focus_range) => {
-      let animate = dimming is Animated(_)
+      let animate = dimmed is Animated(_)
       let samples = if animate {
         focus.shades.filter_map(shade => {
           sample_writing_shade(focus.window, shade)
@@ -69,8 +95,7 @@ fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
       )
     }
   }
-  focus.presentation = Some(presentation)
-  render_writing_caret(focus.caret, caret)
+  dimming.presentation = Some(presentation)
 }
 
 ///|
@@ -121,8 +146,34 @@ fn WritingFocus::set_intent(
   self : WritingFocus,
   intent : @writing_focus.WritingIntent,
 ) -> Unit {
-  self.intent = intent
-  self.schedule()
+  if self.dimming is Some(dimming) {
+    dimming.intent = intent
+    self.schedule()
+  }
+}
+
+///|
+/// Attaches dimming, or detaches it and restores full readability at once.
+/// The caret and the mirror stay as they are.
+pub fn WritingFocus::set_dims(self : WritingFocus, dims : Bool) -> Unit {
+  match (self.dimming, dims) {
+    (None, true) => {
+      self.dimming = Some({
+        intent: if self.text_area.matches(":focus") {
+          Writing
+        } else {
+          Reading
+        },
+        presentation: None,
+      })
+      self.schedule()
+    }
+    (Some(_), false) => {
+      self.dimming = None
+      hide_writing_shades(self.shades[:])
+    }
+    (None, false) | (Some(_), true) => ()
+  }
 }
 
 ///|
@@ -161,21 +212,16 @@ pub fn connect(
       reduced_motion,
       text_layout,
       cleanup: [],
-      dims,
       fail: on_failure,
       frame: None,
-      intent: if text_area.matches(":focus") {
-        Writing
-      } else {
-        Reading
-      },
-      presentation: None,
+      dimming: None,
       shades: [],
       caret: WritingCaret(document, window, dimming_layer),
     }
     @js.any(focus)
   }).cast()
   errdefer focus.disconnect()
+  focus.set_dims(dims)
   @js.try_sync(() => {
     let selected : @dom.Listener = _ => focus.schedule()
     let resized : @dom.Listener = _ => focus.layout_changed()

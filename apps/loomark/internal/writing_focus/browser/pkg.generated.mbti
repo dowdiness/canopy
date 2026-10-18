@@ -15,6 +15,7 @@ pub fn connect(@dom.HTMLTextAreaElement, @dom.HTMLElement, dims~ : Bool, on_fail
 type WritingFocus
 pub fn WritingFocus::disconnect(Self) -> Unit
 pub fn WritingFocus::refresh(Self) -> Unit
+pub fn WritingFocus::set_dims(Self, Bool) -> Unit
 
 // Type aliases
 

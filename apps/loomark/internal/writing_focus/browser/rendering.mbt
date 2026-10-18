@@ -133,6 +133,22 @@ fn apply_writing_fade(
 }
 
 ///|
+fn hide_writing_shades(shades : ArrayView[WritingShade]) -> Unit {
+  for shade in shades {
+    match shade.content {
+      Hidden => ()
+      Visible(_, animation) => {
+        if animation is Some(animation) {
+          @browser_api.cancel_animation(animation.native)
+        }
+        shade.element.set_attribute("hidden", "")
+        shade.content = Hidden
+      }
+    }
+  }
+}
+
+///|
 fn render_writing_fades(
   document : @dom.Document,
   layer : @dom.HTMLElement,
@@ -165,18 +181,7 @@ fn render_writing_fades(
     position_writing_shade(shade.element, range, viewport_range)
     shade.content = Visible(range, None)
   }
-  for shade in shades[fades.length():] {
-    match shade.content {
-      Hidden => ()
-      Visible(_, animation) => {
-        if animation is Some(animation) {
-          @browser_api.cancel_animation(animation.native)
-        }
-        shade.element.set_attribute("hidden", "")
-        shade.content = Hidden
-      }
-    }
-  }
+  hide_writing_shades(shades[fades.length():])
   for index, (range, fade) in fades {
     let shade = shades[index]
     shade.content = Visible(range, apply_writing_fade(shade.element, fade))

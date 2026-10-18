@@ -8,24 +8,30 @@ fn report_browser_error(message : String, error : @js.Any) -> Unit {
 
 ///|
 priv suberror WritingFocusSubscription {
-  Refresh(@editor.EditorState)
+  Refresh(@editor.EditorState, focus_mode~ : Bool)
 }
 
 ///|
 /// The activation key replaces the text area and its dimming layer. Resolve
 /// both after rendering and release the old connection. The session draws the
-/// caret in Text and Split, and dims surrounding paragraphs only in Focus Mode.
+/// caret in Text and Split; Focus Mode attaches dimming to the same session.
 fn writing_focus_subscription(
   activation : Int,
   focus_mode : Bool,
   preview : @editor.EditorState,
 ) -> @sub.Sub {
   @sub.custom_sub(
-    "loomark.writing-focus(\{activation},\{focus_mode})",
+    "loomark.writing-focus(\{activation})",
     @sub.Scope::Local,
-    WritingFocusSubscription::Refresh(preview),
-    (_, scheduler) => {
+    WritingFocusSubscription::Refresh(preview, focus_mode~),
+    (payload, scheduler) => {
+      guard payload is WritingFocusSubscription::Refresh(preview, focus_mode~) else {
+        return None
+      }
       let mut previous_preview = preview
+      // Only the pending attachment reads this; an attached session keeps its
+      // own dimming and ignores an unchanged value.
+      let mut dims = focus_mode
       let connection = AfterRender(
         scheduler,
         connection => {
@@ -42,17 +48,12 @@ fn writing_focus_subscription(
             return None
           }
           Some(
-            @writing_focus_browser.connect(
-              text_area,
-              dimming_layer,
-              dims=focus_mode,
-              on_failure=error => {
-                report_browser_error(
-                  "Loomark could not update writing focus:", error,
-                )
-                connection.detach()
-              },
-            ) catch {
+            @writing_focus_browser.connect(text_area, dimming_layer, dims~, on_failure=error => {
+              report_browser_error(
+                "Loomark could not update writing focus:", error,
+              )
+              connection.detach()
+            }) catch {
               @js.JsError(error) => {
                 report_browser_error(
                   "Loomark could not connect writing focus:", error,
@@ -67,9 +68,11 @@ fn writing_focus_subscription(
       Some({
         unload: _ => connection.detach(),
         update_tagger: payload => {
-          guard payload is WritingFocusSubscription::Refresh(next) else {
-            abort("Unexpected writing-focus subscription payload")
+          guard payload is WritingFocusSubscription::Refresh(next, focus_mode~) else {
+            return
           }
+          dims = focus_mode
+          connection.with_attached(focus => focus.set_dims(focus_mode))
           if previous_preview != next {
             previous_preview = next
             connection.after_render(scheduler, focus => focus.refresh())
