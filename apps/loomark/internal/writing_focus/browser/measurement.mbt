@@ -282,6 +282,9 @@ fn TextLayout::sync_layout(self : TextLayout, width : Double) -> MirrorStyle {
   layer_style.set_property("--loomark-text-line-height", line_height)
   layer_style.set_property("left", "\{left}px")
   layer_style.set_property("width", "\{content_width}px")
+  // After a style change, Chromium answers the first line query in the hidden
+  // mirror from its previous layout, so spend that query here.
+  self.lines[0].element.get_bounding_client_rect() |> ignore
   { client_width: width, line_height, layer_width: content_width, }
 }
 
