@@ -1,12 +1,6 @@
 // Unit tests for workspace/coordinator. See plan §PR3.3.
 
 ///|
-test "Coordinator types are constructible" {
-  let coord = @coordinator.Coordinator::new()
-  let _ : @incr.Runtime = coord.runtime()
-}
-
-///|
 /// `Runtime::set_on_change` is single-occupancy (spec §6.1, claimed by
 /// `Coordinator::new`). This test pins observable behavior: after
 /// construction, an input mutation fires the slot exactly once (because

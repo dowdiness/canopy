@@ -37,7 +37,6 @@ run_case "absent tag allowed" 0 v0.2.0 "$SOURCE_SHA"
 git -C "$WORK" tag v0.2.0 "$SOURCE_SHA"
 git -C "$WORK" push "$REMOTE" refs/tags/v0.2.0 >/dev/null
 run_case "pushed tag source commit accepted" 0 v0.2.0 "$SOURCE_SHA"
-run_case "existing tag same commit allowed" 0 v0.2.0 "$SOURCE_SHA"
 
 git -C "$WORK" tag -a v0.2.1 "$SOURCE_SHA" -m annotated
 git -C "$WORK" push "$REMOTE" refs/tags/v0.2.1 >/dev/null

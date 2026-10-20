@@ -2705,6 +2705,7 @@ test "regression: delete_range repairs suffix-spanning underfull chain" {
     (1, 2),
     (1, 3),
   ])
+  inspect(btree_invariants_hold(t), content="true")
   t.delete_range(26, 66)
   inspect(
     btree_invariants_hold(t),
@@ -2712,79 +2713,6 @@ test "regression: delete_range repairs suffix-spanning underfull chain" {
       #|true
     ),
   )
-  inspect(
-    debug_tree(t.root.unwrap(), 0),
-    content=(
-      #|Internal(n=3, t=26)
-      #|  Internal(n=2, t=8)
-      #|    Internal(n=2, t=3)
-      #|      Leaf(1)
-      #|      Leaf(2)
-      #|    Internal(n=2, t=5)
-      #|      Leaf(2)
-      #|      Leaf(3)
-      #|  Internal(n=2, t=6)
-      #|    Internal(n=2, t=3)
-      #|      Leaf(1)
-      #|      Leaf(2)
-      #|    Internal(n=2, t=3)
-      #|      Leaf(2)
-      #|      Leaf(1)
-      #|  Internal(n=3, t=12)
-      #|    Internal(n=2, t=3)
-      #|      Leaf(1)
-      #|      Leaf(2)
-      #|    Internal(n=2, t=5)
-      #|      Leaf(3)
-      #|      Leaf(2)
-      #|    Internal(n=3, t=4)
-      #|      Leaf(1)
-      #|      Leaf(2)
-      #|      Leaf(1)
-      #|
-    ),
-  )
-}
-
-///|
-test "regression: delete_range preserves exact counterexample shape" {
-  let items : Array[(Int, Int)] = [
-    (2, 1),
-    (4, 2),
-    (2, 2),
-    (5, 3),
-    (3, 1),
-    (5, 2),
-    (4, 2),
-    (2, 1),
-    (4, 1),
-    (3, 2),
-    (5, 3),
-    (1, 2),
-    (2, 1),
-    (4, 2),
-    (1, 2),
-    (3, 3),
-    (4, 1),
-    (5, 2),
-    (5, 2),
-    (1, 2),
-    (1, 2),
-    (3, 2),
-    (3, 3),
-    (5, 3),
-    (2, 2),
-    (3, 1),
-    (1, 2),
-    (3, 3),
-    (2, 1),
-    (3, 3),
-    (1, 2),
-    (1, 3),
-  ]
-  let t = build_tree(items)
-  inspect(btree_invariants_hold(t), content="true")
-  t.delete_range(26, 66)
   inspect(
     debug_tree(t.root.unwrap(), 0),
     content=(

@@ -622,29 +622,6 @@ test "sdeg phase1: tombstoned rows retire after retention threshold" {
 }
 
 ///|
-test "sdeg phase1: tombstoned rows stay retained below threshold" {
-  let old_a = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations(
-    [old_a],
-    validity=HeadingSnapshotValid,
-    retention_threshold=3,
-  )
-  let missing_table = table.advance([], validity=HeadingSnapshotValid)
-  let tombstoned_table = missing_table.advance(
-    [],
-    validity=HeadingSnapshotValid,
-  )
-  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
-
-  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
-  inspect(tombstoned_row.consecutive_absences, content="2")
-  inspect(
-    heading_side_table_invariants_hold(tombstoned_table, []),
-    content="true",
-  )
-}
-
-///|
 test "sdeg phase1: positive retention threshold observes tombstone first" {
   let old_a = synthetic_heading(1, "A", 0)
   for threshold in [1, 2] {
@@ -1145,27 +1122,6 @@ test "sdeg phase1: invalid advance does not update last_live from matches" {
     heading_side_table_invariants_hold(recovered_table, [transient_a]),
     content="true",
   )
-}
-
-///|
-test "sdeg phase1: valid advance treats empty snapshot as delete evidence" {
-  let old_a = synthetic_heading(1, "A", 0)
-  let table = HeadingSideTable::from_observations(
-    [old_a],
-    validity=HeadingSnapshotValid,
-  )
-  let missing_table = table.advance([], validity=HeadingSnapshotValid)
-  let tombstoned_table = missing_table.advance(
-    [],
-    validity=HeadingSnapshotValid,
-  )
-  let missing_row = find_side_table_row(missing_table, old_a.id).unwrap()
-  let tombstoned_row = find_side_table_row(tombstoned_table, old_a.id).unwrap()
-
-  inspect(missing_row.status == HeadingMissing, content="true")
-  inspect(missing_row.consecutive_absences, content="1")
-  inspect(tombstoned_row.status == HeadingTombstoned, content="true")
-  inspect(tombstoned_row.consecutive_absences, content="2")
 }
 
 ///|

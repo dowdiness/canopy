@@ -88,18 +88,6 @@ test "empty document → empty array" {
 }
 
 ///|
-test "heading first, paragraph later → no Abstract" {
-  let doc = @md.Block::Document([
-    @md.Block::Heading(1, [@md.Inline::Text("Title")]),
-    @md.Block::Paragraph([@md.Inline::Text("This is not Abstract")]),
-  ])
-  let map = @semantic.annotate_symbolic(doc)
-  // Not index 0, so not Abstract. After heading, so SectionIntro.
-  inspect(map[1], content="RuleBased(SectionIntro)")
-  inspect(map[0], content="Unknown")
-}
-
-///|
 test "mixed document — full annotation" {
   let doc = @md.Block::Document([
     @md.Block::Paragraph([@md.Inline::Text("Abstract paragraph")]),

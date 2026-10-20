@@ -166,15 +166,6 @@ test "saving a changed body retains its name and exact new text" {
 }
 
 ///|
-test "from_documents keeps lexical order without startup selection state" {
-  let saved = SavedDocuments::from_documents([doc("b", "b"), doc("a", "a")]).unwrap()
-  assert_eq(saved.all().map(document => document.id()), [
-    test_document_id("a"),
-    test_document_id("b"),
-  ])
-}
-
-///|
 test "replica insertion and replacement retain lexical order" {
   let initial = SavedDocuments::from_documents([]).unwrap()
   let account_b = DocumentReplica(

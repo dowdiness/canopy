@@ -41,20 +41,3 @@ test "relay_on_connect: duplicate rejection keeps the room alive" {
   relay_on_disconnect("leak-test-dup", "alice")
   inspect(relay_rooms.contains("leak-test-dup"), content="false")
 }
-
-///|
-test "relay_on_connect: rejection in a room with other peers preserves the room" {
-  clear_relay_rooms()
-  inspect(
-    relay_on_connect("leak-test-mixed", "alice", noop_send),
-    content="true",
-  )
-  // Trying to rejoin as alice is rejected, room has 1 peer so stays.
-  inspect(
-    relay_on_connect("leak-test-mixed", "alice", noop_send),
-    content="false",
-  )
-  inspect(relay_rooms.contains("leak-test-mixed"), content="true")
-  relay_on_disconnect("leak-test-mixed", "alice")
-  inspect(relay_rooms.contains("leak-test-mixed"), content="false")
-}

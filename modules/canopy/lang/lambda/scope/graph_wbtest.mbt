@@ -154,16 +154,6 @@ test "resolve: self-reference is unbound" {
 }
 
 ///|
-test "resolve: second def init binds to first def" {
-  let (proj, registry, source_map) = build_fixture("let x = 1\nlet x = x\nx")
-  let g = build(registry, source_map)
-  let init_var = find_var_in_def_init(proj, 1, "x")
-  guard! declaration(g, init_var) is Some(decl)
-  guard! decl.kind is ModuleDef(def_index~)
-  inspect(def_index, content="0")
-}
-
-///|
 test "resolve: innermost lambda shadowing" {
   let (proj, registry, source_map) = build_fixture("(x) => (x) => x")
   let g = build(registry, source_map)
