@@ -305,6 +305,38 @@ fn reduce_documents(
 }
 
 ///|
+/// Why a document created with text could not be added.
+priv suberror CreationFault {
+  IdentityInUse
+  EditRejected(@documents.EditError)
+}
+
+///|
+/// Adds a Source with the given text, collecting the storage actions both
+/// steps produce.
+fn create_with_text(
+  documents : @documents.Model,
+  document_id : @source_repository.DocumentId,
+  text : String,
+  actions : Array[@documents.Action],
+) -> @documents.Model raise CreationFault {
+  let created = documents.create(document_id) catch {
+    DocumentAlreadyExists(_) => raise IdentityInUse
+  }
+  actions.append(created.effects)
+  let edit = created.model.edit(@documents.Key::source(document_id), text) catch {
+    error => raise EditRejected(error)
+  }
+  match edit {
+    Changed(edited) => {
+      actions.append(edited.effects)
+      edited.model
+    }
+    SameText => created.model
+  }
+}
+
+///|
 fn document_edit_notice(error : @documents.EditError) -> String {
   match error {
     DocumentMissing(_) =>
@@ -494,35 +526,26 @@ fn update_page(
         (Editing(editing), @cmd.none)
       } else {
         let key = @documents.Key::source(document_id)
-        let transition = editing.documents.create(document_id) catch {
-          DocumentAlreadyExists(_) =>
+        let documents = create_with_text(
+          editing.documents,
+          document_id,
+          text,
+          actions,
+        ) catch {
+          fault =>
             return (
               Editing({ ..editing, creation: None, }),
               notify(
-                emit, "This document already exists. Reopen the current document to recover.",
+                emit,
+                match fault {
+                  IdentityInUse =>
+                    "This document already exists. Reopen the current document to recover."
+                  EditRejected(error) => document_edit_notice(error)
+                },
               ),
             )
         }
-        let editing = install_document_transition(editing, transition)
-        for action in transition.effects {
-          actions.push(action)
-        }
-        let edit = editing.documents.edit(key, text) catch {
-          error =>
-            return (
-              Editing({ ..editing, creation: None, }),
-              notify(emit, document_edit_notice(error)),
-            )
-        }
-        let editing = match edit {
-          Changed(transition) => {
-            for action in transition.effects {
-              actions.push(action)
-            }
-            install_document_transition(editing, transition)
-          }
-          SameText => editing
-        }
+        let editing = { ..editing, documents, }
         match activation_target(editing.documents, key) {
           None => (Editing({ ..editing, creation: None, }), @cmd.none)
           Some(target) => {
