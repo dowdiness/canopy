@@ -54,7 +54,7 @@ test "provider is called only for recomputed artifacts" {
 }
 
 ///|
-test "repo provider receives copied summary arrays" {
+test "mutating captured provider input does not contaminate recomputation" {
   let captured : Array[Array[String]] = []
   let provider : @cognition.CognitionProvider = {
     file_summary: fn(path, text) { "\{path}: \{text.length()}" },
@@ -67,31 +67,18 @@ test "repo provider receives copied summary arrays" {
   let _ = store.set_input(FileText("a.mbt"), Text("one"))
   let _ = store.compute(RepoSummary)
 
-  captured[0].push("external mutation")
-
+  captured[0][0] = "external mutation"
+  captured[0].push("extra item")
+  let _ = store.set_input(FileText("b.mbt"), Text("four"))
+  let _ = store.compute(RepoSummary)
+  inspect(captured.length(), content="2")
   match store.get_value(RepoSummary) {
     Some(Summary(summary)) =>
-      inspect(summary.contains("external mutation"), content="false")
-    _ => fail("expected repo summary")
+      inspect(summary, content="repo: a.mbt: 3,b.mbt: 4")
+    _ => fail("expected recomputed repo summary")
   }
-}
-
-///|
-test "provider output is copied before storage" {
-  let provider_payload : Array[String] = ["first"]
-  let provider : @cognition.CognitionProvider = {
-    file_summary: fn(path, _text) { "\{path}: " + provider_payload.join(",") },
-    repo_summary: fn(items) { "repo: " + items.join(",") },
-  }
-  let store = @cognition.CognitionStore::new_with_provider(provider)
-  let _ = store.set_input(FileText("a.mbt"), Text("one"))
-  let _ = store.compute(FileSummary("a.mbt"))
-
-  provider_payload.push("external mutation")
-
   match store.get_value(FileSummary("a.mbt")) {
-    Some(Summary(summary)) =>
-      inspect(summary.contains("external mutation"), content="false")
+    Some(Summary(summary)) => inspect(summary, content="a.mbt: 3")
     _ => fail("expected file summary")
   }
 }

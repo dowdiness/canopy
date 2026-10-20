@@ -122,19 +122,25 @@ test "apply_sync: empty SyncMessage is safe" {
 }
 
 ///|
-test "apply_sync: error does not corrupt editor state" {
+test "apply_sync: missing dependency preserves text and version" {
   let editor = try! @probe.new_test_editor("alice")
   editor.set_text("hello world")
   let original_text = editor.get_text()
-  // Try to apply a message with invalid JSON — should raise
-  try {
-    let bad_msg = @text.SyncMessage::from_json_string("invalid json")
-    editor.apply_sync(bad_msg)
-  } catch {
-    _ => () // Expected
+  let original_version = editor.get_version()
+  let sender = try! @probe.new_test_editor("bob")
+  sender.set_text("parent")
+  let parent_version = sender.get_version()
+  sender.set_text("parent-child")
+  let orphan_delta = try! sender.export_since(parent_version)
+  // Decode succeeds; the receiving editor has never seen the parent.
+  let mut raised_pending = false
+  editor.apply_sync(orphan_delta) catch {
+    @text.TextError::VersionNotFound => raised_pending = true
+    other => fail("expected pending dependency, got: \{other}")
   }
-  // Editor text should be preserved
-  inspect(editor.get_text() == original_text, content="true")
+  inspect(raised_pending, content="true")
+  assert_eq(editor.get_text(), original_text)
+  assert_eq(editor.get_version(), original_version)
 }
 
 // ============================================================================
