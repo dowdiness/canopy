@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fdfcfa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#181614" media="(prefers-color-scheme: dark)" />
+    <title>Loomark — An easy editor for every day</title>
+    <meta name="description" content="Loomark is an easy, distraction-free editor for every day, in sync across your devices." />
+    <meta property="og:title" content="Loomark — An easy editor for every day" />
+    <meta property="og:description" content="Simple, distraction-free writing, in sync across your devices." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://loomark.koji-ishimoto.workers.dev/about/og.png" />
+    <meta property="og:url" content="https://loomark.koji-ishimoto.workers.dev/about/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="../fonts/Literata-3.103.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="../fonts/iAWriterQuattroS-Regular-2.000.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="./about.css" />
+    <script>document.documentElement.classList.add("js")</script>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <symbol id="i-panel" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></g></symbol>
+      <symbol id="i-pen" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></g></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></g></symbol>
+      <symbol id="i-text" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497zM15 5l4 4"/></symbol>
+      <symbol id="i-split" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></g></symbol>
+      <symbol id="i-preview" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M2.062 12.348a1 1 0 0 1 0-.696a10.75 10.75 0 0 1 19.876 0a1 1 0 0 1 0 .696a10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></g></symbol>
+      <symbol id="i-shrink" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 15l6 6m-6-6v4.8m0-4.8h4.8M9 19.8V15m0 0H4.2M9 15l-6 6M15 4.2V9m0 0h4.8M15 9l6-6M9 4.2V9m0 0H4.2M9 9L3 3"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 15l6 6M15 9l6-6m0 13v5h-5m5-13V3h-5M3 16v5h5m-5 0l6-6M3 8V3h5m1 6L3 3"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7l-7 7"/></symbol>
+      <symbol id="i-sync" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></g></symbol>
+    </svg>
+
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="nav" data-nav>
+      <a class="brand" href="./" aria-label="Loomark">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M10 7v17h13"/></svg>
+        <span>Loomark</span>
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#views">Markdown</a>
+        <a href="#focus">Focus</a>
+        <a href="#yours">Sync</a>
+      </nav>
+      <div class="nav-end">
+        <a class="button button-small" href="../">Try</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Hero -->
+      <section class="hero" aria-labelledby="hero-title">
+        <canvas class="hero-dots" aria-hidden="true" data-dots></canvas>
+        <div class="hero-copy">
+          <h1 id="hero-title" class="hero-title">An easy editor<br />for <em>every day</em>.</h1>
+          <p class="hero-lead">Simple, distraction-free writing, in sync across your devices.</p>
+        </div>
+      </section>
+
+      <!-- One sheet: the real editor stays in view through 01 Markdown, 02 Focus Mode and 03 Anywhere. -->
+      <section class="run" aria-labelledby="views-title" data-run>
+        <span class="run-mark" id="views" data-phase="text"></span>
+        <span class="run-mark" id="focus" data-phase="focus"></span>
+        <span class="run-mark" id="yours" data-phase="sync"></span>
+        <div class="run-stage">
+          <div class="run-sheet">
+            <div class="live" data-live data-reveal>
+              <button type="button" class="desk live-invite" data-live-start>
+                <span class="desk-bar desk-top" aria-hidden="true">
+                  <svg class="icon"><use href="#i-panel" /></svg>
+                  <span class="desk-spacer"></span>
+                  <svg class="icon"><use href="#i-pen" /></svg>
+                  <svg class="icon"><use href="#i-more" /></svg>
+                </span>
+                <span class="live-page paper writing">
+                  <span class="live-placeholder">Start writing…</span>
+                </span>
+                <span class="desk-bar desk-bottom" aria-hidden="true">
+                  <span class="desk-spacer"></span>
+                  <span class="modes">
+                    <span class="mode is-current"><svg class="icon"><use href="#i-text" /></svg></span>
+                    <span class="mode"><svg class="icon"><use href="#i-split" /></svg></span>
+                    <span class="mode"><svg class="icon"><use href="#i-preview" /></svg></span>
+                  </span>
+                  <span class="desk-focus"><svg class="icon"><use href="#i-shrink" /></svg></span>
+                </span>
+                <span class="live-label">Try it here</span>
+              </button>
+            </div>
+            <div class="desk run-desk" data-views-desk data-mode="text" inert>
+              <span class="desk-bar desk-top" aria-hidden="true">
+                <svg class="icon"><use href="#i-panel" /></svg>
+                <span class="desk-spacer"></span>
+                <svg class="icon sync-mark"><use href="#i-sync" /></svg>
+                <svg class="icon"><use href="#i-pen" /></svg>
+                <svg class="icon"><use href="#i-more" /></svg>
+              </span>
+              <div class="desk-panes">
+                <div class="pane pane-text" data-pane="text"><div class="pane-scroll"><div class="pane-inner writing paper" data-views-source aria-hidden="true"></div></div></div>
+                <div class="pane pane-preview" data-pane="preview"><div class="pane-scroll"><div class="pane-inner reading" data-views-rendered aria-hidden="true"></div></div></div>
+              </div>
+              <div class="desk-bar desk-bottom">
+                <span class="desk-spacer"></span>
+                <div class="modes" role="group" aria-label="View">
+                  <button type="button" data-mode-button="text" aria-pressed="true" aria-label="Text"><svg class="icon"><use href="#i-text" /></svg></button>
+                  <button type="button" data-mode-button="split" aria-pressed="false" aria-label="Split"><svg class="icon"><use href="#i-split" /></svg></button>
+                  <button type="button" data-mode-button="preview" aria-pressed="false" aria-label="Preview"><svg class="icon"><use href="#i-preview" /></svg></button>
+                </div>
+                <button type="button" class="desk-focus run-focus" data-run-focus aria-pressed="false" aria-label="Focus Mode">
+                  <svg class="icon icon-on" aria-hidden="true"><use href="#i-shrink" /></svg>
+                  <svg class="icon icon-off" aria-hidden="true"><use href="#i-expand" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="desk run-phone" aria-hidden="true">
+              <span class="desk-bar desk-top">
+                <svg class="icon"><use href="#i-panel" /></svg>
+                <span class="desk-spacer"></span>
+                <svg class="icon sync-mark"><use href="#i-sync" /></svg>
+              </span>
+              <span class="run-phone-page paper writing" data-run-phone></span>
+            </div>
+          </div>
+          <div class="run-caption">
+            <div class="run-chapter" data-chapter="views">
+              <div class="run-head">
+                <span class="chapter-no">01</span>
+                <h2 id="views-title" class="run-title">Write in Markdown</h2>
+                <p class="run-lede">Write, read, or both. Switching views keeps your place.</p>
+              </div>
+              <ol class="run-modes">
+                <li data-step="text"><button type="button" class="step-trigger" data-step-trigger="text" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-text" /></svg><span class="step-name">Text</span><span class="step-note">Plain text as you type it: <code>#</code> for a heading, <code>**</code> for bold.</span></button></li>
+                <li data-step="split"><button type="button" class="step-trigger" data-step-trigger="split" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-split" /></svg><span class="step-name">Split</span><span class="step-note">Your text on the left, the formatted page on the right.</span></button></li>
+                <li data-step="preview"><button type="button" class="step-trigger" data-step-trigger="preview" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-preview" /></svg><span class="step-name">Preview</span><span class="step-note">Only the formatted page, for reading.</span></button></li>
+              </ol>
+              <p class="run-note" data-run-note></p>
+            </div>
+            <div class="run-chapter" data-chapter="focus">
+              <div class="run-head">
+                <span class="chapter-no">02</span>
+                <h2 class="run-title">Focus Mode</h2>
+                <p class="run-lede">Only the paragraph you are writing stays bright.</p>
+              </div>
+              <ol class="run-modes focus-steps">
+                <li data-focus-step="on"><span class="step-trigger"><svg class="icon" aria-hidden="true"><use href="#i-expand" /></svg><span class="step-name">Turn it on</span><span class="step-note">With the button in the corner.</span></span></li>
+                <li data-focus-step="write"><span class="step-trigger"><svg class="icon" aria-hidden="true"><use href="#i-pen" /></svg><span class="step-name">Write</span><span class="step-note">The bars leave, and the other paragraphs fade.</span></span></li>
+                <li data-focus-step="off"><span class="step-trigger"><svg class="icon" aria-hidden="true"><use href="#i-shrink" /></svg><span class="step-name">Turn it off</span><span class="step-note">The same button, or Esc.</span></span></li>
+              </ol>
+              <p class="run-note" data-focus-note></p>
+            </div>
+            <div class="run-chapter" data-chapter="sync">
+              <div class="run-head">
+                <span class="chapter-no">03</span>
+                <h2 class="run-title">Anywhere, in sync</h2>
+                <p class="run-lede">Sign in with Google, and every device picks up where you left off.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Close -->
+      <section class="closing" aria-labelledby="closing-title">
+        <h2 id="closing-title" class="closing-title"><span class="visually-hidden" data-closing-source>Try it and see how it feels.</span><span class="closing-typed" aria-hidden="true"><span data-closing-typed>Try it and see how it feels.</span><span class="caret"></span><span class="closing-rest" data-closing-rest></span></span></h2>
+        <a class="button button-large" href="../">
+          <span>Open Loomark</span>
+          <svg class="icon" aria-hidden="true"><use href="#i-arrow" /></svg>
+        </a>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <a class="brand brand-small" href="./" aria-label="Loomark">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7"/><path d="M10 7v17h13"/></svg>
+        <span>Loomark</span>
+      </a>
+      <p class="made">Built with <a href="https://www.moonbitlang.com/">MoonBit</a></p>
+      <nav aria-label="Footer">
+        <a href="../">Try</a>
+        <a href="https://github.com/dowdiness/canopy/tree/main/apps/loomark">GitHub</a>
+      </nav>
+    </footer>
+
+    <link rel="modulepreload" href="./about-core.js" />
+    <script src="./about.js" type="module"></script>
+  </body>
+</html>

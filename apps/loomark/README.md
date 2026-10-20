@@ -114,6 +114,7 @@ NEW_MOON_MOD=0 moon test --target js -p dowdiness/loomark/server/documents dowdi
 
 - **[Documentation Index (docs/README.md)](docs/README.md)** — Overview map of all architecture, operations, and design guides.
 - **[Product Vocabulary & Behavior Contract (CONTEXT.md)](CONTEXT.md)** — Canonical terms, UI states, and product design rules.
+- **[Introduction page (public/about/)](public/about/index.html)** — Static English landing page served at `/about/`. Its opening section embeds the real editor from `/`, which opens empty there instead of with the Welcome document.
 - **[Technical Architecture (docs/architecture.md)](docs/architecture.md)** — Rabbita structure, incremental parser, viewport mechanics, and DOM lifecycle.
 - **[Sync and Account Architecture (docs/sync-and-account.md)](docs/sync-and-account.md)** — Causal replicas, authentication, and conflict recovery.
 - **[Production Release Runbook (docs/production.md)](docs/production.md)** — Cloudflare deployment, database migrations, and validation.
