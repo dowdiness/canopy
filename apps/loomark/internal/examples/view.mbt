@@ -1,4 +1,42 @@
 ///|
+/// An example document offered in the sidebar: visible label, accessible
+/// name, and its Markdown source.
+priv struct Example {
+  label : String
+  name : String
+  source : String
+}
+
+///|
+let examples : Array[Example] = [
+  {
+    label: "Demo",
+    name: "Demo: Create Markdown feature tour example document",
+    source: embedded_markdown_demo_source,
+  },
+  {
+    label: "Hello",
+    name: "Create Hello example document",
+    source: embedded_hello_example_source,
+  },
+  {
+    label: "Guide",
+    name: "Guide: Create Blog example document",
+    source: embedded_blog_example_source,
+  },
+  {
+    label: "List",
+    name: "Create List example document",
+    source: embedded_list_example_source,
+  },
+  {
+    label: "Code",
+    name: "Create Code example document",
+    source: embedded_code_example_source,
+  },
+]
+
+///|
 pub fn examples_bar(
   on_select : @rabbita.Emit[String],
   close_after_action : @rabbita.Cmd,
@@ -13,67 +51,19 @@ pub fn examples_bar(
         class="px-0.5 text-[0.6875rem] font-medium tracking-[0.06em] text-lm-muted uppercase",
         "Examples",
       ),
-      @html.div(class="flex min-w-0 flex-wrap gap-1.5", [
-        @html.button(
-          type_="button",
-          class=button_class,
-          disabled~,
-          attrs=@html.Attrs::build().aria_label(
-            "Demo: Create Markdown feature tour example document",
-          ),
-          on_click=@cmd.batch([
-            on_select(embedded_markdown_demo_source),
-            close_after_action,
-          ]),
-          "Demo",
-        ),
-        @html.button(
-          type_="button",
-          class=button_class,
-          disabled~,
-          attrs=@html.Attrs::build().aria_label("Create Hello example document"),
-          on_click=@cmd.batch([
-            on_select(embedded_hello_example_source),
-            close_after_action,
-          ]),
-          "Hello",
-        ),
-        @html.button(
-          type_="button",
-          class=button_class,
-          disabled~,
-          attrs=@html.Attrs::build().aria_label(
-            "Guide: Create Blog example document",
-          ),
-          on_click=@cmd.batch([
-            on_select(embedded_blog_example_source),
-            close_after_action,
-          ]),
-          "Guide",
-        ),
-        @html.button(
-          type_="button",
-          class=button_class,
-          disabled~,
-          attrs=@html.Attrs::build().aria_label("Create List example document"),
-          on_click=@cmd.batch([
-            on_select(embedded_list_example_source),
-            close_after_action,
-          ]),
-          "List",
-        ),
-        @html.button(
-          type_="button",
-          class=button_class,
-          disabled~,
-          attrs=@html.Attrs::build().aria_label("Create Code example document"),
-          on_click=@cmd.batch([
-            on_select(embedded_code_example_source),
-            close_after_action,
-          ]),
-          "Code",
-        ),
-      ]),
+      @html.div(
+        class="flex min-w-0 flex-wrap gap-1.5",
+        examples.map(example => {
+          @html.button(
+            type_="button",
+            class=button_class,
+            disabled~,
+            attrs=@html.Attrs::build().aria_label(example.name),
+            on_click=@cmd.batch([on_select(example.source), close_after_action]),
+            example.label,
+          )
+        }),
+      ),
     ],
   )
 }
