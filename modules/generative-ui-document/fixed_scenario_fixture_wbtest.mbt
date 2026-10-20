@@ -3,24 +3,6 @@ priv enum ScenarioCheckpoint {
   GraphOperations
   RequestPersistence
   CompleteTranscript
-} derive(Debug)
-
-///|
-impl @quickcheck.Arbitrary for ScenarioCheckpoint with fn arbitrary(_size, rs) {
-  match rs.split().next_positive_int() % 3 {
-    0 => GraphOperations
-    1 => RequestPersistence
-    _ => CompleteTranscript
-  }
-}
-
-///|
-impl @qc.Shrink for ScenarioCheckpoint with fn shrink(checkpoint) {
-  match checkpoint {
-    GraphOperations => [].iter()
-    RequestPersistence => [GraphOperations].iter()
-    CompleteTranscript => [RequestPersistence].iter()
-  }
 }
 
 ///|

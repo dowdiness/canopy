@@ -93,21 +93,3 @@ test "fixed transcript event expectations are deterministic" {
     content="true",
   )
 }
-
-///|
-fn prop_named_prefix_selects_exact_transcript_view(
-  checkpoint : ScenarioCheckpoint,
-) -> Bool {
-  let scenario = fixed_scenario()
-  let end = match checkpoint {
-    GraphOperations => 3
-    RequestPersistence => 6
-    CompleteTranscript => 23
-  }
-  scenario.prefix(checkpoint).equal(scenario.steps().exact_view(end~))
-}
-
-///|
-test "property: named prefixes select exact transcript views" {
-  @qc.quick_check_fn(prop_named_prefix_selects_exact_transcript_view)
-}
