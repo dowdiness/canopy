@@ -6,66 +6,47 @@ fn str_to_bytes(s : String) -> Bytes {
 }
 
 ///|
-test "encode/decode CrdtOps roundtrip" {
-  let payload = str_to_bytes("hello")
-  let msg = CrdtOps(payload)
-  match decode_message(encode_message(msg)) {
-    Some(CrdtOps(decoded_payload)) =>
-      inspect(
-        decoded_payload.length(),
-        content=(
-          #|10
-        ),
-      )
-    _ => fail("expected CrdtOps")
+test "encode/decode preserves message variants and exact payloads" {
+  let messages : Array[SyncMessage] = [
+    CrdtOps(str_to_bytes("hello")),
+    CrdtOps(b"\x42\x43"),
+    EphemeralUpdate(Cursor, str_to_bytes("data")),
+    EphemeralUpdate(Cursor, b"\x01\x02"),
+    SyncRequest(str_to_bytes("req")),
+    SyncRequest(b"\x10"),
+    SyncResponse(b"\x20"),
+    PeerJoined("alice"),
+    PeerLeft("bob"),
+  ]
+  for msg in messages {
+    assert_eq(decode_message(encode_message(msg)), Some(msg))
   }
 }
 
 ///|
-test "encode/decode EphemeralUpdate roundtrip" {
-  let payload = str_to_bytes("data")
-  let msg = EphemeralUpdate(Cursor, payload)
-  match decode_message(encode_message(msg)) {
-    Some(EphemeralUpdate(ns, _)) => inspect(ns, content="Cursor")
-    _ => fail("expected EphemeralUpdate")
+test "decode_message returns None for malformed frames" {
+  let cases : Array[(String, Bytes)] = [
+    ("empty", b""),
+    ("one-byte header", b"\x02"),
+    ("two-byte header", b"\x02\x01"),
+    ("wrong version", b"\xFF\x01\x00"),
+    ("wrong version with payload", b"\xFF\x01\x00\x00"),
+    ("v2 frame", b"\x02\x01\x00"),
+    ("unknown message type", b"\x03\xFF\x00"),
+    ("missing namespace", b"\x03\x02\x00"),
+    ("invalid namespace", b"\x03\x02\x00\xFF"),
+    ("missing room subtype", b"\x03\x05\x00"),
+    ("truncated peer id", b"\x03\x05\x00\x01"),
+    ("unknown room subtype", b"\x03\x05\x00\xFF"),
+  ]
+  for (name, bytes) in cases {
+    assert_true(decode_message(bytes) is None, msg=name)
   }
 }
 
 ///|
-test "encode/decode SyncRequest roundtrip" {
-  let msg = SyncRequest(str_to_bytes("req"))
-  match decode_message(encode_message(msg)) {
-    Some(SyncRequest(_)) => ()
-    _ => fail("expected SyncRequest")
-  }
-}
-
-///|
-test "encode/decode PeerJoined roundtrip" {
-  let msg = PeerJoined("alice")
-  @debug.debug_inspect(
-    decode_message(encode_message(msg)),
-    content="Some(PeerJoined(\"alice\"))",
-  )
-}
-
-///|
-test "encode/decode PeerLeft roundtrip" {
-  let msg = PeerLeft("bob")
-  @debug.debug_inspect(
-    decode_message(encode_message(msg)),
-    content="Some(PeerLeft(\"bob\"))",
-  )
-}
-
-///|
-test "decode rejects wrong version" {
-  let buf = Buffer()
-  buf.write_byte(b'\xFF') // bad version
-  buf.write_byte(b'\x01')
-  buf.write_byte(b'\x00')
-  buf.write_byte(b'\x00')
-  @debug.debug_inspect(decode_message(buf.to_bytes()), content="None")
+test "decode_message accepts CrdtOps with empty payload" {
+  assert_eq(decode_message(b"\x03\x01\x00"), Some(CrdtOps(b"")))
 }
 
 ///|
@@ -84,14 +65,6 @@ test "v2 frame is rejected after v3 cutover" {
     _ => fail("expected UnsupportedVersion")
   }
   inspect(err.message(), content="unsupported protocol version: 2")
-}
-
-///|
-test "decode rejects too short" {
-  let buf = Buffer()
-  buf.write_byte(b'\x02')
-  buf.write_byte(b'\x01')
-  @debug.debug_inspect(decode_message(buf.to_bytes()), content="None")
 }
 
 ///|
