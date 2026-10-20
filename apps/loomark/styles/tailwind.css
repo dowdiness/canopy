@@ -831,8 +831,7 @@
   [data-loomark-bottom-obscured] #loomark-editor:has(.loomark-save-status[title="Not saved"]),
   [data-loomark-bottom-obscured] [data-focus-mode="true"] #loomark-editor:has(.loomark-footer[data-attention="true"])
 ) .loomark-source {
-  padding-bottom: 64px;
-  scroll-padding-bottom: 64px;
+  --loomark-content-bottom: 64px;
 }
 
 @media (max-width: 720px) {
@@ -841,7 +840,7 @@
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) #loomark-text-pane { min-height: 112px !important; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) [data-side="second"] { flex-shrink: 1 !important; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame { --loomark-first-line-top: 68px; }
-  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding-inline: 24px; padding-bottom: 16px; scroll-padding-bottom: 16px; }
+  #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source { padding-inline: 24px; --loomark-content-bottom: 16px; }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .rmd-preview-content { padding: 16px 24px var(--loomark-content-bottom); }
   #loomark-editor-panels:has(.loomark-divider:not([hidden])) .loomark-source-frame {
     mask-image: linear-gradient(to bottom, transparent, black 52px);

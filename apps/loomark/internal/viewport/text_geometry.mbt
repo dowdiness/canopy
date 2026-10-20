@@ -119,7 +119,7 @@ priv struct TextGeometry {
   mirror : TextMirror
   line_height : Double
   padding_top : Double
-  padding_bottom : Double
+  scroll_padding_bottom : Double
 }
 
 ///|
@@ -140,7 +140,7 @@ fn TextGeometry::measure(area : @dom.HTMLTextAreaElement) -> TextGeometry? {
     mirror,
     line_height: pixels("line-height"),
     padding_top: pixels("padding-top"),
-    padding_bottom: pixels("padding-bottom"),
+    scroll_padding_bottom: pixels("scroll-padding-bottom"),
   })
 }
 
@@ -208,12 +208,14 @@ impl ReadingGeometry for TextGeometry with fn line_height(self) {
 }
 
 ///|
-/// The textarea's padding matches its scroll padding, which keeps lines clear
-/// of the overlaid controls.
+/// The textarea's scroll padding keeps lines clear of the overlaid controls.
 impl ReadingGeometry for TextGeometry with fn readable(self) {
   let area = self.area.as_element()
   let top = area.get_bounding_client_rect().get_top() + area.get_client_top()
-  (top + self.padding_top, top + area.get_client_height() - self.padding_bottom)
+  (
+    top + self.padding_top,
+    top + area.get_client_height() - self.scroll_padding_bottom,
+  )
 }
 
 ///|
