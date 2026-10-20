@@ -92,7 +92,7 @@ test.describe('JSON Editor — Foundation', () => {
 
 test.describe('JSON Editor — Raw Mode', () => {
 
-  test('parse error lifecycle', async ({ page }) => {
+  test('parse errors and error decorations appear and clear together', async ({ page }) => {
     const editor = editorArea(page);
     await editor.click();
     await page.keyboard.press('Control+A');
@@ -102,6 +102,7 @@ test.describe('JSON Editor — Raw Mode', () => {
     // Errors should appear
     await expect(page.locator('#errors-panel')).toBeVisible();
     await expect(page.locator('#parse-errors .error-item').first()).toBeVisible();
+    await expect.poll(async () => (await windowGetRoleSpans(page)).some(s => s.role === 'error')).toBe(true);
 
     // Fix the input
     await page.keyboard.press('Control+A');
@@ -110,6 +111,7 @@ test.describe('JSON Editor — Raw Mode', () => {
 
     // Errors should clear
     await expect(page.locator('#errors-panel')).not.toBeVisible({ timeout: 5000 });
+    await expect.poll(async () => !(await windowGetRoleSpans(page)).some(s => s.role === 'error')).toBe(true);
   });
 
 });
@@ -214,15 +216,6 @@ test.describe('JSON Editor — Role Spans', () => {
     expect(count).toBeGreaterThan(0);
   });
 
-  test('error input shows error decoration', async ({ page }) => {
-    const editor = editorArea(page);
-    await editor.click();
-    await page.keyboard.press('Control+A');
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type('{bad');
-    await expect.poll(async () => (await windowGetRoleSpans(page)).some(s => s.role === 'error')).toBe(true);
-  });
-
   test('error role coexists with parser diagnostics', async ({ page }) => {
     const editor = editorArea(page);
     await editor.click();
@@ -231,20 +224,6 @@ test.describe('JSON Editor — Role Spans', () => {
     await page.keyboard.type('{"a" 1}');
     await expect.poll(async () => (await windowGetRoleSpans(page)).some(s => s.role === 'error')).toBe(true);
     await expect(page.locator('#errors-panel')).toBeVisible();
-  });
-
-  test('fixing error clears error decorations', async ({ page }) => {
-    const editor = editorArea(page);
-    await editor.click();
-    await page.keyboard.press('Control+A');
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type('{bad');
-    await expect.poll(async () => (await windowGetRoleSpans(page)).some(s => s.role === 'error')).toBe(true);
-
-    await page.keyboard.press('Control+A');
-    await page.keyboard.press('Backspace');
-    await page.keyboard.type('{"ok": 1}');
-    await expect.poll(async () => !(await windowGetRoleSpans(page)).some(s => s.role === 'error')).toBe(true);
   });
 
 });

@@ -326,11 +326,6 @@ test.describe('Bottom Panel Tabs', () => {
     await expect(page.locator('.state-label').nth(2)).toContainText('Text length');
   });
 
-  test('Graphviz tab renders SVG diagram', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Graphviz' }).click();
-    await expect(page.locator('#canopy-graphviz-container svg')).toHaveCount(1);
-  });
-
   test('Graphviz SVG updates when switching examples', async ({ page }) => {
     await page.getByRole('tab', { name: 'Graphviz' }).click();
     const graph = page.locator('#canopy-graphviz-container svg');

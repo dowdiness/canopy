@@ -10,23 +10,6 @@ async function waitForEditorReady(page: import('@playwright/test').Page) {
 }
 
 test.describe('Bottom panel — Incr Graph', () => {
-  test('IncrGraph tab renders an SVG of the parser runtime', async ({ page }) => {
-    await waitForEditorReady(page);
-
-    // Reveal the bottom panel and switch to the IncrGraph tab.
-    await page.getByRole('button', { name: 'Panels' }).click();
-    await page.getByRole('tab', { name: 'Incr Graph' }).click();
-
-    // The container is mounted via inner_html. The model-owned tap is
-    // attached BEFORE `set_text` in init_model, so the initial-parse memo
-    // recomputes triggered by set_text + outline-state construction are
-    // observed. Assert the SVG without any keystroke fallback — if this
-    // ever fails, the init-before-reads invariant has regressed.
-    const panel = page.locator('#canopy-incr-container');
-    await expect(panel).toBeVisible();
-    await expect(panel.locator('svg')).toHaveCount(1, { timeout: 5000 });
-  });
-
   test('IncrGraph tab renders a status-color legend beside the SVG', async ({
     page,
   }) => {
@@ -34,6 +17,8 @@ test.describe('Bottom panel — Incr Graph', () => {
     await page.getByRole('button', { name: 'Panels' }).click();
     await page.getByRole('tab', { name: 'Incr Graph' }).click();
 
+    // No typing fallback: the tap must observe the initial parse before
+    // any user edit, as well as rendering the legend below.
     const panel = page.locator('#canopy-incr-container');
     await expect(panel).toBeVisible();
     await expect(panel.locator('svg')).toHaveCount(1, { timeout: 5000 });
