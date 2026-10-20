@@ -480,6 +480,9 @@ button { font: inherit; color: inherit; }
   --stage-top: 84px;
   --sheet-h: clamp(340px, min(46vw, 100svh - 330px), 520px);
   padding: 0 var(--gutter);
+  /* The entering phone must not widen the mobile layout viewport. Clip without
+     creating a scroll container, so the stage can still stick to the viewport. */
+  overflow-x: clip;
 }
 .js .run::after { content: ""; display: block; height: 640svh; }
 /* Where each chapter's link lands, as a share of the scroll distance. */

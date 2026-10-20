@@ -1,5 +1,33 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 
+test("mobile landing page keeps navigation in view and opens an editable demo on touch", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({
+    baseURL,
+    viewport: { width: 360, height: 712 },
+    isMobile: true,
+    hasTouch: true,
+  })
+  try {
+    const page = await context.newPage()
+    await page.goto("/about/index.html")
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible()
+    await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(360)
+    const link = page.getByRole("banner").getByRole("link", { name: "Try", exact: true })
+    const box = await link.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(360)
+    await page.getByRole("button", { name: "Try it here" }).tap()
+    const text = page.frameLocator('iframe[title="Loomark"]').getByRole("textbox", { name: "Text", exact: true })
+    await expect(text).toBeVisible()
+    await text.tap()
+    await page.keyboard.type("Hello from my phone.")
+    await expect(text).toHaveValue("Hello from my phone.")
+  } finally {
+    await context.close()
+  }
+})
+
 const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
 const DOCUMENT_STORE_NAME = "documents"
