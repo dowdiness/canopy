@@ -1,0 +1,8 @@
+import {
+  "dowdiness/loomark/internal/text_lines",
+  "dowdiness/loomark/internal/browser",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/js" @dom_js,
+}
+
+supported_targets = "js"

@@ -1,15 +1,4 @@
 ///|
-/// Return the layer's left offset and width over the textarea's content box.
-pub fn calculate_dimming_inline_bounds(
-  offset_left : Double,
-  width : Double,
-  padding_left : Double,
-  padding_right : Double,
-) -> (Double, Double) {
-  (offset_left + padding_left, width - padding_left - padding_right)
-}
-
-///|
 /// A shade's box within the viewport, and its top in content coordinates,
 /// which aligns its holes with the dot grid.
 pub struct ShadePlacement {

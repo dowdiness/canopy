@@ -540,6 +540,33 @@ test("a reader's line-height override keeps dimming on the writing group", async
   expect(failures).toEqual([])
 })
 
+test("Split reflow updates the unchanged writing selection after reading-position measurement", async ({ page }) => {
+  await page.goto("/")
+  const text = page.getByRole("textbox", { name: "Text" })
+  await text.fill("\n\nBefore\n\nWriting\n\nAfter\n\n")
+  await page.getByRole("tab", { name: "Split" }).click()
+  await page.getByRole("button", { name: "Focus Mode", exact: true }).click()
+  await text.focus()
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    const start = area.value.indexOf("Writing")
+    area.setSelectionRange(start, start)
+    area.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+  })
+  await expect.poll(() => dimmingAtLines(page, [2, 4, 6])).toEqual([0.5, 0, 0.5])
+  await expect.poll(() => caretOffset(page, 4)).toBeLessThan(1)
+  await text.evaluate(element => {
+    const area = element as HTMLTextAreaElement
+    area.style.lineHeight = "46px"
+    // Split measures synchronously on scroll; the writing layer draws on the
+    // next frame, with unchanged text and selection. Neither cache may go stale.
+    area.dispatchEvent(new Event("scroll"))
+  })
+  await expect.poll(() => dimmingAtLines(page, [2, 4, 6])).toEqual([0.5, 0, 0.5])
+  await expect.poll(() => caretOffset(page, 4)).toBeLessThan(1)
+  await expect(text).toHaveValue("\n\nBefore\n\nWriting\n\nAfter\n\n")
+})
+
 test("a layout notification during measurement cannot commit geometry into the new layout", async ({ page }) => {
   await openFocusMode(page)
   const text = page.getByRole("textbox", { name: "Text" })

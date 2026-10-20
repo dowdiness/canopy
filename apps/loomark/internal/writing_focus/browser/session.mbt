@@ -16,7 +16,7 @@ struct WritingFocus {
   window : @dom.Window
   fonts : @dom.EventTarget
   reduced_motion : @dom.MediaQueryList
-  text_layout : TextLayout
+  text_layout : WritingMeasurement
   cleanup : Array[() -> Unit]
   fail : (@js.Any) -> Unit
   mut frame : Double?
@@ -31,12 +31,26 @@ struct WritingFocus {
 /// Reads every layout this frame needs before any rendering writes, so one
 /// frame forces at most one layout.
 fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
-  let (mirror, geometry_changed) = focus.text_layout.sync()
+  let (measured, geometry_changed) = focus.text_layout.measure(
+    focus.text_area,
+    focus.dimming_layer,
+  )
   let dimmed = match focus.dimming {
-    Some(dimming) => Some((dimming, focus.text_layout.locate_focus()))
+    Some(dimming) =>
+      Some(
+        (
+          dimming,
+          focus.text_layout.locate_focus(
+            focus.text_area,
+            measured,
+            focus.text_area.get_selection_start(),
+            focus.text_area.get_selection_end(),
+          ),
+        ),
+      )
     None => None
   }
-  let (caret, scroll_top) = locate_writing_caret(focus, mirror)
+  let (caret, scroll_top) = locate_writing_caret(focus, measured)
   if dimmed is Some((dimming, range)) {
     render_dimming(focus, dimming, range, scroll_top, geometry_changed~)
   }
@@ -108,7 +122,6 @@ pub fn WritingFocus::disconnect(self : WritingFocus) -> Unit {
     stop()
   }
   clear_writing_shades(self.dimming_layer, self.shades[:])
-  self.text_layout.remove()
 }
 
 ///|
@@ -202,7 +215,7 @@ pub fn connect(
     let window = @browser_api.document_window(document)
     let fonts = @browser_api.document_fonts(document)
     let reduced_motion = window.match_media("(prefers-reduced-motion: reduce)")
-    let text_layout = TextLayout(document, window, text_area, dimming_layer)
+    let text_layout = WritingMeasurement()
     let focus : WritingFocus = {
       text_area,
       dimming_layer,
@@ -224,7 +237,7 @@ pub fn connect(
   focus.set_dims(dims)
   @js.try_sync(() => {
     let selected : @dom.Listener = _ => focus.schedule()
-    let resized : @dom.Listener = _ => focus.layout_changed()
+    let resized : @dom.Listener = _ => focus.schedule()
     let activate : @dom.Listener = _ => focus.set_intent(Writing)
     let deactivate : @dom.Listener = _ => focus.set_intent(Reading)
     let source = text_area.as_event_target()
@@ -235,10 +248,7 @@ pub fn connect(
     for name in ["focus", "pointerdown", "keydown", "input", "compositionstart"] {
       focus.listen(source, name, activate)
     }
-    focus.listen(source, "blur", _ => {
-      focus.set_intent(Reading)
-      focus.text_layout.release_retired_lines()
-    })
+    focus.listen(source, "blur", _ => focus.set_intent(Reading))
     focus.listen(focus.window.as_event_target(), "blur", deactivate)
     focus.listen(focus.document.as_event_target(), "selectionchange", selected)
     focus.listen(focus.document.as_event_target(), "keydown", event => {
@@ -249,7 +259,7 @@ pub fn connect(
     focus.listen(focus.fonts, "loadingdone", resized)
     focus.listen(focus.window.as_event_target(), "resize", resized)
     focus.listen(focus.reduced_motion.as_event_target(), "change", selected)
-    let resize = @dom.ResizeObserver::new((_, _) => focus.layout_changed())
+    let resize = @dom.ResizeObserver::new((_, _) => focus.schedule())
     focus.cleanup.push(() => resize.disconnect())
     focus.cleanup.push(() => focus.caret.release())
     @browser_api.observe_border_box(resize, text_area.as_element())
@@ -263,11 +273,5 @@ pub fn connect(
 ///|
 /// Redraws after the editor state changes the text.
 pub fn WritingFocus::refresh(self : WritingFocus) -> Unit {
-  self.schedule()
-}
-
-///|
-fn WritingFocus::layout_changed(self : WritingFocus) -> Unit {
-  self.text_layout.reset()
   self.schedule()
 }

@@ -17,50 +17,6 @@ fn fitted_top(
 }
 
 ///|
-/// The top of the line box holding a glyph whose middle is `middle`, both
-/// measured from the top of the text's border box. Glyph boxes sit inside
-/// their line by half the leading, and taller fallback glyphs reach out of it,
-/// but their middle stays within it.
-fn line_box_top(
-  middle : Double,
-  padding_top : Double,
-  line_height : Double,
-) -> Double {
-  padding_top + ((middle - padding_top) / line_height).floor() * line_height
-}
-
-///|
-/// The character whose box locates the line of `offset`, and how many lines
-/// below that character's line `offset` lies. Line breaks have no box, so an
-/// empty line counts from the nearest character before it, or after it at the
-/// start of the text. `None` when the text has no characters to measure.
-fn line_reference(text : String, offset : Int) -> (Int, Int)? {
-  let offset = offset.clamp(min=0, max=text.length())
-  fn is_break(index : Int) -> Bool {
-    text.code_unit_at(index) == '\n'
-  }
-
-  if offset < text.length() && !is_break(offset) {
-    return Some((offset, 0))
-  }
-  let mut lines = 0
-  for index = offset - 1; index >= 0; index = index - 1 {
-    if !is_break(index) {
-      return Some((index, lines))
-    }
-    lines += 1
-  }
-  lines = 0
-  for index = offset; index < text.length(); index = index + 1 {
-    if !is_break(index) {
-      return Some((index, -lines))
-    }
-    lines += 1
-  }
-  None
-}
-
-///|
 /// Remove pinch scaling, not keyboard occlusion, from the available height.
 fn viewport_layout_height(visible_height : Double, scale : Double) -> Double {
   visible_height * scale

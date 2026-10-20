@@ -14,8 +14,6 @@ pub fn animation_clock(@dom.Animation) -> AnimationClock raise InvalidAnimationC
 
 pub fn animation_playback_rate(@dom.Animation) -> Double
 
-pub fn attach_closed_shadow(@dom.Element) -> @dom.Node
-
 pub fn cancel_animation(@dom.Animation) -> Unit
 
 pub fn document_font_faces(@dom.Document) -> FontFaceSet

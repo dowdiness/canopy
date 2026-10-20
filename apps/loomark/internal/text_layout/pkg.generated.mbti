@@ -1,0 +1,47 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/text_layout"
+
+import {
+  "dowdiness/loomark/internal/text_lines",
+  "moonbit-community/rabbita/dom",
+}
+
+// Values
+pub fn measure(@dom.HTMLTextAreaElement) -> MeasuredText
+
+pub fn measure_caret(@dom.HTMLTextAreaElement, Int) -> CaretPosition raise MeasurementError
+
+pub fn measure_line_bounds(@dom.HTMLTextAreaElement, Int, Int) -> (Double, Double)
+
+pub fn measure_line_top(@dom.HTMLTextAreaElement, Int) -> Double
+
+pub fn measure_offset_at(@dom.HTMLTextAreaElement, Double) -> Int
+
+// Errors
+pub suberror MeasurementError {
+  UnrenderedGlyph
+}
+
+// Types and methods
+pub struct CaretPosition {
+  x : Double
+  y : Double
+}
+
+pub struct MeasuredText {
+  source : @text_lines.TextLines
+  metrics : TextMetrics
+  reflow_revision : Int
+}
+
+pub struct TextMetrics {
+  line_height : Double
+  padding_top : Double
+  scroll_padding_bottom : Double
+  padding_left : Double
+  content_width : Double
+}
+
+// Type aliases
+
+// Traits

@@ -88,8 +88,21 @@ The Loomark codebase is structured into three distinct layers:
 - `internal/documents/`, `internal/sync/`, and `internal/source_repository/`
   own document transitions, synchronization, and browser persistence.
 - `internal/writing_focus/` owns pure writing-focus calculations;
-  `internal/writing_focus/browser/` owns measurement, animation policy, and
-  listener lifetimes. Browser implementation types stay private to that package.
+  `internal/writing_focus/browser/` owns presentation measurements, animation
+  policy, and listener lifetimes.
+- `internal/text_layout/` owns the single incremental textarea mirror shared by
+  reading position and writing focus: copied styles, line geometry, and retained
+  nodes for native Undo. Its document-owned surface retains no textarea and
+  exposes synchronous line and caret measurements, not DOM mutation protocols.
+  Every position query takes the textarea, synchronizes the surface, and returns
+  plain values; no result retains the mirror. Offset searches synchronize once
+  for the entire search. Consumers cache against immutable source identity and
+  an explicit reflow revision, separate from the numeric metrics. Font loads
+  advance that revision even when computed CSS is unchanged. Neither feature
+  owns cleanup of the surface or its retired nodes.
+- `internal/text_lines/` owns the pure UTF-16 line index and incremental edits.
+  It knows neither DOM nor Markdown. Writing focus builds its Markdown groups
+  from this index only when dimming needs them; reading position does not.
 - `internal/viewport/` owns viewport placement, caret visibility, and Split
   scroll geometry and effects. The app selects the active connections.
 - `internal/browser/` owns feature-independent browser operations and resolved

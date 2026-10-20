@@ -4118,6 +4118,53 @@ const readingGeometry = (page: Page) => page.evaluate(() => {
   }
 })
 
+for (const destination of ["Split", "Text"] as const) {
+  test(`stale Preview positions stay bounded after deletion in ${destination}`, async ({ page }) => {
+    const errors: string[] = []
+    page.on("pageerror", error => errors.push(error.message))
+    await page.setViewportSize({ width: 900, height: 700 })
+    await page.goto("/")
+    const text = page.getByRole("textbox", { name: "Text" })
+    await text.fill(unevenSections)
+    await page.getByRole("tab", { name: "Split" }).click()
+    await expect(page.getByRole("heading", { name: "Section 59", exact: true })).toBeVisible()
+    // Hold the preview's 24ms quiet-period refresh, leaving its old source
+    // ranges intact while the textarea and app state accept the deletion.
+    await page.evaluate(() => {
+      const original = window.setTimeout.bind(window)
+      window.setTimeout = ((handler: TimerHandler, delay?: number, ...args: any[]) =>
+        original(handler, delay === 24 ? 60_000 : delay, ...args)
+      ) as typeof window.setTimeout
+    })
+    const shortened = unevenSections.slice(0, unevenSections.indexOf("## Section 10\n")).trimEnd()
+    await text.fill(shortened)
+    await expect(text).toHaveValue(shortened)
+    await expect(page.getByRole("heading", { name: "Section 59", exact: true })).toBeVisible()
+    await text.evaluate(element => { element.scrollTop = 0 })
+    if (destination === "Text") await page.getByRole("tab", { name: "Preview", exact: true }).click()
+    await page.locator("#loomark-preview-scroll").evaluate(element => {
+      element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
+      const heading = [...element.querySelectorAll("h2")].find(node => node.textContent === "Section 40")!
+      element.scrollTop += heading.getBoundingClientRect().top - element.getBoundingClientRect().top - 80
+      element.dispatchEvent(new Event("scroll"))
+    })
+    const oldPosition = await readingGeometry(page)
+    const depth = oldPosition.preview["Section 40"] - oldPosition.previewTop!
+    if (destination === "Text") await page.getByRole("tab", { name: "Text", exact: true }).click()
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    expect(errors).toEqual([])
+    // The extra bottom padding permits EOF to retain the old reading depth,
+    // rather than forcing the textarea to its absolute scroll limit.
+    await expect.poll(() => text.evaluate((element, depth) => {
+      const area = element as HTMLTextAreaElement
+      const lineHeight = Number.parseFloat(getComputedStyle(area).lineHeight)
+      return Math.abs((area.value.split("\n").length - 1) * lineHeight - area.scrollTop - depth)
+    }, depth)).toBeLessThan(2)
+    await expect(text).toHaveValue(shortened)
+    expect(errors).toEqual([])
+  })
+}
+
 test("mode changes keep the paragraph being read at the same height", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.goto("/")
