@@ -4,9 +4,18 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   // Resolve stable browser handles once at the composition boundary.
   let window = @dom.window()
   let initial_compact = compact_viewport(window.inner_width())
-  let first_document = Example(@examples.welcome_source())
+  // A page that embeds Loomark introduces it with its own invitation, so the
+  // editor opens empty there and leaves Text's Japanese face until it is needed.
+  let embedded = @browser.window_is_framed(window)
+  let first_document = if embedded {
+    NewDocument
+  } else {
+    Example(@examples.welcome_source())
+  }
   let font_faces = @browser.document_font_faces(@dom.document())
-  load_writing_face(window, font_faces)
+  if !embedded {
+    load_writing_face(window, font_faces)
+  }
   let viewport_subscription = if window.get_visual_viewport() is Some(viewport) &&
     @dom.document().get_document_element() is Some(root) &&
     root.to_html_element() is Some(root) {

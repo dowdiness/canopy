@@ -52,6 +52,18 @@ test("an empty repository opens the Welcome document and stores it once", async 
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
 })
 
+test("an embedded empty repository opens a New document instead of Welcome", async ({ page }) => {
+  await page.route("**/embedding-host", route => route.fulfill({
+    contentType: "text/html", body: '<iframe src="/" style="width:800px;height:600px"></iframe>',
+  }))
+  await page.goto("/embedding-host")
+  const text = page.frameLocator("iframe").getByRole("textbox", { name: "Text" })
+  await expect(text).toBeEditable()
+  await expect(text).toHaveValue("")
+  await page.waitForTimeout(300)
+  expect(await readStoredDocuments(page)).toEqual([])
+})
+
 async function readingPosition(text: Locator) {
   return text.evaluate((area: HTMLTextAreaElement) => ({
     caret: area.selectionEnd, scrollTop: area.scrollTop, scrollable: area.scrollHeight > area.clientHeight,

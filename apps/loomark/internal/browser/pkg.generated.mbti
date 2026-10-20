@@ -62,6 +62,8 @@ pub fn visual_viewport_scale(@dom.VisualViewport) -> Double
 
 pub fn when_font_faces_ready(FontFaceSet, () -> Unit) -> Unit
 
+pub fn window_is_framed(@dom.Window) -> Bool
+
 pub fn window_outer_height(@dom.Window) -> Double
 
 // Errors

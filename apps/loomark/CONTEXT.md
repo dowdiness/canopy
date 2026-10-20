@@ -39,7 +39,8 @@ The Welcome example that opens when the repository holds no Loomark documents.
 It is stored as soon as it opens, like an Example, so it appears in Recent
 documents. Like every example, it opens at its beginning rather than at its
 end. Deleting the final document still leaves a New document; only a later
-startup with nothing stored opens Welcome again.
+startup with nothing stored opens Welcome again. Loomark embedded in another
+page opens a New document instead, since the embedding page introduces it.
 _Avoid_: onboarding, tutorial
 
 **Editing Document**:
@@ -208,7 +209,7 @@ hue. Text uses a duospaced writing face with IBM Plex Sans JP for Japanese, and
 Preview a reading serif with BIZ UDMincho; system fonts cover scripts they
 lack. Each Japanese face is one file, cached by versioned file name. The
 writing face loads as the app starts for every visitor unless the browser asks
-to save data; Preview's faces load for a Japanese document while the page is
+to save data or another page embeds Loomark; Preview's faces load for a Japanese document while the page is
 idle, after the writing face, before Preview opens. A face that arrives late
 replaces the system font everywhere at once, and Writing focus re-measures.
 Printing from Preview prints the reading page without controls. Appearance
