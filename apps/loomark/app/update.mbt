@@ -312,8 +312,8 @@ priv suberror CreationFault {
 }
 
 ///|
-/// Adds a Source with the given text, collecting the storage actions both
-/// steps produce.
+/// Adds a Source with the given text, as a New document ("") or an Example,
+/// collecting the storage actions both steps produce.
 fn create_with_text(
   documents : @documents.Model,
   document_id : @source_repository.DocumentId,
@@ -350,9 +350,10 @@ fn document_edit_notice(error : @documents.EditError) -> String {
 fn initial_page(
   emit : @rabbita.Emit[Msg],
   compact : Bool,
+  first_document : CreationIntent,
 ) -> (Page, @rabbita.Cmd) {
   (
-    Loading(compact),
+    Loading(compact, first_document),
     @source_repository.open(emit.map(result => Opened(result))),
   )
 }
@@ -381,7 +382,7 @@ fn update_page(
         }
         InProgress => (model, @cmd.none)
       }
-    (Loading(compact), Opened(Ready(saved, initial))) =>
+    (Loading(compact, first_document), Opened(Ready(saved, initial))) =>
       match initial {
         Some(document) => {
           let documents = @documents.Model(saved)
@@ -421,9 +422,15 @@ fn update_page(
             compact,
             next_activation_generation: 0,
           }
+          // Synced documents keep no Source, so Replicas alone still mean
+          // the person has written here; only an empty repository is a first visit.
           let creation : Creation = {
             request_id: 1,
-            intent: NewDocument,
+            intent: if saved.replicas().is_empty() {
+              first_document
+            } else {
+              NewDocument
+            },
             status: InProgress,
           }
           (
@@ -435,7 +442,7 @@ fn update_page(
           )
         }
       }
-    (Loading(compact), Opened(OpenFailed(failure))) =>
+    (Loading(compact, _), Opened(OpenFailed(failure))) =>
       (Recovery(failure, compact), @cmd.none)
     (OpeningNew(opening, creation), EmptyCreateCompleted(request_id, result)) =>
       if !creation_request_is_current(Some(creation), request_id) {
@@ -448,17 +455,27 @@ fn update_page(
               notify(emit, "A new document could not be created."),
             )
           Created(document_id) => {
-            let transition = opening.documents.create(document_id) catch {
-              DocumentAlreadyExists(_) => {
-                let notice = "The new document identity is already in use. Retry to create a fresh identity."
+            let text = match creation.intent {
+              NewDocument => ""
+              Example(text) => text
+            }
+            let documents = create_with_text(
+              opening.documents,
+              document_id,
+              text,
+              actions,
+            ) catch {
+              fault => {
+                let notice = match fault {
+                  IdentityInUse =>
+                    "The new document identity is already in use. Retry to create a fresh identity."
+                  EditRejected(error) => document_edit_notice(error)
+                }
                 return (
                   OpeningNew(opening, { ..creation, status: Fault(notice), }),
                   notify(emit, notice),
                 )
               }
-            }
-            for action in transition.effects {
-              actions.push(action)
             }
             let activation = {
               key: @documents.Key::source(document_id),
@@ -466,15 +483,19 @@ fn update_page(
             }
             let (preview, command) = activate_surface(
               activation,
-              "",
+              text,
               opening.mode,
               emit,
               editor,
             )
+            let command = match creation.intent {
+              NewDocument => command
+              Example(_) => @cmd.batch([command, caret_at_start_after_render()])
+            }
             (
               Editing({
                 activation,
-                documents: transition.model,
+                documents,
                 creation: None,
                 deletion: NoDeletion,
                 mode: opening.mode,
@@ -769,8 +790,8 @@ fn update_page(
       )
       (Editing({ ..editing, preview, }), command)
     }
-    (Loading(_), ViewportChanged(width)) =>
-      (Loading(compact_viewport(width)), @cmd.none)
+    (Loading(_, first_document), ViewportChanged(width)) =>
+      (Loading(compact_viewport(width), first_document), @cmd.none)
     (OpeningNew(opening, creation), ViewportChanged(width)) =>
       (
         OpeningNew({ ..opening, compact: compact_viewport(width), }, creation),
@@ -897,7 +918,7 @@ fn Page::saved_documents(self : Self) -> @source_repository.SavedDocuments? {
   match self {
     Editing(editing) => Some(editing.documents.snapshot())
     OpeningNew(preparing, _) => Some(preparing.documents.snapshot())
-    Loading(_) | Recovery(_, _) => None
+    Loading(_, _) | Recovery(_, _) => None
   }
 }
 
@@ -931,7 +952,7 @@ fn Page::begin_fork(
       }
       Some(OpeningNew({ ..opening, documents, }, creation))
     }
-    Loading(_) | Recovery(_, _) => None
+    Loading(_, _) | Recovery(_, _) => None
   }
 }
 
@@ -951,7 +972,7 @@ fn Page::project_account(
         { ..opening, documents: opening.documents.project_account(account), },
         creation,
       )
-    Loading(_) | Recovery(_, _) => self
+    Loading(_, _) | Recovery(_, _) => self
   }
 }
 
@@ -965,7 +986,7 @@ fn Page::hide_accounts(self : Self) -> Self {
         { ..opening, documents: opening.documents.hide_accounts(), },
         creation,
       )
-    Loading(_) | Recovery(_, _) => self
+    Loading(_, _) | Recovery(_, _) => self
   }
 }
 
@@ -1274,8 +1295,9 @@ fn resolve_changed_account(
 fn initial_state(
   emit : @rabbita.Emit[Msg],
   compact : Bool,
+  first_document : CreationIntent,
 ) -> (Model, @rabbita.Cmd) {
-  let (page, page_command) = initial_page(emit, compact)
+  let (page, page_command) = initial_page(emit, compact, first_document)
   (
     {
       page,
@@ -1717,7 +1739,7 @@ fn reduce(
       }
       let mounted = match model.page {
         Editing(editing) => Some(editing.activation.key)
-        Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
+        Loading(_, _) | OpeningNew(_, _) | Recovery(_, _) => None
       }
       let document_message = @documents.Msg::from_replica_completion(
         attempt.write(),
@@ -2064,7 +2086,7 @@ fn reduce_page_documents(
             notify(emit, document_update_notice(error)),
           )
       }
-    Loading(_) | Recovery(_, _) => (model, [], @cmd.none)
+    Loading(_, _) | Recovery(_, _) => (model, [], @cmd.none)
   }
 }
 

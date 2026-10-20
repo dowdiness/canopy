@@ -8,6 +8,12 @@ priv struct Example {
 }
 
 ///|
+/// The document a first visit opens with, before anything has been written.
+pub fn welcome_source() -> String {
+  embedded_welcome_source
+}
+
+///|
 let examples : Array[Example] = [
   {
     label: "Welcome",

@@ -4,6 +4,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
   // Resolve stable browser handles once at the composition boundary.
   let window = @dom.window()
   let initial_compact = compact_viewport(window.inner_width())
+  let first_document = Example(@examples.welcome_source())
   let font_faces = @browser.document_font_faces(@dom.document())
   load_writing_face(window, font_faces)
   let viewport_subscription = if window.get_visual_viewport() is Some(viewport) &&
@@ -19,7 +20,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     class="loomark-notifications",
     build=toasts => {
       let (model, emit) = @rabbita.create_state_with_init(
-        init=emit => initial_state(emit, initial_compact),
+        init=emit => initial_state(emit, initial_compact, first_document),
         update=(model, msg, emit) => {
           match msg {
             Notify(message) =>

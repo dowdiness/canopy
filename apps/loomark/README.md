@@ -41,7 +41,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 ### ☕ Local-First Peace of Mind
 - **Quiet Autosave:** Automatically persists to your browser after a short pause in typing or when switching tabs. The footer confirms local save status outside Focus Mode; an unsaved indicator remains visible in either mode. After a save failure, the next edit starts saving again without a manual retry button.
 - **Quiet Error Notifications:** Autosave failures use only the existing `Not saved` indicator, without a duplicate toast. RUI Sonner reports explicit operation failures, such as import, creation, and deletion, with its Destructive style without resizing the writing surface. Notifications contain no retry actions; operations can be repeated from their original controls.
-- **Start Immediately:** Open the app and write. Loomark derives recognizable document leads from your first heading or line without requiring you to name or organize files first.
+- **Start Immediately:** Open the app and write. A first visit, with nothing stored yet, opens the Welcome document. Loomark derives recognizable document leads from your first heading or line without requiring you to name or organize files first.
 - **Recent Documents:** A lightweight slide-out sidebar lets you revisit and switch between recent documents seamlessly.
 
 ### 🛡️ Freedom & Optional Sync

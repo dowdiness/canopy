@@ -1,6 +1,7 @@
 ///|
 priv enum Page {
-  Loading(Bool)
+  /// Compact viewport, and what to open when nothing is stored yet.
+  Loading(Bool, CreationIntent)
   OpeningNew(OpeningNewContext, Creation)
   Editing(EditingDocument)
   Recovery(@source_repository.OpenFailure, Bool)

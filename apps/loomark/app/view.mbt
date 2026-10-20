@@ -34,13 +34,13 @@ fn view(
           preview: editing.preview,
           japanese,
         })
-      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
+      Loading(_, _) | OpeningNew(_, _) | Recovery(_, _) => None
     }
   })
 
   let compact = page.map(page => {
     match page {
-      Loading(compact) => compact
+      Loading(compact, _) => compact
       OpeningNew(opening, _) => opening.compact
       Editing(editing) => editing.compact
       Recovery(_, compact) => compact
@@ -131,7 +131,7 @@ fn view(
   let recent_seeds = page.map2(remote_seeds, (page, remote) => {
     match page {
       Editing(editing) => recent_document_seeds(editing, remote)
-      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => @vector.Vector([])
+      Loading(_, _) | OpeningNew(_, _) | Recovery(_, _) => @vector.Vector([])
     }
   })
   let delete_confirmation = page.map(page => {
@@ -141,7 +141,7 @@ fn view(
           DeleteConfirmation(id) => Some(id)
           NoDeletion => None
         }
-      Loading(_) | OpeningNew(_, _) | Recovery(_, _) => None
+      Loading(_, _) | OpeningNew(_, _) | Recovery(_, _) => None
     }
   })
   // Resizing must preserve the sidebar state, so it outlives responsive editor branches.
@@ -228,7 +228,7 @@ fn view(
   })
   let phase = page.map(page => {
     match page {
-      Loading(_) => LoadingScreen
+      Loading(_, _) => LoadingScreen
       OpeningNew(_, creation) =>
         match creation.status {
           InProgress => LoadingScreen

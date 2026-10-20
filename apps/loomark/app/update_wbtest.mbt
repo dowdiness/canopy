@@ -37,7 +37,7 @@ fn Page::documents_state(self : Self) -> @documents.Model? {
   match self {
     Editing(editing) => Some(editing.documents)
     OpeningNew(preparing, _) => Some(preparing.documents)
-    Loading(_) | Recovery(_, _) => None
+    Loading(_, _) | Recovery(_, _) => None
   }
 }
 
@@ -272,7 +272,7 @@ test "repository open starts account lookup with its saved replicas" {
   let saved = test_sync_snapshot(account)
   let initial_document = saved.find(document_id("two")).unwrap()
   let (opened, _) = test_root_update(
-    test_model(Loading(false), @sync.State()),
+    test_model(Loading(false, NewDocument), @sync.State()),
     Opened(Ready(saved, Some(initial_document))),
   )
   guard opened.sync().session() is @sync.Resolving(lookup_id) else {
@@ -2532,8 +2532,8 @@ test "export payload falls back for an empty Editing Document" {
 ///|
 test "loading and recovery ignore document lifecycle feedback" {
   let feedback = ApplyPendingEdit(source_key("one"), 1)
-  let (loading, _) = test_update(Loading(false), feedback)
-  assert_true(loading == Loading(false))
+  let (loading, _) = test_update(Loading(false, NewDocument), feedback)
+  assert_true(loading == Loading(false, NewDocument))
   let (recovery, _) = test_update(Recovery(StorageUnavailable, false), feedback)
   assert_true(recovery == Recovery(StorageUnavailable, false))
 }
@@ -2543,11 +2543,40 @@ test "repository open activates its resolved initial Document" {
   let snapshot = test_snapshot()
   let initial = snapshot.find(document_id("two")).unwrap()
   let (model, _) = test_update(
-    Loading(false),
+    Loading(false, NewDocument),
     Opened(Ready(snapshot, Some(initial))),
   )
   guard model is Editing(editing) else { fail("editing") }
   assert_true(editing.activation.key == source_key("two"))
+}
+
+///|
+test "repository open offers Welcome only when nothing is stored, synced documents included" {
+  let empty = @source_repository.SavedDocuments::from_documents([]).unwrap()
+  let welcome = Example("# Welcome to Loomark\n")
+  let (first_visit, _) = test_update(
+    Loading(false, welcome),
+    Opened(Ready(empty, None)),
+  )
+  guard first_visit is OpeningNew(_, creation) else { fail("first visit") }
+  assert_true(creation.intent == welcome)
+  let account = @source_repository.AccountId::parse("account") catch {
+    _ => abort("valid test account")
+  }
+  let synced = empty.apply_replica(
+    @source_repository.DocumentReplica(
+      account,
+      @source_repository.Document::create(document_id("one"), "one"),
+    ),
+  ) catch {
+    _ => abort("valid test replica")
+  }
+  let (returning, _) = test_update(
+    Loading(false, welcome),
+    Opened(Ready(synced, None)),
+  )
+  guard returning is OpeningNew(_, creation) else { fail("returning visit") }
+  assert_true(creation.intent == NewDocument)
 }
 
 ///|

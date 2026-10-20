@@ -9,6 +9,8 @@ import {
 // Values
 pub fn examples_bar(@cmd.Emit[String], @cmd.Cmd, disabled~ : Bool) -> @html.Html
 
+pub fn welcome_source() -> String
+
 // Errors
 
 // Types and methods

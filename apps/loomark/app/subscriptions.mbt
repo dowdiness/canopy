@@ -214,7 +214,7 @@ fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
   let pending = match model {
     Editing(editing) => editing.documents.pending_edits()
     OpeningNew(preparing, _) => preparing.documents.pending_edits()
-    Loading(_) | Recovery(_, _) => []
+    Loading(_, _) | Recovery(_, _) => []
   }
   @sub.batch(
     pending.map(item => {

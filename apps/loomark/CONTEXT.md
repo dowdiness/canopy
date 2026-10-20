@@ -34,6 +34,14 @@ untouched. This is presentation, never Document text. A saved empty document
 does not show the hint.
 _Avoid_: blank record, draft
 
+**Welcome document**:
+The Welcome example that opens when the repository holds no Loomark documents.
+It is stored as soon as it opens, like an Example, so it appears in Recent
+documents. Like every example, it opens at its beginning rather than at its
+end. Deleting the final document still leaves a New document; only a later
+startup with nothing stored opens Welcome again.
+_Avoid_: onboarding, tutorial
+
 **Editing Document**:
 The Loomark document currently shown in the Editor and owning its TextArea and
 Preview. A requested Document switch does not change the Editing Document until

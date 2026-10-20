@@ -8,6 +8,7 @@ const EDITING_DOCUMENT_KEY = "editing-document"
 const SOURCE_KEY_PREFIX = "source/v1/"
 const REPLICA_KEY_PREFIX = "replica/"
 const CATALOG_KEY = "catalog/v1"
+const WELCOME_PATTERN = /^# Welcome to Loomark\n/
 
 // Startup/reload is closed at either side of the 720 px presentation boundary;
 // opening is a deliberate page-local choice, never a persisted preference.
@@ -18,7 +19,7 @@ for (const width of [390, 720, 721, 1280]) {
     const toggle = page.getByRole("button", { name: "Toggle documents" })
     const sidebar = page.locator("#loomark-document-sidebar")
     const text = page.getByRole("textbox", { name: "Text" })
-    await expect(text).toHaveValue("")
+    await expect(text).toHaveValue(WELCOME_PATTERN)
     await expect(toggle).toHaveAttribute("aria-expanded", "false")
     await expect(sidebar).toHaveAttribute("aria-hidden", "true")
     const content = `# Startup at ${width}\n`
@@ -36,6 +37,20 @@ for (const width of [390, 720, 721, 1280]) {
     await expect(text).toBeFocused()
   })
 }
+
+test("an empty repository opens the Welcome document and stores it once", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 })
+  await page.goto("/")
+  await waitForWelcome(page)
+  const text = page.getByRole("textbox", { name: "Text" })
+  await expect(text).toBeFocused()
+  await expect.poll(() => readingPosition(text)).toEqual({ caret: 0, scrollTop: 0, scrollable: true })
+  await openDocuments(page)
+  await expect(page.getByRole("button", { name: "Welcome to Loomark", exact: true })).toHaveAttribute("data-state", "active")
+  await page.reload()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(WELCOME_PATTERN)
+  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+})
 
 async function readingPosition(text: Locator) {
   return text.evaluate((area: HTMLTextAreaElement) => ({
@@ -247,14 +262,14 @@ test("More actions remains reachable above the mode controls in short viewports"
   })).toBe(true)
   const download = page.waitForEvent("download")
   await page.keyboard.press("Enter")
-  expect((await download).suggestedFilename()).toBe("untitled.md")
+  expect((await download).suggestedFilename()).toBe("Welcome to Loomark.md")
   await page.keyboard.press("Escape")
   await expect(more).toBeFocused()
 })
 
 test("large native clipboard paste preserves exact text through Undo, reload, and Export", async ({ page }) => {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
-  await page.goto("/")
+  await openEmptyNew(page)
   const text = page.getByRole("textbox", { name: "Text", exact: true })
   const source = "# Paste continuity\n\n" + "日本語と English. Keep the writing flowing.\n".repeat(4000)
   await expect(text).toBeVisible()
@@ -304,7 +319,7 @@ test("sign-in preparation disables creation and Import until cancelled", async (
 })
 
 test("a new document has an empty accessible save status", async ({ page }) => {
-  await page.goto("/")
+  await openEmptyNew(page)
   const status = page.locator(".loomark-footer").getByRole("status")
   await expect(status).toMatchAriaSnapshot("- status")
   await expect(status).toHaveText("")
@@ -329,7 +344,10 @@ test("the first save status preserves native typing Undo and Redo", async ({ pag
   const nativeUndo = await finishTyping(nativeText)
 
   await page.goto("/")
+  await waitForWelcome(page)
+  await page.getByRole("button", { name: "New document", exact: true }).first().click()
   const text = page.getByRole("textbox", { name: "Text", exact: true })
+  await expect(text).toHaveValue("")
   await text.pressSequentially("F")
   await expect(page.getByRole("status").filter({
     hasText: /Saving on this device|Saved on this device/,
@@ -445,7 +463,7 @@ test("replica save retries preserve native typing history and persist the curren
 })
 
 test("native Undo saves an empty document without exporting hint text", async ({ page }) => {
-  await page.goto("/")
+  await openEmptyNew(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const hasVisibleHint = () => text.evaluate(element =>
     element.matches(":placeholder-shown") &&
@@ -851,11 +869,31 @@ function installDocumentPutFailure(target: string | { prefix: string }): void {
 }
 
 async function waitForRepositoryOpen(page: Page): Promise<void> {
+  await waitForWelcome(page)
+  await page.getByRole("textbox", { name: "Text" }).fill("# Untitled\n")
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: "# Untitled\n" })
+}
+
+// Deleting the Welcome document leaves the untouched New document over an
+// empty repository, the state a first visit started from before Welcome.
+async function openEmptyNew(page: Page): Promise<void> {
+  await page.goto("/")
+  await waitForWelcome(page)
+  await openDocuments(page)
+  await page.getByRole("button", { name: 'Delete "Welcome to Loomark"', exact: true }).click()
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete document" }).click()
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue("")
   await expect.poll(() => readStoredDocuments(page)).toEqual([])
-  await text.fill("# Untitled\n")
-  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
+  const toggle = page.getByRole("button", { name: "Toggle documents" })
+  if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click()
+  await text.focus()
+}
+
+// An empty repository opens with the stored Welcome document.
+async function waitForWelcome(page: Page): Promise<void> {
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(WELCOME_PATTERN)
+  await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: expect.stringMatching(WELCOME_PATTERN) })
 }
 
 function installDelayedDocumentAbort(targetKey: string): void {
@@ -1034,7 +1072,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test("save indicator distinguishes an empty new document from a stored empty document", async ({ page }) => {
-  await page.goto("/")
+  await openEmptyNew(page)
   const indicator = page.locator(".loomark-save-status")
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue("")
@@ -1198,7 +1236,7 @@ test("menu Import uses the same Markdown file action as the sidebar", async ({ p
 })
 
 test("importing the same file twice creates two Documents", async ({ page }) => {
-  await page.goto("/")
+  await openEmptyNew(page)
   const file = page.getByLabel("Import Markdown")
   const selected = "tests/fixtures/import-bom-crlf.bin"
 
@@ -1370,7 +1408,7 @@ test("a replaced Sonner notification does not inherit the previous swipe", async
 })
 
 test("separately completed concurrent import failures each notify", async ({ page }) => {
-  await page.goto("/")
+  await openEmptyNew(page)
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
   await page.evaluate(() => {
     const failures: Array<() => void> = []
@@ -1405,7 +1443,7 @@ test("separately completed concurrent import failures each notify", async ({ pag
 })
 
 test("Import rejects malformed UTF-8 without creating a Source", async ({ page }) => {
-  await page.goto("/")
+  await openEmptyNew(page)
   await page.getByLabel("Import Markdown")
     .setInputFiles("tests/fixtures/import-malformed-utf8.md")
 
@@ -1452,10 +1490,7 @@ test("mode changes preserve native text selection and Undo", async ({ page }) =>
 
   await expect(text).toBeVisible()
   await expect(text).toBeFocused()
-  await expect(text).toHaveValue("")
-  expect(await readStoredDocuments(page)).toEqual([])
-  await text.fill("# Untitled\n")
-  await expect.poll(() => readStoredDocument(page)).not.toBeNull()
+  await waitForRepositoryOpen(page)
   await expect(textTab).toHaveAttribute("aria-selected", "true")
   await expect(previewTab).toHaveAttribute("aria-selected", "false")
   await expect(splitTab).toHaveAttribute("aria-selected", "false")
@@ -1942,7 +1977,7 @@ test("first edit with full storage stays unsaved without a duplicate toast", asy
   await page.addInitScript(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
-  await expect(text).toHaveValue("")
+  await expect(text).toHaveValue(WELCOME_PATTERN)
   expect(await readStoredDocuments(page)).toEqual([])
   await text.fill("# Full\n")
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Not saved")
@@ -3496,7 +3531,8 @@ test("Preview prepares after its status paints and refreshes typed Markdown", as
 })
 
 test("imported active-looking Markdown stays inert and exports losslessly", async ({ page }) => {
-  await page.goto("/")
+  // Reopening without a remembered document picks by Document ID, so the import must be the only one.
+  await openEmptyNew(page)
   const origin = new URL(page.url()).origin
   const blockedRequests: string[] = []
   await page.context().route("**/*", route => {
@@ -4793,7 +4829,7 @@ test("valid and corrupt Source records coexist without overwriting corruption", 
 })
 
 test("native range edits preserve exact text and Undo across Unicode input", async ({ page }) => {
-  await page.goto("/")
+  await openEmptyNew(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.waitFor()
 
