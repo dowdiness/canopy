@@ -1,6 +1,7 @@
 ///|
 /// How a pane places source offsets on screen and scrolls them. Heights are
-/// viewport coordinates.
+/// viewport coordinates. These methods are actions, including the reads;
+/// numeric policy belongs in policy.mbt, never in callbacks over this trait.
 priv trait ReadingGeometry {
   /// Top of the line showing `offset`.
   fn top_of(Self, Int) -> Double
@@ -46,8 +47,9 @@ fn[G : ReadingGeometry] misalignment(
 ///|
 fn[G : ReadingGeometry] align(geometry : G, anchor : ReadingAnchor) -> Unit {
   let delta = misalignment(geometry, anchor)
-  if delta.abs() >= 0.5 {
-    geometry.scroll_by(delta)
+  match scroll_adjustment(delta) {
+    Keep => ()
+    Move(delta) => geometry.scroll_by(delta)
   }
 }
 

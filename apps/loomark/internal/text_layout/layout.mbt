@@ -90,6 +90,7 @@ fn TextMirror::measure(
   self : TextMirror,
   text_area : @dom.HTMLTextAreaElement,
   style : @dom.CSSStyleDeclaration,
+  lang : String,
 ) -> MeasuredText {
   self.sync_text(text_area.get_value())
   let area = text_area.as_element()
@@ -98,10 +99,6 @@ fn TextMirror::measure(
     "auto" if area.get_scroll_height() > area.get_client_height() => "scroll"
     _ => "hidden"
   }
-  let lang = area
-    .closest("[lang]")
-    .bind(owner => owner.get_attribute("lang"))
-    .unwrap_or("")
   let signature = text_layout_properties
     .iter()
     .map(property => style.get_property_value(property))

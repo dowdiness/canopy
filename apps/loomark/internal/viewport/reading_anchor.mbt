@@ -27,7 +27,8 @@ fn[G : ReadingGeometry] reading_anchor(
 ///|
 /// `None` while the textarea is hidden.
 pub fn text_reading_anchor(area : @dom.HTMLTextAreaElement) -> ReadingAnchor? {
-  TextGeometry::measure(area).map(geometry => {
+  let text = @text_layout.TextArea(area)
+  TextGeometry::measure(text).map(geometry => {
     reading_anchor(geometry, caret_offset(area))
   })
 }

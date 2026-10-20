@@ -135,38 +135,6 @@ fn WritingCaret::place(
 }
 
 ///|
-/// Reads the caret's layout before any rendering writes, so one frame forces
-/// at most one layout, and returns the caret to draw with the scroll position.
-/// The native caret returns while none is drawn.
-fn locate_writing_caret(
-  focus : WritingFocus,
-  measured_text : @text_layout.MeasuredText,
-) -> ((@writing_focus.Caret, @writing_focus.CaretCause)?, Double) raise {
-  let text_area = focus.text_area
-  let end = @writing_focus.selection_end(
-    text_area.get_selection_start(),
-    text_area.get_selection_end(),
-    backward=text_area.get_selection_direction() == "backward",
-    editable_focus=text_area.matches(":focus:read-write"),
-  )
-  let scroll_top = text_area.get_scroll_top()
-  match end {
-    Endpoint(_) => (None, scroll_top)
-    Collapsed(offset) => {
-      let (measured, cause) = focus.text_layout.locate_caret(
-        text_area, measured_text, offset,
-      )
-      let caret : @writing_focus.Caret = {
-        x: measured.x,
-        y: measured.y,
-        scroll_top,
-      }
-      (Some((caret, cause)), scroll_top)
-    }
-  }
-}
-
-///|
 /// A newly shown caret appears in place, solid until the rest timer.
 fn render_writing_caret(
   caret : WritingCaret,

@@ -28,33 +28,27 @@ struct WritingFocus {
 }
 
 ///|
-/// Reads every layout this frame needs before any rendering writes, so one
-/// frame forces at most one layout.
+/// Resolve the writing geometry before updating the presentation layers.
 fn draw_writing_focus(focus : WritingFocus) -> Unit raise {
-  let (measured, geometry_changed) = focus.text_layout.measure(
-    focus.text_area,
-    focus.dimming_layer,
+  let dimming = focus.dimming
+  let geometry = focus.text_layout.measure(dims=dimming is Some(_))
+  let style = focus.dimming_layer.get_style()
+  style.set_property(
+    "--loomark-text-line-height",
+    "\{geometry.metrics.line_height}px",
   )
-  let dimmed = match focus.dimming {
-    Some(dimming) =>
-      Some(
-        (
-          dimming,
-          focus.text_layout.locate_focus(
-            focus.text_area,
-            measured,
-            focus.text_area.get_selection_start(),
-            focus.text_area.get_selection_end(),
-          ),
-        ),
-      )
-    None => None
+  style.set_property("left", "\{geometry.layer_left}px")
+  style.set_property("width", "\{geometry.metrics.content_width}px")
+  if dimming is Some(dimming) {
+    render_dimming(
+      focus,
+      dimming,
+      geometry.focus.unwrap(),
+      geometry.viewport,
+      geometry_changed=geometry.changed,
+    )
   }
-  let (caret, scroll_top) = locate_writing_caret(focus, measured)
-  if dimmed is Some((dimming, range)) {
-    render_dimming(focus, dimming, range, scroll_top, geometry_changed~)
-  }
-  render_writing_caret(focus.caret, caret)
+  render_writing_caret(focus.caret, geometry.caret)
 }
 
 ///|
@@ -62,7 +56,7 @@ fn render_dimming(
   focus : WritingFocus,
   dimming : Dimming,
   range : @writing_focus.Range,
-  scroll_top : Double,
+  viewport_range : @writing_focus.Range,
   geometry_changed~ : Bool,
 ) -> Unit raise {
   dimming.intent = dimming.intent.settle(
@@ -73,10 +67,6 @@ fn render_dimming(
     engaged: dimming.intent is Writing,
     reduced_motion: focus.reduced_motion.get_matches(),
   }
-  let viewport_range = @writing_focus.Range(
-    scroll_top,
-    scroll_top + focus.text_area.get_client_height(),
-  )
   let dimmed = presentation.dimming(dimming.presentation, geometry_changed~)
   match dimmed {
     Unchanged =>
@@ -215,7 +205,7 @@ pub fn connect(
     let window = @browser_api.document_window(document)
     let fonts = @browser_api.document_fonts(document)
     let reduced_motion = window.match_media("(prefers-reduced-motion: reduce)")
-    let text_layout = WritingMeasurement()
+    let text_layout = WritingMeasurement(text_area)
     let focus : WritingFocus = {
       text_area,
       dimming_layer,

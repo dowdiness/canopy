@@ -1,14 +1,14 @@
 ///|
 /// Reading-position policy over the shared textarea layout.
 priv struct TextGeometry {
-  area : @dom.HTMLTextAreaElement
+  area : @text_layout.TextArea
   layout : @text_layout.MeasuredText
 }
 
 ///|
 /// `None` while the textarea is hidden.
-fn TextGeometry::measure(area : @dom.HTMLTextAreaElement) -> TextGeometry? {
-  guard area.get_client_height() > 0.0 else { return None }
+fn TextGeometry::measure(area : @text_layout.TextArea) -> TextGeometry? {
+  guard area.element.get_client_height() > 0.0 else { return None }
   Some({ area, layout: @text_layout.measure(area), })
 }
 
@@ -23,26 +23,37 @@ fn caret_offset(area : @dom.HTMLTextAreaElement) -> Int {
 }
 
 ///|
+/// DOM reads belong here, not in the coordinate calculations on TextViewport.
+fn TextGeometry::viewport(self : TextGeometry) -> TextViewport {
+  let area = self.area.element.as_element()
+  {
+    top: area.get_bounding_client_rect().get_top() + area.get_client_top(),
+    height: area.get_client_height(),
+    scroll_top: area.get_scroll_top(),
+    padding_top: self.layout.metrics.padding_top,
+    scroll_padding_bottom: self.layout.metrics.scroll_padding_bottom,
+  }
+}
+
+///|
 impl ReadingGeometry for TextGeometry with fn top_of(self, offset) {
   // Preview may still describe text from before a deletion. A reading
   // position beyond the current source corresponds to its new end.
-  let offset = offset.clamp(min=0, max=self.area.get_value().length())
-  let area = self.area.as_element()
-  area.get_bounding_client_rect().get_top() +
-  area.get_client_top() +
-  @text_layout.measure_line_top(self.area, offset) -
-  area.get_scroll_top()
+  let offset = offset.clamp(min=0, max=self.area.element.get_value().length())
+  let viewport = self.viewport()
+  let line_top = @text_layout.measure_line_top(self.area, offset)
+  viewport.content_origin() + line_top
 }
 
 ///|
 /// Empty lines show no text to keep in place, so the search moves past them.
 impl ReadingGeometry for TextGeometry with fn offset_at(self, top) {
   let text = self.layout.source.text()
-  let area = self.area.as_element()
-  let origin = area.get_bounding_client_rect().get_top() +
-    area.get_client_top() -
-    area.get_scroll_top()
-  let mut low = @text_layout.measure_offset_at(self.area, top - origin)
+  let viewport = self.viewport()
+  let mut low = @text_layout.measure_offset_at(
+    self.area,
+    top - viewport.content_origin(),
+  )
   while low < text.length() && text.code_unit_at(low) == '\n' {
     low += 1
   }
@@ -58,16 +69,11 @@ impl ReadingGeometry for TextGeometry with fn line_height(self) {
 /// The textarea's scroll padding keeps lines clear of the overlaid controls;
 /// its larger bottom padding only lets the text scroll past its end.
 impl ReadingGeometry for TextGeometry with fn readable(self) {
-  let area = self.area.as_element()
-  let top = area.get_bounding_client_rect().get_top() + area.get_client_top()
-  (
-    top + self.layout.metrics.padding_top,
-    top + area.get_client_height() - self.layout.metrics.scroll_padding_bottom,
-  )
+  self.viewport().readable()
 }
 
 ///|
 impl ReadingGeometry for TextGeometry with fn scroll_by(self, delta) {
-  let area = self.area.as_element()
+  let area = self.area.element.as_element()
   area.set_scroll_top(area.get_scroll_top() + delta)
 }

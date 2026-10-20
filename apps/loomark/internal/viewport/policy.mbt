@@ -17,6 +17,52 @@ fn fitted_top(
 }
 
 ///|
+/// Numeric sample of the textarea's inner box. It has no live DOM reads;
+/// scrolling or resizing requires the shell to take another sample.
+priv struct TextViewport {
+  top : Double
+  height : Double
+  scroll_top : Double
+  padding_top : Double
+  scroll_padding_bottom : Double
+}
+
+///|
+fn TextViewport::content_origin(self : TextViewport) -> Double {
+  self.top - self.scroll_top
+}
+
+///|
+fn TextViewport::readable(self : TextViewport) -> (Double, Double) {
+  (
+    self.top + self.padding_top,
+    self.top + self.height - self.scroll_padding_bottom,
+  )
+}
+
+///|
+/// Requested movement smaller than half a pixel must not cause a scroll write.
+priv enum ScrollAdjustment {
+  Keep
+  Move(Double)
+}
+
+///|
+fn scroll_adjustment(delta : Double) -> ScrollAdjustment {
+  if delta.abs() >= 0.5 {
+    Move(delta)
+  } else {
+    Keep
+  }
+}
+
+///|
+/// A pane that does not scroll has no end to reach.
+fn at_scroll_end(top : Double, height : Double, scroll_height : Double) -> Bool {
+  top > 0.0 && top + height >= scroll_height - 0.5
+}
+
+///|
 /// Remove pinch scaling, not keyboard occlusion, from the available height.
 fn viewport_layout_height(visible_height : Double, scale : Double) -> Double {
   visible_height * scale

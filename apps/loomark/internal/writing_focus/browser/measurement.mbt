@@ -1,97 +1,145 @@
 ///|
-priv struct CaretMeasurement {
-  source : @text_lines.TextLines
-  measured : @writing_focus.MeasuredCaret
-}
-
-///|
 priv struct FocusMeasurement {
-  source : @text_lines.TextLines
   lines : @writing_focus.LineRange
   range : @writing_focus.Range
 }
 
 ///|
-/// Feature-owned caches only. The measuring surface and its lifetime belong
-/// to text_layout; Markdown groups are built only when dimming needs them.
-priv struct WritingMeasurement {
-  mut source : @text_lines.TextLines?
-  mut reflow_revision : Int?
-  mut groups : @writing_focus.WritingGroups?
-  mut focus : FocusMeasurement?
-  mut caret : CaretMeasurement?
+/// All cached values belong to this source and layout. A text change keeps
+/// only the fact that a caret was previously measured, not its old coordinates.
+priv struct WritingSnapshot {
+  source : @text_lines.TextLines
+  reflow_revision : Int
+  groups : @writing_focus.WritingGroups?
+  focus : FocusMeasurement?
+  caret : @writing_focus.CaretHistory
 }
 
 ///|
-fn WritingMeasurement::WritingMeasurement() -> WritingMeasurement {
-  {
-    source: None,
-    reflow_revision: None,
-    groups: None,
-    focus: None,
-    caret: None,
+/// None means not yet measured, rather than independently missing source,
+/// revision, and cache fields.
+priv struct WritingMeasurement {
+  area : @text_layout.TextArea
+  mut snapshot : WritingSnapshot?
+}
+
+///|
+fn WritingMeasurement::WritingMeasurement(
+  area : @dom.HTMLTextAreaElement,
+) -> WritingMeasurement {
+  { area: @text_layout.TextArea(area), snapshot: None, }
+}
+
+///|
+/// Pure transition: reuse a matching generation or create its replacement.
+fn writing_snapshot(
+  previous : WritingSnapshot?,
+  measured : @text_layout.MeasuredText,
+) -> (WritingSnapshot, Bool) {
+  let source = measured.source
+  let reflow_revision = measured.reflow_revision
+  match previous {
+    Some(previous) if physical_equal(previous.source, source) &&
+      previous.reflow_revision == reflow_revision => (previous, false)
+    _ => {
+      let groups = match previous {
+        Some(previous) if physical_equal(previous.source, source) =>
+          previous.groups
+        _ => None
+      }
+      let caret = match previous {
+        Some(previous) if previous.reflow_revision == reflow_revision =>
+          match previous.caret {
+            Unmeasured => @writing_focus.Unmeasured
+            OtherText | SameText(_) => OtherText
+          }
+        _ => @writing_focus.Unmeasured
+      }
+      ({ source, reflow_revision, groups, focus: None, caret, }, true)
+    }
   }
+}
+
+///|
+/// A completed frame contains values only. Callers cannot pair a textarea
+/// with an earlier snapshot or ask for deferred geometry reads.
+priv struct WritingGeometry {
+  metrics : @text_layout.TextMetrics
+  layer_left : Double
+  focus : @writing_focus.Range?
+  caret : (@writing_focus.Caret, @writing_focus.CaretCause)?
+  viewport : @writing_focus.Range
+  changed : Bool
 }
 
 ///|
 fn WritingMeasurement::measure(
   self : WritingMeasurement,
-  area : @dom.HTMLTextAreaElement,
-  layer : @dom.HTMLElement,
-) -> (@text_layout.MeasuredText, Bool) {
-  let measured = @text_layout.measure(area)
-  let text_changed = match self.source {
-    Some(source) => !physical_equal(source, measured.source)
-    None => true
-  }
-  let reflowed = match self.reflow_revision {
-    Some(revision) => revision != measured.reflow_revision
-    None => true
-  }
-  if text_changed {
-    self.groups = None
-  }
-  if reflowed {
-    self.focus = None
-    self.caret = None
-  }
-  self.source = Some(measured.source)
-  self.reflow_revision = Some(measured.reflow_revision)
-  let style = layer.get_style()
-  style.set_property(
-    "--loomark-text-line-height",
-    "\{measured.metrics.line_height}px",
+  dims~ : Bool,
+) -> WritingGeometry raise {
+  let area = self.area.element
+  let measured = @text_layout.measure(self.area)
+  let selection_start = area.get_selection_start()
+  let selection_end = area.get_selection_end()
+  let end = @writing_focus.selection_end(
+    selection_start,
+    selection_end,
+    backward=area.get_selection_direction() == "backward",
+    editable_focus=area.matches(":focus:read-write"),
   )
-  style.set_property(
-    "left",
-    "\{area.get_offset_left() + measured.metrics.padding_left}px",
-  )
-  style.set_property("width", "\{measured.metrics.content_width}px")
-  (measured, text_changed || reflowed)
+  let scroll_top = area.get_scroll_top()
+  let (snapshot, changed) = writing_snapshot(self.snapshot, measured)
+  let (snapshot, focus) = if dims {
+    let (snapshot, range) = snapshot.locate_focus(
+      self.area,
+      selection_start,
+      selection_end,
+    )
+    (snapshot, Some(range))
+  } else {
+    (snapshot, None)
+  }
+  let (snapshot, caret) = match end {
+    Endpoint(_) => (snapshot, None)
+    Collapsed(offset) => {
+      let (snapshot, caret, cause) = snapshot.locate_caret(
+        self.area,
+        measured.metrics,
+        offset,
+      )
+      let at : @writing_focus.Caret = { x: caret.x, y: caret.y, scroll_top, }
+      (snapshot, Some((at, cause)))
+    }
+  }
+  self.snapshot = Some(snapshot)
+  {
+    metrics: measured.metrics,
+    layer_left: area.get_offset_left() + measured.metrics.padding_left,
+    focus,
+    caret,
+    viewport: @writing_focus.Range(
+      scroll_top,
+      scroll_top + area.get_client_height(),
+    ),
+    changed,
+  }
 }
 
 ///|
-fn WritingMeasurement::locate_focus(
-  self : WritingMeasurement,
-  area : @dom.HTMLTextAreaElement,
-  measured : @text_layout.MeasuredText,
+fn WritingSnapshot::locate_focus(
+  self : WritingSnapshot,
+  area : @text_layout.TextArea,
   selection_start : Int,
   selection_end : Int,
-) -> @writing_focus.Range raise {
-  let source = measured.source
+) -> (WritingSnapshot, @writing_focus.Range) raise {
   let groups = match self.groups {
     Some(groups) => groups
-    None => {
-      let groups = @writing_focus.WritingGroups(source)
-      self.groups = Some(groups)
-      groups
-    }
+    None => @writing_focus.WritingGroups(self.source)
   }
   let lines = groups.focus_lines(selection_start, selection_end)
   match self.focus {
-    Some(focus) if physical_equal(focus.source, source) &&
-      focus.lines.first == lines.first &&
-      focus.lines.last == lines.last => focus.range
+    Some(focus) if focus.lines.first == lines.first &&
+      focus.lines.last == lines.last => (self, focus.range)
     _ => {
       let (top, bottom) = @text_layout.measure_line_bounds(
         area,
@@ -99,40 +147,31 @@ fn WritingMeasurement::locate_focus(
         lines.last,
       )
       let range = groups.focus_range(lines, top~, bottom~)
-      self.focus = Some({ source, lines, range, })
-      range
+      ({ ..self, groups: Some(groups), focus: Some({ lines, range, }), }, range)
     }
   }
 }
 
 ///|
-fn WritingMeasurement::locate_caret(
-  self : WritingMeasurement,
-  area : @dom.HTMLTextAreaElement,
-  measured_text : @text_layout.MeasuredText,
+fn WritingSnapshot::locate_caret(
+  self : WritingSnapshot,
+  area : @text_layout.TextArea,
+  metrics : @text_layout.TextMetrics,
   offset : Int,
-) -> (@writing_focus.MeasuredCaret, @writing_focus.CaretCause) raise {
-  let source = measured_text.source
-  let history : @writing_focus.CaretHistory = match self.caret {
-    None => Unmeasured
-    Some(caret) if physical_equal(caret.source, source) =>
-      SameText(caret.measured)
-    Some(_) => OtherText
-  }
-  let cause = match @writing_focus.caret_measure(history, offset) {
-    Cached(measured) => return (measured, Navigation)
+) -> (WritingSnapshot, @writing_focus.MeasuredCaret, @writing_focus.CaretCause) raise {
+  let cause = match @writing_focus.caret_measure(self.caret, offset) {
+    Cached(measured) => return (self, measured, Navigation)
     Measure(cause) => cause
   }
   let position = @text_layout.measure_caret(area, offset)
   let measured : @writing_focus.MeasuredCaret = {
     offset,
     x: @writing_focus.drawn_caret_x(
-      position.x - measured_text.metrics.padding_left,
-      layer_width=measured_text.metrics.content_width,
+      position.x - metrics.padding_left,
+      layer_width=metrics.content_width,
       half_width=CARET_WIDTH / 2.0,
     ),
     y: position.y,
   }
-  self.caret = Some({ source, measured, })
-  (measured, cause)
+  ({ ..self, caret: SameText(measured), }, measured, cause)
 }

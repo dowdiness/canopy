@@ -53,13 +53,6 @@ fn[R : ReadingGeometry, F : ReadingGeometry] follow(
 }
 
 ///|
-/// A pane that does not scroll has no end to reach.
-fn scrolled_to_end(pane : @dom.Element) -> Bool {
-  let top = pane.get_scroll_top()
-  top > 0.0 && top + pane.get_client_height() >= pane.get_scroll_height() - 0.5
-}
-
-///|
 fn connect_split(
   area : @dom.HTMLTextAreaElement,
   preview : @dom.Element,
@@ -67,12 +60,16 @@ fn connect_split(
   following~ : @dom.Element,
   follow_reading : (TextGeometry, @preview.PreviewGeometry) -> Unit,
 ) -> SplitFollowing {
+  let text_area = @text_layout.TextArea(area)
   fn resync() {
     // The last text of the following pane can sit lower than the text it
     // follows, which would leave the end of the document out of view.
-    if scrolled_to_end(reading) {
+    let top = reading.get_scroll_top()
+    let height = reading.get_client_height()
+    let scroll_height = reading.get_scroll_height()
+    if at_scroll_end(top, height, scroll_height) {
       following.set_scroll_top(following.get_scroll_height())
-    } else if TextGeometry::measure(area) is Some(text) &&
+    } else if TextGeometry::measure(text_area) is Some(text) &&
       @preview.PreviewGeometry::measure(preview) is Some(rendered) {
       follow_reading(text, rendered)
     }

@@ -1,4 +1,34 @@
 ///|
+/// Shell connection to one rendered textarea. Resolve ancestry once; attribute
+/// values may change between frames, but replacing the node needs a new connection.
+/// This owns no mirror and exposes no deferred geometry result.
+pub struct TextArea {
+  element : @dom.HTMLTextAreaElement
+  priv ancestors : ArrayView[@dom.Element]
+}
+
+///|
+pub fn TextArea::TextArea(element : @dom.HTMLTextAreaElement) -> TextArea {
+  let ancestors : Array[@dom.Element] = []
+  for current = Some(element.as_element())
+      current is Some(node)
+      current = node.get_parent_element() {
+    ancestors.push(node)
+  }
+  { element, ancestors: ancestors[:], }
+}
+
+///|
+fn TextArea::language(self : TextArea) -> String {
+  for node in self.ancestors {
+    if node.get_attribute("lang") is Some(lang) {
+      return lang
+    }
+  }
+  ""
+}
+
+///|
 /// Immutable dimensions, with no cache-invalidation meaning attached to identity.
 pub struct TextMetrics {
   line_height : Double
@@ -19,17 +49,17 @@ pub struct MeasuredText {
 }
 
 ///|
-fn prepare(area : @dom.HTMLTextAreaElement) -> (TextMirror, MeasuredText) {
-  let document = @browser.element_document(area.as_element())
+fn prepare(area : TextArea) -> (TextMirror, MeasuredText) {
+  let document = @browser.element_document(area.element.as_element())
   let mirror = TextMirror::in_document(document)
   let style = @browser.document_window(document).get_computed_style(
-    area.as_element(),
+    area.element.as_element(),
   )
-  (mirror, mirror.measure(area, style))
+  (mirror, mirror.measure(area.element, style, area.language()))
 }
 
 ///|
-pub fn measure(area : @dom.HTMLTextAreaElement) -> MeasuredText {
+pub fn measure(area : TextArea) -> MeasuredText {
   let (_, measured) = prepare(area)
   measured
 }
@@ -37,17 +67,14 @@ pub fn measure(area : @dom.HTMLTextAreaElement) -> MeasuredText {
 ///|
 /// Positions are relative to the textarea's inner border edge, before scrolling.
 /// Each query synchronizes and reads the mirror before returning plain values.
-pub fn measure_line_top(
-  area : @dom.HTMLTextAreaElement,
-  offset : Int,
-) -> Double {
+pub fn measure_line_top(area : TextArea, offset : Int) -> Double {
   let (mirror, measured) = prepare(area)
   mirror.line_top(offset, measured.metrics.line_height)
 }
 
 ///|
 pub fn measure_line_bounds(
-  area : @dom.HTMLTextAreaElement,
+  area : TextArea,
   first : Int,
   last : Int,
 ) -> (Double, Double) {
@@ -58,7 +85,7 @@ pub fn measure_line_bounds(
 ///|
 /// First UTF-16 offset whose visual line starts at or below `top`, or EOF.
 /// The whole search uses one synchronization; no live query object escapes.
-pub fn measure_offset_at(area : @dom.HTMLTextAreaElement, top : Double) -> Int {
+pub fn measure_offset_at(area : TextArea, top : Double) -> Int {
   let (mirror, measured) = prepare(area)
   let mut low = 0
   let mut high = measured.source.text().length()
@@ -74,12 +101,6 @@ pub fn measure_offset_at(area : @dom.HTMLTextAreaElement, top : Double) -> Int {
 }
 
 ///|
-pub struct CaretPosition {
-  x : Double
-  y : Double
-}
-
-///|
 pub suberror MeasurementError {
   UnrenderedGlyph
 }
@@ -88,31 +109,31 @@ pub suberror MeasurementError {
 /// The caret edge and glyph centre, in the same coordinates as measure_line_bounds.
 /// Clipping and animation of the drawn caret belong to its presentation.
 pub fn measure_caret(
-  area : @dom.HTMLTextAreaElement,
+  area : TextArea,
   offset : Int,
 ) -> CaretPosition raise MeasurementError {
   let (mirror, measured) = prepare(area)
   let position = measured.source.position(offset)
   let line = mirror.line_rect(position.line)
-  let (x, y) = match
+  let (edge, top, height) = match
     @text_lines.caret_glyph(
       measured.source.lines()[position.line],
       position.column,
     ) {
-    EmptyLine => (line.get_left(), line.get_top() + line.get_height() / 2)
+    EmptyLine => (line.get_left(), line.get_top(), line.get_height())
     Before(start~, end~) => {
       guard mirror.glyph_rects(position.line, start, end) is [glyph, ..] else {
         raise UnrenderedGlyph
       }
-      (glyph.get_left(), glyph.get_top() + glyph.get_height() / 2)
+      (glyph.get_left(), glyph.get_top(), glyph.get_height())
     }
     After(start~, end~) => {
       guard mirror.glyph_rects(position.line, start, end) is [.., glyph] else {
         raise UnrenderedGlyph
       }
-      (glyph.get_right(), glyph.get_top() + glyph.get_height() / 2)
+      (glyph.get_right(), glyph.get_top(), glyph.get_height())
     }
   }
   let origin = mirror.element.get_bounding_client_rect()
-  { x: x - origin.get_left(), y: y - origin.get_top(), }
+  caret_position(edge, top, height, origin.get_left(), origin.get_top())
 }

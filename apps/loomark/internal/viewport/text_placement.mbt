@@ -54,9 +54,10 @@ pub fn place_text_area(
   placement : TextPlacement,
   scrolled_away : () -> Unit,
 ) -> TextPlacing {
+  let text = @text_layout.TextArea(area)
   let mut placing = Placing(placement)
   fn resized() {
-    guard TextGeometry::measure(area) is Some(geometry) else { return }
+    guard TextGeometry::measure(text) is Some(geometry) else { return }
     match placing {
       Revealing => reveal(geometry, caret_offset(area))
       Holding(hold) => hold.realign(geometry)
@@ -67,7 +68,7 @@ pub fn place_text_area(
   // Faces for other scripts load lazily while the reader scrolls, so a late
   // font realigns a held anchor but does not pull the reader to the caret.
   fn realign() {
-    if placing is Holding(hold) && TextGeometry::measure(area) is Some(geometry) {
+    if placing is Holding(hold) && TextGeometry::measure(text) is Some(geometry) {
       hold.realign(geometry)
     }
   }
@@ -80,7 +81,7 @@ pub fn place_text_area(
   realign()
   let listener : @dom.Listener = _ => {
     if placing is Holding(hold) &&
-      TextGeometry::measure(area) is Some(geometry) &&
+      TextGeometry::measure(text) is Some(geometry) &&
       hold.scrolled_away(geometry) {
       scrolled_away()
     }

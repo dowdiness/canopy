@@ -7,15 +7,15 @@ import {
 }
 
 // Values
-pub fn measure(@dom.HTMLTextAreaElement) -> MeasuredText
+pub fn measure(TextArea) -> MeasuredText
 
-pub fn measure_caret(@dom.HTMLTextAreaElement, Int) -> CaretPosition raise MeasurementError
+pub fn measure_caret(TextArea, Int) -> CaretPosition raise MeasurementError
 
-pub fn measure_line_bounds(@dom.HTMLTextAreaElement, Int, Int) -> (Double, Double)
+pub fn measure_line_bounds(TextArea, Int, Int) -> (Double, Double)
 
-pub fn measure_line_top(@dom.HTMLTextAreaElement, Int) -> Double
+pub fn measure_line_top(TextArea, Int) -> Double
 
-pub fn measure_offset_at(@dom.HTMLTextAreaElement, Double) -> Int
+pub fn measure_offset_at(TextArea, Double) -> Int
 
 // Errors
 pub suberror MeasurementError {
@@ -33,6 +33,12 @@ pub struct MeasuredText {
   metrics : TextMetrics
   reflow_revision : Int
 }
+
+pub struct TextArea {
+  element : @dom.HTMLTextAreaElement
+  // private fields
+}
+pub fn TextArea::TextArea(@dom.HTMLTextAreaElement) -> Self
 
 pub struct TextMetrics {
   line_height : Double
