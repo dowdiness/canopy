@@ -1,6 +1,8 @@
 # Loomark Documentation Index
 
-Welcome to the Loomark documentation. Loomark is a quiet, local-first Markdown editor designed around the principle that **the text you type is the only source of truth**.
+Loomark is an easy editor for every day: write in Markdown, read in Preview,
+and use Focus Mode to concentrate on the paragraph at hand. Start with the
+[product overview](../README.md) or choose a technical guide below.
 
 ---
 
@@ -56,10 +58,16 @@ Operational guide for building, testing, and deploying Loomark to Cloudflare Wor
 
 ## Architectural Decision Records (ADRs)
 
-Key historical decisions shaping Loomark's architecture:
+Decisions shaping Loomark's architecture. Read each record's status and
+supersession notes before applying it:
 
-- [Standard Rabbita Text App Plan](../../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md)
 - [Current and Saved Text Contract](../../../docs/decisions/2026-08-24-loomark-source-first-interactive-contract.md)
 - [Production E2E Boundary](../../../docs/decisions/2026-08-24-loomark-production-e2e-boundary.md)
 - [Textarea Edit Boundary](../../../docs/decisions/2026-08-25-loomark-textarea-edit-boundary.md)
 - [Document Deletion & Tombstones](../../../docs/decisions/2026-08-31-loomark-document-deletion.md)
+
+## Implementation Plans
+
+- [Standard Rabbita Text App Plan](../../../docs/plans/2026-08-24-loomark-standard-rabbita-text-app.md)
+  — active for Text-mode scope; its status notes identify the Preview/Split
+  scope moved to another plan and the superseded storage contract.

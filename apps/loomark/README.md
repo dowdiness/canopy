@@ -1,19 +1,21 @@
 # Loomark
 
-A quiet, local-first Markdown space for your thoughts.
-Built around one simple principle: **the text you type is the only source of truth.**
+**An easy editor for every day.**
 
-Open the browser. Start writing. No noise, no sign-up, no lock-in.
+Simple, distraction-free writing, in sync across your devices.
+Write in Markdown, switch between writing and reading, and use Focus Mode to
+keep your attention on the paragraph at hand.
+
+Open the browser and start writing without an account. Sign in with Google when
+you want to sync documents across devices.
 
 ---
 
 ## The Philosophy: A Quiet Desk
 
-Most modern writing tools try to do too much. They crowd your screen with floating menus, AI popups, and red spellcheck squiggles. They silently transform your characters or hide your words behind complex, proprietary formats.
+Loomark gives you a quiet place to write, read, and return to your thoughts:
 
-**Loomark was built to give you back a calm, reliable desk:**
-
-1. **Text is Ground Truth:** What you type is literally what is saved and exported. No hidden attributes, no arbitrary restructuring, and no lossy conversions.
+1. **Write in Markdown:** Write, read, or both. Switch between Text, Preview, and Split without losing your place, and export your writing as a standard Markdown file.
 2. **The Tool Stays Out of Your Way:** Choose Focus Mode when you want the editor to recede. Your active thought stays in focus, and surrounding paragraphs gently fade into the background.
 3. **Your Words Belong to You:** Once loaded, Loomark lets you keep writing without an internet connection. It saves directly to your device first, and you can export standard Markdown at any moment.
 4. **Reliability Over Novelty:** Every interaction—from caret navigation to native Undo/Redo—respects your natural muscle memory.
@@ -30,7 +32,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 - **Focus Mode:** Toggle the bottom-right icon to hide navigation and routine controls without changing your Text, Preview, or Split view. Surrounding paragraphs gently fade while the textarea has focus. Toggle again or press Escape to restore the controls. Normal mode keeps all paragraphs fully readable.
 - **A Soft Caret:** The caret fades in softly, keeps pace with every keystroke, glides when you move it with the arrow keys or the pointer, and gently breathes when you pause instead of flashing. Reduced-motion settings remove the glide.
 - **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face paired with IBM Plex Sans JP for Japanese; read in a literary serif paired with BIZ UDMincho. All faces ship with the app, so they work offline once loaded.
-- **Japanese-Aware:** Japanese documents keep kana and kanji upright, show emphasis with emphasis dots (傍点), and use strict line breaking and roomier lines in Preview.
+- **Japanese-Aware:** Japanese documents keep kana and kanji upright, show emphasis with emphasis dots, and use strict line breaking and roomier lines in Preview.
 - **A Quiet Character Count:** Wide screens show the document's character count (excluding spaces and line breaks) beside the mode switcher, settling after a short pause instead of flickering with every keystroke.
 
 ### 🍃 Thoughtful Modes & Viewport
