@@ -1,6 +1,6 @@
 ///|
-/// An example document offered in the sidebar: visible label, accessible
-/// name, and its Markdown source.
+/// An example document offered in the sidebar: visible label, the accessible
+/// name that begins with it, and its Markdown source.
 priv struct Example {
   label : String
   name : String
@@ -10,29 +10,19 @@ priv struct Example {
 ///|
 let examples : Array[Example] = [
   {
-    label: "Demo",
-    name: "Demo: Create Markdown feature tour example document",
-    source: embedded_markdown_demo_source,
+    label: "Welcome",
+    name: "Welcome: Create welcome example document",
+    source: embedded_welcome_source,
   },
   {
-    label: "Hello",
-    name: "Create Hello example document",
-    source: embedded_hello_example_source,
+    label: "Markdown",
+    name: "Markdown: Create Markdown guide example document",
+    source: embedded_markdown_source,
   },
   {
-    label: "Guide",
-    name: "Guide: Create Blog example document",
-    source: embedded_blog_example_source,
-  },
-  {
-    label: "List",
-    name: "Create List example document",
-    source: embedded_list_example_source,
-  },
-  {
-    label: "Code",
-    name: "Create Code example document",
-    source: embedded_code_example_source,
+    label: "Journal",
+    name: "Journal: Create journal example document",
+    source: embedded_journal_source,
   },
 ]
 

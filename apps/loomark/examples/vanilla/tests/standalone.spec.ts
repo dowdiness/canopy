@@ -3620,7 +3620,7 @@ test("Preview preserves list markers and code readability across viewport sizes"
   await page.goto("/")
   await openDocuments(page)
   await page.getByRole("button", {
-    name: "Create Markdown feature tour example document",
+    name: "Create Markdown guide example document",
   }).click()
   await page.getByRole("tab", { name: "Preview" }).click()
   const preview = page.getByRole("region", { name: "Markdown preview" })
@@ -3728,11 +3728,9 @@ test("Examples create and open new Documents, preserve existing Documents, and c
   const [existing] = await readStoredDocuments(page)
   const examples = page.getByRole("toolbar", { name: "Example documents" })
   const cases = [
-    ["Create Markdown feature tour example document", "# Markdown Feature Tour\n"],
-    ["Create Hello example document", "# Hello World\n"],
-    ["Create Blog example document", "# Getting Started\n"],
-    ["Create List example document", "# Shopping List\n"],
-    ["Create Code example document", "# README\n"],
+    ["Create welcome example document", "# Welcome to Loomark\n"],
+    ["Create Markdown guide example document", "# A Writer's Guide to Markdown\n"],
+    ["Create journal example document", "# Morning Pages\n"],
   ] as const
 
   for (const [index, [name, firstLine]] of cases.entries()) {
@@ -3746,7 +3744,7 @@ test("Examples create and open new Documents, preserve existing Documents, and c
 
   const documents = await readStoredDocuments(page)
   expect(documents).toContainEqual(existing)
-  expect(new Set(documents.map(document => document.document_id)).size).toBe(6)
+  expect(new Set(documents.map(document => document.document_id)).size).toBe(cases.length + 1)
 })
 
 test("Split catches up when Preview finishes after Text has scrolled", async ({ page }) => {
