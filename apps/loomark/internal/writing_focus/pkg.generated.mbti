@@ -23,10 +23,6 @@ pub suberror InvalidRange {
   UnorderedEndpoints(start~ : Double, end~ : Double)
 }
 
-pub suberror InvalidSelection {
-  OutsideText(start~ : Int, end~ : Int, length~ : Int)
-}
-
 // Types and methods
 pub(all) enum ActiveFade {
   Pending(FadeTiming, current_time_ms~ : Double?, playback_rate~ : Double)
@@ -128,7 +124,7 @@ pub struct WritingGroups {
   // private fields
 }
 pub fn WritingGroups::WritingGroups(@text_lines.TextLines) -> Self
-pub fn WritingGroups::focus_lines(Self, Int, Int) -> LineRange raise InvalidSelection
+pub fn WritingGroups::focus_lines(Self, Int, Int) -> LineRange raise @text_lines.InvalidSelection
 pub fn WritingGroups::focus_range(Self, LineRange, top~ : Double, bottom~ : Double) -> Range raise InvalidRange
 
 pub(all) enum WritingIntent {

@@ -122,10 +122,11 @@ test "the outer groups extend to the document edges and inner edges are measured
 test "selection outside its text is rejected rather than clamped" {
   let layout = groups("abc")
   for (start, end) in [(0, 4), (2, 1)] {
-    let result : Result[
-      @writing_focus.LineRange,
-      @writing_focus.InvalidSelection,
-    ] = Ok(layout.focus_lines(start, end)) catch { error => Err(error) }
+    let result : Result[@writing_focus.LineRange, @text_lines.InvalidSelection] = Ok(
+      layout.focus_lines(start, end),
+    ) catch {
+      error => Err(error)
+    }
     match result {
       Err(OutsideText(start=actual_start, end=actual_end, length~)) =>
         assert_eq((actual_start, actual_end, length), (start, end, 3))

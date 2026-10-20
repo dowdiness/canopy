@@ -5,6 +5,9 @@ package "dowdiness/loomark/internal/text_lines"
 pub fn caret_glyph(String, Int) -> CaretGlyph
 
 // Errors
+pub suberror InvalidSelection {
+  OutsideText(start~ : Int, end~ : Int, length~ : Int)
+}
 
 // Types and methods
 pub enum CaretGlyph {
@@ -18,6 +21,11 @@ pub struct LineEdit {
   first : Int
   removed : Int
   inserted : ArrayView[String]
+}
+
+pub enum SelectedLines {
+  Caret(Int)
+  Span(first~ : Int, last~ : Int)
 }
 
 pub struct TextChange {
@@ -34,6 +42,7 @@ pub fn TextLines::TextLines(String) -> Self
 pub fn TextLines::lines(Self) -> ArrayView[String]
 pub fn TextLines::position(Self, Int) -> TextPosition
 pub fn TextLines::replace_text(Self, String) -> LineEdit?
+pub fn TextLines::selected_lines(Self, Int, Int) -> SelectedLines raise InvalidSelection
 pub fn TextLines::text(Self) -> String
 
 pub struct TextPosition {

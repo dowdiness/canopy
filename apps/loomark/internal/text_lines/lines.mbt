@@ -57,3 +57,33 @@ pub fn TextLines::position(self : TextLines, offset : Int) -> TextPosition {
   let line = self.line_at(offset)
   { line, column: offset - self.starts[line], }
 }
+
+///|
+/// The lines touched by a selection in this immutable source. A range's end
+/// is exclusive; a caret on a line break belongs to the preceding line.
+pub enum SelectedLines {
+  Caret(Int)
+  Span(first~ : Int, last~ : Int)
+}
+
+///|
+pub suberror InvalidSelection {
+  OutsideText(start~ : Int, end~ : Int, length~ : Int)
+}
+
+///|
+/// Parse both endpoints together. Resolved lines never repeat offset checks.
+pub fn TextLines::selected_lines(
+  self : TextLines,
+  start : Int,
+  end : Int,
+) -> SelectedLines raise InvalidSelection {
+  guard 0 <= start && start <= end && end <= self.text.length() else {
+    raise OutsideText(start~, end~, length=self.text.length())
+  }
+  if start == end {
+    Caret(self.line_at(start))
+  } else {
+    Span(first=self.line_at(start), last=self.line_at(end - 1))
+  }
+}

@@ -29,3 +29,20 @@ test "text positions after a line break belong to the following line" {
 test "panic an offset outside the text is a caller error" {
   @text_lines.TextLines("abc").position(4) |> ignore
 }
+
+///|
+test "selected lines distinguish a caret from an exclusive range at a line start" {
+  let source = @text_lines.TextLines("😀\n\nlast\n")
+  guard source.selected_lines(4, 4) is Caret(2) else {
+    fail("a caret at the line start belongs to that line")
+  }
+  guard source.selected_lines(1, 4) is Span(first=0, last=1) else {
+    fail("a range excludes the line beginning at its end")
+  }
+  guard source.selected_lines(9, 9) is Caret(3) else {
+    fail("EOF after a newline belongs to the trailing empty line")
+  }
+  guard @text_lines.TextLines("").selected_lines(0, 0) is Caret(0) else {
+    fail("empty text has a caret line")
+  }
+}

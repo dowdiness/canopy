@@ -140,37 +140,20 @@ fn group_at(groups : ArrayView[LineRange], line : Int) -> LineRange? {
 }
 
 ///|
-pub suberror InvalidSelection {
-  OutsideText(start~ : Int, end~ : Int, length~ : Int)
-}
-
-///|
 /// The writing group, or groups, that a selection touches.
 pub fn WritingGroups::focus_lines(
   self : WritingGroups,
   selection_start : Int,
   selection_end : Int,
-) -> LineRange raise InvalidSelection {
-  guard 0 <= selection_start &&
-    selection_start <= selection_end &&
-    selection_end <= self.source.text().length() else {
-    raise OutsideText(
-      start=selection_start,
-      end=selection_end,
-      length=self.source.text().length(),
-    )
+) -> LineRange raise @text_lines.InvalidSelection {
+  let selection = self.source.selected_lines(selection_start, selection_end)
+  let (first_line, last_line) = match selection {
+    Caret(line) => (line, line)
+    Span(first~, last~) => (first, last)
   }
-  let first_line = self.source.position(selection_start).line
-  let last_line = self.source.position(
-      if selection_end > selection_start {
-        selection_end - 1
-      } else {
-        selection_end
-      },
-    ).line
   let first = match group_at(self.groups, first_line) {
     Some(group) => group.first
-    None if selection_start == selection_end =>
+    None if selection is Caret(_) =>
       match
         self.groups.binary_search_by(group => group.first.compare(first_line)) {
         Err(index) if index > 0 => self.groups[index - 1].first
