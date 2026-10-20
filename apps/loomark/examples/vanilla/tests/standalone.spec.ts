@@ -3530,7 +3530,7 @@ test("Preview prepares after its status paints and refreshes typed Markdown", as
   const popup = await popupPromise
   await expect.poll(() => popup.url()).toBe("https://example.test/")
   await popup.close()
-  await expect(page.getByText('<div id="unsafe-preview">raw HTML</div>')).toBeVisible()
+  await expect(page.getByRole("region", { name: "Markdown preview" }).getByText('<div id="unsafe-preview">raw HTML</div>')).toBeVisible()
   await expect(page.locator("#unsafe-preview")).toHaveCount(0)
 
   await page.getByRole("tab", { name: "Split" }).click()
