@@ -110,20 +110,20 @@ test "the bar stays inside the content box like the native caret" {
 
 ///|
 test "a caret is marked by the glyph after it, or by the last glyph at a line end" {
-  guard @writing_focus.caret_glyph("", 0) is EmptyLine else {
+  guard @text_lines.caret_glyph("", 0) is EmptyLine else {
     fail("an empty line has no glyph")
   }
-  guard @writing_focus.caret_glyph("ab", 1) is Before(start=1, end=2) else {
+  guard @text_lines.caret_glyph("ab", 1) is Before(start=1, end=2) else {
     fail("a caret inside a line is the left edge of the next glyph")
   }
-  guard @writing_focus.caret_glyph("ab", 2) is After(start=1, end=2) else {
+  guard @text_lines.caret_glyph("ab", 2) is After(start=1, end=2) else {
     fail("a caret at the line end is the right edge of the last glyph")
   }
   // U+1F600 is the surrogate pair D83D DE00.
-  guard @writing_focus.caret_glyph("a\u{1F600}", 1) is Before(start=1, end=3) else {
+  guard @text_lines.caret_glyph("a\u{1F600}", 1) is Before(start=1, end=3) else {
     fail("a glyph before the caret spans its whole surrogate pair")
   }
-  guard @writing_focus.caret_glyph("a\u{1F600}", 3) is After(start=1, end=3) else {
+  guard @text_lines.caret_glyph("a\u{1F600}", 3) is After(start=1, end=3) else {
     fail("a glyph after the caret spans its whole surrogate pair")
   }
 }

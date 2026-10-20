@@ -5,10 +5,8 @@ pub struct LineRange {
 }
 
 ///|
-pub struct TextLines {
-  priv text : String
-  priv lines : ArrayView[String]
-  priv starts : ArrayView[Int]
+pub struct WritingGroups {
+  priv source : @text_lines.TextLines
   priv groups : ArrayView[LineRange]
 }
 
@@ -118,57 +116,10 @@ fn group_lines(lines : ArrayView[String]) -> ArrayView[LineRange] {
 }
 
 ///|
-fn index_lines(text : String, lines : ArrayView[String]) -> TextLines {
-  let starts : Array[Int] = []
-  lines.fold(init=0, (offset, line) => {
-    starts.push(offset)
-    offset + line.length() + 1
-  })
-  |> ignore
-  { text, lines, starts: starts[:], groups: group_lines(lines), }
-}
-
-///|
-pub fn TextLines::TextLines(text : String) -> TextLines {
-  let lines = text.split("\n").map(line => line.to_owned()).to_array()
-  index_lines(text, lines[:])
-}
-
-///|
-pub fn TextLines::text(self : TextLines) -> String {
-  self.text
-}
-
-///|
-pub fn TextLines::lines(self : TextLines) -> ArrayView[String] {
-  self.lines
-}
-
-///|
-fn TextLines::line_at(self : TextLines, position : Int) -> Int {
-  match self.starts.binary_search(position) {
-    Ok(index) => index
-    Err(index) => index - 1
-  }
-}
-
-///|
-pub struct TextPosition {
-  line : Int
-  column : Int
-}
-
-///|
-/// A position after a line break belongs to the following line.
-pub fn TextLines::position(
-  self : TextLines,
-  offset : Int,
-) -> TextPosition raise InvalidSelection {
-  guard 0 <= offset && offset <= self.text.length() else {
-    raise OutsideText(start=offset, end=offset, length=self.text.length())
-  }
-  let line = self.line_at(offset)
-  { line, column: offset - self.starts[line], }
+pub fn WritingGroups::WritingGroups(
+  source : @text_lines.TextLines,
+) -> WritingGroups {
+  { source, groups: group_lines(source.lines()), }
 }
 
 ///|
@@ -195,28 +146,28 @@ pub suberror InvalidSelection {
 
 ///|
 /// The writing group, or groups, that a selection touches.
-pub fn TextLines::focus_lines(
-  self : TextLines,
+pub fn WritingGroups::focus_lines(
+  self : WritingGroups,
   selection_start : Int,
   selection_end : Int,
 ) -> LineRange raise InvalidSelection {
   guard 0 <= selection_start &&
     selection_start <= selection_end &&
-    selection_end <= self.text.length() else {
+    selection_end <= self.source.text().length() else {
     raise OutsideText(
       start=selection_start,
       end=selection_end,
-      length=self.text.length(),
+      length=self.source.text().length(),
     )
   }
-  let first_line = self.line_at(selection_start)
-  let last_line = self.line_at(
-    if selection_end > selection_start {
-      selection_end - 1
-    } else {
-      selection_end
-    },
-  )
+  let first_line = self.source.position(selection_start).line
+  let last_line = self.source.position(
+      if selection_end > selection_start {
+        selection_end - 1
+      } else {
+        selection_end
+      },
+    ).line
   let first = match group_at(self.groups, first_line) {
     Some(group) => group.first
     None if selection_start == selection_end =>
@@ -238,8 +189,8 @@ pub fn TextLines::focus_lines(
 /// The focused content range from the measured top of its first line and
 /// bottom of its last; the first and last groups extend over the padding to
 /// the document's edges.
-pub fn TextLines::focus_range(
-  self : TextLines,
+pub fn WritingGroups::focus_range(
+  self : WritingGroups,
   lines : LineRange,
   top~ : Double,
   bottom~ : Double,
@@ -250,7 +201,7 @@ pub fn TextLines::focus_range(
     } else {
       top
     },
-    if lines.last == self.lines.length() - 1 {
+    if lines.last == self.source.lines().length() - 1 {
       @double.infinity
     } else {
       bottom

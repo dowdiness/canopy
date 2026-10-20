@@ -1,4 +1,5 @@
 import {
+  "dowdiness/loomark/internal/text_lines",
   "moonbitlang/core/double",
 }
 

@@ -1,6 +1,7 @@
 import {
   "dowdiness/js_ffi" @js,
   "dowdiness/loomark/internal/writing_focus",
+  "dowdiness/loomark/internal/text_lines",
   "dowdiness/loomark/internal/browser" @browser_api,
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js" @dom_js,

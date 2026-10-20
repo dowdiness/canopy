@@ -1,14 +1,16 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "dowdiness/loomark/internal/writing_focus"
 
+import {
+  "dowdiness/loomark/internal/text_lines",
+}
+
 // Values
 pub fn calculate_dimming_inline_bounds(Double, Double, Double, Double) -> (Double, Double)
 
 pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double?, animate~ : Bool) -> ArrayView[(Range, Fade)]
 
 pub fn calculate_shade_placement(Range, Range) -> ShadePlacement?
-
-pub fn caret_glyph(String, Int) -> CaretGlyph
 
 pub fn caret_measure(CaretHistory, Int) -> CaretMeasure
 
@@ -44,12 +46,6 @@ pub(all) enum CaretCause {
   Navigation
   Edit
   Reflow
-}
-
-pub enum CaretGlyph {
-  EmptyLine
-  Before(start~ : Int, end~ : Int)
-  After(start~ : Int, end~ : Int)
 }
 
 pub(all) enum CaretHistory {
@@ -88,13 +84,6 @@ pub(all) struct FadeTiming {
   to_opacity : Double
   duration_ms : Double
   easing : String
-}
-
-pub struct LineEdit {
-  source : TextLines
-  first : Int
-  removed : Int
-  inserted : ArrayView[String]
 }
 
 pub struct LineRange {
@@ -137,28 +126,12 @@ pub struct ShadePlacement {
   height : Double
 }
 
-pub struct TextChange {
-  start : Int
-  old_end : Int
-  new_end : Int
-}
-pub fn TextChange::TextChange(String, String) -> Self
-
-pub struct TextLines {
+pub struct WritingGroups {
   // private fields
 }
-pub fn TextLines::TextLines(String) -> Self
-pub fn TextLines::focus_lines(Self, Int, Int) -> LineRange raise InvalidSelection
-pub fn TextLines::focus_range(Self, LineRange, top~ : Double, bottom~ : Double) -> Range raise InvalidRange
-pub fn TextLines::lines(Self) -> ArrayView[String]
-pub fn TextLines::position(Self, Int) -> TextPosition raise InvalidSelection
-pub fn TextLines::replace_text(Self, String) -> LineEdit?
-pub fn TextLines::text(Self) -> String
-
-pub struct TextPosition {
-  line : Int
-  column : Int
-}
+pub fn WritingGroups::WritingGroups(@text_lines.TextLines) -> Self
+pub fn WritingGroups::focus_lines(Self, Int, Int) -> LineRange raise InvalidSelection
+pub fn WritingGroups::focus_range(Self, LineRange, top~ : Double, bottom~ : Double) -> Range raise InvalidRange
 
 pub(all) enum WritingIntent {
   Reading

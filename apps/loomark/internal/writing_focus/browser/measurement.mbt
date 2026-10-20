@@ -35,7 +35,7 @@ priv suberror MirrorMeasurement {
 /// A caret measured against one source text; scrolling and repeated selection
 /// events reuse it without reading layout.
 priv struct CaretMeasurement {
-  source : @writing_focus.TextLines
+  source : @text_lines.TextLines
   measured : @writing_focus.MeasuredCaret
 }
 
@@ -43,7 +43,7 @@ priv struct CaretMeasurement {
 /// The focused range measured for one source text and group of lines; caret
 /// moves within the group and scrolling reuse it without reading layout.
 priv struct FocusMeasurement {
-  source : @writing_focus.TextLines
+  source : @text_lines.TextLines
   lines : @writing_focus.LineRange
   range : @writing_focus.Range
 }
@@ -58,7 +58,8 @@ priv struct TextLayout {
   text_area : @dom.HTMLTextAreaElement
   dimming_layer : @dom.HTMLElement
   element : @dom.HTMLElement
-  mut source : @writing_focus.TextLines
+  mut source : @text_lines.TextLines
+  mut groups : @writing_focus.WritingGroups
   mut lines : Array[TextLineElement]
   retired_lines : Array[TextLineElement]
   /// `None` until styles are copied, and again after a reflow.
@@ -80,7 +81,7 @@ fn TextLayout::TextLayout(
   element.set_attribute("class", "loomark-writing-measure")
   element.set_attribute("aria-hidden", "true")
   element.set_inert(true)
-  let source = @writing_focus.TextLines("")
+  let source = @text_lines.TextLines("")
   let lines = source
     .lines()
     .map(text => {
@@ -97,6 +98,7 @@ fn TextLayout::TextLayout(
     dimming_layer,
     element,
     source,
+    groups: @writing_focus.WritingGroups(source),
     lines,
     retired_lines: [],
     mirror: None,
@@ -136,7 +138,7 @@ fn TextLayout::sync(self : TextLayout) -> (MirrorStyle, Bool) {
 ///|
 fn TextLayout::locate_focus(self : TextLayout) -> @writing_focus.Range raise {
   let source = self.source
-  let lines = source.focus_lines(
+  let lines = self.groups.focus_lines(
     self.text_area.get_selection_start(),
     self.text_area.get_selection_end(),
   )
@@ -146,7 +148,7 @@ fn TextLayout::locate_focus(self : TextLayout) -> @writing_focus.Range raise {
       focus.lines.last == lines.last => focus.range
     _ => {
       let origin = self.element.get_bounding_client_rect().get_top()
-      let range = source.focus_range(
+      let range = self.groups.focus_range(
         lines,
         top=self.lines[lines.first].element.get_bounding_client_rect().get_top() -
           origin,
@@ -185,7 +187,7 @@ fn TextLayout::sync_text(self : TextLayout) -> Bool {
         if before != after {
           // Replacing only the changed span lets Chromium reuse the line's
           // shaping; replacing the whole value reshapes every character.
-          let change = @writing_focus.TextChange(before, after)
+          let change = @text_lines.TextChange(before, after)
           @browser_api.replace_text_data(
             self.lines[position].text_node,
             change.start,
@@ -236,6 +238,7 @@ fn TextLayout::sync_text(self : TextLayout) -> Bool {
         )
       }
       self.source = replacement.source
+      self.groups = @writing_focus.WritingGroups(replacement.source)
       true
     }
   }
@@ -310,7 +313,7 @@ fn TextLayout::locate_caret(
   }
   let line = self.lines[position.line]
   let (x, y) = match
-    @writing_focus.caret_glyph(source.lines()[position.line], position.column) {
+    @text_lines.caret_glyph(source.lines()[position.line], position.column) {
     EmptyLine => {
       let box = line.element.get_bounding_client_rect()
       (box.get_left(), box.get_top() + box.get_height() / 2)

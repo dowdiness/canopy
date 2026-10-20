@@ -122,35 +122,3 @@ pub fn drawn_caret_x(
 ) -> Double {
   x.clamp(min=half_width, max=layer_width - half_width)
 }
-
-///|
-/// The glyph whose edge marks a caret in a line of text.
-pub enum CaretGlyph {
-  /// An empty line has no glyph; its line box marks the caret.
-  EmptyLine
-  /// The caret is the left edge of the code units `start..end`.
-  Before(start~ : Int, end~ : Int)
-  /// At the line end, the caret is the right edge of the last glyph.
-  After(start~ : Int, end~ : Int)
-}
-
-///|
-/// Selection offsets are UTF-16 code units, so a glyph spans both halves of a
-/// surrogate pair.
-pub fn caret_glyph(line : String, column : Int) -> CaretGlyph {
-  let length = line.length()
-  let unit = index => line.code_unit_at(index).to_int()
-  if length == 0 {
-    EmptyLine
-  } else if column < length {
-    let pair = column + 1 < length &&
-      unit(column) >= 0xD800 &&
-      unit(column) <= 0xDBFF
-    Before(start=column, end=if pair { column + 2 } else { column + 1 })
-  } else {
-    let pair = column >= 2 &&
-      unit(column - 1) >= 0xDC00 &&
-      unit(column - 1) <= 0xDFFF
-    After(start=if pair { column - 2 } else { column - 1 }, end=column)
-  }
-}

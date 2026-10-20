@@ -1,0 +1,46 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/text_lines"
+
+// Values
+pub fn caret_glyph(String, Int) -> CaretGlyph
+
+// Errors
+
+// Types and methods
+pub enum CaretGlyph {
+  EmptyLine
+  Before(start~ : Int, end~ : Int)
+  After(start~ : Int, end~ : Int)
+}
+
+pub struct LineEdit {
+  source : TextLines
+  first : Int
+  removed : Int
+  inserted : ArrayView[String]
+}
+
+pub struct TextChange {
+  start : Int
+  old_end : Int
+  new_end : Int
+}
+pub fn TextChange::TextChange(String, String) -> Self
+
+pub struct TextLines {
+  // private fields
+}
+pub fn TextLines::TextLines(String) -> Self
+pub fn TextLines::lines(Self) -> ArrayView[String]
+pub fn TextLines::position(Self, Int) -> TextPosition
+pub fn TextLines::replace_text(Self, String) -> LineEdit?
+pub fn TextLines::text(Self) -> String
+
+pub struct TextPosition {
+  line : Int
+  column : Int
+}
+
+// Type aliases
+
+// Traits
