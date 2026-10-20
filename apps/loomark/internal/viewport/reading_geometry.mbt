@@ -85,7 +85,7 @@ impl ReadingGeometry for @preview.PreviewGeometry with fn scroll_by(self, delta)
 ///|
 fn on_resize(element : @dom.Element, resized : () -> Unit) -> () -> Unit {
   let observer = @dom.ResizeObserver::new((_, _) => resized())
-  observer.observe(element)
+  @browser.observe_border_box(observer, element)
   () => observer.disconnect()
 }
 

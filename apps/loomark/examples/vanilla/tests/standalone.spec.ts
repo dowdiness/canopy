@@ -799,6 +799,27 @@ async function expectStoredDocument(
   expect(parsed).toEqual(document)
 }
 
+declare global {
+  interface Window {
+    scrollFraction(element: Element): number
+    scrollToFraction(element: Element, fraction: number): void
+  }
+}
+
+// How far a pane has scrolled through its text. Text can scroll past its last
+// line, where Preview has nothing more to show, so its fraction ends there.
+function installScrollFractions(): void {
+  const textRange = (element: Element) => {
+    const style = getComputedStyle(element)
+    const blankBelow = element instanceof HTMLTextAreaElement
+      ? Number.parseFloat(style.paddingBottom) - Number.parseFloat(style.scrollPaddingBottom)
+      : 0
+    return element.scrollHeight - element.clientHeight - blankBelow
+  }
+  window.scrollFraction = element => Math.min(1, element.scrollTop / textRange(element))
+  window.scrollToFraction = (element, fraction) => { element.scrollTop = textRange(element) * fraction }
+}
+
 function installDocumentPutFailure(target: string | { prefix: string }): void {
   const state = globalThis as typeof globalThis & {
     __loomarkDocumentPutFailure?: boolean
@@ -1773,6 +1794,7 @@ for (const spacing of ["default", "increased"] as const) {
   test(`dot grid stays between Text lines through a long document with ${spacing} line spacing`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: "light" })
     await page.setViewportSize({ width: 1280, height: 800 })
+    await page.addInitScript(installScrollFractions)
     await page.goto("/")
     if (spacing === "increased") await page.addStyleTag({ content: "* { line-height:1.5 !important }" })
     const area = page.getByRole("textbox", { name: "Text" })
@@ -1782,8 +1804,9 @@ for (const spacing of ["default", "increased"] as const) {
     for (const position of ["top", "halfway through a line", "end"] as const) {
       await area.evaluate((element, position) => {
         const lineHeight = Number.parseFloat(getComputedStyle(element).lineHeight)
-        const scrollTops = { top: 0, "halfway through a line": Math.round(160.5 * lineHeight), end: element.scrollHeight }
-        element.scrollTop = scrollTops[position]
+        // The end shows the last line above the controls, not the space below it.
+        if (position === "end") window.scrollToFraction(element, 1)
+        else element.scrollTop = position === "top" ? 0 : Math.round(160.5 * lineHeight)
       }, position)
       await page.evaluate(() => new Promise(resolve =>
         requestAnimationFrame(() => requestAnimationFrame(resolve))))
@@ -1791,6 +1814,28 @@ for (const spacing of ["default", "increased"] as const) {
     }
   })
 }
+
+test("writing scrolls past the end until the last line reaches the first line's height in Text and Split", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.goto("/")
+  const area = page.getByRole("textbox", { name: "Text" })
+  await area.fill(Array.from({ length: 80 }, (_, i) => `Line ${i + 1}`).join("\n"))
+  const lastLineTop = () => area.evaluate(element => {
+    const textarea = element as HTMLTextAreaElement
+    const style = getComputedStyle(textarea)
+    textarea.scrollTop = textarea.scrollHeight
+    return Number.parseFloat(style.paddingTop) + 79 * Number.parseFloat(style.lineHeight) - textarea.scrollTop
+  })
+  expect(await lastLineTop()).toBeCloseTo(70, 0)
+  // The frame masks the text, so a frame that ignores its content prints nothing.
+  await page.emulateMedia({ media: "print" })
+  const printed = await page.evaluate(() => [".loomark-source-frame", "#loomark-text"]
+    .map(selector => document.querySelector(selector)!.getBoundingClientRect().height))
+  expect(printed[0]).toBeGreaterThanOrEqual(printed[1])
+  await page.emulateMedia({ media: "screen" })
+  await page.getByRole("tab", { name: "Split" }).click()
+  expect(await lastLineTop()).toBeCloseTo(70, 0)
+})
 
 for (const mode of ["Text", "Split"] as const) {
   test(`current native writing line stays visible outside chrome in ${mode}`, async ({ page }) => {
@@ -3706,6 +3751,7 @@ test("Examples create and open new Documents, preserve existing Documents, and c
 
 test("Split catches up when Preview finishes after Text has scrolled", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
+  await page.addInitScript(installScrollFractions)
   await page.goto("/")
   const source = Array.from({ length: 80 }, (_, index) => (
     `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
@@ -3735,7 +3781,7 @@ test("Split catches up when Preview finishes after Text has scrolled", async ({ 
   ).__releasePreviewPreparation)).toBe(true)
   await page.locator("#loomark-text").evaluate(element => {
     element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
-    element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.72
+    window.scrollToFraction(element, 0.72)
   })
   await page.evaluate(() => new Promise<void>(resolve => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
@@ -3749,14 +3795,14 @@ test("Split catches up when Preview finishes after Text has scrolled", async ({ 
   ).__releasePreviewPreparation!())
   await expect(page.getByRole("heading", { name: "Section 79" })).toBeVisible()
   await expect.poll(() => page.locator("#loomark-preview-scroll").evaluate(element => (
-    element.scrollTop / (element.scrollHeight - element.clientHeight)
+    window.scrollFraction(element)
   ))).toBeGreaterThan(0.67)
   const aligned = await page.evaluate(() => {
     const text = document.getElementById("loomark-text")!
     const preview = document.getElementById("loomark-preview-scroll")!
     return {
-      source: text.scrollTop / (text.scrollHeight - text.clientHeight),
-      target: preview.scrollTop / (preview.scrollHeight - preview.clientHeight),
+      source: window.scrollFraction(text),
+      target: window.scrollFraction(preview),
     }
   })
   expect(aligned.source).toBeGreaterThan(0.67)
@@ -3766,6 +3812,7 @@ test("Split catches up when Preview finishes after Text has scrolled", async ({ 
 
 test("Split synchronizes Text and Preview scrolling in both directions", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
+  await page.addInitScript(installScrollFractions)
   await page.goto("/")
 
   const source = Array.from({ length: 80 }, (_, index) => (
@@ -3803,15 +3850,15 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
 
     const scrollTo = async (id: string, fraction: number) => {
       await page.locator(`#${id}`).evaluate((element, fraction) => {
-        element.scrollTop = (element.scrollHeight - element.clientHeight) * fraction
+        window.scrollToFraction(element, fraction)
       }, fraction)
     }
     const expectFraction = async (id: string, fraction: number) => {
       await expect.poll(() => page.locator(`#${id}`).evaluate(element => (
-        element.scrollTop / (element.scrollHeight - element.clientHeight)
+        window.scrollFraction(element)
       ))).toBeGreaterThan(fraction - 0.05)
       await expect.poll(() => page.locator(`#${id}`).evaluate(element => (
-        element.scrollTop / (element.scrollHeight - element.clientHeight)
+        window.scrollFraction(element)
       ))).toBeLessThan(fraction + 0.05)
     }
     await page.locator("#loomark-text").evaluate(element => {
@@ -3825,8 +3872,8 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
         const text = document.getElementById("loomark-text")!
         const preview = document.getElementById("loomark-preview-scroll")!
         return Math.abs(
-          text.scrollTop / (text.scrollHeight - text.clientHeight) -
-          preview.scrollTop / (preview.scrollHeight - preview.clientHeight),
+          window.scrollFraction(text) -
+          window.scrollFraction(preview),
         )
       })).toBeLessThan(0.02)
     }
@@ -3835,7 +3882,7 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
       await page.locator("#loomark-preview-scroll").hover()
       await page.mouse.wheel(0, -450)
       await expect.poll(() => page.locator("#loomark-preview-scroll").evaluate(element => (
-        element.scrollTop / (element.scrollHeight - element.clientHeight)
+        window.scrollFraction(element)
       ))).toBeLessThan(0.7)
       await expectAligned()
       await page.locator("#loomark-text").hover()
@@ -3862,10 +3909,10 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
       const onScroll = (event: Event) => {
         if (event.target !== preview) return
         window.removeEventListener("scroll", onScroll, true)
-        text.scrollTop = (text.scrollHeight - text.clientHeight) * 0.8
+        window.scrollToFraction(text, 0.8)
       }
       window.addEventListener("scroll", onScroll, true)
-      text.scrollTop = (text.scrollHeight - text.clientHeight) * 0.35
+      window.scrollToFraction(text, 0.35)
     })
     await expectFraction("loomark-text", 0.8)
     await expectFraction("loomark-preview-scroll", 0.8)
@@ -3876,11 +3923,11 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
     })
     await page.evaluate(() => {
       const preview = document.getElementById("loomark-preview-scroll")!
-      preview.scrollTop = (preview.scrollHeight - preview.clientHeight) * 0.3
+      window.scrollToFraction(preview, 0.3)
       preview.dispatchEvent(new Event("scroll"))
       const text = document.getElementById("loomark-text")!
       text.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
-      text.scrollTop = (text.scrollHeight - text.clientHeight) * 0.9
+      window.scrollToFraction(text, 0.9)
     })
     await expectFraction("loomark-text", 0.9)
     await expectFraction("loomark-preview-scroll", 0.9)
@@ -3910,6 +3957,7 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
 
 test("Split preserves reading-position synchronization across document and mode changes", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
+  await page.addInitScript(installScrollFractions)
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const source = Array.from({ length: 80 }, (_, index) => (
@@ -3938,14 +3986,14 @@ test("Split preserves reading-position synchronization across document and mode 
     const text = document.getElementById("loomark-text")!
     const preview = document.getElementById("loomark-preview-scroll")!
     return {
-      text: text.scrollTop / (text.scrollHeight - text.clientHeight),
-      preview: preview.scrollTop / (preview.scrollHeight - preview.clientHeight),
+      text: window.scrollFraction(text),
+      preview: window.scrollFraction(preview),
     }
   })
   const verify = async (sourceId: string, fraction: number) => {
     await page.locator(`#${sourceId}`).evaluate((element, fraction) => {
       element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
-      element.scrollTop = (element.scrollHeight - element.clientHeight) * fraction
+      window.scrollToFraction(element, fraction)
     }, fraction)
     await expect.poll(async () => {
       const position = await positions()

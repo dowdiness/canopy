@@ -36,6 +36,8 @@ pub fn idle_opacity_animation(@dom.HTMLElement, ArrayView[OpacityKeyframe], dura
 
 pub fn load_font_faces(FontFaceSet, String, String) -> Unit
 
+pub fn observe_border_box(@dom.ResizeObserver, @dom.Element) -> Unit
+
 pub fn parse_css_number(String) -> Double
 
 pub fn play_animation(@dom.Animation) -> Unit

@@ -208,7 +208,8 @@ impl ReadingGeometry for TextGeometry with fn line_height(self) {
 }
 
 ///|
-/// The textarea's scroll padding keeps lines clear of the overlaid controls.
+/// The textarea's scroll padding keeps lines clear of the overlaid controls;
+/// its larger bottom padding only lets the text scroll past its end.
 impl ReadingGeometry for TextGeometry with fn readable(self) {
   let area = self.area.as_element()
   let top = area.get_bounding_client_rect().get_top() + area.get_client_top()

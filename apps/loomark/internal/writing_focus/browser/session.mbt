@@ -252,7 +252,7 @@ pub fn connect(
     let resize = @dom.ResizeObserver::new((_, _) => focus.layout_changed())
     focus.cleanup.push(() => resize.disconnect())
     focus.cleanup.push(() => focus.caret.release())
-    resize.observe(text_area.as_element())
+    @browser_api.observe_border_box(resize, text_area.as_element())
     focus.schedule()
     @js.any(())
   })

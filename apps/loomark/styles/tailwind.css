@@ -406,9 +406,11 @@
 
 .loomark-source {
   /* Paint behind the bars. Native caret scrolling uses matching scroll padding;
-     only element resizing needs the existing measured-caret correction. */
+     only element resizing needs the existing measured-caret correction.
+     Native scrolling reveals only the caret, so the bottom scroll padding adds
+     the half-leading below it to keep the whole line clear. */
   padding: var(--loomark-first-line-top) max(28px, calc((100% - var(--loomark-measure)) / 2)) var(--loomark-content-bottom);
-  scroll-padding-block: var(--loomark-first-line-top) var(--loomark-content-bottom);
+  scroll-padding-block: var(--loomark-first-line-top) calc(var(--loomark-content-bottom) + (1lh - 1em) / 2);
   font-size: inherit;
   line-height: var(--loomark-line-height);
   -webkit-font-smoothing: antialiased;
@@ -427,6 +429,14 @@
   background-origin: content-box, padding-box;
   background-position: -0.5lh 0, 0 0;
   background-attachment: local;
+}
+
+/* On screen the last line can scroll up to the first line's height. */
+@media screen {
+  .loomark-source-frame { container-type: size; }
+  .loomark-source {
+    padding-bottom: max(var(--loomark-content-bottom), calc(100cqh - var(--loomark-first-line-top) - 1lh));
+  }
 }
 
 /* Firefox ignores `local` on a textarea, so the rows follow the scroll offset
@@ -526,8 +536,10 @@
   content-visibility: hidden;
 }
 
-.loomark-writing-measure > div {
-  min-height: 1lh;
+/* An empty line keeps one line box with a strut, as in the text area. WebKit
+   can resolve `lh` in this mirror from a stale line height. */
+.loomark-writing-measure > div:empty::before {
+  content: "\200b";
 }
 
 @media (forced-colors: active) {

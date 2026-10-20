@@ -26,6 +26,7 @@ Most modern writing tools try to do too much. They crowd your screen with floati
 - **Natural Native Typing:** Standard browser text editing keeps IME composition and browser Undo/Redo completely natural.
 - **Zero Visual Noise:** No dictionary red lines, no autocorrect interruptions, and no unexpected formatting jumps. Write freely in any language, dialect, or code snippet.
 - **Dot-Grid Paper:** Text sits on faint dots that follow its lines, giving quiet order without ruled lines.
+- **Room Below the Last Line:** In Text and Split, writing scrolls past the end of the document until its last line reaches the top, so you never have to write at the bottom edge of the screen. Preview ends with its text.
 - **Focus Mode:** Toggle the bottom-right icon to hide navigation and routine controls without changing your Text, Preview, or Split view. Surrounding paragraphs gently fade while the textarea has focus. Toggle again or press Escape to restore the controls. Normal mode keeps all paragraphs fully readable.
 - **A Soft Caret:** The caret fades in softly, keeps pace with every keystroke, glides when you move it with the arrow keys or the pointer, and gently breathes when you pause instead of flashing. Reduced-motion settings remove the glide.
 - **Two Typefaces, Two Moments:** Draft in a warm duospaced writing face paired with IBM Plex Sans JP for Japanese; read in a literary serif paired with BIZ UDMincho. All faces ship with the app, so they work offline once loaded.
