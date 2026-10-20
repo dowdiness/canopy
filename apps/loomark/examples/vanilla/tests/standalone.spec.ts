@@ -37,6 +37,12 @@ for (const width of [390, 720, 721, 1280]) {
   })
 }
 
+async function readingPosition(text: Locator) {
+  return text.evaluate((area: HTMLTextAreaElement) => ({
+    caret: area.selectionEnd, scrollTop: area.scrollTop, scrollable: area.scrollHeight > area.clientHeight,
+  }))
+}
+
 test("document activation lets keyboard users continue writing immediately", async ({ page }) => {
   await page.goto("/")
   const text = page.getByRole("textbox", { name: "Text" })
@@ -3739,6 +3745,7 @@ test("Examples create and open new Documents, preserve existing Documents, and c
     await expect(sidebar).toHaveAttribute("aria-hidden", "true")
     await expect.poll(async () => (await text.inputValue()).startsWith(firstLine))
       .toBe(true)
+    await expect.poll(() => readingPosition(text)).toEqual({ caret: 0, scrollTop: 0, scrollable: true })
     await expect.poll(() => readStoredDocuments(page)).toHaveLength(index + 2)
   }
 

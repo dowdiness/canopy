@@ -96,3 +96,14 @@ fn focus_element(element : @dom.Element) -> Unit {
   }
   target.focus_with_options(prevent_scroll=true)
 }
+
+///|
+/// An Example is read from its beginning, unlike writing that resumes at its end.
+fn caret_at_start_after_render() -> @cmd.Cmd {
+  @cmd.custom_cmd(kind=AfterRender, _ => {
+    if editor_text_area() is Some(area) {
+      area.set_selection_range(0, 0)
+      area.as_element().set_scroll_top(0)
+    }
+  })
+}

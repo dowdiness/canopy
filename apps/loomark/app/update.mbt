@@ -528,7 +528,10 @@ fn update_page(
           Some(target) => {
             let ready = { ..editing, creation: None, }
             let (next, surface) = ready.activate(target, emit, editor)
-            (Editing(next), surface)
+            (
+              Editing(next),
+              @cmd.batch([surface, caret_at_start_after_render()]),
+            )
           }
         }
       }
