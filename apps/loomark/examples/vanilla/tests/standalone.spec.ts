@@ -28,6 +28,44 @@ test("mobile landing page keeps navigation in view and opens an editable demo on
   }
 })
 
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`mobile sync illustration delivers the phone's sentence to the computer (${reducedMotion})`, async ({ browser, baseURL }) => {
+    const context = await browser.newContext({
+      baseURL,
+      viewport: { width: 360, height: 800 },
+      isMobile: true,
+      hasTouch: true,
+      reducedMotion,
+    })
+    try {
+      const page = await context.newPage()
+      await page.goto("/about/index.html")
+      await page.locator("#yours").evaluate(element => {
+        window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY, behavior: "instant" })
+      })
+      const phone = page.locator(".sync-handset .sync-after")
+      const computer = page.locator(".sync-computer .sync-after")
+      if (reducedMotion === "no-preference") {
+        await expect(phone).toHaveCSS("opacity", "1", { timeout: 10_000 })
+        await expect(computer).toHaveCSS("opacity", "0")
+      }
+      await expect(phone).toHaveCSS("opacity", "1")
+      await expect(computer).toHaveCSS("opacity", "1")
+      for (const capture of [phone.locator("img"), computer.locator("img")]) {
+        await expect.poll(() => capture.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+        const dimensions = await capture.evaluate(image => {
+          const img = image as HTMLImageElement
+          const box = img.getBoundingClientRect()
+          return { actual: box.width / box.height, original: img.naturalWidth / img.naturalHeight }
+        })
+        expect(dimensions.actual).toBeCloseTo(dimensions.original, 2)
+      }
+    } finally {
+      await context.close()
+    }
+  })
+}
+
 const DOCUMENT_DATABASE_NAME = "loomark"
 const DOCUMENT_DATABASE_VERSION = 1
 const DOCUMENT_STORE_NAME = "documents"

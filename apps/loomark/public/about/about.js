@@ -232,6 +232,7 @@ function mountRun(parts, { readerValue }) {
   const {
     root, nav, live, run, stage, desk, source, rendered, textScroll, panes, modeButtons,
     steps, stepNote, focusButton, focusSteps, focusNote, phone, phonePage, viewsChapter, captions,
+    mobileSync,
   } = parts
   const state = { phase: null, chapter: null, mode: null, shownText: null, writing: false, focused: false, focusOff: false, stageTop: 0 }
   // One scene plays on the sheet at a time: the note writing itself, 02, or 03.
@@ -390,12 +391,14 @@ function mountRun(parts, { readerValue }) {
     const current = beginScene()
     const base = afterFocus(state.shownText)
     const added = phoneAdded(state.shownText)
+    mobileSync.classList.remove("is-written", "is-delivered")
     showPhone(base, false)
     showLaptop(base)
     if (!reducedMotion.matches) {
       await wait(1100)
       const done = await typeOut(added, { keys: phoneKeys, current, show: ({ shown }) => showPhone(base + shown, true) })
       if (!done) return
+      mobileSync.classList.add("is-written")
       await wait(400)
       if (!current()) return
       phone.classList.add("is-syncing")
@@ -406,6 +409,7 @@ function mountRun(parts, { readerValue }) {
     desk.classList.add("is-syncing")
     showPhone(base + added, false)
     showLaptop(base + added)
+    mobileSync.classList.add("is-written", "is-delivered")
     await wait(reducedMotion.matches ? 0 : 700)
     desk.classList.remove("is-syncing")
   }
@@ -545,6 +549,7 @@ const sheet = mountRun({
   focusNote: run.querySelector("[data-focus-note]"),
   phone: run.querySelector(".run-phone"),
   phonePage: run.querySelector("[data-run-phone]"),
+  mobileSync: run.querySelector(".mobile-sync"),
   viewsChapter: run.querySelector('.run-chapter[data-chapter="views"]'),
   captions: [...run.querySelectorAll(".run-chapter")].map(element => ({ element, name: element.dataset.chapter })),
 }, editor)

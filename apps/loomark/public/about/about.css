@@ -576,6 +576,7 @@ html { transition: background-color 700ms ease; }
   translate: calc((1 - var(--phone)) * 64px) 0;
 }
 .run-phone .desk-top { height: 42px; padding: 0 16px; gap: 12px; }
+.mobile-sync { display: none; }
 .run-phone-page {
   display: block;
   overflow: hidden;
@@ -745,11 +746,67 @@ html { transition: background-color 700ms ease; }
   .desk[data-mode="split"] .pane-inner { padding-inline: 14px; font-size: 13.5px; }
   .footer p { order: 3; flex-basis: 100%; }
   .footer nav { margin-inline-start: auto; }
-  /* Side by side, so neither device covers the other's page. */
-  .run { --laptop-shrink: 0.4; }
-  .run-sheet .run-phone { width: 36%; border-radius: 22px; }
-  .run-phone-page { padding: 14px 12px; font-size: 11px; line-height: 20px; background-size: 20px 20px; background-position: -10px -10px; }
-  .run-phone-page .line { min-height: 20px; }
+  /* Real editor captures scale as a whole; only the device frames are drawn here. */
+  .run { --laptop-shrink: 0; }
+  .run-desk { opacity: calc(var(--sheet) * (1 - var(--laptop))); }
+  .run-sheet .run-phone { display: none; }
+  .mobile-sync {
+    display: block;
+    position: relative;
+    height: var(--sheet-h);
+    width: min(380px, 100%);
+    opacity: var(--phone);
+    translate: 0 calc((1 - var(--phone)) * 24px);
+  }
+  .sync-computer { position: absolute; top: 5%; left: 0; width: 96%; padding: 0 8px 7px; }
+  .sync-screen {
+    padding: 5px;
+    border: 1px solid var(--muted);
+    border-radius: 9px 9px 2px 2px;
+    background: var(--paper);
+    box-shadow: 0 8px 24px -16px var(--muted);
+  }
+  .sync-screen, .sync-display { display: grid; }
+  .mobile-sync picture { display: block; grid-area: 1 / 1; min-width: 0; }
+  .mobile-sync img { display: block; width: 100%; height: auto; }
+  .sync-after { opacity: 0; transition: opacity 240ms ease; }
+  .is-written .sync-handset .sync-after,
+  .is-delivered .sync-computer .sync-after { opacity: 1; }
+  .sync-computer::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 7px;
+    border: 1px solid var(--muted);
+    border-radius: 1px 1px 8px 8px;
+    background: var(--foundation);
+  }
+  .sync-handset {
+    position: absolute;
+    bottom: 3%;
+    right: 0;
+    width: min(60%, calc((var(--sheet-h) * 0.76 - 28px) * 390 / 700 + 10px));
+    padding: 15px 4px 11px;
+    border: 1px solid var(--muted);
+    border-radius: 24px;
+    background: var(--paper);
+    box-shadow: inset 0 0 0 4px var(--foundation), -12px 12px 32px -16px oklch(0 0 0 / 0.3);
+  }
+  .sync-display { overflow: hidden; border-radius: 12px; }
+  .sync-handset::before, .sync-handset::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    translate: -50% 0;
+    border-radius: 999px;
+    background: var(--muted);
+  }
+  .sync-handset::before { top: 6px; width: 24px; height: 3px; }
+  .sync-handset::after { bottom: 4px; width: 40px; height: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-sync { translate: none; }
+    .sync-after { transition: none; }
+  }
   .run-desk .run-focus { display: grid; width: 36px; height: 36px; }
 }
 
@@ -842,4 +899,3 @@ html { transition: background-color 700ms ease; }
   60% { opacity: 0.8; }
   to { --wake: 1100px; opacity: 0; }
 }
-
