@@ -744,8 +744,19 @@ html { transition: background-color 700ms ease; }
   .desk .reading { font-size: 17px; }
   .pane-inner { padding-top: 24px; }
   .desk[data-mode="split"] .pane-inner { padding-inline: 14px; font-size: 13.5px; }
-  .footer p { order: 3; flex-basis: 100%; }
-  .footer nav { margin-inline-start: auto; }
+  .footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 24px;
+    padding-block: 24px max(32px, env(safe-area-inset-bottom));
+  }
+  .footer .brand { grid-column: 1; width: fit-content; min-height: 44px; font-size: 18px; }
+  .footer .brand > span { display: inline; }
+  .footer .brand-mark { width: 24px; height: 24px; }
+  .footer .made { grid-column: 1; display: flex; align-items: center; gap: 0.25em; font-size: 13px; }
+  .footer .made a { display: inline-flex; align-items: center; min-height: 44px; }
+  .footer nav { grid-column: 2; grid-row: 1 / 3; flex-direction: column; align-items: flex-end; gap: 0; }
+  .footer nav a { display: inline-flex; justify-content: flex-end; align-items: center; min-width: 44px; min-height: 44px; }
   /* Real editor captures scale as a whole; only the device frames are drawn here. */
   .run { --laptop-shrink: 0; }
   .run-desk { opacity: calc(var(--sheet) * (1 - var(--laptop))); }
