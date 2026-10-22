@@ -1,5 +1,8 @@
 ///|
 pub fn app() -> @rabbita.Val[@rabbita.Html] {
+  if @local_tabs.enabled() {
+    return @local_tabs.app()
+  }
   let editor = @editor.MarkdownEditor::MarkdownEditor(EDITOR_TEXT_ID)
   // Resolve stable browser handles once at the composition boundary.
   let window = @dom.window()
