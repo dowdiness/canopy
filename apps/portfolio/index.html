@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dowdiness — Works</title>
+  <meta name="description" content="Koji Ishimoto (dowdiness) が MoonBit で作ってきたアプリとライブラリの一覧">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="intro">
+    <p class="eyebrow">dowdiness / Koji Ishimoto</p>
+    <h1>Works</h1>
+    <p class="lead">MoonBit で作ってきたアプリケーションとライブラリの一覧です。エディタ、音楽、言語処理系と、それらを支える基盤ライブラリを並べています。</p>
+    <nav class="toc">
+      <a href="#apps">Apps</a>
+      <a href="#libraries">Libraries</a>
+      <a href="#experiments">Experiments</a>
+      <a href="https://github.com/dowdiness">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section id="apps">
+      <h2>Apps</h2>
+      <div class="grid featured">
+        <article class="card">
+          <h3>Canopy</h3>
+          <p class="tagline">An editor that understands your program, not just your characters.</p>
+          <p>コードを平坦なテキストではなく、生きた構造として扱うプロジェクショナルエディタ。入力に合わせて差分パースし、スコープと型を追跡し、式を評価して整形します。CRDT により、サーバーなしで複数人が同じ文書を同時編集できます。</p>
+          <ul class="tags"><li>Incremental parsing</li><li>CRDT</li><li>Projectional editing</li></ul>
+          <p class="links">
+            <a href="https://canopy-ideal.pages.dev">Demo</a>
+            <a href="https://dowdiness.github.io/canopy/">Docs</a>
+            <a href="https://github.com/dowdiness/canopy">Source</a>
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>Loomark</h3>
+          <p class="tagline">An easy editor for every day.</p>
+          <p>気が散らない Markdown エディタ。Text / Preview / Split の切り替え、段落に集中する Focus Mode、日本語組版への配慮を備えます。ブラウザにローカル保存し、Google でサインインすると端末間で同期できます。</p>
+          <ul class="tags"><li>Markdown</li><li>Local-first</li><li>Rabbita</li></ul>
+          <p class="links">
+            <a href="https://github.com/dowdiness/canopy/tree/main/apps/loomark">Source</a>
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>moondsp</h3>
+          <p class="tagline">A text-first music editor in the browser.</p>
+          <p>ソース文書そのものが楽譜になる音楽エディタ。ビジュアルコントロールもテキストを書き換え、音は途切れずに鳴り続けます。オーディオエンジンは MoonBit 製で、Web AudioWorklet とネイティブ CLAP にコンパイルされます。</p>
+          <ul class="tags"><li>Audio DSP</li><li>Live coding</li><li>Wasm-GC</li></ul>
+          <p class="links">
+            <a href="https://moondsp.koji-ishimoto.workers.dev/">Demo</a>
+            <a href="https://github.com/dowdiness/moondsp">Source</a>
+          </p>
+        </article>
+
+        <article class="card">
+          <h3>js_engine</h3>
+          <p class="tagline">JavaScript interpreter in MoonBit.</p>
+          <p>純 MoonBit 製の組み込み JavaScript エンジン。バイトコード実行を既定とし、未対応のソースはツリーウォーク実行にフォールバックします。native / JavaScript / Wasm / Wasm-GC で動作し、test262 で適合性を計測しています。</p>
+          <ul class="tags"><li>Interpreter</li><li>Bytecode VM</li><li>test262</li></ul>
+          <p class="links">
+            <a href="https://dowdiness.github.io/js_engine/playground/">Playground</a>
+            <a href="https://dowdiness.github.io/js_engine/benchmarks/">Benchmarks</a>
+            <a href="https://github.com/dowdiness/js_engine">Source</a>
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="libraries">
+      <h2>Libraries</h2>
+      <div class="grid">
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/incr">incr</a></h3>
+          <p>入力の変化に応じて必要な部分だけを再計算するインクリメンタル計算ライブラリ。</p>
+          <p class="links"><a href="https://mooncakes.io/docs/dowdiness/incr">Docs</a></p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/loom">loom</a></h3>
+          <p>汎用のインクリメンタルパーサーフレームワーク。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/seam">seam</a></h3>
+          <p>インクリメンタルパーサー向けの言語非依存 CST 基盤。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/event-graph-walker">event-graph-walker</a></h3>
+          <p>eg-walker CRDT アルゴリズムと FugueMax シーケンス CRDT の実装。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/btree">btree</a></h3>
+          <p>位置インデックスと範囲操作を備えた汎用 counted B+ tree。</p>
+          <p class="links"><a href="https://mooncakes.io/docs/dowdiness/btree">Docs</a></p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/order-tree">order-tree</a></h3>
+          <p>O(log n) の位置指定操作ができる順序統計 B-tree。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/rle">rle</a></h3>
+          <p>ランレングス符号化されたシーケンス。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/alga">alga</a></h3>
+          <p>Haskell の alga に着想を得た代数的グラフと有向グラフのアルゴリズム集。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/egraph">egraph</a></h3>
+          <p>Equality graph (e-graph) ライブラリ。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/egglog">egglog</a></h3>
+          <p>リレーショナル e-graph エンジン (egglog)。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/graphviz">graphviz</a></h3>
+          <p>Graphviz DOT パーサーと SVG レンダラー。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/svg-dsl">svg-dsl</a></h3>
+          <p>プログラムから SVG を生成するための DSL。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/voicevox_moonbit">voicevox_moonbit</a></h3>
+          <p>VOICEVOX Core のネイティブ FFI バインディング。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/margs">margs</a></h3>
+          <p>MoonBit 用のコマンドライン引数パーサー。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/ecs">ecs</a></h3>
+          <p>MoonBit 用の Entity Component System。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/arena">arena</a></h3>
+          <p>MoonBit のためのメモリ管理。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="experiments">
+      <h2>Experiments</h2>
+      <div class="grid">
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/living_chronicle">living_chronicle</a></h3>
+          <p>Event Graph Walker 上に作ったローカルファーストな共同編集の物語世界の実験。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/microgpt">microgpt</a></h3>
+          <p>MoonBit による MicroGPT。</p>
+        </article>
+        <article class="card small">
+          <h3><a href="https://github.com/dowdiness/heuristic-search">heuristic-search</a></h3>
+          <p>MoonBit によるヒューリスティック探索のチュートリアル。</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a href="https://github.com/dowdiness">github.com/dowdiness</a>
+  </footer>
+</body>
+</html>

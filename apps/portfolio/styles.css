@@ -1,0 +1,89 @@
+:root {
+  --bg: #f7f5f0;
+  --surface: #ffffff;
+  --text: #22201c;
+  --muted: #6b665d;
+  --border: #e3dfd6;
+  --accent: #2f6f5e;
+  --tag-bg: #ecf3f0;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171614;
+    --surface: #211f1c;
+    --text: #ece8e1;
+    --muted: #a39d92;
+    --border: #35322d;
+    --accent: #7cc3ad;
+    --tag-bg: #26332e;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  line-height: 1.7;
+}
+
+a { color: var(--accent); }
+
+.intro, main, footer {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.intro { padding-top: 72px; padding-bottom: 32px; }
+.eyebrow { margin: 0; color: var(--muted); font-size: 0.9rem; letter-spacing: 0.04em; }
+h1 { margin: 4px 0 12px; font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.1; }
+.lead { max-width: 40em; margin: 0; color: var(--muted); }
+
+.toc { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 24px; }
+.toc a { text-decoration: none; font-weight: 600; }
+
+section { padding: 32px 0; }
+h2 {
+  margin: 0 0 20px;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.grid.featured { grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.card.small { padding: 18px; }
+.card h3 { margin: 0; font-size: 1.35rem; }
+.card.small h3 { font-size: 1.05rem; }
+.card.small h3 a { color: var(--text); text-decoration: none; }
+.card.small h3 a:hover { color: var(--accent); }
+.card p { margin: 8px 0 0; }
+.card.small p { font-size: 0.92rem; color: var(--muted); }
+.tagline { color: var(--muted); font-style: italic; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; }
+.tags li { padding: 2px 10px; font-size: 0.8rem; background: var(--tag-bg); border-radius: 999px; }
+
+.links { display: flex; flex-wrap: wrap; gap: 16px; margin-top: auto !important; padding-top: 16px; font-weight: 600; font-size: 0.92rem; }
+.card.small .links { padding-top: 8px; }
+
+footer { padding-top: 32px; padding-bottom: 48px; color: var(--muted); }
