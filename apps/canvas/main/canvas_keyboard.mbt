@@ -6,7 +6,7 @@ priv enum CanvasDeleteTarget {
 
 ///|
 priv struct CanvasKeyboardBinding {
-  handle : Int
+  handle : Int32
   on_change : () -> Unit
   send_source : (CanvasSourceMessage) -> Unit
   can_mutate : () -> Bool
@@ -89,7 +89,7 @@ fn canvas_keyboard_update(
 ///|
 #cfg(target="js")
 priv suberror CanvasKeyboardSub {
-  Keydown(@dom.EventTarget, Int, @rabbita.Emit[CanvasKeyboardMsg], () -> Bool)
+  Keydown(@dom.EventTarget, Int32, @rabbita.Emit[CanvasKeyboardMsg], () -> Bool)
 }
 
 ///|
@@ -153,7 +153,7 @@ fn canvas_keyboard_sub_loader(
 #cfg(target="js")
 fn canvas_keyboard_subscriptions(
   target : @dom.EventTarget,
-  handle : Int,
+  handle : Int32,
   emit : @rabbita.Emit[CanvasKeyboardMsg],
   can_mutate : () -> Bool,
 ) -> @sub.Sub {
@@ -169,7 +169,7 @@ fn canvas_keyboard_subscriptions(
 #cfg(target="js")
 fn mount_canvas_keyboard(
   target : @dom.EventTarget,
-  handle : Int,
+  handle : Int32,
   on_change : () -> Unit,
   send_source : (CanvasSourceMessage) -> Unit,
   can_mutate : () -> Bool,

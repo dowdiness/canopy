@@ -167,7 +167,7 @@ fn CanvasHostPolicy::render_full_canvas(
   selection : SelectionState,
   selected_edge : EdgeId?,
   interaction : InteractionState,
-  action_count : Int,
+  action_count : Int32,
   input_compatibility : Array[PortCompatibilityJson],
 ) -> CanvasFullRenderJson {
   let selected : String? = match selection.selected {

@@ -114,9 +114,7 @@ fn[T] BTreeNode::is_full(self : BTreeNode[T], min_degree : Int32) -> Bool {
 ///|
 /// Slice positions are computed by the library — failure is an invariant violation.
 fn[T : BTreeElem] must_slice(elem : T, start~ : Int32, end~ : Int32) -> T {
-  @rle.Sliceable::slice(elem, start~, end~) catch {
-    error => abort("must_slice: invariant violated: \{error}")
-  }
+  try! @rle.Sliceable::slice(elem, start~, end~)
 }
 
 ///|

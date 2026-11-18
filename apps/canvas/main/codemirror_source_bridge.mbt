@@ -40,8 +40,8 @@ fn changes_to_edits(
 /// UTF-16 code units to match CodeMirror and loom edit coordinates.
 fn splice_code_units(
   source : String,
-  start : Int,
-  old_len : Int,
+  start : Int32,
+  old_len : Int32,
   insert : String,
 ) -> String {
   source.view(end_offset=start).to_owned() +

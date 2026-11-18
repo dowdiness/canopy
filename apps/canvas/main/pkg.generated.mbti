@@ -9,62 +9,72 @@ import {
 }
 
 // Values
-pub fn add_node(Int, String, Double, Double) -> Unit
+pub fn add_node(Int32, String, Double, Double) -> Unit
 
-pub fn apply_source_graph_operation(Int, String) -> String raise Failure
+pub fn apply_source_graph_operation(Int32, String) -> String raise Failure
 
-pub fn create_canvas() -> Int
+pub fn create_canvas() -> Int32
 
-pub fn create_source_graph(String) -> Int raise Failure
+pub fn create_source_graph(String) -> Int32 raise Failure
 
-pub fn destroy_source_graph(Int) -> Unit
+pub fn destroy_source_graph(Int32) -> Unit
 
-pub fn get_action_log(Int) -> String
+pub fn get_action_log(Int32) -> String
 
-pub fn get_render_state(Int) -> String
+pub fn get_render_state(Int32) -> String
 
-pub fn get_source_graph_action_log(Int) -> String
+pub fn get_source_graph_action_log(Int32) -> String
 
-pub fn get_source_graph_render_state(Int) -> String
+pub fn get_source_graph_render_state(Int32) -> String
 
-pub fn get_source_graph_source(Int) -> String
+pub fn get_source_graph_source(Int32) -> String
 
-pub fn mount_canvas_ui(Int, @dom.Element, () -> Unit, () -> Unit) -> Unit
+pub fn mount_canvas_ui(Int32, @dom.Element, () -> Unit, () -> Unit) -> Unit
 
-pub fn publish_render_state(Int, @dom.Element) -> String
+pub fn publish_render_state(Int32, @dom.Element) -> String
 
 pub fn sample_graph_dsl_source() -> String
 
-pub fn set_source_graph_source(Int, String) -> Unit raise Failure
+pub fn set_source_graph_source(Int32, String) -> Unit raise Failure
 
-pub fn set_source_graph_source_result(Int, String) -> String raise Failure
+pub fn set_source_graph_source_result(Int32, String) -> String raise Failure
 
-pub fn source_graph_insert_unique(Int, String, String) -> String raise Failure
+pub fn source_graph_insert_unique(Int32, String, String) -> String raise Failure
 
-pub fn try_destroy_source_graph(Int) -> Bool
+pub fn try_destroy_source_graph(Int32) -> Bool
 
 // Errors
 
 // Types and methods
-type CanvasFullRenderJson derive(Eq)
+#derive(Eq)
+type CanvasFullRenderJson
 
-type ConnectingJson derive(Eq, ToJson, @json.FromJson)
+#derive(Eq, @json.FromJson, @json.ToJson)
+type ConnectingJson
 
-type EdgeJson derive(Eq, ToJson, @json.FromJson)
+#derive(Eq, @json.FromJson, @json.ToJson)
+type EdgeJson
 
-type InspectorNodeJson derive(Eq, ToJson, @json.FromJson)
+#derive(Eq, @json.FromJson, @json.ToJson)
+type InspectorNodeJson
 
-type LoweredCanvas derive(Eq)
+#derive(Eq)
+type LoweredCanvas
 
-type NodeJson derive(Eq, ToJson, @json.FromJson)
+#derive(Eq, @json.FromJson, @json.ToJson)
+type NodeJson
 
-type NodeParamJson derive(Eq, ToJson, @json.FromJson)
+#derive(Eq, @json.FromJson, @json.ToJson)
+type NodeParamJson
 
-type NormalizedCanvas derive(Eq)
+#derive(Eq)
+type NormalizedCanvas
 
-type PortCompatibilityJson derive(Eq, ToJson, @json.FromJson)
+#derive(Eq, @json.FromJson, @json.ToJson)
+type PortCompatibilityJson
 
-type RenderStateJson derive(Eq)
+#derive(Eq)
+type RenderStateJson
 
 type SourceBackedGraph
 
@@ -72,15 +82,18 @@ type SourceDemoModel
 
 type SourceDemoMsg
 
-type SourceGraphOperationResultJson derive(ToJson, @json.FromJson)
+#derive(@json.FromJson, @json.ToJson)
+type SourceGraphOperationResultJson
 
 type SourceNodePosition
 
 type SourceNoticeOperation
 
-type ValidatedCanvas derive(Eq)
+#derive(Eq)
+type ValidatedCanvas
 
-type ValidationJson derive(Eq, ToJson, @json.FromJson)
+#derive(Eq, @json.FromJson, @json.ToJson)
+type ValidationJson
 
 // Type aliases
 pub using @graph_model {type CanvasNode}

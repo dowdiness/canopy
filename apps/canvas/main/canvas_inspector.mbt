@@ -2,56 +2,62 @@
 const CANVAS_INSPECTOR_ID : String = "inspector-node"
 
 ///|
+#derive(Eq)
 priv enum CanvasInspectorField {
   Binding
   Parameter(String)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasInspectorFieldKey {
   node_id : String
   field : CanvasInspectorField
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum CanvasInspectorSessionPhase {
   Editing
   Submitted
   Cancelled
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasInspectorSession {
-  id : Int
+  id : Int32
   key : CanvasInspectorFieldKey
   canonical : String
   submitted_value : String?
   phase : CanvasInspectorSessionPhase
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasInspectorProjection {
   summary : InspectorNodeJson
   params : Array[NodeParamJson]
   has_source_node : Bool
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasInspectorState {
   projection : CanvasInspectorProjection?
   session : CanvasInspectorSession?
   // Target/terminal invalidation only; ending one edit must not reject the
   // next focus event captured before the next render.
-  reset_generation : Int
+  reset_generation : Int32
   terminal : Bool
-} derive(Eq)
+}
 
 ///|
 priv enum CanvasInspectorEffect {
   NoEffect
-  Finalize(CanvasInspectorFieldKey, String?, Bool, Int?)
+  Finalize(CanvasInspectorFieldKey, String?, Bool, Int32?)
   SyncInactive(CanvasInspectorProjection?)
-  Submit(CanvasSourceRequest, CanvasInspectorFieldKey, Int)
+  Submit(CanvasSourceRequest, CanvasInspectorFieldKey, Int32)
 }
 
 ///|
@@ -64,11 +70,11 @@ priv struct CanvasInspectorUpdate {
 priv enum CanvasInspectorMsg {
   Snapshot(CanvasRenderLayerSnapshot)
   ParserStopped
-  Focus(CanvasInspectorFieldKey, String, Int, Int)
-  Change(CanvasInspectorFieldKey, Int, String)
-  Enter(CanvasInspectorFieldKey, Int, String, Bool)
-  Escape(CanvasInspectorFieldKey, Int)
-  Completion(Int, CanvasSourceReply)
+  Focus(CanvasInspectorFieldKey, String, Int32, Int32)
+  Change(CanvasInspectorFieldKey, Int32, String)
+  Enter(CanvasInspectorFieldKey, Int32, String, Bool)
+  Escape(CanvasInspectorFieldKey, Int32)
+  Completion(Int32, CanvasSourceReply)
 }
 
 ///|
@@ -315,7 +321,7 @@ fn canvas_inspector_update(
 fn canvas_inspector_commit(
   state : CanvasInspectorState,
   key : CanvasInspectorFieldKey,
-  id : Int,
+  id : Int32,
   value : String,
 ) -> CanvasInspectorUpdate {
   guard state.terminal is false else { return { state, effect: NoEffect, } }
@@ -377,7 +383,7 @@ fn canvas_inspector_input_value_from_key(event : @dom.KeyboardEvent) -> String {
 }
 
 ///|
-fn canvas_inspector_event_session(event : @dom.Event) -> Int? {
+fn canvas_inspector_event_session(event : @dom.Event) -> Int32? {
   guard event.target().to_element() is Some(element) else { return None }
   guard element.get_attribute("data-inspector-session") is Some(text) else {
     return None
@@ -392,7 +398,7 @@ fn canvas_inspector_event_session(event : @dom.Event) -> Int? {
 ///|
 fn canvas_inspector_change_input(
   event : @dom.Event,
-) -> (CanvasInspectorFieldKey, Int, String)? {
+) -> (CanvasInspectorFieldKey, Int32, String)? {
   guard event.target().to_html_input_element() is Some(input) else {
     return None
   }
@@ -503,7 +509,7 @@ fn canvas_inspector_dom_finalize(
   key : CanvasInspectorFieldKey,
   restore : String?,
   blur : Bool,
-  session_id? : Int,
+  session_id? : Int32,
 ) -> Unit {
   guard elements.fields.search_by(entry => entry.0 == key) is Some(index) else {
     return
@@ -525,7 +531,7 @@ fn canvas_inspector_finalize_input(
   key : CanvasInspectorFieldKey,
   restore : String?,
   blur : Bool,
-  session_id? : Int,
+  session_id? : Int32,
 ) -> Unit {
   guard element.get_attribute("data-inspector-node-id") == Some(key.node_id) else {
     return
@@ -600,7 +606,7 @@ fn canvas_inspector_input(
   canonical : String,
   label : String,
   emit : @rabbita.Emit[CanvasInspectorMsg],
-  next_session_id : @ref.Ref[Int],
+  next_session_id : @ref.Ref[Int32],
 ) -> @rabbita.Html {
   let key_text = match key.field {
     Binding => key.node_id + ":binding"
@@ -686,7 +692,7 @@ fn canvas_inspector_view(
   state : CanvasInspectorState,
   source_backed : Bool,
   emit : @rabbita.Emit[CanvasInspectorMsg],
-  next_session_id : @ref.Ref[Int],
+  next_session_id : @ref.Ref[Int32],
 ) -> @rabbita.Html {
   match state.projection {
     None =>
@@ -867,7 +873,7 @@ priv suberror CanvasInspectorSubscription {
     CanvasInspectorElements,
     @rabbita.Emit[CanvasInspectorMsg],
     ((CanvasInspectorMsg) -> Unit) -> Unit,
-    @ref.Ref[(CanvasInspectorMsg) -> Unit]
+    @ref.Ref[(CanvasInspectorMsg) -> Unit],
   )
 }
 
@@ -883,7 +889,7 @@ fn canvas_inspector_sub_loader(
       elements,
       emit,
       register,
-      self_queue
+      self_queue,
     ) => {
       let tagger = @ref.Ref(emit)
       let active = @ref.Ref(true)

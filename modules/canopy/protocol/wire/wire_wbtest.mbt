@@ -61,7 +61,13 @@ test "v2 frame is rejected after v3 cutover" {
   let result = decode_message_result(b"\x02\x01\x00")
   guard! result is Err(err)
   match err {
-    UnsupportedVersion(version~) => inspect(version, content="b'\\x02'")
+    UnsupportedVersion(version~) =>
+      inspect(
+        version,
+        content=(
+          #|2
+        ),
+      )
     _ => fail("expected UnsupportedVersion")
   }
   inspect(err.message(), content="unsupported protocol version: 2")
@@ -77,13 +83,23 @@ test "decode_message_result reports unknown message type" {
 ///|
 test "wire format: version byte is 0x03" {
   let encoded = encode_message(CrdtOps(b""))
-  inspect(encoded[0], content="b'\\x03'")
+  inspect(
+    encoded[0],
+    content=(
+      #|3
+    ),
+  )
 }
 
 ///|
 test "wire format: flags byte is 0x00" {
   let encoded = encode_message(CrdtOps(b""))
-  inspect(encoded[2], content="b'\\x00'")
+  inspect(
+    encoded[2],
+    content=(
+      #|0
+    ),
+  )
 }
 
 ///|

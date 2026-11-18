@@ -1,5 +1,5 @@
 ///|
-fn source_demo_test_model(handle : Int) -> SourceDemoModel {
+fn source_demo_test_model(handle : Int32) -> SourceDemoModel {
   {
     handle,
     editor: get_source_graph_source(handle),

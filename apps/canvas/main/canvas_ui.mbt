@@ -3,7 +3,7 @@
 /// host's subscription and queues only on that host's scheduler.
 #cfg(target="js")
 pub fn mount_canvas_ui(
-  handle : Int,
+  handle : Int32,
   render_target : @dom.Element,
   on_change : () -> Unit,
   on_rendered : () -> Unit,
