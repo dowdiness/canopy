@@ -509,7 +509,7 @@ test "remote exact delete clamps the local cursor in UTF-16 coordinates" {
 }
 
 ///|
-test "remote admission snapshot detector distinguishes exact and fallback paths" {
+test "remote admission reads no snapshot for single and multi-op exact batches" {
   let exact_source = try! @probe.new_test_editor(
     "snapshot-detector-exact-source",
   )
@@ -548,11 +548,12 @@ test "remote admission snapshot detector distinguishes exact and fallback paths"
       },
     ),
   )
-  assert_eq(fallback_reads, 1)
+  assert_eq(fallback_reads, 0)
+  assert_eq(fallback_target.get_text(), "ABCD")
 }
 
 ///|
-test "snapshot fallback adjusts peer cursors after an astral prefix" {
+test "exact multi-op admission adjusts peer cursors after an astral prefix" {
   let source = try! @probe.new_test_editor("snapshot-unicode-source")
   let target = try! @probe.new_test_editor("snapshot-unicode-target")
   source.set_text("😀a")
@@ -575,7 +576,7 @@ test "snapshot fallback adjusts peer cursors after an astral prefix" {
     ),
   )
 
-  assert_eq(snapshot_reads, 1)
+  assert_eq(snapshot_reads, 0)
   assert_eq(target.get_text(), "😀Xa")
   assert_eq(target.get_peer_cursors().get("peer").unwrap().adjusted_cursor, 4)
 }
@@ -643,21 +644,6 @@ test "projection observer cannot reenter through direct insert" {
 }
 
 ///|
-test "NeedsSeed uses coherent full parse instead of incremental replay" {
-  let source = try! @probe.new_test_editor("needs-seed-source")
-  let target = try! @probe.new_parser_failure_test_editor("needs-seed-target")
-  source.set_text("remote")
-  let result : Result[@text.SyncReport, Error] = Ok(
-    target.admit(try! source.export_all()),
-  ) catch {
-    error => Err(error)
-  }
-  assert_true(result is Ok(_))
-  assert_true(target.is_parser_healthy())
-  assert_eq(target.get_text(), "remote")
-}
-
-///|
 test "exact no-advance emits neither accepted authority nor transition" {
   let editor = try! @probe.new_test_editor("exact-no-advance")
   let phases : Array[ProjectionObservationPhase] = []
@@ -705,4 +691,28 @@ test "interaction activation rejects a second subscription" {
   }
   assert_true(free.interaction.cursor_subscription is Some(_))
   assert_true(second is Err(_))
+}
+
+///|
+test "snapshot seed adjusts peer cursors after an astral prefix" {
+  let source = try! @probe.new_test_editor("snapshot-unicode-source")
+  let target = try! @probe.new_test_editor("snapshot-unicode-target")
+  source.set_text("😀a")
+  ignore(try! target.admit(try! source.export_all()))
+  target.interaction.cursor_view.set_cursor("peer", 3, "Peer", "#000000")
+
+  try! target.settle_snapshot_seed("😀a", "😀Xa", false)
+
+  assert_eq(target.get_peer_cursors().get("peer").unwrap().adjusted_cursor, 4)
+  assert_eq(target.projection.parser.source().read_or_abort(), "😀Xa")
+}
+
+///|
+test "snapshot seed reseeds a parser whose incremental publication fails" {
+  let target = try! @probe.new_parser_failure_test_editor("needs-seed-target")
+
+  try! target.settle_snapshot_seed("", "remote", false)
+
+  assert_true(target.is_parser_healthy())
+  assert_eq(target.projection.parser.source().read_or_abort(), "remote")
 }

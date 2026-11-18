@@ -50,15 +50,15 @@ test "decode_message accepts CrdtOps with empty payload" {
 }
 
 ///|
-test "decode_message_result reports wrong version" {
-  let result = decode_message_result(b"\xFF\x01\x00")
+test "decode_message_checked reports wrong version" {
+  let result = Ok(decode_message_checked(b"\xFF\x01\x00")) catch { e => Err(e) }
   guard! result is Err(err)
   inspect(err.message(), content="unsupported protocol version: 255")
 }
 
 ///|
 test "v2 frame is rejected after v3 cutover" {
-  let result = decode_message_result(b"\x02\x01\x00")
+  let result = Ok(decode_message_checked(b"\x02\x01\x00")) catch { e => Err(e) }
   guard! result is Err(err)
   match err {
     UnsupportedVersion(version~) =>
@@ -74,8 +74,8 @@ test "v2 frame is rejected after v3 cutover" {
 }
 
 ///|
-test "decode_message_result reports unknown message type" {
-  let result = decode_message_result(b"\x03\xFF\x00")
+test "decode_message_checked reports unknown message type" {
+  let result = Ok(decode_message_checked(b"\x03\xFF\x00")) catch { e => Err(e) }
   guard! result is Err(err)
   inspect(err.message(), content="unknown protocol message type: 255")
 }
@@ -138,7 +138,7 @@ test "v3: encode/decode RelayedCrdtOps roundtrip" {
 
 ///|
 test "v3: RelayedCrdtOps with empty payload" {
-  let encoded = encode_relayed_crdt_ops("bob", Bytes::new(0))
+  let encoded = encode_relayed_crdt_ops("bob", Bytes::make(0, b'\x00'))
   let decoded = decode_message(encoded)
   match decoded {
     Some(RelayedCrdtOps(sender~, payload~)) => {
@@ -257,15 +257,17 @@ test "v3: SyncRequest with empty version_json" {
 }
 
 ///|
-test "decode_message_result reports missing room control subtype" {
-  let result = decode_message_result(b"\x03\x05\x00")
+test "decode_message_checked reports missing room control subtype" {
+  let result = Ok(decode_message_checked(b"\x03\x05\x00")) catch { e => Err(e) }
   guard! result is Err(err)
   inspect(err.message(), content="missing room control subtype")
 }
 
 ///|
-test "decode_message_result reports invalid room control subtype before peer id" {
-  let result = decode_message_result(b"\x03\x05\x00\xFF")
+test "decode_message_checked reports invalid room control subtype before peer id" {
+  let result = Ok(decode_message_checked(b"\x03\x05\x00\xFF")) catch {
+    e => Err(e)
+  }
   guard! result is Err(err)
   inspect(err.message(), content="invalid room control subtype: 255")
 }

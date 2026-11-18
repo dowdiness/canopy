@@ -77,7 +77,7 @@ fn Driver::new(broken : Bool) -> Driver {
 
 ///|
 fn Driver::send(self : Driver, bytes : Bytes) -> Unit {
-  match @wire.decode_message_result(bytes) {
+  match (Ok(@wire.decode_message_checked(bytes)) catch { e => Err(e) }) {
     Ok(msg) =>
       self.sent.push(
         match msg {

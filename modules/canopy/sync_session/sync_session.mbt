@@ -184,7 +184,10 @@ pub fn SyncSession::on_message(
   data : Bytes,
   host : SyncHost,
 ) -> Unit {
-  guard @wire.decode_message_result(data) is Ok(msg) else { return }
+  guard (Ok(@wire.decode_message_checked(data)) catch { e => Err(e) })
+    is Ok(msg) else {
+    return
+  }
   match msg {
     CrdtOps(payload) => {
       // CrdtOps is used for backwards-compatible full-state exchange (PeerJoined).

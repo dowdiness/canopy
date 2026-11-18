@@ -94,7 +94,7 @@ The `SyncEditor` is the primary facade for the editor application, integrating t
 ### WebSocket / Wire Protocol
 - `decode_message(data : Bytes) -> SyncMessage?`
   Compatibility decoder that drops malformed frames by returning `None`.
-- `decode_message_result(data : Bytes) -> Result[SyncMessage, ProtocolError]`
+- `decode_message_checked(data : Bytes) -> SyncMessage raise ProtocolError`
   Typed decoder for callers that need explicit protocol failure reasons.
 - `ws_on_message(data : Bytes) -> Unit`
   Applies incoming wire data. Malformed protocol/input frames are intentionally

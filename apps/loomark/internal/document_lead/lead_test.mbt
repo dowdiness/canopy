@@ -106,7 +106,7 @@ test "extract preserves readable structure in the description" {
       ),
       ("- first\n- second\n  * child\n", "first", "- second\n  * child"),
       (
-        "# Heading\n\n> - item\n>   - nested\n", "Heading", "> - item\n> - nested",
+        "# Heading\n\n> - item\n>   - nested\n", "Heading", "> - item\n>   - nested",
       ),
       (
         "1. first\n2. [x] checked\n3. [ ] open\n", "first", "2. [x] checked\n3. [ ] open",

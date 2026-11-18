@@ -19,15 +19,18 @@ fn parse_sync_request_payload(
   payload : Bytes,
 ) -> Result[(String, String, String), @wire.ProtocolError] {
   let reader = Reader::new(payload)
-  let sender = match @wire.read_string_field(reader, "sender") {
+  let sender = match
+    (Ok(@wire.read_string_field(reader, "sender")) catch { e => Err(e) }) {
     Ok(sender) => sender
     Err(err) => return Err(err)
   }
-  let request_id = match @wire.read_string_field(reader, "request_id") {
+  let request_id = match
+    (Ok(@wire.read_string_field(reader, "request_id")) catch { e => Err(e) }) {
     Ok(request_id) => request_id
     Err(err) => return Err(err)
   }
-  let version_json = match @wire.read_string_field(reader, "version_json") {
+  let version_json = match
+    (Ok(@wire.read_string_field(reader, "version_json")) catch { e => Err(e) }) {
     Ok(version_json) => version_json
     Err(err) => return Err(err)
   }
@@ -39,15 +42,18 @@ fn parse_sync_response_payload(
   payload : Bytes,
 ) -> Result[(String, String, String), @wire.ProtocolError] {
   let reader = Reader::new(payload)
-  let sender = match @wire.read_string_field(reader, "sender") {
+  let sender = match
+    (Ok(@wire.read_string_field(reader, "sender")) catch { e => Err(e) }) {
     Ok(sender) => sender
     Err(err) => return Err(err)
   }
-  let request_id = match @wire.read_string_field(reader, "request_id") {
+  let request_id = match
+    (Ok(@wire.read_string_field(reader, "request_id")) catch { e => Err(e) }) {
     Ok(request_id) => request_id
     Err(err) => return Err(err)
   }
-  let sync_json = match @wire.read_string_field(reader, "sync_json") {
+  let sync_json = match
+    (Ok(@wire.read_string_field(reader, "sync_json")) catch { e => Err(e) }) {
     Ok(sync_json) => sync_json
     Err(err) => return Err(err)
   }

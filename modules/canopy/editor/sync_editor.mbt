@@ -1026,6 +1026,28 @@ fn[T] SyncEditor::adjust_cursor(self : SyncEditor[T]) -> Unit {
 }
 
 ///|
+/// Reseed the parser from a coherent snapshot when the transition carries no
+/// exact effects. Replaying would need an effect stream that was not produced.
+fn[T : Eq] SyncEditor::settle_snapshot_seed(
+  self : SyncEditor[T],
+  parser_source : String,
+  coherent_source : String,
+  authority_advanced : Bool,
+) -> Unit raise {
+  if authority_advanced {
+    self.observe_committed_transition_settled()
+  }
+  self.interaction.clamp_cursor_to_length(coherent_source.length())
+  self.adjust_peer_cursors_after_text_change(
+    parser_source,
+    coherent_source,
+    None,
+  )
+  self.taint_pending_transforms()
+  self.sync_parser_from_supplied_seed(coherent_source)
+}
+
+///|
 fn[T : Eq] SyncEditor::admit_with_policy_using_snapshot_reader(
   self : SyncEditor[T],
   msg : @text.SyncMessage,
@@ -1055,20 +1077,12 @@ fn[T : Eq] SyncEditor::admit_with_policy_using_snapshot_reader(
         authority_advanced,
       )
     }
-    @text.TextEffectAvailability::SnapshotRequired => {
-      let coherent_source = read_snapshot()
-      if authority_advanced {
-        self.observe_committed_transition_settled()
-      }
-      self.interaction.clamp_cursor_to_length(coherent_source.length())
-      self.adjust_peer_cursors_after_text_change(
+    @text.TextEffectAvailability::SnapshotRequired =>
+      self.settle_snapshot_seed(
         parser_source,
-        coherent_source,
-        None,
+        read_snapshot(),
+        authority_advanced,
       )
-      self.taint_pending_transforms()
-      self.sync_parser_from_supplied_seed(coherent_source)
-    }
     @text.TextEffectAvailability::Unavailable =>
       if authority_advanced {
         self.observe_committed_transition_settled()
