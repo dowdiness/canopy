@@ -14,7 +14,7 @@ pub enum DocumentLeadForm {
   List(String)
   Plain
   Empty
-} derive(Eq, Debug)
+} derive(Eq, Hash, Debug)
 
 ///|
 struct DocumentLead {
@@ -23,7 +23,7 @@ struct DocumentLead {
   description : String
   primary_truncated : Bool
   description_truncated : Bool
-} derive(Eq, Debug)
+} derive(Eq, Hash, Debug)
 
 ///|
 pub fn DocumentLead::form(self : DocumentLead) -> DocumentLeadForm {
@@ -378,7 +378,13 @@ pub extend DocumentLead with @moonbitlang/core/debug.Debug::{to_repr}
 pub extend DocumentLead with Eq::{equal, not_equal}
 
 ///|
+pub extend DocumentLead with Hash::{hash, hash_combine}
+
+///|
 pub extend DocumentLeadForm with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend DocumentLeadForm with Eq::{equal, not_equal}
+
+///|
+pub extend DocumentLeadForm with Hash::{hash, hash_combine}

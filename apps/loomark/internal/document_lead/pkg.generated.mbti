@@ -24,11 +24,13 @@ pub fn DerivedName::update(Self, String) -> Self
 pub impl Eq for DerivedName
 pub impl @debug.Debug for DerivedName
 
-type DocumentLead derive(Eq, @debug.Debug)
+type DocumentLead derive(Eq, Hash, @debug.Debug)
 pub fn DocumentLead::description(Self) -> String
 pub fn DocumentLead::description_truncated(Self) -> Bool
 pub fn DocumentLead::equal(Self, Self) -> Bool
 pub fn DocumentLead::form(Self) -> DocumentLeadForm
+pub fn DocumentLead::hash(Self) -> Int
+pub fn DocumentLead::hash_combine(Self, Hasher) -> Unit
 pub fn DocumentLead::not_equal(Self, Self) -> Bool
 pub fn DocumentLead::primary(Self) -> String
 pub fn DocumentLead::primary_truncated(Self) -> Bool
@@ -42,8 +44,10 @@ pub enum DocumentLeadForm {
   List(String)
   Plain
   Empty
-} derive(Eq, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn DocumentLeadForm::equal(Self, Self) -> Bool
+pub fn DocumentLeadForm::hash(Self) -> Int
+pub fn DocumentLeadForm::hash_combine(Self, Hasher) -> Unit
 pub fn DocumentLeadForm::not_equal(Self, Self) -> Bool
 pub fn DocumentLeadForm::to_repr(Self) -> @debug.Repr
 
