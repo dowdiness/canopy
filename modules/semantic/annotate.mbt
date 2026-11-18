@@ -27,7 +27,7 @@ pub fn annotate_symbolic(doc : @md.Block) -> FixedArray[Confidence[Role]] {
 }
 
 ///|
-fn classify(index : Int, children : Array[@md.Block]) -> Role? {
+fn classify(index : Int32, children : Array[@md.Block]) -> Role? {
   let prev = children.get(index - 1)
   match children[index] {
     @md.Paragraph(_) if prev is Some(@md.Heading(_, _)) => Some(SectionIntro)

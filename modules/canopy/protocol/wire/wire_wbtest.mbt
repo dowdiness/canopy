@@ -1,7 +1,7 @@
 ///|
 fn str_to_bytes(s : String) -> Bytes {
   let buf = Buffer()
-  buf.write_string_utf16le(s.view())
+  buf.write_string_utf16le(s[:])
   buf.to_bytes()
 }
 

@@ -31,7 +31,7 @@ fn candidate_to_projection(
 ///|
 fn candidate_node_to_projection(
   node : @cognition.GenerativeUiCandidateNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> (@jsx_ast.JsxNode, @canopy_core.ProjNode[@jsx_ast.JsxNode]) {
   match node {
     Stack(children~) =>
@@ -99,7 +99,7 @@ fn candidate_container_to_projection(
   tag : String,
   attrs : Array[(String, String)],
   children : Array[@cognition.GenerativeUiCandidateNode],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> (@jsx_ast.JsxNode, @canopy_core.ProjNode[@jsx_ast.JsxNode]) {
   let node_id = next_candidate_node_id(counter)
   let lowered_children = children.map(child => {
@@ -122,7 +122,7 @@ fn candidate_container_to_projection(
 fn candidate_leaf_to_projection(
   tag : String,
   attrs : Array[(String, String)],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> (@jsx_ast.JsxNode, @canopy_core.ProjNode[@jsx_ast.JsxNode]) {
   let node_id = next_candidate_node_id(counter)
   let ast = @jsx_ast.JsxNode::Element(tag~, attrs=candidate_attributes(attrs), children=[])
@@ -133,7 +133,7 @@ fn candidate_leaf_to_projection(
 ///|
 fn candidate_text_to_projection(
   value : String,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> (@jsx_ast.JsxNode, @canopy_core.ProjNode[@jsx_ast.JsxNode]) {
   let ast = @jsx_ast.JsxNode::Text(value)
   let projection = @canopy_core.ProjNode::ProjNode(
@@ -160,7 +160,7 @@ fn candidate_attributes(
 }
 
 ///|
-fn next_candidate_node_id(counter : Ref[Int]) -> Int {
+fn next_candidate_node_id(counter : Ref[Int32]) -> Int32 {
   let node_id = counter.val
   counter.val = node_id - 1
   node_id

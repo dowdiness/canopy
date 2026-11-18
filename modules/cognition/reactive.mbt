@@ -2,7 +2,7 @@
 /// Small incr-backed core for store-wide revision and dependency snapshots.
 struct CognitionReactive {
   revision : @incr.Input[Revision]
-  dependency_tick : @incr.Input[Int]
+  dependency_tick : @incr.Input[Int32]
   dependency_edges_watch : @incr.Watch[Array[Dependency]]
   provider_planning : ProviderPlanningGraph
 }
@@ -157,7 +157,7 @@ fn CognitionReactive::provider_next_driver_action(
 #warnings("-unused_value")
 fn CognitionReactive::provider_next_driver_action_at(
   self : CognitionReactive,
-  now_ms : Int,
+  now_ms : Int32,
 ) -> ProviderDriverAction {
   self.provider_planning.next_driver_action_at(now_ms)
 }

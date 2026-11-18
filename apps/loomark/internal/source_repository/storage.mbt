@@ -12,63 +12,72 @@ extern "js" fn random_uuid() -> String =
   #| () => globalThis.crypto.randomUUID()
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum OpenFailure {
   StorageUnavailable
   ReadFailed
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum SaveFailure {
   InvalidSource
   StorageUnavailable
   QuotaExceeded
   WriteFailed
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum CreateFailure {
   DocumentIdentityUnavailable
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum DeleteFailure {
   InvalidSource
   StorageUnavailable
   QuotaExceeded
   WriteFailed
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum OpenResult {
   Ready(SavedDocuments, Document?)
   OpenFailed(OpenFailure)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum SaveResult {
   Stored(Document)
   SaveFailed(SaveFailure)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum CreateResult {
   Created(DocumentId)
   CreateFailed(CreateFailure)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum DeleteResult {
   Deleted(DocumentId)
   DeleteFailed(DeleteFailure)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum ReplicaFailure {
   InvalidReplica
   StorageUnavailable
   QuotaExceeded
   WriteFailed
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn open(msg : @cmd.Emit[OpenResult]) -> @cmd.Cmd {

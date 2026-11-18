@@ -16,6 +16,7 @@
 // === Tokens ===
 
 ///|
+#derive(Eq)
 enum TestToken {
   Ident
   LParen
@@ -23,7 +24,7 @@ enum TestToken {
   Whitespace
   Error
   Eof
-} derive(Eq)
+}
 
 ///|
 impl @seam.IsTrivia for TestToken with fn is_trivia(self) {
@@ -52,6 +53,7 @@ impl @seam.ToRawKind for TestToken with fn to_raw(self) {
 // === Syntax kinds ===
 
 ///|
+#derive(Eq, Debug)
 enum TestKind {
   IdentToken
   LParenToken
@@ -63,7 +65,7 @@ enum TestKind {
   LeafNode
   BranchNode
   ErrorNode
-} derive(Eq, Debug)
+}
 
 ///|
 impl @seam.ToRawKind for TestKind with fn to_raw(self) {
@@ -103,7 +105,7 @@ impl @seam.FromRawKind for TestKind with fn from_raw(raw) {
 
 ///|
 fn is_ident_char(c : Char) -> Bool {
-  c is ('a'..='z' | 'A'..='Z' | '0'..='9' | '_')
+  c is ('a'..<='z' | 'A'..<='Z' | '0'..<='9' | '_')
 }
 
 ///|
@@ -279,7 +281,7 @@ let empty_diagnostic_test_grammar : @loom.Grammar[TestToken, TestKind, TestExpr]
 ///|
 fn syntax_to_test_proj(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[TestExpr] {
   let kind : TestKind = @seam.FromRawKind::from_raw(node.kind())
   match kind {
@@ -349,7 +351,7 @@ fn build_test_editor_parts(
 /// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 pub fn new_test_editor(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[TestExpr] raise {
   let (editor, _) = @editor.SyncEditor::new_with_builder(

@@ -181,7 +181,7 @@ test "SyncStatus: watchdog scheduler receives request_id and timeout on send" {
   let editor = try! @probe.new_test_editor("bob")
   let ws = make_test_ws()
   editor.ws_on_open(ws)
-  let scheduled : Array[(Int, Int)] = []
+  let scheduled : Array[(Int32, Int32)] = []
   editor.set_watchdog_scheduler(
     Some(fn(req_id, ms) { scheduled.push((req_id, ms)) }),
   )

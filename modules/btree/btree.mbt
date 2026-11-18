@@ -1,17 +1,17 @@
 ///|
 /// Create an empty tree. `min_degree` is normalized to the inclusive interval
 /// `[2, @int.MAX_VALUE / 2]`.
-pub fn[T] BTree::new(min_degree? : Int = DEFAULT_MIN_DEGREE) -> BTree[T] {
+pub fn[T] BTree::new(min_degree~ : Int32 = DEFAULT_MIN_DEGREE) -> BTree[T] {
   { root: None, min_degree: clamp_min_degree(min_degree), size: 0, }
 }
 
 ///|
-pub fn[T] BTree::size(self : BTree[T]) -> Int {
+pub fn[T] BTree::size(self : BTree[T]) -> Int32 {
   self.size
 }
 
 ///|
-pub fn[T] BTree::span(self : BTree[T]) -> Int {
+pub fn[T] BTree::span(self : BTree[T]) -> Int32 {
   match self.root {
     Some(node) => node.total()
     _ => 0
@@ -24,13 +24,13 @@ pub fn[T] BTree::is_empty(self : BTree[T]) -> Bool {
 }
 
 ///|
-pub fn[T] BTree::get_at(self : BTree[T], pos : Int) -> T? {
+pub fn[T] BTree::get_at(self : BTree[T], pos : Int32) -> T? {
   guard pos >= 0 else { return None }
   self.find(pos).map(fn(r) { r.elem })
 }
 
 ///|
-pub fn[T] BTree::find(self : BTree[T], pos : Int) -> FindResult[T]? {
+pub fn[T] BTree::find(self : BTree[T], pos : Int32) -> FindResult[T]? {
   guard pos >= 0 else { return None }
   match self.root {
     Some(node) => node.navigate(pos)
@@ -49,7 +49,7 @@ pub fn[T] BTree::find(self : BTree[T], pos : Int) -> FindResult[T]? {
 /// above `@int.MAX_VALUE` aborts before the copy-on-write candidate is published.
 pub fn[T] BTree::mutate_for_insert(
   self : BTree[T],
-  pos : Int,
+  pos : Int32,
   f : (LeafContext[T]) -> Splice[T],
 ) -> Unit {
   // Empty tree must be initialized via init_root before mutating.
@@ -98,7 +98,7 @@ pub fn[T] BTree::mutate_for_insert(
 /// span above `@int.MAX_VALUE` aborts without publishing the candidate tree.
 pub fn[T, R] BTree::mutate_for_delete(
   self : BTree[T],
-  pos : Int,
+  pos : Int32,
   f : (LeafContext[T]) -> (Splice[T], R),
 ) -> R? {
   match self.root {
@@ -143,7 +143,7 @@ pub fn[T, R] BTree::mutate_for_delete(
 /// `O((m + 1) log n)` time for a fixed minimum degree.
 pub fn[T : @rle.Spanning + @rle.Mergeable] BTree::normalize_boundary_at(
   self : BTree[T],
-  pos : Int,
+  pos : Int32,
 ) -> Unit {
   guard self.root is Some(root) else { return }
   let (next_root, leaf_delta) = normalize_boundary_chain(
@@ -164,8 +164,8 @@ pub fn[T : @rle.Spanning + @rle.Mergeable] BTree::normalize_boundary_at(
 /// complete on an unpublished copy-on-write candidate before one final update.
 pub fn[T : BTreeElem] BTree::delete_range(
   self : BTree[T],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> Unit {
   guard self.root is Some(root) else { return }
   let total = root.total()
@@ -208,7 +208,7 @@ pub fn[T : BTreeElem] BTree::delete_range(
 ///|
 fn[T] PropagateResult::root_candidate(
   self : PropagateResult[T],
-  min_degree : Int,
+  min_degree : Int32,
   normalize_delete~ : Bool,
 ) -> BTreeNode[T]? {
   guard !self.segment.is_empty() else { return None }
@@ -245,8 +245,8 @@ fn[T] BTree::apply_propagated(
 /// must pre-merge adjacent mergeable elements when its canonicalization policy
 /// requires that invariant. Runs in O(n), rather than O(n log n) inserts.
 pub fn[T] BTree::from_sorted(
-  items : Array[(T, Int)],
-  min_degree? : Int = DEFAULT_MIN_DEGREE,
+  items : Array[(T, Int32)],
+  min_degree~ : Int32 = DEFAULT_MIN_DEGREE,
 ) -> BTree[T] {
   validate_positive_spans(items, "BTree::from_sorted")
   let min_degree = clamp_min_degree(min_degree)
@@ -267,7 +267,7 @@ pub fn[T] BTree::from_sorted(
 ///|
 /// Initialize an empty tree with a single root element. `span` must be positive;
 /// a non-positive span or an already initialized tree aborts.
-pub fn[T] BTree::init_root(self : BTree[T], elem : T, span : Int) -> Unit {
+pub fn[T] BTree::init_root(self : BTree[T], elem : T, span : Int32) -> Unit {
   guard span > 0 else { abort("BTree::init_root: leaf span must be positive") }
   guard self.is_empty() else {
     abort("BTree::init_root: tree is already initialized")
@@ -307,8 +307,8 @@ fn[T] normalize_root_after_delete(root : BTreeNode[T]) -> BTreeNode[T]? {
 /// or beyond `span()` returns an empty array.
 pub fn[T : BTreeElem] BTree::view(
   self : BTree[T],
-  start? : Int = 0,
-  end? : Int,
+  start~ : Int32 = 0,
+  end? : Int32,
 ) -> Array[T] {
   let total = self.span()
   let start = if start < 0 { 0 } else { start }

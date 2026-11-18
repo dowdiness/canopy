@@ -38,7 +38,7 @@ test "ivarint roundtrip: signed boundaries" {
 
 ///|
 test "reader: empty buffer raises" {
-  let reader = Reader::new(Bytes::new(0))
+  let reader = Reader::new(Bytes::make(0, b'\x00'))
   let result : Result[Byte, CodecError] = Ok(reader.read_byte()) catch {
     err => Err(err)
   }
@@ -87,8 +87,8 @@ test "string roundtrip: edge cases" {
 ///|
 test "len_bytes roundtrip" {
   let buf = Buffer()
-  write_len_bytes(buf, Bytes::new(0)) // empty bytes
-  let three = Bytes::new(3)
+  write_len_bytes(buf, Bytes::make(0, b'\x00')) // empty bytes
+  let three = Bytes::make(3, b'\x00')
   write_len_bytes(buf, three)
   let reader = Reader::new(buf.to_bytes())
   let empty = try! read_len_bytes(reader)
@@ -158,7 +158,7 @@ test "wire fixture: f64 byte layout" {
 ///|
 test "wire fixture: len_bytes byte layout" {
   let buf = Buffer()
-  write_len_bytes(buf, Bytes::new(0))
+  write_len_bytes(buf, Bytes::make(0, b'\x00'))
   write_len_bytes(buf, b"\x0a\x0b\x0c")
   inspect(buf.to_bytes(), content="b\"\\x00\\x03\\x0a\\x0b\\x0c\"")
 }

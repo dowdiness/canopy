@@ -56,7 +56,7 @@ fn tree_editor_test_loaded_children(
 ///|
 fn tree_editor_test_elided_descendant_count(
   node : InteractiveTreeNode[@ast.Term],
-) -> Int raise {
+) -> Int32 raise {
   match node.children {
     Elided(descendant_count) => descendant_count
     Loaded(_) => fail("expected elided children")

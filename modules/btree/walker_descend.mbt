@@ -1,7 +1,11 @@
 ///|
 /// Find which child slot contains span position `pos`.
 /// Strict (<): position at a slot boundary falls into the next slot.
-fn find_slot(counts : Array[Int], pos : Int, _total : Int) -> (Int, Int) {
+fn find_slot(
+  counts : Array[Int32],
+  pos : Int32,
+  _total : Int32,
+) -> (Int32, Int32) {
   guard counts.length() > 0 else { abort("find_slot: empty counts") }
   match
     counts[:counts.length() - 1].find_by_sum(pos, fn(i, remaining) {
@@ -19,10 +23,10 @@ fn find_slot(counts : Array[Int], pos : Int, _total : Int) -> (Int, Int) {
 /// Find which child slot to insert into at span position `pos`.
 /// Inclusive (<=): position at a slot boundary stays in the current slot.
 fn find_slot_inclusive(
-  counts : Array[Int],
-  pos : Int,
-  _total : Int,
-) -> (Int, Int) {
+  counts : Array[Int32],
+  pos : Int32,
+  _total : Int32,
+) -> (Int32, Int32) {
   guard counts.length() > 0 else { abort("find_slot_inclusive: empty counts") }
   match
     counts[:counts.length() - 1].find_by_sum(
@@ -41,9 +45,9 @@ fn find_slot_inclusive(
 ///|
 fn[T] prepare_noop(
   _children : Array[BTreeNode[T]],
-  _counts : Array[Int],
-  _idx : Int,
-  _min_degree : Int,
+  _counts : Array[Int32],
+  _idx : Int32,
+  _min_degree : Int32,
 ) -> Unit {
 
 }
@@ -53,8 +57,8 @@ fn[T] prepare_noop(
 /// preserves node count). Used when target is underfull but sibling has spare.
 fn[T] borrow_from_left(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
+  counts : Array[Int32],
+  idx : Int32,
 ) -> Unit {
   let left = children[idx - 1]
   let target = children[idx]
@@ -90,8 +94,8 @@ fn[T] borrow_from_left(
 ///|
 fn[T] borrow_from_right(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
+  counts : Array[Int32],
+  idx : Int32,
 ) -> Unit {
   let target = children[idx]
   let right = children[idx + 1]
@@ -126,8 +130,8 @@ fn[T] borrow_from_right(
 ///|
 fn[T] merge_children(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
+  counts : Array[Int32],
+  idx : Int32,
 ) -> Unit {
   let left = children[idx]
   let right = children[idx + 1]
@@ -155,7 +159,10 @@ fn[T] merge_children(
 }
 
 ///|
-fn[T] BTreeNode::needs_rebalance(self : BTreeNode[T], min_degree : Int) -> Bool {
+fn[T] BTreeNode::needs_rebalance(
+  self : BTreeNode[T],
+  min_degree : Int32,
+) -> Bool {
   match self {
     Leaf(..) => false
     Internal(children~, ..) => children.length() <= min_degree
@@ -165,7 +172,7 @@ fn[T] BTreeNode::needs_rebalance(self : BTreeNode[T], min_degree : Int) -> Bool 
 ///|
 /// Check if a node is underfull after a range splice (reactive, < min_degree).
 /// Different from needs_rebalance which uses <= min_degree (proactive, for descent).
-fn[T] BTreeNode::is_underfull(self : BTreeNode[T], min_degree : Int) -> Bool {
+fn[T] BTreeNode::is_underfull(self : BTreeNode[T], min_degree : Int32) -> Bool {
   match self {
     Leaf(..) => false
     Internal(children~, ..) => children.length() < min_degree
@@ -173,7 +180,7 @@ fn[T] BTreeNode::is_underfull(self : BTreeNode[T], min_degree : Int) -> Bool {
 }
 
 ///|
-fn[T] BTreeNode::can_lend(self : BTreeNode[T], min_degree : Int) -> Bool {
+fn[T] BTreeNode::can_lend(self : BTreeNode[T], min_degree : Int32) -> Bool {
   match self {
     Leaf(..) => false
     Internal(children~, ..) => children.length() > min_degree
@@ -183,9 +190,9 @@ fn[T] BTreeNode::can_lend(self : BTreeNode[T], min_degree : Int) -> Bool {
 ///|
 fn[T] ensure_min_children(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
-  min_degree : Int,
+  counts : Array[Int32],
+  idx : Int32,
+  min_degree : Int32,
 ) -> Unit {
   if !children[idx].needs_rebalance(min_degree) {
     return
@@ -219,9 +226,9 @@ fn[T] ensure_min_children(
 /// Tries borrow first (cheaper), falls back to merge.
 fn[T] prepare_ensure_min(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
-  min_degree : Int,
+  counts : Array[Int32],
+  idx : Int32,
+  min_degree : Int32,
 ) -> Unit {
   ensure_min_children(children, counts, idx, min_degree)
 }
@@ -232,9 +239,9 @@ fn[T] prepare_ensure_min(
 /// B-tree insert strategy (vs bottom-up split-and-propagate).
 fn[T] prepare_split(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
-  min_degree : Int,
+  counts : Array[Int32],
+  idx : Int32,
+  min_degree : Int32,
 ) -> Unit {
   if !children[idx].is_full(min_degree) {
     return
@@ -260,15 +267,15 @@ fn[T] prepare_split(
 /// This two-pass approach is why the first result's offset is discarded.
 fn[T] descend(
   node : BTreeNode[T],
-  pos : Int,
-  min_degree : Int,
-  prepare : (Array[BTreeNode[T]], Array[Int], Int, Int) -> Unit,
-  find_slot_fn : (Array[Int], Int, Int) -> (Int, Int),
+  pos : Int32,
+  min_degree : Int32,
+  prepare : (Array[BTreeNode[T]], Array[Int32], Int32, Int32) -> Unit,
+  find_slot_fn : (Array[Int32], Int32, Int32) -> (Int32, Int32),
   allow_leaf_end : Bool,
-  copy_on_write? : Bool = false,
+  copy_on_write~ : Bool = false,
 ) -> Cursor[T]? {
   let path : Array[PathFrame[T]] = []
-  fn step(current : BTreeNode[T], current_pos : Int) -> Cursor[T]? {
+  fn step(current : BTreeNode[T], current_pos : Int32) -> Cursor[T]? {
     match current {
       Leaf(elem~, span~) =>
         if current_pos >= 0 &&
@@ -316,7 +323,10 @@ fn[T] descend(
 }
 
 ///|
-fn[T] copy_path(path : Array[PathFrame[T]], keep : Int) -> Array[PathFrame[T]] {
+fn[T] copy_path(
+  path : Array[PathFrame[T]],
+  keep : Int32,
+) -> Array[PathFrame[T]] {
   let copied : Array[PathFrame[T]] = Array(capacity=keep)
   for i in 0..<keep {
     copied.push(path[i])
@@ -398,9 +408,9 @@ fn[T] cursor_next_leaf(cursor : Cursor[T]) -> Cursor[T]? {
 ///|
 fn[T] descend_leaf_at(
   node : BTreeNode[T],
-  pos : Int,
-  min_degree : Int,
-  copy_on_write? : Bool = false,
+  pos : Int32,
+  min_degree : Int32,
+  copy_on_write~ : Bool = false,
 ) -> LeafCursor[T]? {
   match
     descend(
@@ -420,9 +430,9 @@ fn[T] descend_leaf_at(
 ///|
 fn[T] descend_leaf_at_end_boundary(
   node : BTreeNode[T],
-  end_ : Int,
-  min_degree : Int,
-  copy_on_write? : Bool = false,
+  end_ : Int32,
+  min_degree : Int32,
+  copy_on_write~ : Bool = false,
 ) -> LeafCursor[T]? {
   if end_ == 0 {
     return None
@@ -445,8 +455,8 @@ fn[T] descend_leaf_at_end_boundary(
 ///|
 pub fn[T : BTreeElem] BTreeNode::each_slice_in_range(
   self : BTreeNode[T],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
   f : (T) -> Unit,
 ) -> Unit {
   if start >= end_ {
@@ -476,7 +486,7 @@ pub fn[T : BTreeElem] BTreeNode::each_slice_in_range(
 }
 
 ///|
-fn[T] BTreeNode::navigate(self : BTreeNode[T], pos : Int) -> FindResult[T]? {
+fn[T] BTreeNode::navigate(self : BTreeNode[T], pos : Int32) -> FindResult[T]? {
   descend(self, pos, 0, prepare_noop, find_slot, false).map(fn(cursor) {
     { elem: cursor.leaf_elem, offset: cursor.offset, }
   })

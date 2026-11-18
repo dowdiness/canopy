@@ -27,13 +27,14 @@ pub fn to_node_context(ActionContext) -> NodeContext
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Action {
   id : String
   label : String
   mnemonic : String
   group : ActionGroup
   needs_input : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn Action::equal(Self, Self) -> Bool
 pub fn Action::not_equal(Self, Self) -> Bool
 pub fn Action::to_repr(Self) -> @debug.Repr
@@ -43,32 +44,35 @@ pub(all) struct ActionContext {
   kind : @ast.Term
   is_let_binding : Bool
   binding_node_id : @core.NodeId?
-  binding_def_index : Int?
+  binding_def_index : Int32?
   module_node_id : @core.NodeId?
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ActionGroup {
   Core
   Wrap
   Binding
   Module
-} derive(Eq, @debug.Debug)
+}
 pub fn ActionGroup::equal(Self, Self) -> Bool
 pub fn ActionGroup::not_equal(Self, Self) -> Bool
 pub fn ActionGroup::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct NodeContext {
   is_let_binding : Bool
   binding_node_id : @core.NodeId?
-  binding_def_index : Int?
+  binding_def_index : Int32?
   module_node_id : @core.NodeId?
-} derive(Eq, @debug.Debug)
+}
 pub fn NodeContext::equal(Self, Self) -> Bool
 pub fn NodeContext::new() -> Self
-pub fn NodeContext::new_binding(binding_node_id~ : @core.NodeId, binding_def_index~ : Int, module_node_id~ : @core.NodeId) -> Self
+pub fn NodeContext::new_binding(binding_node_id~ : @core.NodeId, binding_def_index~ : Int32, module_node_id~ : @core.NodeId) -> Self
 pub fn NodeContext::not_equal(Self, Self) -> Bool
 pub fn NodeContext::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) enum TreeEditOp {
   Select(node_id~ : @core.NodeId)
   SelectRange(start~ : @core.NodeId, end~ : @core.NodeId)
@@ -78,13 +82,13 @@ pub(all) enum TreeEditOp {
   Delete(node_id~ : @core.NodeId)
   WrapInLambda(node_id~ : @core.NodeId, var_name~ : String)
   WrapInApp(node_id~ : @core.NodeId)
-  InsertChild(parent~ : @core.NodeId, index~ : Int, kind~ : @ast.Term)
+  InsertChild(parent~ : @core.NodeId, index~ : Int32, kind~ : @ast.Term)
   StartDrag(node_id~ : @core.NodeId)
   DragOver(target~ : @core.NodeId, position~ : @core.DropPosition)
   Drop(source~ : @core.NodeId, target~ : @core.NodeId, position~ : @core.DropPosition)
   Collapse(node_id~ : @core.NodeId)
   Expand(node_id~ : @core.NodeId)
-  Unwrap(node_id~ : @core.NodeId, keep_child_index~ : Int)
+  Unwrap(node_id~ : @core.NodeId, keep_child_index~ : Int32)
   SwapChildren(node_id~ : @core.NodeId)
   WrapInIf(node_id~ : @core.NodeId)
   WrapInBop(node_id~ : @core.NodeId, op~ : @ast.Bop)
@@ -98,7 +102,7 @@ pub(all) enum TreeEditOp {
   InlineDefinition(node_id~ : @core.NodeId)
   InlineAllUsages(binding_node_id~ : @core.NodeId)
   Rename(node_id~ : @core.NodeId, new_name~ : String)
-} derive(@debug.Debug)
+}
 pub fn TreeEditOp::output(Self, &Logger) -> Unit
 pub fn TreeEditOp::to_generic(Self) -> @core.GenericTreeOp
 pub fn TreeEditOp::to_identity_transform(Self, (@core.NodeId) -> @core.ProjNode[@ast.Term]?) -> @core.IdentityTransform

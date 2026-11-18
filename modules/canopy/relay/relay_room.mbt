@@ -120,7 +120,7 @@ pub fn RelayRoom::on_disconnect(self : RelayRoom, peer_id : String) -> Unit {
 }
 
 ///|
-pub fn RelayRoom::peer_count(self : RelayRoom) -> Int {
+pub fn RelayRoom::peer_count(self : RelayRoom) -> Int32 {
   self.peers.length()
 }
 

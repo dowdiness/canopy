@@ -11,16 +11,17 @@ using @core {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum MarkdownEditOp {
   CommitEdit(node_id~ : NodeId, new_text~ : String)
-  ChangeHeadingLevel(node_id~ : NodeId, level~ : Int)
+  ChangeHeadingLevel(node_id~ : NodeId, level~ : Int32)
   ToggleListItem(node_id~ : NodeId)
   Delete(node_id~ : NodeId)
   InsertBlockAfter(node_id~ : NodeId)
-  SplitBlock(node_id~ : NodeId, offset~ : Int)
+  SplitBlock(node_id~ : NodeId, offset~ : Int32)
   MergeWithPrevious(node_id~ : NodeId)
   MoveBlock(source~ : NodeId, target~ : NodeId, position~ : DropPosition)
-} derive(Debug, Eq)
+}
 
 ///|
 pub extend MarkdownEditOp with @moonbitlang/core/debug.Debug::{to_repr}

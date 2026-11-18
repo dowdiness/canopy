@@ -6,6 +6,7 @@ let primary_limit = 80
 let description_limit = 160
 
 ///|
+#derive(Eq, Debug)
 pub enum DocumentLeadForm {
   Heading
   Task(Bool)
@@ -14,16 +15,17 @@ pub enum DocumentLeadForm {
   List(String)
   Plain
   Empty
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct DocumentLead {
   form : DocumentLeadForm
   primary : String
   description : String
   primary_truncated : Bool
   description_truncated : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DocumentLead::form(self : DocumentLead) -> DocumentLeadForm {
@@ -51,7 +53,7 @@ pub fn DocumentLead::description_truncated(self : DocumentLead) -> Bool {
 }
 
 ///|
-fn bound_text(text : String, limit : Int) -> (String, Bool) {
+fn bound_text(text : String, limit : Int32) -> (String, Bool) {
   let length = text.char_length()
   if length <= limit {
     (text, false)
@@ -312,7 +314,7 @@ fn fallback_lead(source : String) -> DocumentLead {
 fn first_readable_index(
   document : @markdown.MarkdownIR,
   source : String,
-) -> Int? {
+) -> Int32? {
   document
   .children()
   .search_by(child => {

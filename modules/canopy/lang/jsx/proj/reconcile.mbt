@@ -20,15 +20,16 @@
 
 ///|
 /// - Release(node_id)
+#derive(Debug, Eq)
 pub(all) enum DomPatch {
-  MakeElement(Int, Int, String, Array[@jsx.JsxAttr], Int)
-  MakeText(Int, Int, String, Int)
-  MakeExprSpan(Int, Int, String, Int)
-  SetText(Int, String)
-  SetExpr(Int, String)
-  SetAttrs(Int, Array[@jsx.JsxAttr])
-  Release(Int)
-} derive(Debug, Eq)
+  MakeElement(Int32, Int32, String, Array[@jsx.JsxAttr], Int32)
+  MakeText(Int32, Int32, String, Int32)
+  MakeExprSpan(Int32, Int32, String, Int32)
+  SetText(Int32, String)
+  SetExpr(Int32, String)
+  SetAttrs(Int32, Array[@jsx.JsxAttr])
+  Release(Int32)
+}
 
 ///|
 /// Walk `root`, compare against previously-known NodeIds, produce patches.
@@ -37,10 +38,10 @@ pub(all) enum DomPatch {
 /// projection nodes are not mounted DOM nodes.
 pub fn reconcile(
   root : @core.ProjNode[@jsx.JsxNode],
-  existing : Array[Int],
-) -> (Array[DomPatch], Array[Int]) {
+  existing : Array[Int32],
+) -> (Array[DomPatch], Array[Int32]) {
   let patches : Array[DomPatch] = []
-  let reached : Array[Int] = []
+  let reached : Array[Int32] = []
   walk(root, -1, 0, existing, patches, reached)
   for id in existing {
     if !in_set(id, reached) {
@@ -51,7 +52,7 @@ pub fn reconcile(
 }
 
 ///|
-fn in_set(id : Int, ids : Array[Int]) -> Bool {
+fn in_set(id : Int32, ids : Array[Int32]) -> Bool {
   for i in ids {
     if i == id {
       return true
@@ -63,11 +64,11 @@ fn in_set(id : Int, ids : Array[Int]) -> Bool {
 ///|
 fn walk(
   node : @core.ProjNode[@jsx.JsxNode],
-  parent_id : Int,
-  idx : Int,
-  existing : Array[Int],
+  parent_id : Int32,
+  idx : Int32,
+  existing : Array[Int32],
   patches : Array[DomPatch],
-  reached : Array[Int],
+  reached : Array[Int32],
 ) -> Unit {
   match node.kind {
     @jsx.JsxNode::Element(tag="", ..) => {

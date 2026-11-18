@@ -25,7 +25,7 @@ fn[T] BTreeNode::shallow_copy(self : BTreeNode[T]) -> BTreeNode[T] {
 
 ///|
 /// Number of children for Internal nodes, 0 for Leaves.
-fn[T] BTreeNode::child_count(self : BTreeNode[T]) -> Int {
+fn[T] BTreeNode::child_count(self : BTreeNode[T]) -> Int32 {
   match self {
     Leaf(..) => 0
     Internal(children~, ..) => children.length()
@@ -37,9 +37,9 @@ fn[T] BTreeNode::child_count(self : BTreeNode[T]) -> Int {
 /// target node. Both must be Internal. Updates counts and totals.
 fn[T] bulk_steal_from_left(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
-  k : Int,
+  counts : Array[Int32],
+  idx : Int32,
+  k : Int32,
 ) -> Unit {
   match (children[idx - 1], children[idx]) {
     (
@@ -78,9 +78,9 @@ fn[T] bulk_steal_from_left(
 /// target node. Both must be Internal. Updates counts and totals.
 fn[T] bulk_steal_from_right(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  idx : Int,
-  k : Int,
+  counts : Array[Int32],
+  idx : Int32,
+  k : Int32,
 ) -> Unit {
   match (children[idx], children[idx + 1]) {
     (
@@ -119,7 +119,7 @@ fn[T] bulk_steal_from_right(
 ///
 /// Top-down: at each level, if the border child is underfull, stock it from
 /// its left sibling via merge-or-bulk-steal, then recurse into it.
-fn[T] fix_left_border(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
+fn[T] fix_left_border(node : BTreeNode[T], min_degree : Int32) -> BTreeNode[T] {
   match node {
     Leaf(..) => node
     Internal(children~, counts~, ..) => {
@@ -173,9 +173,9 @@ fn[T] fix_left_border(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
 /// propagation only needs `min_degree`.
 fn[T] repair_underfull_children(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  min_degree : Int,
-  target_child_count : Int,
+  counts : Array[Int32],
+  min_degree : Int32,
+  target_child_count : Int32,
 ) -> Unit {
   let mut i = 0
   while i < children.length() {
@@ -205,7 +205,7 @@ fn[T] repair_underfull_children(
 }
 
 ///|
-fn[T] fix_merged_chain(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
+fn[T] fix_merged_chain(node : BTreeNode[T], min_degree : Int32) -> BTreeNode[T] {
   match node {
     Leaf(..) => node
     Internal(children~, counts~, ..) => {
@@ -233,7 +233,7 @@ fn[T] fix_merged_chain(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
 ///
 /// Top-down: at each level, if the border child is underfull, stock it from
 /// its right sibling via merge-or-bulk-steal, then recurse into it.
-fn[T] fix_right_border(node : BTreeNode[T], min_degree : Int) -> BTreeNode[T] {
+fn[T] fix_right_border(node : BTreeNode[T], min_degree : Int32) -> BTreeNode[T] {
   match node {
     Leaf(..) => node
     Internal(children~, counts~, ..) => {

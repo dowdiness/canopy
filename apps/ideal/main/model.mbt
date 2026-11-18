@@ -1,10 +1,12 @@
 ///|
+#derive(Eq)
 pub enum EditorMode {
   Text
   Structure
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub enum BottomTab {
   Problems
   OpLog
@@ -14,7 +16,7 @@ pub enum BottomTab {
   Graphviz
   IncrGraph
   IncrCanvas
-} derive(Eq)
+}
 
 ///|
 /// One row group in the Patch panel: a structural intent (op label, same
@@ -31,11 +33,12 @@ pub(all) struct PatchEntry {
 }
 
 ///|
+#derive(Eq)
 pub enum PanelId {
   Outline
   Inspector
   Bottom
-} derive(Eq)
+}
 
 ///|
 pub struct WorkspaceLayout {
@@ -46,12 +49,13 @@ pub struct WorkspaceLayout {
 }
 
 ///|
+#derive(Eq)
 pub enum SyncStatus {
   Offline
   Connecting
   Connected
   Error
-} derive(Eq)
+}
 
 ///|
 using @overlay {
@@ -63,8 +67,8 @@ using @overlay {
 
 ///|
 struct ActionOverlayHost {
-  active : (@lambda_edits.ActionContext, OverlayState, Int)?
-  next_token : Int
+  active : (@lambda_edits.ActionContext, OverlayState, Int32)?
+  next_token : Int32
 }
 
 ///|
@@ -99,8 +103,8 @@ fn ActionOverlayHost::set_state(
 ///|
 fn ActionOverlayHost::active_for_token(
   self : ActionOverlayHost,
-  token : Int,
-) -> (@lambda_edits.ActionContext, OverlayState, Int)? {
+  token : Int32,
+) -> (@lambda_edits.ActionContext, OverlayState, Int32)? {
   match self.active {
     Some((context, state, active_token)) =>
       if active_token == token {
@@ -121,18 +125,18 @@ fn ActionOverlayHost::close(self : ActionOverlayHost) -> ActionOverlayHost {
 pub struct Model {
   editor : @editor.SyncEditor[@ast.Term]
   // FFI handle for this editor, used to drive handle-keyed FFI (file I/O).
-  handle : Int
+  handle : Int32
   companion : @lambda.LambdaCompanion
   outline_state : @proj.TreeEditorState[@ast.Term]
   cm_id : String
   mounted : Bool
   mode : EditorMode
   // Stamps Structure-mode subscriptions so queued callbacks from prior mounts are inert.
-  structure_generation : Int
+  structure_generation : Int32
   workspace : WorkspaceLayout
   selected_node : String?
   diagnostics_open : Bool
-  next_timestamp : Int
+  next_timestamp : Int32
   bottom_tab : BottomTab
   sync_status : SyncStatus
   overlay : ActionOverlayHost
@@ -142,7 +146,7 @@ pub struct Model {
   drag_source : @canopy_core.NodeId?
   // Cached navigation path between consecutive arrow key presses.
   // Cleared on any non-navigation event (structural edit, click, etc.).
-  mut nav_path : Array[Int]?
+  mut nav_path : Array[Int32]?
   drop_target_id : @canopy_core.NodeId?
   drop_position : @canopy_core.DropPosition?
   // Inspector traceability: rolling log of structural intents (most recent last).

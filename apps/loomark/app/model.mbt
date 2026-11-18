@@ -1,25 +1,28 @@
 ///|
+#derive(Eq)
 priv enum Page {
   /// Compact viewport, and what to open when nothing is stored yet.
   Loading(Bool, CreationIntent)
   OpeningNew(OpeningNewContext, Creation)
   Editing(EditingDocument)
   Recovery(@source_repository.OpenFailure, Bool)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct Model {
   page : Page
   replication : @replication.State
   sign_in : @sign_in.SignIn
   focus_mode : Bool
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum ScrollPane {
   TextPane
   PreviewPane
-} derive(Eq)
+}
 
 ///|
 fn Model::sync(self : Self) -> @sync.State {
@@ -37,18 +40,20 @@ fn Model::with_page(self : Self, page : Page) -> Self {
 }
 
 ///|
+#derive(Eq)
 priv struct OpeningNewContext {
   documents : @documents.Model
   mode : EditorMode
   compact : Bool
-  next_activation_generation : Int
-} derive(Eq)
+  next_activation_generation : Int32
+}
 
 ///|
+#derive(Eq)
 priv struct Activation {
   key : @documents.Key
-  generation : Int
-} derive(Eq)
+  generation : Int32
+}
 
 ///|
 priv struct ActivationTarget {
@@ -58,6 +63,7 @@ priv struct ActivationTarget {
 }
 
 ///|
+#derive(Eq)
 priv struct EditingDocument {
   activation : Activation
   documents : @documents.Model
@@ -67,12 +73,12 @@ priv struct EditingDocument {
   menu_open : Bool
   compact : Bool
   preview : @editor.EditorState
-  imports_pending : Int
-  next_creation_request_id : Int
+  imports_pending : Int32
+  next_creation_request_id : Int32
   /// The reading position held in the pane being read since the latest
   /// Editor-mode change, until the user engages a pane or the text changes.
   reading_anchor : @viewport.ReadingAnchor?
-} derive(Eq)
+}
 
 ///|
 /// The active document's text as Recent documents last settled it, which
@@ -86,32 +92,36 @@ fn EditingDocument::settled_text(self : Self) -> String? {
 }
 
 ///|
+#derive(Eq)
 priv enum EditorMode {
   Text
   Preview
   /// `reading` is the pane the user last engaged; the other pane follows it.
   Split(reading~ : ScrollPane)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct Creation {
-  request_id : Int
+  request_id : Int32
   intent : CreationIntent
   status : CreationStatus
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum CreationIntent {
   NewDocument
   Example(String)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum CreationStatus {
   InProgress
   Failed(@source_repository.CreateFailure)
   Fault(String)
-} derive(Eq)
+}
 
 ///|
 priv enum DocumentUpdate {
@@ -122,16 +132,18 @@ priv enum DocumentUpdate {
 }
 
 ///|
+#derive(Eq)
 priv enum DocumentDeletion {
   NoDeletion
   DeleteConfirmation(@documents.Key)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct AccountControlsInput {
   session : @sync.Session
   sign_in : @sign_in.View
-} derive(Eq)
+}
 
 ///|
 priv enum Msg {
@@ -139,16 +151,16 @@ priv enum Msg {
   NotificationFocusReturn
   AuthenticationReturned(Bool)
   Opened(@source_repository.OpenResult)
-  EmptyCreateCompleted(Int, @source_repository.CreateResult)
+  EmptyCreateCompleted(Int32, @source_repository.CreateResult)
   ExampleSelected(Activation, String)
-  ExampleCreateCompleted(Int, String, @source_repository.CreateResult)
-  InputChanged(Int, @editor.InputEdit)
-  TextChanged(Int, @text_change.TextChange)
-  CompositionStarted(Int)
-  CompositionEnded(Int)
+  ExampleCreateCompleted(Int32, String, @source_repository.CreateResult)
+  InputChanged(Int32, @editor.InputEdit)
+  TextChanged(Int32, @text_change.TextChange)
+  CompositionStarted(Int32)
+  CompositionEnded(Int32)
   ModeSelected(@editor.Mode)
   FocusModeToggled
-  ReadingAnchored(Int, @viewport.ReadingAnchor)
+  ReadingAnchored(Int32, @viewport.ReadingAnchor)
   MenuToggled
   EscapePressed
   ImportFilesSelected(FixedArray[@browser.File])
@@ -158,15 +170,15 @@ priv enum Msg {
   PreviewEvent(@editor.EditorEvent)
   PaneEngaged(ScrollPane)
   ViewportChanged(Double)
-  DocumentMaximumElapsed(Int)
+  DocumentMaximumElapsed(Int32)
   DocumentSaved(@documents.SaveOperation, @source_repository.Document)
   DocumentSaveFailed(@documents.SaveOperation, @source_repository.SaveFailure)
   DocumentDeleted(@documents.DeleteOperation, @source_repository.DocumentId)
   DocumentDeleteFailed(
     @documents.DeleteOperation,
-    @source_repository.DeleteFailure
+    @source_repository.DeleteFailure,
   )
-  ApplyPendingEdit(@documents.Key, Int)
+  ApplyPendingEdit(@documents.Key, Int32)
   VisibilityChanged(Bool)
   PageRestored
   RetryAccount
@@ -177,7 +189,7 @@ priv enum Msg {
   DocumentSelected(@documents.Key)
   CreateRequested
   RetryOpeningNewCreation
-  CreateCompleted(Int, @source_repository.CreateResult)
+  CreateCompleted(Int32, @source_repository.CreateResult)
   DeleteRequested(@documents.Key)
   DeleteCancelled
   DeleteConfirmed(@documents.Key)
@@ -189,15 +201,15 @@ priv enum Msg {
 
 ///|
 priv enum SyncMsg {
-  AccountResolved(Int, @sync.AccountResult)
+  AccountResolved(Int32, @sync.AccountResult)
   DiscoveryCompleted(
     @source_repository.AccountId,
     @sync.DiscoveryId,
-    @document_http.DiscoveryResult
+    @document_http.DiscoveryResult,
   )
   ReplicaWriteCompleted(
     @replica_persistence.Attempt,
-    Result[Unit, @source_repository.ReplicaFailure]
+    Result[Unit, @source_repository.ReplicaFailure],
   )
   OperationPrepared(@sync.OperationAttempt, @source_repository.OperationId?)
   DeliveryCompleted(@sync.DeliveryAttempt, @replication.DeliveryResult)

@@ -45,7 +45,7 @@ pub fn optimize_alpha(term : @alpha.AlphaTerm) -> @alpha.AlphaTerm {
 pub fn optimize_projected(
   root : @core.ProjNode[@ast.Term],
   graph : @scope.ScopeGraph,
-  policy? : @alpha.ReifyPolicy = Source,
+  policy~ : @alpha.ReifyPolicy = Source,
 ) -> @ast.Term {
   @alpha.reify(optimize_alpha(@alpha.lower_root(root, graph)), policy)
 }

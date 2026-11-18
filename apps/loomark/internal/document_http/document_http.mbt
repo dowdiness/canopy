@@ -1,16 +1,18 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum RemoteResult {
   Found(@source_repository.RemoteDocument)
   AccountChanged
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum DiscoveryResult {
   Discovered(Array[@source_repository.RemoteEntry])
   AccountChanged
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
 extenum @cmd.Extension += {
@@ -18,12 +20,12 @@ extenum @cmd.Extension += {
     @source_repository.AccountId,
     @source_repository.DocumentId,
     @source_repository.PendingOperation,
-    (@replication.DeliveryResult) -> @cmd.Cmd
+    (@replication.DeliveryResult) -> @cmd.Cmd,
   )
   Get(
     @source_repository.AccountId,
     @source_repository.DocumentId,
-    (RemoteResult) -> @cmd.Cmd
+    (RemoteResult) -> @cmd.Cmd,
   )
   Discover(@source_repository.AccountId, (DiscoveryResult) -> @cmd.Cmd)
 }
@@ -35,8 +37,7 @@ fn operation_json(operation : @source_repository.PendingOperation) -> String {
     "baseRevision": operation.base_revision(),
   }
   match operation.content() {
-    @source_repository.PendingContent::Save(text) =>
-      fields["text"] = text.to_json()
+    @source_repository.PendingContent::Save(text) => fields["text"] = Json(text)
     Delete => ()
   }
   Json::object(fields).stringify()

@@ -2,11 +2,12 @@
 
 ///|
 /// A verified canonical-to-portable commit with no projection metadata exposed.
+#derive(Debug, Eq)
 pub struct PortableCommit {
   before : String
   after : String
   transform : @core.SpanEdit
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn PortableCommit::before(self : PortableCommit) -> String {
@@ -27,10 +28,11 @@ pub fn PortableCommit::transform(self : PortableCommit) -> @core.SpanEdit {
 /// Portable evidence retained when source mutation succeeded but projection of
 /// its accepted transform could not be completed. `after` is absent when the
 /// post-commit parser/projection state could not be read safely.
+#derive(Debug, Eq)
 pub struct PortableCommitEvidence {
   before : String
   after : String?
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn PortableCommitEvidence::before(self : PortableCommitEvidence) -> String {
@@ -44,12 +46,13 @@ pub fn PortableCommitEvidence::after(self : PortableCommitEvidence) -> String? {
 
 ///|
 /// Typed failures that can prevent or interrupt portable commit projection.
+#derive(Debug, Eq)
 pub(all) enum PortableCommitIssue {
   RuntimeFailure(detail~ : String)
   ProjectionUnavailable
   ProjectionFailed(error~ : PortableProjectionError)
-  UnexpectedTransformCount(count~ : Int)
-} derive(Debug, Eq)
+  UnexpectedTransformCount(count~ : Int32)
+}
 
 ///|
 /// A transaction rejection means source mutation did not occur.
@@ -146,7 +149,7 @@ fn markdown_identity_hint(
 /// Construct the ordinary Markdown editor through the shared Language.
 pub fn new_editor(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] raise {
   let (editor, _) = plain_language.build(
@@ -161,7 +164,7 @@ pub fn new_editor(
 /// Construct a Markdown editor and semantic attachment over one live parser.
 pub fn new_editor_with_semantic_attachment(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise {
   let (editor, attachment) = make_language(true).build(
@@ -177,7 +180,7 @@ pub fn new_editor_with_semantic_attachment(
 pub fn apply_edit(
   editor : @editor.SyncEditor[@markdown.Block],
   op : @md_edits.MarkdownEditOp,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Array[@core.SpanEdit], @core.EditError] raise Failure {
   plain_language.apply_edit(editor, op, timestamp_ms)
 }
@@ -189,7 +192,7 @@ pub fn apply_edit(
 pub fn commit_portable_edit(
   editor : @editor.SyncEditor[@markdown.Block],
   op : @md_edits.MarkdownEditOp,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[PortableCommitOutcome, PortableCommitError] {
   let before = match capture_portable_projection_state(editor) {
     Ok(state) => state

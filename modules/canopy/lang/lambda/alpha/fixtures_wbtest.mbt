@@ -1,5 +1,5 @@
 ///|
-fn test_binder(id : Int, hint : String) -> Binder {
+fn test_binder(id : Int32, hint : String) -> Binder {
   { id: BinderId(id), hint, origin: Generated(id), }
 }
 

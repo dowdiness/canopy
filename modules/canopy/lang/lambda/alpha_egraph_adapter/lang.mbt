@@ -5,8 +5,9 @@
 // `@alpha.Binder`, `@alpha.AlphaRef`, and named-source reification policy so the
 // shared egraph engine can optimize Lambda terms without owning Canopy-specific
 // scope or projection dependencies.
+#derive(Eq)
 priv enum AlphaLang {
-  AInt(Int)
+  AInt(Int32)
   AUnit
   AVar(@alpha.AlphaRef)
   ALam(@alpha.Binder, @egraph.Id)
@@ -16,12 +17,12 @@ priv enum AlphaLang {
   ALetDef(@alpha.Binder, @egraph.Id)
   AModule(Array[(@alpha.Binder, @egraph.Id)], @egraph.Id)
   AError(String)
-  AHole(Int)
+  AHole(Int32)
   ASubst(@alpha.BinderId, @egraph.Id, @egraph.Id)
-} derive(Eq)
+}
 
 ///|
-fn hash_bop_index(op : @ast.Bop) -> Int {
+fn hash_bop_index(op : @ast.Bop) -> Int32 {
   match op {
     Plus => 0
     Minus => 1

@@ -18,25 +18,25 @@ pub fn block_type_name(BlockType) -> String
 
 pub fn block_type_to_string(BlockType) -> (String, Map[String, String])
 
-pub fn create_editor(String) -> Int
+pub fn create_editor(String) -> Int32
 
-pub fn destroy_editor(Int) -> Unit
+pub fn destroy_editor(Int32) -> Unit
 
-pub fn editor_delete_block(Int, String) -> Unit
+pub fn editor_delete_block(Int32, String) -> Unit
 
-pub fn editor_export_markdown(Int) -> String
+pub fn editor_export_markdown(Int32) -> String
 
-pub fn editor_import_markdown(Int, String) -> Unit
+pub fn editor_import_markdown(Int32, String) -> Unit
 
-pub fn editor_insert_block_after(Int, String, String) -> String
+pub fn editor_insert_block_after(Int32, String, String) -> String
 
-pub fn editor_move_block(Int, String, String, String) -> Bool
+pub fn editor_move_block(Int32, String, String, String) -> Bool
 
-pub fn editor_set_block_text(Int, String, String) -> Unit
+pub fn editor_set_block_text(Int32, String, String) -> Unit
 
-pub fn editor_set_block_type(Int, String, String, Int, String) -> Unit
+pub fn editor_set_block_type(Int32, String, String, Int32, String) -> Unit
 
-pub fn get_render_state(Int) -> String
+pub fn get_render_state(Int32) -> String
 
 pub let root_block_id : @container.TreeNodeId
 
@@ -50,11 +50,11 @@ pub fn BlockDoc::children(Self, @container.TreeNodeId) -> Array[@container.TreeN
 pub fn BlockDoc::create_block(Self, BlockType, parent? : @container.TreeNodeId) -> @container.TreeNodeId raise @container.DocumentError
 pub fn BlockDoc::create_block_after(Self, @container.TreeNodeId, BlockType) -> @container.TreeNodeId raise @container.DocumentError
 pub fn BlockDoc::delete_block(Self, @container.TreeNodeId) -> Unit raise @container.DocumentError
-pub fn BlockDoc::delete_char(Self, @container.TreeNodeId, Int) -> Unit
+pub fn BlockDoc::delete_char(Self, @container.TreeNodeId, Int32) -> Unit
 pub fn BlockDoc::get_checked(Self, @container.TreeNodeId) -> Bool
 pub fn BlockDoc::get_text(Self, @container.TreeNodeId) -> String
 pub fn BlockDoc::get_type(Self, @container.TreeNodeId) -> BlockType
-pub fn BlockDoc::insert_char(Self, @container.TreeNodeId, Int, String) -> Unit
+pub fn BlockDoc::insert_char(Self, @container.TreeNodeId, Int32, String) -> Unit
 pub fn BlockDoc::is_alive(Self, @container.TreeNodeId) -> Bool
 pub fn BlockDoc::move_block(Self, @container.TreeNodeId, @container.TreeNodeId, @core.DropPosition) -> Unit raise @container.DocumentError
 pub fn BlockDoc::new(String) -> Self raise @container.DocumentError
@@ -62,22 +62,24 @@ pub fn BlockDoc::set_checked(Self, @container.TreeNodeId, Bool) -> Unit
 pub fn BlockDoc::set_text(Self, @container.TreeNodeId, String) -> Unit
 pub fn BlockDoc::set_type(Self, @container.TreeNodeId, BlockType) -> Unit
 
+#derive(Eq, @debug.Debug)
 pub enum BlockType {
   Paragraph
-  Heading(Int)
+  Heading(Int32)
   ListItem(ListStyle)
   Quote
   Code(String)
   Divider
   Raw
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for BlockType
 
+#derive(Eq, @debug.Debug)
 pub enum ListStyle {
   Bullet
   Numbered
   Todo
-} derive(Eq, @debug.Debug)
+}
 pub impl Show for ListStyle
 
 // Type aliases

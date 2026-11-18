@@ -1,5 +1,5 @@
 ///|
-fn renderer_benchmark_source(block_count : Int) -> String {
+fn renderer_benchmark_source(block_count : Int32) -> String {
   let out = StringBuilder::StringBuilder()
   for index = 0; index < block_count; index = index + 1 {
     out.write_string(

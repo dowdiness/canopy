@@ -35,14 +35,10 @@ pub async fn commit(
 ) -> CommitResult {
   let deleted = if mutation.text is None { 1.0 } else { 0.0 }
   let text_json = match mutation.text {
-    Some(text) => text.to_json()
+    Some(text) => Json(text)
     None => Json::null()
   }
-  let payload : Json = [
-    id.to_json(),
-    mutation.base_revision.to_json(),
-    text_json,
-  ]
+  let payload : Json = [Json(id), Json(mutation.base_revision), text_json]
   let hash = @crypto.sha256(payload.stringify())
   let next = mutation.base_revision + 1.0
   let text_parameter = match mutation.text {

@@ -20,7 +20,7 @@ test "smoke 5.1: sanity sum equals known value across two editors" {
   let h_b = lambda_registry.get(handle_b).unwrap()
 
   // Build the workspace memo on the coordinator's runtime.
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s
@@ -89,7 +89,7 @@ test "smoke 5.2: mutation in editor A invalidates workspace memo and recomputes"
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
 
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s
@@ -162,7 +162,7 @@ test "smoke 5.3: destroy_editor refused while workspace memo dep is live" {
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
 
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s
@@ -251,7 +251,7 @@ test "smoke 5.4: clean teardown sequence — each step returns Ok" {
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
 
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s

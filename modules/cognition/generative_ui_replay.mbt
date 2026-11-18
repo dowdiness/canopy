@@ -4,7 +4,7 @@
 /// lifecycle and renderer policy stay with their respective owners.
 pub struct GenerativeUiReplaySource {
   priv events : Array[GenerativeUiInput]
-  priv mut cursor : Int
+  priv mut cursor : Int32
 }
 
 ///|

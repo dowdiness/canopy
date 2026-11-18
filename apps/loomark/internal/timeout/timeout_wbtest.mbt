@@ -1,8 +1,8 @@
 ///|
 priv struct FakeTimer {
   callbacks : Array[() -> Unit]
-  delays : Array[Int]
-  cancellations : Array[Int]
+  delays : Array[Int32]
+  cancellations : Array[Int32]
 }
 
 ///|
@@ -47,14 +47,14 @@ impl @cmd.Context for FakeScheduler with fn inject_url_request(_self, _url) {
 }
 
 ///|
-fn schedule(timer : FakeTimer, callback : () -> Unit, delay : Int) -> Int {
+fn schedule(timer : FakeTimer, callback : () -> Unit, delay : Int32) -> Int32 {
   timer.callbacks.push(callback)
   timer.delays.push(delay)
   timer.callbacks.length() - 1
 }
 
 ///|
-fn cancel(timer : FakeTimer, handle : Int) -> Unit {
+fn cancel(timer : FakeTimer, handle : Int32) -> Unit {
   timer.cancellations.push(handle)
 }
 

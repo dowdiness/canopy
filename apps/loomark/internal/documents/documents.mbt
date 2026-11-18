@@ -261,7 +261,7 @@ pub fn Model::known_keys(self : Self) -> Array[Key] {
 }
 
 ///|
-pub fn Model::pending_edits(self : Self) -> Array[(Key, Int)] {
+pub fn Model::pending_edits(self : Self) -> Array[(Key, Int32)] {
   self.records.filter_map(record => {
     match record.edit {
       Waiting(revision) if record.delete_status() != DeletePending =>

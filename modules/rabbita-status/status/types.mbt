@@ -3,11 +3,12 @@
 ///
 /// Consumers own message copy and domain mapping. The behavior only exposes the
 /// stable tone vocabulary used by `Tone::attrs` for `data-tone`.
+#derive(Eq)
 pub(all) enum Tone {
   Info
   Success
   Error
-} derive(Eq)
+}
 
 ///|
 fn Tone::data_value(self : Tone) -> String {

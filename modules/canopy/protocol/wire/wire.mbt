@@ -2,6 +2,7 @@
 using @byte_codec {type Reader, read_string, write_string}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)
   EphemeralUpdate(EphemeralNamespace, Bytes)
@@ -10,7 +11,7 @@ pub(all) enum SyncMessage {
   PeerJoined(String)
   PeerLeft(String)
   RelayedCrdtOps(sender~ : String, payload~ : Bytes)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for SyncMessage with fn output(self, logger) {
@@ -132,7 +133,7 @@ pub fn encode_sync_response(
 }
 
 ///|
-fn payload_bytes(data : Bytes, payload_start : Int) -> Bytes {
+fn payload_bytes(data : Bytes, payload_start : Int32) -> Bytes {
   if payload_start < data.length() {
     data.exact_view(start=payload_start, end=data.length()).to_owned()
   } else {

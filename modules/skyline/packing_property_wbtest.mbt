@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 struct PackCase {
-  bin_width : Int
+  bin_width : Int32
   sizes : Array[Size]
-} derive(Debug)
+}
 
 ///|
 fn gen_pack_case(rs : @splitmix.RandomState) -> PackCase {
@@ -23,7 +24,7 @@ impl @quickcheck.Arbitrary for PackCase with fn arbitrary(_size, rs) {
 }
 
 ///|
-impl @qc.Shrink for PackCase
+impl @shrink.Shrink for PackCase
 
 ///|
 fn pack_case(case_ : PackCase) -> (Packer, Array[Placement]) {

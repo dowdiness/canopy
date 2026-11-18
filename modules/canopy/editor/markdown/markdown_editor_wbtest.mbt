@@ -2,10 +2,10 @@
 
 ///|
 fn archive_open_limits(
-  max_encoded_bytes? : Int = 1024 * 1024,
-  max_decoded_operations? : Int = 10000,
-  max_pending_operations? : Int = 1000,
-  max_parents_per_operation? : Int = 256,
+  max_encoded_bytes~ : Int32 = 1024 * 1024,
+  max_decoded_operations~ : Int32 = 10000,
+  max_pending_operations~ : Int32 = 1000,
+  max_parents_per_operation~ : Int32 = 256,
 ) -> MarkdownArchiveOpenLimits {
   try! MarkdownArchiveOpenLimits(
     max_encoded_bytes~,
@@ -90,8 +90,8 @@ test "Markdown document UTF-16 selection rejects out-of-bounds endpoints" {
       MarkdownDocumentUtf16SelectionError::OutOfBounds(
         anchor=-1,
         head=0,
-        source_length=3
-      )
+        source_length=3,
+      ),
     ),
   )
 }
@@ -1791,8 +1791,8 @@ test "archive open enforces the exact encoded-byte limit atomically" {
       MarkdownArchiveError::LimitExceeded(
         dimension=MarkdownArchiveLimitDimension::EncodedBytes,
         maximum~,
-        actual~
-      )
+        actual~,
+      ),
     ) => {
       assert_eq(maximum, encoded_bytes - 1)
       assert_eq(actual, encoded_bytes)
@@ -1824,8 +1824,8 @@ test "archive open limits reject a negative resource dimension" {
     is Err(
       MarkdownArchiveOpenLimitsError::InvalidLimit(
         dimension=MarkdownArchiveLimitDimension::ParentsPerOperation,
-        value=-1
-      )
+        value=-1,
+      ),
     ),
   )
 }
@@ -2053,8 +2053,8 @@ test "withheld operations are reported by admit and refused by open" {
       MarkdownArchiveError::LimitExceeded(
         dimension=MarkdownArchiveLimitDimension::PendingOperations,
         maximum=0,
-        actual=1
-      )
+        actual=1,
+      ),
     ) => ()
     _ => fail("expected pending-operation limit failure")
   }

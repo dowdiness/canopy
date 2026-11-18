@@ -4,12 +4,13 @@
 
 ///|
 /// Wraps a TextState and maintains cursor position
+#derive(Debug)
 pub struct Editor {
   doc : @text.TextState
   // Cursor positions use TextState's item-space coordinates: one Unicode
   // codepoint per position, rather than JavaScript UTF-16 code units.
-  mut cursor : Int
-} derive(Debug)
+  mut cursor : Int32
+}
 
 ///|
 /// Create a new editor for a non-empty agent identifier.
@@ -26,13 +27,13 @@ pub fn Editor::get_text(self : Editor) -> String {
 
 ///|
 /// Get the current cursor position in TextState item-space coordinates.
-pub fn Editor::get_cursor(self : Editor) -> Int {
+pub fn Editor::get_cursor(self : Editor) -> Int32 {
   self.cursor
 }
 
 ///|
 /// Move cursor to a specific position
-pub fn Editor::move_cursor(self : Editor, position : Int) -> Unit {
+pub fn Editor::move_cursor(self : Editor, position : Int32) -> Unit {
   let text_len = self.doc.len()
   if position < 0 {
     self.cursor = 0
@@ -67,7 +68,7 @@ pub fn Editor::insert(self : Editor, text : String) -> Unit raise {
 /// Cursor does not move
 pub fn Editor::insert_at(
   self : Editor,
-  position : Int,
+  position : Int32,
   text : String,
 ) -> Unit raise {
   self.doc.insert(@text.Pos::at(position), text)

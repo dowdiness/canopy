@@ -1,12 +1,13 @@
 ///| White-box compatibility test for SDEG Phase 0 Markdown edit path.
 
 ///|
+#derive(Eq, Debug)
 struct HeadingEditPathObservation {
   id : @core.NodeId
-  level : Int
+  level : Int32
   text : String
   text_span_text : String?
-} derive(Eq, Debug)
+}
 
 ///|
 fn heading_edit_path_observation(

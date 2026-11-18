@@ -25,7 +25,7 @@ fn AuthorityCore::insert_and_record(
   self : AuthorityCore,
   pos : @text.Pos,
   text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   self.doc.insert_and_record(pos, text, self.undo, timestamp_ms~)
 }
@@ -34,7 +34,7 @@ fn AuthorityCore::insert_and_record(
 fn AuthorityCore::delete_range_and_record(
   self : AuthorityCore,
   range : @text.Range,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   self.doc.delete_range_and_record(range, self.undo, timestamp_ms~)
 }
@@ -53,7 +53,7 @@ fn AuthorityCore::redo_history(self : AuthorityCore) -> Bool raise {
 pub fn[T : Eq] SyncEditor::insert_and_record(
   self : SyncEditor[T],
   text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
@@ -89,7 +89,7 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
 ///|
 pub fn[T : Eq] SyncEditor::delete_and_record(
   self : SyncEditor[T],
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
@@ -144,7 +144,7 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
 ///|
 pub fn[T : Eq] SyncEditor::backspace_and_record(
   self : SyncEditor[T],
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()

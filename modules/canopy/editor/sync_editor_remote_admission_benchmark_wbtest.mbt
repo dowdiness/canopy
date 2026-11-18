@@ -7,8 +7,8 @@ struct RemoteAdmissionBenchmarkFixture {
 
 ///|
 fn remote_admission_benchmark_fixture(
-  history_operations : Int,
-  visible_utf16_units : Int,
+  history_operations : Int32,
+  visible_utf16_units : Int32,
   fixture_id : String,
 ) -> RemoteAdmissionBenchmarkFixture raise Failure {
   guard history_operations >= visible_utf16_units else {
@@ -45,8 +45,8 @@ fn remote_admission_benchmark_fixture(
 
 ///|
 fn measure_segmented_remote_admission(
-  history_operations : Int,
-  visible_utf16_units : Int,
+  history_operations : Int32,
+  visible_utf16_units : Int32,
   fixture_id : String,
 ) -> (Double, Double, Double) raise Failure {
   let segmented = remote_admission_benchmark_fixture(
@@ -74,7 +74,7 @@ fn measure_segmented_remote_admission(
   let parser_source = segmented.target.projection.parser
     .source()
     .read_or_abort()
-  let prepared = match transition.availability() {
+  let prepared = match transition.effect_availability() {
     @text.TextEffectAvailability::Exact(effects) =>
       prepare_text_admission(parser_source, effects)
     @text.TextEffectAvailability::SnapshotRequired =>
@@ -90,7 +90,7 @@ fn measure_segmented_remote_admission(
     transition.version_after(),
     authority_advanced,
   )
-  let report = transition.finish() catch {
+  let report = transition.report() catch {
     _ => fail("segmented benchmark transition finish failed")
   }
   let reconciliation_us = @bench.monotonic_clock_end(reconciliation_start)
@@ -103,8 +103,8 @@ fn measure_segmented_remote_admission(
 
 ///|
 fn measure_whole_remote_admission(
-  history_operations : Int,
-  visible_utf16_units : Int,
+  history_operations : Int32,
+  visible_utf16_units : Int32,
   fixture_id : String,
 ) -> Double raise Failure {
   let whole = remote_admission_benchmark_fixture(
@@ -125,8 +125,8 @@ fn measure_whole_remote_admission(
 ///|
 fn benchmark_remote_admission_phase_case(
   b : @bench.T,
-  history_operations : Int,
-  visible_utf16_units : Int,
+  history_operations : Int32,
+  visible_utf16_units : Int32,
 ) -> Unit {
   let label = history_operations.to_string() +
     "-" +
@@ -155,8 +155,8 @@ fn benchmark_remote_admission_phase_case(
 ///|
 fn benchmark_remote_admission_whole_case(
   b : @bench.T,
-  history_operations : Int,
-  visible_utf16_units : Int,
+  history_operations : Int32,
+  visible_utf16_units : Int32,
 ) -> Unit {
   let label = history_operations.to_string() +
     "-" +

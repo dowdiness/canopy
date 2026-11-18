@@ -59,7 +59,7 @@ test "subscribe receives Local events" {
 ///|
 test "subscribe auto-unsubscribe on false" {
   let store = @ephemeral.EphemeralStore::new(60000UL)
-  let call_count : Ref[Int] = Ref(0)
+  let call_count : Ref[Int32] = Ref(0)
   let _sub = store.subscribe(fn(_event) {
     call_count.val = call_count.val + 1
     false
@@ -72,7 +72,7 @@ test "subscribe auto-unsubscribe on false" {
 ///|
 test "unsubscribe stops events" {
   let store = @ephemeral.EphemeralStore::new(60000UL)
-  let call_count : Ref[Int] = Ref(0)
+  let call_count : Ref[Int32] = Ref(0)
   let sub = store.subscribe(fn(_event) {
     call_count.val = call_count.val + 1
     true

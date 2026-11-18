@@ -99,7 +99,7 @@ priv struct PlacedText {
 fn text_placement_subscription(
   placement : @viewport.TextPlacement,
   scrolled_away : @rabbita.Cmd,
-  activation : Int,
+  activation : Int32,
   compact : Bool,
 ) -> @sub.Sub {
   @sub.custom_sub(
@@ -161,7 +161,7 @@ priv suberror SplitFollowSubscription {
 /// reconnects in the other direction.
 fn split_follow_subscription(
   reading : ScrollPane,
-  activation : Int,
+  activation : Int32,
   compact : Bool,
   preview : @editor.EditorState,
 ) -> @sub.Sub {
@@ -207,7 +207,7 @@ fn split_follow_subscription(
 }
 
 ///|
-const LEAD_DELAY_MS : Int = 250
+const LEAD_DELAY_MS : Int32 = 250
 
 ///|
 fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {

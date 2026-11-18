@@ -21,7 +21,7 @@ fn parse_fixture(
 }
 
 ///|
-fn generated_binder(id : Int, hint : String) -> @alpha.Binder {
+fn generated_binder(id : Int32, hint : String) -> @alpha.Binder {
   { id: @alpha.BinderId(id), hint, origin: @alpha.BinderOrigin::Generated(id), }
 }
 

@@ -20,7 +20,7 @@ pub fn document_font_faces(@dom.Document) -> FontFaceSet
 
 pub fn document_fonts(@dom.Document) -> @dom.EventTarget
 
-pub fn document_text_middle(@dom.Document, @dom.Node, Int, Int) -> Double
+pub fn document_text_middle(@dom.Document, @dom.Node, Int32, Int32) -> Double
 
 pub fn document_timeline_time(@dom.Document) -> @js.Nullable[Double]
 
@@ -42,9 +42,9 @@ pub fn play_animation(@dom.Animation) -> Unit
 
 pub fn read(@dom.File, @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd
 
-pub fn replace_text_data(@dom.Node, Int, Int, String) -> Unit
+pub fn replace_text_data(@dom.Node, Int32, Int32, String) -> Unit
 
-pub fn request_idle(@dom.Window, Int, () -> Unit) -> Unit
+pub fn request_idle(@dom.Window, Int32, () -> Unit) -> Unit
 
 pub fn save_data_requested(@dom.Window) -> Bool
 
@@ -54,7 +54,7 @@ pub fn set_animation_playback_rate(@dom.Animation, Double) -> Unit
 
 pub fn set_animation_start_time(@dom.Animation, Double) -> Unit
 
-pub fn text_range_rects(@dom.Node, Int, Int) -> @dom.DOMRectList
+pub fn text_range_rects(@dom.Node, Int32, Int32) -> @dom.DOMRectList
 
 pub fn visual_viewport_scale(@dom.VisualViewport) -> Double
 

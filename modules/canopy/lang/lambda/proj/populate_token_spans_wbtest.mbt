@@ -20,8 +20,8 @@ fn expect_role_span(
   source_map : SourceMap,
   node : ProjNode[@ast.Term],
   role : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit raise {
   guard source_map.get_token_span(node.id(), role) is Some(span) else {
     fail("missing \{role} span")
@@ -37,8 +37,8 @@ fn expect_role_span(
 fn expect_param_span(
   source_map : SourceMap,
   node : ProjNode[@ast.Term],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit raise {
   expect_role_span(source_map, node, PARAM_ROLE, start, end)
 }

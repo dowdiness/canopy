@@ -2,26 +2,28 @@
 /// Reconciliation trace events — one per decision point in reconcile_children.
 /// Raw trace; contains Matched events that the user-facing StructuredChange
 /// projection filters out.
+#derive(Eq)
 pub(all) enum ReconcileTraceEvent {
-  Matched(NodeId, Int, Int, NodeId, String)
-  Inserted(NodeId, Int, NodeId, String)
-  Deleted(NodeId, Int, NodeId, String)
+  Matched(NodeId, Int32, Int32, NodeId, String)
+  Inserted(NodeId, Int32, NodeId, String)
+  Deleted(NodeId, Int32, NodeId, String)
   Wrapped(NodeId, NodeId, String)
   Unwrapped(NodeId, NodeId, String)
   Renamed(NodeId, String)
-  Freshened(NodeId, Int, NodeId, String)
-} derive(Eq)
+  Freshened(NodeId, Int32, NodeId, String)
+}
 
 ///|
 /// User-facing structural change — Matched events filtered out.
+#derive(Eq)
 pub(all) enum StructuredChange {
-  Inserted(NodeId, Int, NodeId, String)
-  Deleted(NodeId, Int, NodeId, String)
+  Inserted(NodeId, Int32, NodeId, String)
+  Deleted(NodeId, Int32, NodeId, String)
   Wrapped(NodeId, NodeId, String)
   Unwrapped(NodeId, NodeId, String)
   Renamed(NodeId, String)
-  Freshened(NodeId, Int, NodeId, String)
-} derive(Eq)
+  Freshened(NodeId, Int32, NodeId, String)
+}
 
 ///|
 /// Filter ReconcileTraceEvent to StructuredChange (drop Matched).

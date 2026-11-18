@@ -7,7 +7,7 @@
 /// pair mid-slice cannot abort. When truncation occurs, appends '…'.
 pub fn snapshot_span_edits(
   edits : Array[@core.SpanEdit],
-  max_chars : Int,
+  max_chars : Int32,
 ) -> Array[@core.SpanEdit] {
   edits.map(fn(e) {
     let inserted = if e.inserted.length() > max_chars {

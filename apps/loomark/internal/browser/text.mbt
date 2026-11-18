@@ -2,8 +2,8 @@
 /// The client rectangles of the code units `start..end` in a text node.
 pub extern "js" fn text_range_rects(
   text : @dom.Node,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> @dom.DOMRectList =
   #| (text, start, end) => {
   #|   const range = text.ownerDocument.createRange();
@@ -15,8 +15,8 @@ pub extern "js" fn text_range_rects(
 ///|
 pub extern "js" fn replace_text_data(
   text : @dom.Node,
-  offset : Int,
-  count : Int,
+  offset : Int32,
+  count : Int32,
   data : String,
 ) -> Unit =
   #| (text, offset, count, data) => text.replaceData(offset, count, data)

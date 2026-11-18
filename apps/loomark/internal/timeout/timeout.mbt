@@ -7,9 +7,9 @@ priv suberror TimeoutSubscription {
 fn start(
   payload : Error,
   scheduler : &@cmd.Scheduler,
-  milliseconds : Int,
-  schedule : (() -> Unit, Int) -> Int,
-  cancel : (Int) -> Unit,
+  milliseconds : Int32,
+  schedule : (() -> Unit, Int32) -> Int32,
+  cancel : (Int32) -> Unit,
 ) -> @sub.RunningSub? {
   guard payload is TimeoutSubscription::After(command) else { return None }
   let mut command = command
@@ -31,7 +31,7 @@ fn start(
 fn loader(
   payload : Error,
   scheduler : &@cmd.Scheduler,
-  milliseconds : Int,
+  milliseconds : Int32,
 ) -> @sub.RunningSub? {
   let window = @dom.window()
   start(
@@ -45,7 +45,11 @@ fn loader(
 
 ///|
 /// Runs `command` once after the delay while this subscription remains active.
-pub fn after(key : String, milliseconds : Int, command : @cmd.Cmd) -> @sub.Sub {
+pub fn after(
+  key : String,
+  milliseconds : Int32,
+  command : @cmd.Cmd,
+) -> @sub.Sub {
   @sub.custom_sub(
     "timeout.after(key=\{key},milliseconds=\{milliseconds})",
     @sub.Scope::Local,

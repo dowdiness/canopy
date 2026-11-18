@@ -31,7 +31,7 @@ priv struct Builder {
   decls : Array[Decl]
   refs : Array[Ref]
   node_scope : Map[@core.NodeId, ScopeId]
-  node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int]]
+  node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int32]]
 }
 
 ///|
@@ -116,7 +116,7 @@ fn Builder::pass2(self : Builder, root : @core.ProjNode[@ast.Term]) -> Unit {
           ModuleDef(def_index=i),
         )
       }
-      let root_cutoffs : Map[ScopeId, Int] = Map([])
+      let root_cutoffs : Map[ScopeId, Int32] = Map([])
       root_cutoffs[root_scope] = defs.length()
       self.node_scope[root.id()] = root_scope
       self.node_cutoffs[root.id()] = root_cutoffs
@@ -126,7 +126,7 @@ fn Builder::pass2(self : Builder, root : @core.ProjNode[@ast.Term]) -> Unit {
     // `root_scope` holds no `ModuleDef`. Dispatch through `walk` so the root's
     // own binder (a `Lam` param) is installed.
     _ => {
-      let scoped : Map[ScopeId, Int] = Map([])
+      let scoped : Map[ScopeId, Int32] = Map([])
       scoped[root_scope] = 0
       self.walk(root, root_scope, scoped)
     }
@@ -145,7 +145,7 @@ fn Builder::descend_module_children(
   self : Builder,
   node : @core.ProjNode[@ast.Term],
   module_scope : ScopeId,
-  base : Map[ScopeId, Int],
+  base : Map[ScopeId, Int32],
 ) -> Unit {
   let def_count = node.children.length() - 1
   for i, child in node.children {
@@ -164,7 +164,7 @@ fn Builder::walk(
   self : Builder,
   node : @core.ProjNode[@ast.Term],
   current : ScopeId,
-  cutoffs : Map[ScopeId, Int],
+  cutoffs : Map[ScopeId, Int32],
 ) -> Unit {
   self.node_scope[node.id()] = current
   self.node_cutoffs[node.id()] = cutoffs
@@ -234,7 +234,7 @@ fn Builder::resolve(
   self : Builder,
   name : String,
   start_scope : ScopeId,
-  cutoffs : Map[ScopeId, Int],
+  cutoffs : Map[ScopeId, Int32],
 ) -> Resolution {
   let visited : Array[ScopeId] = []
   let mut cur : ScopeId? = Some(start_scope)

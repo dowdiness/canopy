@@ -103,7 +103,7 @@ fn caret_at_start_after_render() -> @cmd.Cmd {
   @cmd.custom_cmd(kind=AfterRender, _ => {
     if editor_text_area() is Some(area) {
       area.set_selection_range(0, 0)
-      area.as_element().set_scroll_top(0)
+      @dom.IsElement::as_element(area).set_scroll_top(0)
     }
   })
 }

@@ -12,7 +12,7 @@ test "wmh A1: sanity sum equals known value across two editors" {
   let handle_b = create_editor("wmh_a1_b")
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s
@@ -63,7 +63,7 @@ test "wmh A2: reactivity — mutation in editor A invalidates and recomputes" {
   let handle_b = create_editor("wmh_a2_b")
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s
@@ -116,7 +116,7 @@ test "wmh A3: clean teardown — destroy succeeds after dispose" {
   let handle_b = create_editor("wmh_a3_b")
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s
@@ -167,7 +167,9 @@ test "wmh B1: bad-cell rejection + atomicity" {
   let handle_b = create_editor("wmh_b1_b")
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
-  let bad : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
+  let bad : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
+    0
+  })
   // A VALID dep on editor A precedes the bad dep (B's cell named under A, not
   // in A's protected surface). A validate-while-register impl would register
   // the valid edge before hitting the bad one — the destroy assertion below
@@ -213,7 +215,7 @@ test "wmh B2: dead-editor rejection" {
     Ok(_) => ()
     Err(r) => fail("B2 setup: destroy h_a should be Ok, got \{r}")
   }
-  let m : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
+  let m : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() { 0 })
   match
     coordinator.register_workspace_cell(m, [
       (h_a.editor_id, h_a.cells.parser_source.cell_id()),
@@ -241,7 +243,7 @@ test "panic wmh B3: registering the same memo twice aborts" {
   reset_coordinator_for_phase1_tests()
   let handle_a = create_editor("wmh_b3_a")
   let h_a = lambda_registry.get(handle_a).unwrap()
-  let m : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let m : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     match coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s.length()
       Err(r) => abort("wmh B3 read: \{r}")
@@ -259,7 +261,7 @@ test "panic wmh B3: registering the same memo twice aborts" {
 ///|
 test "panic wmh B4: registering with empty deps aborts" {
   reset_coordinator_for_phase1_tests()
-  let m : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() { 0 })
+  let m : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() { 0 })
   let _ = coordinator.register_workspace_cell(m, [])
 }
 
@@ -270,7 +272,7 @@ test "wmh C: destroy refusal under live handle" {
   let handle_b = create_editor("wmh_c_b")
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s
@@ -333,7 +335,7 @@ test "wmh D: idempotent dispose — second dispose is a safe no-op" {
   let handle_b = create_editor("wmh_d_b")
   let h_a = lambda_registry.get(handle_a).unwrap()
   let h_b = lambda_registry.get(handle_b).unwrap()
-  let sum_d : @incr.Derived[Int] = @incr.Derived(coordinator.runtime(), fn() {
+  let sum_d : @incr.Derived[Int32] = @incr.Derived(coordinator.runtime(), fn() {
     let sa = match
       coordinator.read_protected(h_a.editor_id, h_a.cells.parser_source) {
       Ok(s) => s

@@ -24,7 +24,8 @@ pub fn DerivedName::update(Self, String) -> Self
 pub impl Eq for DerivedName
 pub impl @debug.Debug for DerivedName
 
-type DocumentLead derive(Eq, @debug.Debug)
+#derive(Eq, @debug.Debug)
+type DocumentLead
 pub fn DocumentLead::description(Self) -> String
 pub fn DocumentLead::description_truncated(Self) -> Bool
 pub fn DocumentLead::equal(Self, Self) -> Bool
@@ -34,6 +35,7 @@ pub fn DocumentLead::primary(Self) -> String
 pub fn DocumentLead::primary_truncated(Self) -> Bool
 pub fn DocumentLead::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub enum DocumentLeadForm {
   Heading
   Task(Bool)
@@ -42,7 +44,7 @@ pub enum DocumentLeadForm {
   List(String)
   Plain
   Empty
-} derive(Eq, @debug.Debug)
+}
 pub fn DocumentLeadForm::equal(Self, Self) -> Bool
 pub fn DocumentLeadForm::not_equal(Self, Self) -> Bool
 pub fn DocumentLeadForm::to_repr(Self) -> @debug.Repr

@@ -6,7 +6,7 @@ using @core {type SourceMap}
 
 ///|
 /// Token span role for object member keys. Convention: "key:0", "key:1", etc.
-pub fn key_role(index : Int) -> String {
+pub fn key_role(index : Int32) -> String {
   "key:\{index}"
 }
 
@@ -14,7 +14,7 @@ pub fn key_role(index : Int) -> String {
 /// Token span role for full object members (key + colon + value).
 /// Convention: "member:0", "member:1", etc.
 /// Used by Delete to remove the complete member text.
-pub fn member_role(index : Int) -> String {
+pub fn member_role(index : Int32) -> String {
   "member:\{index}"
 }
 

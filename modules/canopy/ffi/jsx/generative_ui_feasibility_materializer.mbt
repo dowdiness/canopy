@@ -24,7 +24,7 @@ fn FeasibilityDatasetRow::FeasibilityDatasetRow(
 
 ///|
 priv struct FeasibilityDataset {
-  schema_version : Int
+  schema_version : Int32
   case_id : String
   source_format : String
   binding : String
@@ -36,7 +36,7 @@ priv struct FeasibilityDataset {
 
 ///|
 fn FeasibilityDataset::FeasibilityDataset(
-  schema_version : Int,
+  schema_version : Int32,
   case_id : String,
   source_format : String,
   binding : String,
@@ -58,10 +58,10 @@ fn FeasibilityDataset::FeasibilityDataset(
 }
 
 ///|
-const GENUI_MAX_FEASIBILITY_DATASET_LENGTH : Int = 1024 * 1024
+const GENUI_MAX_FEASIBILITY_DATASET_LENGTH : Int32 = 1024 * 1024
 
 ///|
-const GENUI_MAX_FEASIBILITY_ROWS : Int = 4096
+const GENUI_MAX_FEASIBILITY_ROWS : Int32 = 4096
 
 ///|
 fn feasibility_exact_object(
@@ -296,11 +296,12 @@ fn FeasibilitySummary::FeasibilitySummary(
 }
 
 ///|
+#derive(Debug)
 priv enum FeasibilitySafeNode {
   Stack(Array[FeasibilitySafeNode])
   Panel(Array[FeasibilitySafeNode])
   Text(String)
-} derive(Debug)
+}
 
 ///|
 priv struct MaterializedFeasibilityCandidate {

@@ -58,7 +58,7 @@ fn certify_reusable_name_prefix(
   root : @seam.SyntaxNode,
   diagnostics : @loom.DiagnosticSet,
   candidate : @markdown.MarkdownIR,
-) -> Int? {
+) -> Int32? {
   let origin = candidate.origin()
   // Paragraphs and lists can continue on later lines and change earlier inline text.
   guard candidate.view() is @markdown.Heading(..) &&

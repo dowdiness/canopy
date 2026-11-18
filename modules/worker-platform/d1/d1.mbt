@@ -18,10 +18,11 @@ pub(all) enum Value {
 
 ///|
 /// Redacted failures: SQL, bound values and provider exceptions never escape.
+#derive(Debug, Eq)
 pub(all) suberror DatabaseError {
   OperationFailed
   InvalidResult
-} derive(Debug, Eq)
+}
 
 ///|
 fn Value::to_js(self : Value) -> @js.Any {

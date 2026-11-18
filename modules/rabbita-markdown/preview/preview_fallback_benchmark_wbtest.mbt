@@ -1,5 +1,5 @@
 ///|
-fn preview_fallback_source(block_count : Int, references~ : Bool) -> String {
+fn preview_fallback_source(block_count : Int32, references~ : Bool) -> String {
   let out = StringBuilder::StringBuilder()
   if references {
     out.write_string("[ref]: /a\n\n")

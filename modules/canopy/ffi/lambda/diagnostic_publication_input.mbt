@@ -17,10 +17,11 @@ fn DiagnosticPublicationDependencyInput::DiagnosticPublicationDependencyInput(
 }
 
 ///|
+#derive(@debug.Debug)
 priv enum DiagnosticPublicationInputCaptureError {
   InvalidInput(@editor.DiagnosticPublicationInputError)
   Coordinator(@workspace.AbortReport)
-} derive(@debug.Debug)
+}
 
 ///|
 #warnings("-unused_value")

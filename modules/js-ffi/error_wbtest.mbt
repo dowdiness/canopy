@@ -58,7 +58,7 @@ test "try_sync handles unstringifiable exceptions" {
 
 ///|
 test "try_sync returns ordinary values" {
-  let value : Int = try_sync(() => any(42)).cast()
+  let value : Int32 = try_sync(() => any(42)).cast()
   inspect(value, content="42")
 }
 

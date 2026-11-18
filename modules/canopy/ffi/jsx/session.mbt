@@ -16,7 +16,7 @@ priv struct JsxSession {
   root_id : String
   mut committed_source : String
   mut baseline : SessionBaseline
-  mut mounted_ids : Array[Int]
+  mut mounted_ids : Array[Int32]
   mut last_proj : @canopy_core.ProjNode[@jsx_ast.JsxNode]?
   mut dry_run_model : @jsx_proj.DryRunModel
 }
@@ -29,25 +29,26 @@ priv enum SourceProjectionRead {
 }
 
 ///|
-let session_registry : Map[Int, JsxSession] = Map([])
+let session_registry : Map[Int32, JsxSession] = Map([])
 
 ///|
-let disposed_session_handles : Map[Int, Bool] = Map([])
+let disposed_session_handles : Map[Int32, Bool] = Map([])
 
 ///|
-let next_session_handle : Ref[Int] = { val: 1, }
+let next_session_handle : Ref[Int32] = { val: 1, }
 
 ///|
+#derive(ToJson)
 priv struct JsxSessionErrorJson {
   code : String
   message : String
-} derive(ToJson)
+}
 
 ///|
 priv struct JsxSessionResultJson {
-  schema_version : Int
+  schema_version : Int32
   success : Bool
-  revision : Int
+  revision : Int32
   mounted_ids : Array[String]
   diagnostics : Array[String]
   error : JsxSessionErrorJson?
@@ -60,11 +61,11 @@ impl ToJson for JsxSessionResultJson with fn to_json(self) {
     None => Json::null()
   }
   Json::object({
-    "schema_version": self.schema_version.to_json(),
-    "success": self.success.to_json(),
-    "revision": self.revision.to_json(),
-    "mounted_ids": self.mounted_ids.to_json(),
-    "diagnostics": self.diagnostics.to_json(),
+    "schema_version": Json(self.schema_version),
+    "success": Json(self.success),
+    "revision": Json(self.revision),
+    "mounted_ids": Json(self.mounted_ids),
+    "diagnostics": Json(self.diagnostics),
     "error": error_json,
   })
 }
@@ -75,8 +76,8 @@ impl ToJson for JsxSessionResultJson with fn to_json(self) {
 /// integer representation for NodeId.
 fn render_result_json(
   success : Bool,
-  revision : Int,
-  mounted_ids : Array[Int],
+  revision : Int32,
+  mounted_ids : Array[Int32],
   diagnostics : Array[String],
   error : (String, String)?,
 ) -> String {
@@ -95,7 +96,7 @@ fn render_result_json(
 }
 
 ///|
-fn session_envelope_json(handle : Int?, result_json : String) -> String {
+fn session_envelope_json(handle : Int32?, result_json : String) -> String {
   let result = @js.parse(result_json)
   let envelope = @js.object()
   envelope.set("schema_version", @js.any(1))
@@ -359,7 +360,7 @@ fn render_jsx_session(
 }
 
 ///|
-fn allocate_session_handle() -> Int {
+fn allocate_session_handle() -> Int32 {
   let handle = next_session_handle.val
   next_session_handle.val += 1
   handle
@@ -435,7 +436,7 @@ pub fn jsx_session_new(source : String, root_id : String) -> String {
 
 ///|
 /// Render a new source through one live session.
-pub fn jsx_session_render(handle : Int, source : String) -> String {
+pub fn jsx_session_render(handle : Int32, source : String) -> String {
   match session_registry.get(handle) {
     Some(session) =>
       render_jsx_session(session, source, true) catch {
@@ -478,7 +479,7 @@ pub fn jsx_session_render(handle : Int, source : String) -> String {
 /// boundary as a regular JSX session render. The base revision is checked
 /// before the parser or DOM is touched.
 pub fn jsx_session_commit_candidate(
-  handle : Int,
+  handle : Int32,
   base_revision : @cognition.GenerativeUiRevision,
   candidate : @cognition.GenerativeUiCandidate,
 ) -> String {
@@ -542,7 +543,7 @@ pub fn jsx_session_commit_candidate(
 
 ///|
 /// Explicit, idempotent session disposal.
-pub fn jsx_session_dispose(handle : Int) -> Unit {
+pub fn jsx_session_dispose(handle : Int32) -> Unit {
   match session_registry.get(handle) {
     Some(session) => {
       dispose_jsx_session(session)

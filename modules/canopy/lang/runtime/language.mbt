@@ -109,7 +109,7 @@ pub fn[T, Op, E] Language::Language(
 pub fn[T, Op, E] Language::build(
   self : Language[T, Op, E],
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[T], E) raise {
   @editor.SyncEditor::new_with_builder(
@@ -147,7 +147,7 @@ pub fn[T : Eq, Op, E] Language::apply_edit(
   self : Language[T, Op, E],
   editor : @editor.SyncEditor[T],
   op : Op,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Array[@core.SpanEdit], @core.EditError] raise Failure {
   let projection = editor.get_proj_node()
   let source_map = editor.get_source_map()

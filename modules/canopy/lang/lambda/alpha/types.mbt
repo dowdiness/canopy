@@ -1,41 +1,48 @@
 ///|
-pub(all) struct BinderId(Int) derive(Debug, Eq, Hash)
+#derive(Debug, Eq, Hash)
+pub(all) struct BinderId(Int32)
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum BinderOrigin {
   SourceDecl(node_id~ : @core.NodeId, hint~ : String)
-  Generated(Int)
-} derive(Debug, Eq)
+  Generated(Int32)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Binder {
   id : BinderId
   hint : String
   origin : BinderOrigin
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum FreeOrigin {
   SourceVar
   SourceUnbound
   GeneratedFree
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct FreeName {
   name : String
   origin : FreeOrigin
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum AlphaRef {
   Bound(BinderId)
   Free(FreeName)
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum AlphaTerm {
-  Int(Int)
+  Int(Int32)
   Unit
   Var(AlphaRef)
   Lam(Binder, AlphaTerm)
@@ -45,14 +52,15 @@ pub(all) enum AlphaTerm {
   LetDef(Binder, AlphaTerm)
   Module(Array[(Binder, AlphaTerm)], AlphaTerm)
   Error(String)
-  Hole(Int)
-} derive(Debug, Eq)
+  Hole(Int32)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ReifyPolicy {
   Display
   Source
-} derive(Debug, Eq)
+}
 
 ///|
 pub extend AlphaRef with @moonbitlang/core/debug.Debug::{to_repr}

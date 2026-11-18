@@ -156,7 +156,7 @@ test "failed deletion persistence restores the document and exact retry" {
   assert_true(
     failed.delete_status(token)
     is Some(
-      DeletePersistenceFailed(@source_repository.ReplicaFailure::WriteFailed)
+      DeletePersistenceFailed(@source_repository.ReplicaFailure::WriteFailed),
     ),
   )
   let transition = expect_document_delete(failed, token)

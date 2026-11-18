@@ -15,11 +15,12 @@
 /// - `witness`: the scopes searched and found NOT to contain `name`
 ///   (`Resolution.visited_scopes`) — the dependency footprint of the negative
 ///   observation, shared (not copied) from the resolution.
+#derive(Debug)
 pub(all) struct ReachableFailure {
   name : String
   location : @loomcore.Range?
   witness : Array[ScopeId]
-} derive(Debug)
+}
 
 ///|
 fn ReachableFailure::ReachableFailure(
@@ -89,10 +90,11 @@ fn failure_key(f : ReachableFailure) -> String {
 /// `newly_reachable` — failures introduced by the edit (in `after`, not `before`).
 /// `resolved` — failures the edit fixed (in `before`, not `after`).
 /// An empty diff means the edit left the failure set unchanged.
+#derive(Debug)
 pub(all) struct FailureDiff {
   newly_reachable : Array[ReachableFailure]
   resolved : Array[ReachableFailure]
-} derive(Debug)
+}
 
 ///|
 fn FailureDiff::FailureDiff(
@@ -160,7 +162,7 @@ pub fn remap_failures(
 /// Remap a single byte offset from before-edit to after-edit coordinates.
 /// Edits must be sorted by `start` ascending, non-overlapping. Positions
 /// inside a deleted range are mapped to the start of the replacement.
-fn remap_pos(pos : Int, edits : Array[@core.SpanEdit]) -> Int {
+fn remap_pos(pos : Int32, edits : Array[@core.SpanEdit]) -> Int32 {
   let final_shift = for edit in edits; shift = 0 {
     if pos < edit.start {
       break shift

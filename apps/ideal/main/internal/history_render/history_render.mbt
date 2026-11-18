@@ -9,20 +9,20 @@
 /// Minimum chain length to warrant compression. Below the threshold,
 /// expanding each LV to a singleton node reads more clearly than
 /// abstracting them into a "(N ops)" pill.
-const CHAIN_THRESHOLD : Int = 5
+const CHAIN_THRESHOLD : Int32 = 5
 
 ///|
 /// Hard ceiling for Phase 1: above this, refuse to render. A "most recent N"
 /// cut is not ancestry-closed and would silently misrepresent the DAG, so
 /// the only honest options are render-everything or render-nothing.
-pub const MAX_OPS : Int = 1000
+pub const MAX_OPS : Int32 = 1000
 
 ///|
 /// Per-agent palette index (0..7). The local agent is pinned to 0 so the
 /// user's own ops stay visually anchored across sessions.
 priv struct HistoryData {
-  frontier : Map[Int, Bool]
-  agent_color : Map[String, Int]
+  frontier : Map[Int32, Bool]
+  agent_color : Map[String, Int32]
 }
 
 ///|
@@ -30,14 +30,14 @@ priv struct HistoryData {
 /// just `(start, end, count)`, so future selection / time-travel features
 /// can map a click on a compressed node back to its constituents.
 priv enum CompressedNode {
-  Single(Int)
-  Chain(Array[Int])
+  Single(Int32)
+  Chain(Array[Int32])
 }
 
 ///|
 priv struct CompressedData {
   nodes : Array[CompressedNode]
-  parents : Array[Array[Int]]
+  parents : Array[Array[Int32]]
 }
 
 ///|
@@ -47,7 +47,7 @@ priv struct CompressedData {
 pub enum HistoryRender {
   Empty
   Dot(String)
-  TooLarge(Int)
+  TooLarge(Int32)
 }
 
 ///|
@@ -80,7 +80,7 @@ fn collect_history_data(
   local_agent : String,
 ) -> HistoryData {
   let n = snap.op_count()
-  let frontier : Map[Int, Bool] = Map([])
+  let frontier : Map[Int32, Bool] = Map([])
   for lv in snap.frontier() {
     frontier[lv] = true
   }
@@ -102,7 +102,7 @@ fn collect_history_data(
     }
   }
   others.sort()
-  let agent_color : Map[String, Int] = Map([])
+  let agent_color : Map[String, Int32] = Map([])
   agent_color[local_agent] = 0
   // Non-local agents wrap through 1..7 so index 0 stays reserved for the
   // local agent — a naïve `idx % 8` would silently recycle the local
@@ -134,7 +134,7 @@ fn chain_compress(
 
   // chain_succ[p] = c if edge p→c is a chain link.
   // Functional in p (p has children_count == 1, so the unique child is c).
-  let chain_succ : Map[Int, Int] = Map([])
+  let chain_succ : Map[Int32, Int32] = Map([])
   for c in 0..<n {
     if frontier.contains(c) {
       continue
@@ -166,11 +166,11 @@ fn chain_compress(
 
   // A node is a chain interior/tail iff it appears as a chain successor.
   // Chain heads have no chain predecessor; we walk forward from each.
-  let has_chain_pred : Map[Int, Bool] = Map([])
+  let has_chain_pred : Map[Int32, Bool] = Map([])
   for _, c in chain_succ {
     has_chain_pred[c] = true
   }
-  let lv_to_node : Map[Int, Int] = Map([])
+  let lv_to_node : Map[Int32, Int32] = Map([])
   let nodes : Array[CompressedNode] = []
   for lv in 0..<n {
     if lv_to_node.contains(lv) {
@@ -182,7 +182,7 @@ fn chain_compress(
       // already absorbed this node into their walk.)
       continue
     }
-    let chain : Array[Int] = [lv]
+    let chain : Array[Int32] = [lv]
     let mut cur = lv
     while chain_succ.get(cur) is Some(next) {
       chain.push(next)
@@ -207,7 +207,7 @@ fn chain_compress(
   // into the same chain) are dropped; duplicate parents (multiple chain
   // members with the same external ancestor — impossible under the
   // indegree=1/outdegree=1 rule, but cheap to guard) are deduped.
-  let parents : Array[Array[Int]] = []
+  let parents : Array[Array[Int32]] = []
   for _ in 0..<nodes.length() {
     parents.push([])
   }
@@ -240,7 +240,7 @@ fn chain_compress(
 ///|
 /// 8-color palette tuned for the dark theme (`#1a1a2e` background) and the
 /// project's syntax-color hand. Indices match `HistoryData.agent_color`.
-fn palette_color(idx : Int) -> String {
+fn palette_color(idx : Int32) -> String {
   match idx {
     0 => "#82aaff" // blue — local agent
     1 => "#c792ea" // purple
@@ -283,7 +283,7 @@ fn emit_dot_string(
   )
 
   // Roots: nodes with no parents in the compressed graph.
-  let roots : Array[Int] = []
+  let roots : Array[Int32] = []
   for i in 0..<comp.nodes.length() {
     if comp.parents[i].is_empty() {
       roots.push(i)
@@ -403,7 +403,7 @@ pub fn legend_html(
   }
   // Remote agents in palette-index order so the strip reads left-to-right
   // as palette[1], palette[2], … — matching what the user sees in the SVG.
-  let others : Array[(Int, String)] = []
+  let others : Array[(Int32, String)] = []
   for agent, idx in data.agent_color {
     if agent != local_agent {
       others.push((idx, agent))

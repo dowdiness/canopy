@@ -2,16 +2,16 @@
 priv struct InputFacts {
   input_type : String
   data : String?
-  selection_start : Int
-  selection_end : Int
-  text_length : Int
+  selection_start : Int32
+  selection_end : Int32
+  text_length : Int32
 }
 
 ///|
 priv struct CompositionFacts {
-  selection_start : Int
-  selection_end : Int
-  text_length : Int
+  selection_start : Int32
+  selection_end : Int32
+  text_length : Int32
 }
 
 ///|
@@ -40,14 +40,14 @@ priv enum InputOperation {
 /// A native edit captured before the host decides whether to accept it.
 pub struct InputEdit {
   priv owner : String
-  priv version : Int
+  priv version : Int32
   priv change : @text_change.TextChange
 }
 
 ///|
 fn admit_edit(
   owner : String,
-  version : Int,
+  version : Int32,
   edit : InputEdit,
 ) -> @text_change.TextChange? {
   if owner == edit.owner && version == edit.version {
@@ -58,7 +58,7 @@ fn admit_edit(
 }
 
 ///|
-let next_text_area_owner : Ref[Int] = Ref::Ref(0)
+let next_text_area_owner : Ref[Int32] = Ref::Ref(0)
 
 ///|
 /// One browser-owned textarea for a Markdown editor instance.
@@ -66,7 +66,7 @@ pub struct TextArea {
   priv id : String
   priv owner : String
   priv mut state : InputState
-  priv mut restore_version : Int
+  priv mut restore_version : Int32
   priv mut pending_restore : String?
 }
 
@@ -269,7 +269,7 @@ fn emit_decision(
   decision : InputDecision,
   text_area : @dom.HTMLTextAreaElement,
   owner : String,
-  version : Int,
+  version : Int32,
   on_change : (InputEdit) -> @cmd.Cmd,
 ) -> @cmd.Cmd {
   match decision {
@@ -359,7 +359,7 @@ pub fn TextArea::admit(
 }
 
 ///|
-fn TextArea::write_pending(self : TextArea, version : Int) -> Unit {
+fn TextArea::write_pending(self : TextArea, version : Int32) -> Unit {
   guard version == self.restore_version else { return }
   guard self.pending_restore is Some(text) else { return }
   self.pending_restore = None

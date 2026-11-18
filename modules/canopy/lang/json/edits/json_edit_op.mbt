@@ -4,6 +4,7 @@
 using @core {type NodeId}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum JsonType {
   JNull
   JBool
@@ -11,9 +12,10 @@ pub(all) enum JsonType {
   JString
   JArray
   JObject
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum JsonEditOp {
   Delete(node_id~ : NodeId)
   AddMember(object_id~ : NodeId, key~ : String)
@@ -22,9 +24,9 @@ pub(all) enum JsonEditOp {
   WrapInObject(node_id~ : NodeId, key~ : String)
   Unwrap(node_id~ : NodeId)
   ChangeType(node_id~ : NodeId, new_type~ : JsonType)
-  RenameKey(object_id~ : NodeId, key_index~ : Int, new_key~ : String)
+  RenameKey(object_id~ : NodeId, key_index~ : Int32, new_key~ : String)
   CommitEdit(node_id~ : NodeId, new_value~ : String)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for JsonEditOp with fn output(self, logger) {

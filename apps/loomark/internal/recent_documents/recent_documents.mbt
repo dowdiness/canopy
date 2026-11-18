@@ -1,40 +1,45 @@
 ///|
 /// Presentation state resolved by the app; extraction is owned by this feature.
+#derive(Eq)
 pub(all) enum Selection {
   Editing
   Selectable
   Blocked
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub(all) enum RowStatus {
   Saved
   Unsaved
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub(all) enum DeletionScope {
   ThisBrowser
   AllDevices
-} derive(Eq)
+}
 
 ///|
 /// Whether deletion is currently available for a document row.
+#derive(Eq)
 pub(all) enum DeletionAvailability {
   Available(DeletionScope)
   Blocked
   Pending
   Failed(DeletionScope)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 struct Seed[Id] {
   docid : Id
   source : String
   selection : Selection
   deletion : DeletionAvailability
   status : RowStatus
-} derive(Eq)
+}
 
 ///|
 pub fn[Id] Seed::Seed(
@@ -77,16 +82,18 @@ pub enum Intent[Id] {
 }
 
 ///|
+#derive(Eq)
 priv struct Row[Id] {
   seed : Seed[Id]
   lead : @document_lead.DocumentLead
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct PresentedRow[Id] {
   row : Row[Id]
-  ordinal : (Int, Int)?
-} derive(Eq)
+  ordinal : (Int32, Int32)?
+}
 
 ///|
 fn[Id] row_base_label(row : Row[Id]) -> String {

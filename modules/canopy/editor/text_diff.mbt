@@ -18,9 +18,9 @@ pub fn compute_edit(old_text : String, new_text : String) -> @loom_core.Edit {
 
 ///|
 priv enum DiffStep {
-  Equal(Int)
-  Insert(Int)
-  Delete(Int)
+  Equal(Int32)
+  Insert(Int32)
+  Delete(Int32)
 }
 
 ///|
@@ -67,17 +67,17 @@ fn compute_text_edits(
 ///|
 fn compute_diff_steps(
   old_text : String,
-  old_boundaries : Array[Int],
-  old_start : Int,
-  old_count : Int,
+  old_boundaries : Array[Int32],
+  old_start : Int32,
+  old_count : Int32,
   new_text : String,
-  new_boundaries : Array[Int],
-  new_start : Int,
-  new_count : Int,
+  new_boundaries : Array[Int32],
+  new_start : Int32,
+  new_count : Int32,
 ) -> Array[DiffStep] {
-  let dp : Array[Array[Int]] = []
+  let dp : Array[Array[Int32]] = []
   for i = 0; i <= old_count; i = i + 1 {
-    let row : Array[Int] = []
+    let row : Array[Int32] = []
     for j = 0; j <= new_count; j = j + 1 {
       row.push(0)
     }
@@ -136,9 +136,9 @@ fn compute_diff_steps(
 ///|
 fn push_pending_edit(
   edits : Array[@loom_core.Edit],
-  pending_start : Int,
-  pending_delete_len : Int,
-  pending_insert_len : Int,
+  pending_start : Int32,
+  pending_delete_len : Int32,
+  pending_insert_len : Int32,
   has_pending : Bool,
 ) -> Unit {
   if has_pending {
@@ -153,7 +153,7 @@ fn push_pending_edit(
 ///|
 fn diff_steps_to_edits(
   steps : Array[DiffStep],
-  start_offset : Int,
+  start_offset : Int32,
 ) -> Array[@loom_core.Edit] {
   let edits : Array[@loom_core.Edit] = []
   let mut cursor = start_offset
@@ -200,11 +200,11 @@ fn diff_steps_to_edits(
 ///|
 fn cluster_equal_at(
   s1 : String,
-  s1_boundaries : Array[Int],
-  s1_idx : Int,
+  s1_boundaries : Array[Int32],
+  s1_idx : Int32,
   s2 : String,
-  s2_boundaries : Array[Int],
-  s2_idx : Int,
+  s2_boundaries : Array[Int32],
+  s2_idx : Int32,
 ) -> Bool {
   s1[s1_boundaries[s1_idx]:s1_boundaries[s1_idx + 1]] ==
   s2[s2_boundaries[s2_idx]:s2_boundaries[s2_idx + 1]]
@@ -213,10 +213,10 @@ fn cluster_equal_at(
 ///|
 fn find_common_prefix_cluster_count(
   s1 : String,
-  s1_boundaries : Array[Int],
+  s1_boundaries : Array[Int32],
   s2 : String,
-  s2_boundaries : Array[Int],
-) -> Int {
+  s2_boundaries : Array[Int32],
+) -> Int32 {
   let s1_count = s1_boundaries.length() - 1
   let s2_count = s2_boundaries.length() - 1
   let mut prefix_count = 0
@@ -233,11 +233,11 @@ fn find_common_prefix_cluster_count(
 ///|
 fn find_common_suffix_cluster_count(
   s1 : String,
-  s1_boundaries : Array[Int],
+  s1_boundaries : Array[Int32],
   s2 : String,
-  s2_boundaries : Array[Int],
-  prefix_count : Int,
-) -> Int {
+  s2_boundaries : Array[Int32],
+  prefix_count : Int32,
+) -> Int32 {
   let s1_count = s1_boundaries.length() - 1
   let s2_count = s2_boundaries.length() - 1
   let mut suffix_count = 0

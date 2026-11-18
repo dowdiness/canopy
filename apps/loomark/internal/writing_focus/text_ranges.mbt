@@ -1,7 +1,7 @@
 ///|
 pub struct LineRange {
-  first : Int
-  last : Int
+  first : Int32
+  last : Int32
 }
 
 ///|
@@ -13,7 +13,7 @@ pub struct WritingGroups {
 ///|
 priv struct FenceMarker {
   character : Char
-  length : Int
+  length : Int32
 }
 
 ///|
@@ -80,17 +80,17 @@ fn has_code_indent(content : StringView) -> Bool {
 }
 
 ///|
-fn find_group_end(lines : ArrayView[String], first : Int) -> Int {
-  let indented = has_code_indent(without_quote_prefix(lines[first].view()))
+fn find_group_end(lines : ArrayView[String], first : Int32) -> Int32 {
+  let indented = has_code_indent(without_quote_prefix(lines[first][:]))
   for end = first, fence = None; end < lines.length(); {
-    let content = without_quote_prefix(lines[end].view())
+    let content = without_quote_prefix(lines[end][:])
     if fence is None && content.trim().is_empty() {
       let next_content = lines[end + 1:].search_by(line => {
-        !without_quote_prefix(line.view()).trim().is_empty()
+        !without_quote_prefix(line[:]).trim().is_empty()
       })
       match next_content {
         Some(offset) if indented &&
-          has_code_indent(without_quote_prefix(lines[end + 1 + offset].view())) =>
+          has_code_indent(without_quote_prefix(lines[end + 1 + offset][:])) =>
           continue end + 1 + offset, fence
         _ => break end
       }
@@ -105,7 +105,7 @@ fn find_group_end(lines : ArrayView[String], first : Int) -> Int {
 fn group_lines(lines : ArrayView[String]) -> ArrayView[LineRange] {
   let groups : Array[LineRange] = []
   for first = 0; first < lines.length(); {
-    if without_quote_prefix(lines[first].view()).trim().is_empty() {
+    if without_quote_prefix(lines[first][:]).trim().is_empty() {
       continue first + 1
     }
     let end = find_group_end(lines, first)
@@ -123,7 +123,7 @@ pub fn WritingGroups::WritingGroups(
 }
 
 ///|
-fn group_at(groups : ArrayView[LineRange], line : Int) -> LineRange? {
+fn group_at(groups : ArrayView[LineRange], line : Int32) -> LineRange? {
   match
     groups.binary_search_by(group => {
       if group.last < line {
@@ -143,8 +143,8 @@ fn group_at(groups : ArrayView[LineRange], line : Int) -> LineRange? {
 /// The writing group, or groups, that a selection touches.
 pub fn WritingGroups::focus_lines(
   self : WritingGroups,
-  selection_start : Int,
-  selection_end : Int,
+  selection_start : Int32,
+  selection_end : Int32,
 ) -> LineRange raise @text_lines.InvalidSelection {
   let selection = self.source.selected_lines(selection_start, selection_end)
   let (first_line, last_line) = match selection {

@@ -144,8 +144,8 @@ fn move_block_payload_equal(
 /// entry. The copy/remove/insert mutation is confined to this array transform.
 fn reordered_siblings(
   siblings : Array[ProjNode[@markdown.Block]],
-  source_idx : Int,
-  target_idx : Int,
+  source_idx : Int32,
+  target_idx : Int32,
   position : DropPosition,
 ) -> Array[ProjNode[@markdown.Block]] {
   let reordered = siblings.copy()
@@ -168,11 +168,11 @@ fn reordered_siblings(
 fn compute_root_move_source(
   source : String,
   siblings : Array[ProjNode[@markdown.Block]],
-  source_idx : Int,
-  target_idx : Int,
+  source_idx : Int32,
+  target_idx : Int32,
   position : DropPosition,
   source_map : SourceMap,
-) -> (Int, Int, String) raise @core.EditError {
+) -> (Int32, Int32, String) raise @core.EditError {
   let reordered = reordered_siblings(siblings, source_idx, target_idx, position)
   validate_no_unclosed_code_before_sibling(reordered, source_map)
   let first_range = match source_map.get_range(siblings[0].id()) {
@@ -217,11 +217,11 @@ fn compute_root_move_source(
 fn compute_list_item_move_source(
   source : String,
   siblings : Array[ProjNode[@markdown.Block]],
-  source_idx : Int,
-  target_idx : Int,
+  source_idx : Int32,
+  target_idx : Int32,
   position : DropPosition,
   source_map : SourceMap,
-) -> (Int, Int, String) raise @core.EditError {
+) -> (Int32, Int32, String) raise @core.EditError {
   let reordered = reordered_siblings(siblings, source_idx, target_idx, position)
   let first_range = match source_map.get_range(siblings[0].id()) {
     Some(r) => r
@@ -354,7 +354,7 @@ fn ordered_list_marker_parts(
   source : String,
   node : ProjNode[@markdown.Block],
   source_map : SourceMap,
-) -> (String, Int)? {
+) -> (String, Int32)? {
   let range = match source_map.get_range(node.id()) {
     Some(r) => r
     None => return None
@@ -365,7 +365,7 @@ fn ordered_list_marker_parts(
     marker_start = marker_start + 1
   }
   let mut delimiter = marker_start
-  while delimiter < range.end && source[delimiter] is ('0'..='9') {
+  while delimiter < range.end && source[delimiter] is ('0'..<='9') {
     delimiter = delimiter + 1
   }
   if delimiter == marker_start || delimiter >= range.end {
@@ -440,8 +440,8 @@ fn ordered_list_item_content(
 ///|
 fn reindent_ordered_item_continuations(
   content : String,
-  old_marker_width~ : Int,
-  new_marker_width~ : Int,
+  old_marker_width~ : Int32,
+  new_marker_width~ : Int32,
 ) -> String {
   if old_marker_width == new_marker_width || !content.contains("\n") {
     return content
@@ -469,7 +469,7 @@ fn reindent_ordered_item_continuations(
 }
 
 ///|
-fn leading_spaces_end(source : String, start : Int) -> Int {
+fn leading_spaces_end(source : String, start : Int32) -> Int32 {
   let mut end = start
   while end < source.length() && source[end] == ' ' {
     end = end + 1
@@ -502,9 +502,9 @@ fn block_text_without_trailing_newlines(
 ///|
 fn block_text_end_without_trailing_newlines(
   source : String,
-  start : Int,
-  end : Int,
-) -> Int {
+  start : Int32,
+  end : Int32,
+) -> Int32 {
   let mut current_end = end
   while current_end > start && source[current_end - 1] == '\n' {
     current_end = current_end - 1

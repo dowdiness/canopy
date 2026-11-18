@@ -62,7 +62,7 @@ fn begin_sync_start(
 }
 
 ///|
-fn pending_revision(documents : Model, id : Key) -> Int {
+fn pending_revision(documents : Model, id : Key) -> Int32 {
   match find_record(documents.records, id).unwrap().edit {
     Waiting(revision) | ComposingWaiting(revision) => revision
     Idle | ComposingIdle | ComposingReady => abort("no pending revision")

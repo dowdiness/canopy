@@ -1,10 +1,10 @@
 ///|
 /// Choose a focus position from plain facts; -1 means no candidate is active.
 fn sidebar_focus_index(
-  count : Int,
-  active_index : Int,
+  count : Int32,
+  active_index : Int32,
   backwards : Bool,
-) -> Int? {
+) -> Int32? {
   guard count > 0 else { return None }
   Some(
     if backwards {

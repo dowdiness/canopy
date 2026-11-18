@@ -4,7 +4,7 @@
 // projection shape (Module / def-index / final_expr / synthesized Unit body).
 
 ///|
-fn count_nodes(node : @core.ProjNode[@ast.Term]) -> Int {
+fn count_nodes(node : @core.ProjNode[@ast.Term]) -> Int32 {
   let mut count = 1
   for child in node.children {
     count = count + count_nodes(child)

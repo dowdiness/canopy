@@ -208,7 +208,7 @@ fn begin_save(
       _,
       Writable(Idle | Failed(_) | Saving(_, _), _)
       | WaitingToDelete(_, _, _)
-      | Deleting(_, _)
+      | Deleting(_, _),
     )
     | Replica(_, ReplicaPending, _) => (record, [])
   }
@@ -339,7 +339,7 @@ fn allocate_autosave(documents : Model) -> (Model, AutosaveWindow) {
 }
 
 ///|
-fn allocate_working_copy_version(documents : Model) -> (Model, Int) {
+fn allocate_working_copy_version(documents : Model) -> (Model, Int32) {
   let version = documents.last_working_copy_version + 1
   ({ ..documents, last_working_copy_version: version, }, version)
 }

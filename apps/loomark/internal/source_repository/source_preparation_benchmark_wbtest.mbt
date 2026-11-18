@@ -1,5 +1,5 @@
 ///|
-fn preparation_document(size : Int) -> Document {
+fn preparation_document(size : Int32) -> Document {
   Document::create(
     test_document_id("bench-document"),
     "# Stable\n" + String::make(size, 'x'),

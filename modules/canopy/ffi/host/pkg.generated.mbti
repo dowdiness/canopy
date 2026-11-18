@@ -16,13 +16,13 @@ pub struct HostRegistry[H] {
 }
 pub fn[H] HostRegistry::HostRegistry() -> Self[H]
 pub fn[H] HostRegistry::clear(Self[H]) -> Unit
-pub fn[H] HostRegistry::contains(Self[H], Int) -> Bool
+pub fn[H] HostRegistry::contains(Self[H], Int32) -> Bool
 pub fn[H] HostRegistry::destroy(Self[H], @coordinator.Coordinator, @coordinator.EditorId, String) -> Bool
-pub fn[H] HostRegistry::get(Self[H], Int) -> H?
-pub fn[H] HostRegistry::insert(Self[H], Int, H) -> Unit
-pub fn[H] HostRegistry::remove(Self[H], Int) -> Unit
-pub fn[H] HostRegistry::size(Self[H]) -> Int
-pub fn[H] HostRegistry::view_state(Self[H], Int) -> @editor.ViewUpdateState
+pub fn[H] HostRegistry::get(Self[H], Int32) -> H?
+pub fn[H] HostRegistry::insert(Self[H], Int32, H) -> Unit
+pub fn[H] HostRegistry::remove(Self[H], Int32) -> Unit
+pub fn[H] HostRegistry::size(Self[H]) -> Int32
+pub fn[H] HostRegistry::view_state(Self[H], Int32) -> @editor.ViewUpdateState
 
 // Type aliases
 

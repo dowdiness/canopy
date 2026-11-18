@@ -9,49 +9,55 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ExpiredRetry {
   ExpiredRetry
-} derive(Eq, @debug.Debug)
+}
 pub fn ExpiredRetry::equal(Self, Self) -> Bool
 pub fn ExpiredRetry::not_equal(Self, Self) -> Bool
 pub fn ExpiredRetry::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror StaleAttempt {
   StaleAttempt
-} derive(Eq, @debug.Debug)
+}
 pub fn StaleAttempt::equal(Self, Self) -> Bool
 pub fn StaleAttempt::not_equal(Self, Self) -> Bool
 pub fn StaleAttempt::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct Attempt {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Attempt::equal(Self, Self) -> Bool
 pub fn Attempt::not_equal(Self, Self) -> Bool
 pub fn Attempt::to_repr(Self) -> @debug.Repr
 pub fn Attempt::write(Self) -> @source_repository.ReplicaWrite
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Completion {
   Current(@source_repository.ReplicaWrite)
   Superseded(@source_repository.ReplicaWrite, Attempt)
   Retryable(@source_repository.ReplicaWrite, Retry, @source_repository.ReplicaFailure)
   Failed(@source_repository.ReplicaWrite, @source_repository.ReplicaFailure)
-} derive(Eq, @debug.Debug)
+}
 pub fn Completion::equal(Self, Self) -> Bool
 pub fn Completion::not_equal(Self, Self) -> Bool
 pub fn Completion::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct Retry {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Retry::equal(Self, Self) -> Bool
 pub fn Retry::not_equal(Self, Self) -> Bool
 pub fn Retry::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct State {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn State::State() -> Self
 pub fn State::complete(Self, Attempt, Result[Unit, @source_repository.ReplicaFailure]) -> (Self, Completion) raise StaleAttempt
 pub fn State::editing_base(Self, @source_repository.DocumentReplica) -> @source_repository.DocumentReplica
@@ -66,11 +72,12 @@ pub fn State::status(Self, @source_repository.AccountId, @source_repository.Docu
 pub fn State::submit(Self, @source_repository.ReplicaWrite) -> (Self, Attempt?)
 pub fn State::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Status {
   Current
   Persisting
   Retryable(Retry, @source_repository.ReplicaFailure)
-} derive(Eq, @debug.Debug)
+}
 pub fn Status::equal(Self, Self) -> Bool
 pub fn Status::not_equal(Self, Self) -> Bool
 pub fn Status::to_repr(Self) -> @debug.Repr

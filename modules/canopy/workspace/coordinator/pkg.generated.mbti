@@ -12,13 +12,14 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum AbortKind {
   EditorDestroyed
   DestroyWhileDependedUpon
   CellNotInProtectedSurface
   CycleDetected
   ProtectedCellDisposed
-} derive(Eq, @debug.Debug)
+}
 pub fn AbortKind::equal(Self, Self) -> Bool
 pub fn AbortKind::not_equal(Self, Self) -> Bool
 pub fn AbortKind::output(Self, &Logger) -> Unit
@@ -26,6 +27,7 @@ pub fn AbortKind::to_repr(Self) -> @debug.Repr
 pub fn AbortKind::to_string(Self) -> String
 pub impl Show for AbortKind
 
+#derive(@debug.Debug)
 pub(all) struct AbortReport {
   kind : AbortKind
   editor_id : EditorId
@@ -33,7 +35,7 @@ pub(all) struct AbortReport {
   cell_id : @types.CellId?
   cell_label : String?
   domain_tag : String?
-} derive(@debug.Debug)
+}
 pub fn AbortReport::output(Self, &Logger) -> Unit
 pub fn AbortReport::to_repr(Self) -> @debug.Repr
 pub fn AbortReport::to_string(Self) -> String
@@ -51,9 +53,10 @@ pub fn[T] Coordinator::register_workspace_cell(Self, @cells.Derived[T], Array[(E
 pub fn Coordinator::runtime(Self) -> @cells.Runtime
 pub fn Coordinator::unregister_dep(Self, @types.CellId, EditorId, @types.CellId) -> Unit
 
-pub(all) struct EditorId(Int) derive(Eq, Hash, @debug.Debug)
+#derive(Eq, Hash, @debug.Debug)
+pub(all) struct EditorId(Int32)
 pub fn EditorId::equal(Self, Self) -> Bool
-pub fn EditorId::hash(Self) -> Int
+pub fn EditorId::hash(Self) -> Int32
 pub fn EditorId::hash_combine(Self, Hasher) -> Unit
 pub fn EditorId::not_equal(Self, Self) -> Bool
 pub fn EditorId::output(Self, &Logger) -> Unit

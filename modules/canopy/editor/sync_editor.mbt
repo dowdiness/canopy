@@ -3,18 +3,19 @@
 
 ///|
 /// Typed telemetry for one scoped projection-relevant mutation.
+#derive(Eq, Debug)
 pub enum ProjectionObservationPhase {
   AuthorityAccepted
   CommittedTransitionSettled
   ProjectionMirrorSynchronized
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct ProjectionObservationScope {
   observer : (ProjectionObservationPhase) -> Unit
   mut accepted : Bool
   mut transition_settled : Bool
-  mut parser_batch_depth : Int
+  mut parser_batch_depth : Int32
   mut parser_sync_pending : Bool
   mut emitting : Bool
 }
@@ -23,7 +24,7 @@ priv struct ProjectionObservationScope {
 priv struct AuthorityCore {
   doc : @text.TextState
   undo : @undo.UndoManager
-  identity : Int
+  identity : Int32
 }
 
 ///|
@@ -49,9 +50,9 @@ fn AuthorityCore::admit_transition_with_tracking(
   self : AuthorityCore,
   msg : @text.SyncMessage,
   limits : @sync.Limits?,
-) -> Result[@text.TextAdmissionTransition, @text.TextError] {
+) -> Result[@text.TextSyncTransition, @text.TextError] {
   self.undo.set_tracking(false)
-  let transition_result : Result[@text.TextAdmissionTransition, @text.TextError] = Ok(
+  let transition_result : Result[@text.TextSyncTransition, @text.TextError] = Ok(
     match limits {
       None => self.doc.sync().apply_transition(msg)
       Some(limits) => self.doc.sync().apply_transition_with_limits(msg, limits)
@@ -71,7 +72,7 @@ fn AuthorityCore::causal_snapshot(
 }
 
 ///|
-fn AuthorityCore::identity(self : AuthorityCore) -> Int {
+fn AuthorityCore::identity(self : AuthorityCore) -> Int32 {
   self.identity
 }
 
@@ -108,7 +109,7 @@ priv struct ProjectionState[T] {
 
 ///|
 priv struct InteractionState {
-  mut cursor : Int
+  mut cursor : Int32
   hub : EphemeralHub
   cursor_view : PeerCursorView
   peer_id : String
@@ -121,7 +122,10 @@ priv struct InteractionState {
 }
 
 ///|
-fn InteractionState::set_cursor(self : InteractionState, cursor : Int) -> Unit {
+fn InteractionState::set_cursor(
+  self : InteractionState,
+  cursor : Int32,
+) -> Unit {
   self.cursor = cursor
 }
 
@@ -129,7 +133,7 @@ fn InteractionState::set_cursor(self : InteractionState, cursor : Int) -> Unit {
 fn InteractionState::set_cursor_prev_grapheme_boundary(
   self : InteractionState,
   text : String,
-  position : Int,
+  position : Int32,
 ) -> Unit {
   self.cursor = @moji.prev_grapheme_boundary(text, position)
 }
@@ -138,7 +142,7 @@ fn InteractionState::set_cursor_prev_grapheme_boundary(
 fn InteractionState::set_cursor_next_grapheme_boundary(
   self : InteractionState,
   text : String,
-  position : Int,
+  position : Int32,
 ) -> Unit {
   self.cursor = @moji.next_grapheme_boundary(text, position)
 }
@@ -146,7 +150,7 @@ fn InteractionState::set_cursor_next_grapheme_boundary(
 ///|
 fn InteractionState::clamp_cursor_to_length(
   self : InteractionState,
-  text_len : Int,
+  text_len : Int32,
 ) -> Unit {
   if self.cursor > text_len {
     self.cursor = text_len
@@ -197,7 +201,7 @@ pub fn[T, E] SyncEditor::new_with_builder(
     LanguageCapabilities[T],
     E,
   ),
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (SyncEditor[T], E) raise {
   let free = new_projection_free_editor(agent_id, capture_timeout_ms)
@@ -241,7 +245,7 @@ pub fn[T, E] SyncEditor::new_with_builder(
 /// runtime, projection memos, transport activation, or subscriptions.
 fn new_projection_free_editor(
   agent_id : String,
-  capture_timeout_ms : Int,
+  capture_timeout_ms : Int32,
 ) -> ProjectionFreeEditor raise {
   let identity = next_editor_identity()
   {
@@ -507,7 +511,7 @@ pub fn[T] SyncEditor::set_local_presence(
   self : SyncEditor[T],
   name : String,
   color : String,
-  selection? : (Int, Int)? = None,
+  selection~ : (Int32, Int32)? = None,
 ) -> Unit {
   self.interaction.set_local_presence(name, color, selection~)
 }
@@ -517,7 +521,7 @@ fn InteractionState::set_local_presence(
   self : InteractionState,
   name : String,
   color : String,
-  selection? : (Int, Int)? = None,
+  selection~ : (Int32, Int32)? = None,
 ) -> Unit {
   // Write cursor data to cursor store (with name/color for cursor_view compat)
   let map : Map[String, EphemeralValue] = Map([])
@@ -732,7 +736,7 @@ fn InteractionState::set_on_status_change(
 /// Pass `None` to disable.
 pub fn[T] SyncEditor::set_watchdog_scheduler(
   self : SyncEditor[T],
-  scheduler : ((Int, Int) -> Unit)?,
+  scheduler : ((Int32, Int32) -> Unit)?,
 ) -> Unit {
   self.interaction.set_watchdog_scheduler(scheduler)
 }
@@ -740,7 +744,7 @@ pub fn[T] SyncEditor::set_watchdog_scheduler(
 ///|
 fn InteractionState::set_watchdog_scheduler(
   self : InteractionState,
-  scheduler : ((Int, Int) -> Unit)?,
+  scheduler : ((Int32, Int32) -> Unit)?,
 ) -> Unit {
   self.session.set_watchdog_scheduler(scheduler)
 }
@@ -749,7 +753,7 @@ fn InteractionState::set_watchdog_scheduler(
 /// Set the watchdog timeout in milliseconds. Default is 5000ms.
 pub fn[T] SyncEditor::set_watchdog_timeout(
   self : SyncEditor[T],
-  ms : Int,
+  ms : Int32,
 ) -> Unit {
   self.interaction.set_watchdog_timeout(ms)
 }
@@ -757,7 +761,7 @@ pub fn[T] SyncEditor::set_watchdog_timeout(
 ///|
 fn InteractionState::set_watchdog_timeout(
   self : InteractionState,
-  ms : Int,
+  ms : Int32,
 ) -> Unit {
   self.session.set_watchdog_timeout(ms)
 }
@@ -768,7 +772,7 @@ fn InteractionState::set_watchdog_timeout(
 /// detect and discard stale firings (e.g. response already arrived).
 pub fn[T] SyncEditor::on_watchdog_fire(
   self : SyncEditor[T],
-  request_id : Int,
+  request_id : Int32,
 ) -> Unit {
   self.interaction.on_watchdog_fire(request_id, self.sync_io())
 }
@@ -776,7 +780,7 @@ pub fn[T] SyncEditor::on_watchdog_fire(
 ///|
 fn InteractionState::on_watchdog_fire(
   self : InteractionState,
-  request_id : Int,
+  request_id : Int32,
   io : @sync_session.SyncIo,
 ) -> Unit {
   self.session.on_watchdog_fire(request_id, io)
@@ -870,7 +874,7 @@ pub fn[T] SyncEditor::get_node(
 /// currently committed; wire it only from an accepted interaction issue.
 pub fn[T] SyncEditor::node_at_position(
   self : SyncEditor[T],
-  position : Int,
+  position : Int32,
 ) -> @core.NodeId? raise Failure {
   self.ensure_parser_healthy()
   self.projection.source_map_memo.read_or_abort().innermost_node_at(position)
@@ -945,7 +949,7 @@ pub fn[T : Eq] SyncEditor::apply_span_edits(
   self : SyncEditor[T],
   edits : Array[@core.SpanEdit],
   focus_hint : @core.FocusHint,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
   hint? : @core.IdentityTransform,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
@@ -1041,7 +1045,7 @@ fn[T : Eq] SyncEditor::admit_with_policy_using_snapshot_reader(
     self.observe_authority_acceptance()
   }
   let parser_source = self.projection.parser.source().read_or_abort()
-  match transition.availability() {
+  match transition.effect_availability() {
     @text.TextEffectAvailability::Exact(effects) => {
       let prepared = prepare_text_admission(parser_source, effects)
       self.settle_prepared_text_admission(
@@ -1070,7 +1074,7 @@ fn[T : Eq] SyncEditor::admit_with_policy_using_snapshot_reader(
         self.observe_committed_transition_settled()
       }
   }
-  let report = transition.finish()
+  let report = transition.report()
   if report.pending_operations() == 0 {
     // Clear a prior Error status once any sync applies — another peer
     // (via RelayedCrdtOps) having filled the causal gap counts as recovery.
@@ -1199,12 +1203,12 @@ pub fn[T : @pretty.Pretty] compute_pretty_patches(
 /// counter shared across all `T`. Single-threaded under the MoonBit
 /// web/native runtime; if multi-thread editor construction is ever added,
 /// this must be made atomic.
-let editor_identity_counter : Ref[Int] = { val: 0, }
+let editor_identity_counter : Ref[Int32] = { val: 0, }
 
 ///|
 /// Allocate the next construction identity. Called once per
 /// `SyncEditor::new_with_builder`.
-fn next_editor_identity() -> Int {
+fn next_editor_identity() -> Int32 {
   let id = editor_identity_counter.val
   editor_identity_counter.val = id + 1
   id
@@ -1227,7 +1231,7 @@ pub fn[T] SyncEditor::causal_snapshot(
 /// instances. Suitable as part of a cache key for derived views (e.g.
 /// `(editor.identity(), snapshot.op_count())` for an append-only history
 /// memo).
-pub fn[T] SyncEditor::identity(self : SyncEditor[T]) -> Int {
+pub fn[T] SyncEditor::identity(self : SyncEditor[T]) -> Int32 {
   self.authority.identity()
 }
 

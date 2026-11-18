@@ -10,7 +10,7 @@ fn open_action_overlay_from_event(
 ///|
 /// Current viewport size in pixels, falling back to conservative defaults
 /// (1024x768) if the browser value can't be read.
-fn viewport_size() -> (Int, Int) {
+fn viewport_size() -> (Int32, Int32) {
   let json = @json.parse(js_get_viewport_size()) catch {
     _ => return (1024, 768)
   }
@@ -32,7 +32,7 @@ fn viewport_size() -> (Int, Int) {
 
 ///|
 /// Parse the bounding rect JSON from js_get_selected_node_rect into (top, left).
-fn parse_anchor_rect(json_str : String) -> (Int, Int) {
+fn parse_anchor_rect(json_str : String) -> (Int32, Int32) {
   let json = @json.parse(json_str) catch { _ => return (0, 0) }
   let (raw_top, raw_left) = match json {
     Json::Object(m) => {
@@ -69,7 +69,7 @@ fn parse_anchor_rect(json_str : String) -> (Int, Int) {
 fn open_action_overlay(
   model : Model,
   node_id_str : String,
-  rect_json? : String = js_get_selected_node_rect(),
+  rect_json~ : String = js_get_selected_node_rect(),
 ) -> (Cmd, Model) raise {
   if node_id_str == "" {
     return (none, model)

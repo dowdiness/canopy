@@ -4,7 +4,7 @@ priv enum BindingRewriteKind {
   FnBinding(
     param_list~ : @loomcore.Range,
     body~ : @loomcore.Range,
-    has_params~ : Bool
+    has_params~ : Bool,
   )
 }
 
@@ -19,8 +19,8 @@ priv enum BindingRewriteKind {
 /// reject the edit rather than falling back to a lossy `@ast.print_term` rewrite.
 priv struct BindingRewriteSource {
   def : EditModuleBinding
-  binding_start : Int
-  binding_end : Int
+  binding_start : Int32
+  binding_end : Int32
   kind : BindingRewriteKind
 }
 
@@ -29,9 +29,9 @@ fn binding_name_range(
   source_text : String,
   source_map : SourceMap,
   def : EditModuleBinding,
-  binding_start : Int,
-  binding_end : Int,
-) -> (Int, Int) raise EditError {
+  binding_start : Int32,
+  binding_end : Int32,
+) -> (Int32, Int32) raise EditError {
   match
     source_map.get_token_span(def.binding_id, @lambda_proj.LET_DEF_NAME_ROLE) {
     Some(r) => (r.start, r.end)
@@ -49,8 +49,8 @@ fn binding_structured_role_range(
   source_map : SourceMap,
   def : EditModuleBinding,
   role : String,
-  binding_start : Int,
-  binding_end : Int,
+  binding_start : Int32,
+  binding_end : Int32,
   label : String,
 ) -> @loomcore.Range raise EditError {
   match source_map.get_token_span(def.binding_id, role) {

@@ -2,7 +2,7 @@
 fn assert_lead(
   source : String,
   primary~ : String,
-  description? : String = "",
+  description~ : String = "",
 ) -> @document_lead.DocumentLead raise {
   let lead = @document_lead.extract(source)
   assert_eq(lead.primary(), primary)

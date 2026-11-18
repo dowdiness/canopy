@@ -3,7 +3,7 @@ name = "dowdiness/skyline"
 version = "0.1.0"
 
 import {
-  "moonbitlang/quickcheck@0.14.0",
+  "moonbitlang/quickcheck@0.15.1",
 }
 
 readme = "README.md"

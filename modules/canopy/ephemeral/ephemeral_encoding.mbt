@@ -34,7 +34,7 @@ fn read_uvarint(reader : Reader) -> UInt64 raise EphemeralError {
 }
 
 ///|
-fn safe_uvarint_to_int(v : UInt64) -> Int raise EphemeralError {
+fn safe_uvarint_to_int(v : UInt64) -> Int32 raise EphemeralError {
   @byte_codec.safe_uvarint_to_int(v) catch {
     e => raise EphemeralError::Codec(e)
   }

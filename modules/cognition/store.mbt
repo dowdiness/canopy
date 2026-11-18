@@ -12,7 +12,7 @@ pub(all) struct CognitionStore {
   priv dependencies : Map[CognitionKey, Array[CognitionKey]]
   priv reverse_dependencies : Map[CognitionKey, Array[CognitionKey]]
   priv dirty : Map[CognitionKey, Bool]
-  priv recompute_counts : Map[CognitionKey, Int]
+  priv recompute_counts : Map[CognitionKey, Int32]
   priv provider_requests : Map[ProviderRequestId, ProviderRequestDescriptor]
   priv provider_statuses : Map[ProviderRequestId, ProviderRequestStatus]
   priv provider_results : Map[ProviderRequestId, ProviderResultDescriptor]
@@ -212,7 +212,7 @@ pub fn CognitionStore::dirty_keys(self : CognitionStore) -> Array[CognitionKey] 
 pub fn CognitionStore::recompute_count(
   self : CognitionStore,
   key : CognitionKey,
-) -> Int {
+) -> Int32 {
   self.recompute_counts.get(key).unwrap_or(0)
 }
 
@@ -221,7 +221,7 @@ pub fn CognitionStore::recompute_count(
 pub fn CognitionStore::pack_context(
   self : CognitionStore,
   query : String,
-  max_items : Int,
+  max_items : Int32,
 ) -> Array[ContextItem] {
   self.pack_context_with_options(query, ContextPackOptions::new(max_items~))
 }
@@ -232,8 +232,8 @@ pub fn CognitionStore::pack_context(
 pub fn CognitionStore::pack_context_with_budget(
   self : CognitionStore,
   query : String,
-  max_items : Int,
-  max_chars : Int,
+  max_items : Int32,
+  max_chars : Int32,
 ) -> Array[ContextItem] {
   self.pack_context_with_options(
     query,
@@ -620,7 +620,7 @@ fn CognitionStore::recompute_query_context(
 fn CognitionStore::recompute_packed_context(
   self : CognitionStore,
   query : String,
-  max_items : Int,
+  max_items : Int32,
 ) -> Unit {
   let items : Array[ContextItem] = []
   let inputs : Array[CognitionKey] = [RepoSummary]
@@ -638,8 +638,8 @@ fn CognitionStore::recompute_packed_context(
 fn CognitionStore::recompute_budgeted_context(
   self : CognitionStore,
   query : String,
-  max_items : Int,
-  max_chars : Int,
+  max_items : Int32,
+  max_chars : Int32,
 ) -> Unit {
   let items : Array[ContextItem] = []
   let inputs : Array[CognitionKey] = [RepoSummary]
@@ -660,8 +660,8 @@ fn CognitionStore::recompute_budgeted_context(
 fn CognitionStore::recompute_truncated_context(
   self : CognitionStore,
   query : String,
-  max_items : Int,
-  max_chars : Int,
+  max_items : Int32,
+  max_chars : Int32,
 ) -> Unit {
   let items : Array[ContextItem] = []
   let inputs : Array[CognitionKey] = [RepoSummary]
@@ -760,7 +760,7 @@ fn select_context_items(
 ///|
 fn select_context_items_by_count(
   items : Array[ContextItem],
-  max_items : Int,
+  max_items : Int32,
 ) -> Array[ContextItem] {
   if max_items <= 0 {
     []
@@ -779,7 +779,7 @@ fn select_context_items_by_count(
 fn select_context_items_with_char_budget(
   items : Array[ContextItem],
   options : ContextPackOptions,
-  max_chars : Int,
+  max_chars : Int32,
 ) -> ContextPackSelection {
   if options.max_items <= 0 || max_chars <= 0 {
     { items: [], }
@@ -805,7 +805,7 @@ fn select_context_items_with_char_budget(
 }
 
 ///|
-fn truncate_context_item(item : ContextItem, max_chars : Int) -> ContextItem {
+fn truncate_context_item(item : ContextItem, max_chars : Int32) -> ContextItem {
   {
     source: item.source,
     source_revision: item.source_revision,
@@ -815,7 +815,7 @@ fn truncate_context_item(item : ContextItem, max_chars : Int) -> ContextItem {
 }
 
 ///|
-fn safe_prefix_by_code_units(text : String, max_units : Int) -> String {
+fn safe_prefix_by_code_units(text : String, max_units : Int32) -> String {
   let chunks : Array[String] = []
   let mut used_units = 0
   for ch in text {
@@ -876,9 +876,9 @@ fn CognitionStore::context_source_payload(
 
 ///|
 fn context_pack_stats(
-  candidate_count : Int,
+  candidate_count : Int32,
   items : Array[ContextItem],
-  truncated_items : Int,
+  truncated_items : Int32,
 ) -> ContextPackStats {
   let mut payload_chars = 0
   for item in items {

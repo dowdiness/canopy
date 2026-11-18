@@ -2,13 +2,13 @@
 
 ///|
 priv struct RegisteredDiagnosticFix {
-  id : Int
+  id : Int32
   fix : @loom_core.DiagnosticFix
 }
 
 ///|
 fn RegisteredDiagnosticFix::RegisteredDiagnosticFix(
-  id : Int,
+  id : Int32,
   fix : @loom_core.DiagnosticFix,
 ) -> RegisteredDiagnosticFix {
   { id, fix, }
@@ -16,7 +16,7 @@ fn RegisteredDiagnosticFix::RegisteredDiagnosticFix(
 
 ///|
 priv struct PublishedDiagnostic {
-  id : Int
+  id : Int32
   diagnostic : @loom_core.Diagnostic
   rendered_message : String?
   fixes : Array[RegisteredDiagnosticFix]
@@ -24,7 +24,7 @@ priv struct PublishedDiagnostic {
 
 ///|
 fn PublishedDiagnostic::PublishedDiagnostic(
-  id : Int,
+  id : Int32,
   diagnostic : @loom_core.Diagnostic,
   rendered_message : String?,
   fixes : Array[RegisteredDiagnosticFix],
@@ -33,18 +33,19 @@ fn PublishedDiagnostic::PublishedDiagnostic(
 }
 
 ///|
+#derive(Debug)
 pub struct ViewUpdateState {
   mut previous : @protocol.ViewNode?
   mut previous_decorations : Array[@protocol.Decoration]?
   mut had_errors : Bool
-  priv mut next_diagnostic_snapshot_id : Int
+  priv mut next_diagnostic_snapshot_id : Int32
   priv mut diagnostic_snapshot : (
-    Int,
+    Int32,
     @loom_core.SourceId,
     @text.Version,
-    Array[(Int, Array[(Int, @loom_core.DiagnosticFix)])],
+    Array[(Int32, Array[(Int32, @loom_core.DiagnosticFix)])],
   )?
-} derive(Debug)
+}
 
 ///|
 pub fn ViewUpdateState::ViewUpdateState() -> ViewUpdateState {
@@ -144,7 +145,7 @@ fn diagnostic_source_resolver(
 ///|
 fn protocol_diagnostic_rows(
   source_id : @loom_core.SourceId,
-  snapshot_id : Int,
+  snapshot_id : Int32,
   published : PublishedDiagnostic,
 ) -> Iter[@protocol.Diagnostic] {
   let diagnostic = published.diagnostic
@@ -161,12 +162,12 @@ fn protocol_diagnostic_rows(
     !summaries.is_empty()
   let message = published.rendered_message.unwrap_or(diagnostic.message())
   let protocol_diagnostic = (from, to) => {
-    let protocol_snapshot_id : Int? = if has_actions {
+    let protocol_snapshot_id : Int32? = if has_actions {
       Some(snapshot_id)
     } else {
       None
     }
-    let protocol_diagnostic_id : Int? = if has_actions {
+    let protocol_diagnostic_id : Int32? = if has_actions {
       Some(published.id)
     } else {
       None
@@ -246,10 +247,10 @@ fn[T] ViewUpdateState::publish_diagnostics(
 pub fn[T : Eq] ViewUpdateState::apply_diagnostic_fix(
   self : ViewUpdateState,
   editor : SyncEditor[T],
-  snapshot_id~ : Int,
-  diagnostic_id~ : Int,
-  fix_id~ : Int,
-  timestamp_ms~ : Int,
+  snapshot_id~ : Int32,
+  diagnostic_id~ : Int32,
+  fix_id~ : Int32,
+  timestamp_ms~ : Int32,
 ) -> Bool raise Failure {
   guard snapshot_id >= 0 && diagnostic_id >= 0 && fix_id >= 0 else {
     return false

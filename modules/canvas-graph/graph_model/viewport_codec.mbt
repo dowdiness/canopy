@@ -38,9 +38,9 @@ impl ToJson for ViewportCodec with fn to_json(self) {
   let ViewportCodec(viewport) = self
   let origin = viewport.screen_origin()
   let fields : Map[String, Json] = Map([])
-  fields["x"] = origin.x().to_json()
-  fields["y"] = origin.y().to_json()
-  fields["scale"] = viewport.scale().to_double().to_json()
+  fields["x"] = Json(origin.x())
+  fields["y"] = Json(origin.y())
+  fields["scale"] = Json(viewport.scale().to_double())
   Json::object(fields)
 }
 
@@ -83,6 +83,7 @@ fn viewport_from_json(
 }
 
 ///|
+#derive(ToJson, FromJson)
 priv struct CanvasNodeWire {
   id : NodeId
   x : Double
@@ -95,14 +96,15 @@ priv struct CanvasNodeWire {
   inputs : Array[PortDef]
   outputs : Array[PortDef]
   configured : Bool
-} derive(ToJson, FromJson)
+}
 
 ///|
+#derive(ToJson, FromJson)
 priv struct NodePositionWire {
   node_id : NodeId
   x : Double
   y : Double
-} derive(ToJson, FromJson)
+}
 
 ///|
 fn canvas_node_to_wire(node : CanvasNode) -> CanvasNodeWire {
@@ -206,6 +208,7 @@ fn node_position_from_wire(
 }
 
 ///|
+#derive(ToJson)
 priv enum WorkflowActionJson {
   AddNode(CanvasNodeWire)
   MoveNodes(Array[NodePositionWire])
@@ -216,7 +219,7 @@ priv enum WorkflowActionJson {
   SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
   SetViewport(ViewportCodec)
-} derive(ToJson)
+}
 
 ///|
 pub impl ToJson for WorkflowAction with fn to_json(self) {

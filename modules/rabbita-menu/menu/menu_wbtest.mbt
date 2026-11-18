@@ -1,5 +1,5 @@
 ///|
-fn assert_focus(model : Model, expected : Int?) -> Unit raise {
+fn assert_focus(model : Model, expected : Int32?) -> Unit raise {
   match (model.focused, expected) {
     (Some(actual), Some(expected)) => assert_eq(actual, expected)
     (None, None) => ()

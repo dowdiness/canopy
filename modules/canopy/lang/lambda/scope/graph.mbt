@@ -1,32 +1,37 @@
 ///|
 /// Graph-local compact indices. NOT persistent identity — `@core.NodeId`
 /// carries persistent identity; these index into the graph's own arrays.
-pub(all) struct ScopeId(Int) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub(all) struct ScopeId(Int32)
 
 ///|
-pub(all) struct DeclId(Int) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub(all) struct DeclId(Int32)
 
 ///|
-pub(all) struct RefId(Int) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub(all) struct RefId(Int32)
 
 ///|
 /// The kind of binding site a declaration represents. The one lambda-specific
 /// type here (see design spec). A future loom lift makes `Decl` generic over
 /// this (`Decl[K]`).
+#derive(Debug, Eq)
 pub(all) enum DeclKind {
   LamParam(lam_id~ : @core.NodeId)
-  ModuleDef(def_index~ : Int)
-} derive(Debug, Eq)
+  ModuleDef(def_index~ : Int32)
+}
 
 ///|
 /// A lexical scope. `parent` is the enclosing scope (None for the root).
+#derive(Debug)
 pub(all) struct Scope {
   id : ScopeId
   parent : ScopeId?
   decl_ids : Array[DeclId]
   ref_ids : Array[RefId]
   priv owner_node_id : @core.NodeId
-} derive(Debug)
+}
 
 ///|
 /// A declaration (binding site). A binder's LOCATION is its source span,
@@ -39,23 +44,25 @@ pub(all) struct Scope {
 /// `node_id` is the declaration's structural identity; for module definitions it
 /// now points at the real `LetDef` projection node. Consumers needing to locate
 /// a binder should still use `binder_span`, never the full node range.
+#derive(Debug, Eq)
 pub(all) struct Decl {
   id : DeclId
   node_id : @core.NodeId
   name : String
   scope : ScopeId
   kind : DeclKind
-} derive(Debug, Eq)
+}
 
 ///|
 /// A reference (use site), keyed by NodeId, with its resolution result.
+#derive(Debug)
 pub(all) struct Ref {
   id : RefId
   node_id : @core.NodeId
   name : String
   scope : ScopeId
   resolution : Resolution
-} derive(Debug)
+}
 
 ///|
 /// Resolution outcome for a reference.
@@ -63,10 +70,11 @@ pub(all) struct Ref {
 /// `visited_scopes` records scopes checked and found NOT to contain the
 /// name — populated in v1 as a by-product of the resolution walk, read only
 /// by a future incremental layer (see design spec).
+#derive(Debug)
 pub(all) struct Resolution {
   decl : DeclId?
   visited_scopes : Array[ScopeId]
-} derive(Debug)
+}
 
 ///|
 /// The binding index for one lambda module.
@@ -75,14 +83,15 @@ pub(all) struct Resolution {
 /// canonical module-def binder span lives on each `LetDef` node. For a
 /// bare-expression program (no defs), this is the root expression node and the
 /// name-span path is never exercised.
+#derive(Debug)
 pub(all) struct ScopeGraph {
   scopes : Array[Scope]
   decls : Array[Decl]
   refs : Array[Ref]
   module_node_id : @core.NodeId
   priv node_scope : Map[@core.NodeId, ScopeId]
-  priv node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int]]
-} derive(Debug)
+  priv node_cutoffs : Map[@core.NodeId, Map[ScopeId, Int32]]
+}
 
 ///|
 pub extend Decl with @moonbitlang/core/debug.Debug::{to_repr}

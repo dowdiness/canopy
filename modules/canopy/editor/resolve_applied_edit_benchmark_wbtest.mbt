@@ -1,5 +1,5 @@
 ///|
-fn resolve_benchmark_source(block_count : Int) -> String {
+fn resolve_benchmark_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     let number = index.to_string()
     "## Heading " +
@@ -13,7 +13,10 @@ fn resolve_benchmark_source(block_count : Int) -> String {
 }
 
 ///|
-fn resolve_benchmark_middle_edit(source : String, block_count : Int) -> String {
+fn resolve_benchmark_middle_edit(
+  source : String,
+  block_count : Int32,
+) -> String {
   let target = "Paragraph " + (block_count / 2).to_string() + " with"
   match source.find(target) {
     Some(position) =>

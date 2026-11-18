@@ -2,7 +2,7 @@
 
 ///|
 /// Get AST as DOT format with name resolution coloring
-pub fn get_ast_dot_resolved(handle : Int) -> String raise Failure {
+pub fn get_ast_dot_resolved(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => @lang_lambda.get_lambda_dot_resolved(h.editor)
     None => "digraph { }"
@@ -11,7 +11,7 @@ pub fn get_ast_dot_resolved(handle : Int) -> String raise Failure {
 
 ///|
 /// Get AST as pretty-printed string (expression + debug tree)
-pub fn get_ast_pretty(handle : Int) -> String raise Failure {
+pub fn get_ast_pretty(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => @lang_lambda.get_lambda_ast_pretty(h.editor)
     None => ""
@@ -20,9 +20,9 @@ pub fn get_ast_pretty(handle : Int) -> String raise Failure {
 
 ///|
 /// Get parse errors as JSON array
-pub fn get_errors_json(handle : Int) -> String raise Failure {
+pub fn get_errors_json(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
-    Some(h) => h.editor.get_errors().to_json().stringify()
+    Some(h) => Json(h.editor.get_errors()).stringify()
     None => "[]"
   }
 }
@@ -33,7 +33,7 @@ pub fn get_errors_json(handle : Int) -> String raise Failure {
 /// `def_name` is present only on type-check diagnostics that originate inside a
 /// named binding (e.g. `let f = y` → `def_name: "f"`); consumers should group,
 /// filter, or badge by this field rather than parsing the message string.
-pub fn get_diagnostics_json(handle : Int) -> String {
+pub fn get_diagnostics_json(handle : Int32) -> String {
   match lambda_registry.get(handle) {
     Some(h) => {
       // Read every protected cell this accessor depends on up front; any
@@ -86,16 +86,16 @@ pub fn get_diagnostics_json(handle : Int) -> String {
       let diags : Array[Json] = []
       for msg in parse_errors {
         let m : Map[String, Json] = Map([])
-        m["level"] = "error".to_json()
-        m["message"] = msg.to_json()
+        m["level"] = Json("error")
+        m["message"] = Json(msg)
         diags.push(Json::object(m))
       }
       for diag in typecheck_diags {
         let m : Map[String, Json] = Map([])
-        m["level"] = "error".to_json()
-        m["message"] = diag.message.to_json()
+        m["level"] = Json("error")
+        m["message"] = Json(diag.message)
         match diag.def_name {
-          Some(name) => m["def_name"] = name.to_json()
+          Some(name) => m["def_name"] = Json(name)
           None => ()
         }
         diags.push(Json::object(m))
@@ -104,8 +104,8 @@ pub fn get_diagnostics_json(handle : Int) -> String {
         match result {
           @lang_lambda.EvalResult::Stuck(s) => {
             let m : Map[String, Json] = Map([])
-            m["level"] = "warning".to_json()
-            m["message"] = s.to_json()
+            m["level"] = Json("warning")
+            m["message"] = Json(s)
             diags.push(Json::object(m))
           }
           _ => continue
@@ -119,7 +119,7 @@ pub fn get_diagnostics_json(handle : Int) -> String {
 
 ///|
 /// Export all operations as a SyncMessage JSON string.
-pub fn export_all_json(handle : Int) -> String raise {
+pub fn export_all_json(handle : Int32) -> String raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.export_all().to_json_string()
     None => fail("invalid editor handle")
@@ -129,7 +129,7 @@ pub fn export_all_json(handle : Int) -> String raise {
 ///|
 /// Export operations since a peer's version as a SyncMessage JSON string.
 pub fn export_since_json(
-  handle : Int,
+  handle : Int32,
   peer_version_json : String,
 ) -> String raise {
   match lambda_registry.get(handle) {
@@ -143,7 +143,7 @@ pub fn export_since_json(
 
 ///|
 /// Apply a SyncMessage received from a peer.
-pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
+pub fn apply_sync_json(handle : Int32, sync_json : String) -> String {
   match lambda_registry.get(handle) {
     Some(h) =>
       try {
@@ -159,7 +159,7 @@ pub fn apply_sync_json(handle : Int, sync_json : String) -> String {
 
 ///|
 /// Get the current version as a JSON string.
-pub fn get_version_json(handle : Int) -> String raise {
+pub fn get_version_json(handle : Int32) -> String raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.get_version().to_json_string()
     None => fail("invalid editor handle")
@@ -169,7 +169,7 @@ pub fn get_version_json(handle : Int) -> String raise {
 ///|
 /// Get the ProjNode tree as JSON string.
 /// Returns "null" if no projection is available or the protected read fails.
-pub fn get_proj_node_json(handle : Int) -> String {
+pub fn get_proj_node_json(handle : Int32) -> String {
   match lambda_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -188,7 +188,7 @@ pub fn get_proj_node_json(handle : Int) -> String {
 /// Get the SourceMap as JSON string.
 /// Returns an array of {node_id, start, end} entries, or "[]" if the
 /// protected read fails.
-pub fn get_source_map_json(handle : Int) -> String {
+pub fn get_source_map_json(handle : Int32) -> String {
   match lambda_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {

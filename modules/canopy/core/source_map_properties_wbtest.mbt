@@ -103,8 +103,8 @@ test "property: rebuild matches from_ast" {
 /// This produces valid nesting so position queries are meaningful.
 fn to_proj_node_with_ranges(
   expr : TestExpr,
-  counter : Ref[Int],
-  offset : Ref[Int],
+  counter : Ref[Int32],
+  offset : Ref[Int32],
 ) -> ProjNode[TestExpr] {
   match expr {
     Leaf(s) => {

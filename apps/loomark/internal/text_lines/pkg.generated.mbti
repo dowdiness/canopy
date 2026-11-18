@@ -2,36 +2,36 @@
 package "dowdiness/loomark/internal/text_lines"
 
 // Values
-pub fn caret_glyph(String, Int) -> CaretGlyph
+pub fn caret_glyph(String, Int32) -> CaretGlyph
 
 // Errors
 pub suberror InvalidSelection {
-  OutsideText(start~ : Int, end~ : Int, length~ : Int)
+  OutsideText(start~ : Int32, end~ : Int32, length~ : Int32)
 }
 
 // Types and methods
 pub enum CaretGlyph {
   EmptyLine
-  Before(start~ : Int, end~ : Int)
-  After(start~ : Int, end~ : Int)
+  Before(start~ : Int32, end~ : Int32)
+  After(start~ : Int32, end~ : Int32)
 }
 
 pub struct LineEdit {
   source : TextLines
-  first : Int
-  removed : Int
+  first : Int32
+  removed : Int32
   inserted : ArrayView[String]
 }
 
 pub enum SelectedLines {
-  Caret(Int)
-  Span(first~ : Int, last~ : Int)
+  Caret(Int32)
+  Span(first~ : Int32, last~ : Int32)
 }
 
 pub struct TextChange {
-  start : Int
-  old_end : Int
-  new_end : Int
+  start : Int32
+  old_end : Int32
+  new_end : Int32
 }
 pub fn TextChange::TextChange(String, String) -> Self
 
@@ -40,14 +40,14 @@ pub struct TextLines {
 }
 pub fn TextLines::TextLines(String) -> Self
 pub fn TextLines::lines(Self) -> ArrayView[String]
-pub fn TextLines::position(Self, Int) -> TextPosition
+pub fn TextLines::position(Self, Int32) -> TextPosition
 pub fn TextLines::replace_text(Self, String) -> LineEdit?
-pub fn TextLines::selected_lines(Self, Int, Int) -> SelectedLines raise InvalidSelection
+pub fn TextLines::selected_lines(Self, Int32, Int32) -> SelectedLines raise InvalidSelection
 pub fn TextLines::text(Self) -> String
 
 pub struct TextPosition {
-  line : Int
-  column : Int
+  line : Int32
+  column : Int32
 }
 
 // Type aliases

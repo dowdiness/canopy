@@ -6,54 +6,59 @@ import {
 }
 
 // Values
-pub fn pack_in_order(ArrayView[Size], bin_width~ : Int) -> PackResult raise PackError
+pub fn pack_in_order(ArrayView[Size], bin_width~ : Int32) -> PackResult raise PackError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror PackError {
-  InvalidBinWidth(Int)
-  InvalidMaxHeight(Int)
-  InvalidSize(Int, Int)
-  ItemTooWide(item_width~ : Int, bin_width~ : Int)
-  NoPlacement(width~ : Int, height~ : Int)
+  InvalidBinWidth(Int32)
+  InvalidMaxHeight(Int32)
+  InvalidSize(Int32, Int32)
+  ItemTooWide(item_width~ : Int32, bin_width~ : Int32)
+  NoPlacement(width~ : Int32, height~ : Int32)
   CoordinateOverflow
-} derive(Eq, @debug.Debug)
+}
 pub fn PackError::equal(Self, Self) -> Bool
 pub fn PackError::not_equal(Self, Self) -> Bool
 pub fn PackError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct PackResult {
   placements : Array[Placement]
-  height : Int
-} derive(Eq, @debug.Debug)
+  height : Int32
+}
 pub fn PackResult::equal(Self, Self) -> Bool
 pub fn PackResult::not_equal(Self, Self) -> Bool
 pub fn PackResult::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct Packer {
   // private fields
-} derive(@debug.Debug)
-pub fn Packer::Packer(width~ : Int, max_height? : Int) -> Self raise PackError
-pub fn Packer::height(Self) -> Int
+}
+pub fn Packer::Packer(width~ : Int32, max_height? : Int32) -> Self raise PackError
+pub fn Packer::height(Self) -> Int32
 pub fn Packer::place(Self, Size) -> Placement raise PackError
-pub fn Packer::place_constrained(Self, Size, ArrayView[Int]) -> Placement raise PackError
+pub fn Packer::place_constrained(Self, Size, ArrayView[Int32]) -> Placement raise PackError
 pub fn Packer::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct Placement {
-  x : Int
-  y : Int
-  width : Int
-  height : Int
-} derive(Eq, @debug.Debug)
+  x : Int32
+  y : Int32
+  width : Int32
+  height : Int32
+}
 pub fn Placement::equal(Self, Self) -> Bool
 pub fn Placement::not_equal(Self, Self) -> Bool
 pub fn Placement::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct Size {
-  width : Int
-  height : Int
-} derive(Eq, @debug.Debug)
-pub fn Size::Size(width~ : Int, height~ : Int) -> Self raise PackError
+  width : Int32
+  height : Int32
+}
+pub fn Size::Size(width~ : Int32, height~ : Int32) -> Self raise PackError
 pub fn Size::equal(Self, Self) -> Bool
 pub fn Size::not_equal(Self, Self) -> Bool
 pub fn Size::to_repr(Self) -> @debug.Repr

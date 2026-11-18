@@ -1,17 +1,17 @@
 // Model-based property tests for dowdiness/btree.
 
 ///|
-fn model_items(pairs : Array[(Int, Int)]) -> Array[TItem] {
+fn model_items(pairs : Array[(Int32, Int32)]) -> Array[TItem] {
   pairs.map(fn(pair) { make_item(pair.0, pair.1) })
 }
 
 ///|
-fn model_sorted_items(pairs : Array[(Int, Int)]) -> Array[(TItem, Int)] {
+fn model_sorted_items(pairs : Array[(Int32, Int32)]) -> Array[(TItem, Int32)] {
   pairs.map(fn(pair) { (make_item(pair.0, pair.1), pair.1) })
 }
 
 ///|
-fn model_span(items : Array[TItem]) -> Int {
+fn model_span(items : Array[TItem]) -> Int32 {
   items.fold(init=0, fn(acc, item) { acc + item.span })
 }
 
@@ -23,8 +23,8 @@ fn model_copy(items : Array[TItem]) -> Array[TItem] {
 ///|
 fn model_view_range(
   items : Array[TItem],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> Array[TItem] {
   let total = model_span(items)
   let start = if start < 0 { 0 } else { start }
@@ -79,8 +79,8 @@ fn model_concat_with_boundary_merge(
 ///|
 fn model_delete_range(
   items : Array[TItem],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> Array[TItem] {
   let total = model_span(items)
   if start < 0 || start >= end_ || start >= total {
@@ -93,7 +93,7 @@ fn model_delete_range(
 }
 
 ///|
-fn model_find(items : Array[TItem], pos : Int) -> FindResult[TItem]? {
+fn model_find(items : Array[TItem], pos : Int32) -> FindResult[TItem]? {
   guard pos >= 0 else { return None }
   let mut offset = 0
   for item in items {
@@ -107,12 +107,12 @@ fn model_find(items : Array[TItem], pos : Int) -> FindResult[TItem]? {
 }
 
 ///|
-fn model_get_at(items : Array[TItem], pos : Int) -> TItem? {
+fn model_get_at(items : Array[TItem], pos : Int32) -> TItem? {
   model_find(items, pos).map(fn(result) { result.elem })
 }
 
 ///|
-fn normalized_index(raw : Int, upper_inclusive : Int) -> Int {
+fn normalized_index(raw : Int32, upper_inclusive : Int32) -> Int32 {
   guard upper_inclusive > 0 else { return 0 }
   let width = upper_inclusive + 1
   let idx = raw % width
@@ -127,9 +127,9 @@ fn normalized_index(raw : Int, upper_inclusive : Int) -> Int {
 fn query_matches_model(
   t : BTree[TItem],
   model : Array[TItem],
-  pos : Int,
-  start : Int,
-  end_ : Int,
+  pos : Int32,
+  start : Int32,
+  end_ : Int32,
 ) -> Bool {
   t.find(pos) == model_find(model, pos) &&
   t.get_at(pos) == model_get_at(model, pos) &&
@@ -190,7 +190,7 @@ fn tree_matches_model(t : BTree[TItem], model : Array[TItem]) -> Bool {
 ///|
 fn model_insert_item_at(
   model : Array[TItem],
-  pos : Int,
+  pos : Int32,
   item : TItem,
 ) -> Array[TItem] {
   let left = model_view_range(model, 0, pos)
@@ -204,12 +204,12 @@ fn model_insert_item_at(
 }
 
 ///|
-fn tree_insert_item_at(t : BTree[TItem], pos : Int, item : TItem) -> Unit {
+fn tree_insert_item_at(t : BTree[TItem], pos : Int32, item : TItem) -> Unit {
   if t.is_empty() {
     t.init_root(item, item.span)
   } else {
     t.mutate_for_insert(pos, fn(ctx) {
-      let new_leaves : Array[(TItem, Int)] = []
+      let new_leaves : Array[(TItem, Int32)] = []
       if ctx.offset > 0 {
         let left = must_slice(ctx.elem, start=0, end=ctx.offset)
         new_leaves.push((left, left.span))
@@ -228,7 +228,7 @@ fn tree_insert_item_at(t : BTree[TItem], pos : Int, item : TItem) -> Unit {
 fn insert_item_at(
   t : BTree[TItem],
   model : Array[TItem],
-  raw_pos : Int,
+  raw_pos : Int32,
   item : TItem,
 ) -> Array[TItem] {
   let pos = normalized_index(raw_pos, model_span(model))
@@ -239,7 +239,7 @@ fn insert_item_at(
 ///|
 fn model_delete_leaf_at(
   items : Array[TItem],
-  pos : Int,
+  pos : Int32,
 ) -> (Array[TItem], TItem?) {
   guard pos >= 0 else { return (model_copy(items), None) }
   let mut offset = 0
@@ -261,7 +261,7 @@ fn model_delete_leaf_at(
 fn delete_leaf_at(
   t : BTree[TItem],
   model : Array[TItem],
-  pos : Int,
+  pos : Int32,
 ) -> Array[TItem] {
   let (expected_model, expected_deleted) = model_delete_leaf_at(model, pos)
   let deleted = t.mutate_for_delete(pos, fn(ctx) {
@@ -277,18 +277,19 @@ fn delete_leaf_at(
 }
 
 ///|
+#derive(Debug, Eq)
 struct QueryCase {
-  items : Array[(Int, Int)]
-  start : Int
-  end_ : Int
-  pos : Int
-} derive(Debug, Eq)
+  items : Array[(Int32, Int32)]
+  start : Int32
+  end_ : Int32
+  pos : Int32
+}
 
 ///|
 impl @quickcheck.Arbitrary for QueryCase with fn arbitrary(size, rs) {
   let capped = if size < 0 { 0 } else if size > 40 { 40 } else { size }
   let item_count = rs.split().next_positive_int() % (capped + 1)
-  let items : Array[(Int, Int)] = []
+  let items : Array[(Int32, Int32)] = []
   let mut total = 0
   for _ in 0..<item_count {
     let id = 1 + rs.split().next_positive_int() % 8
@@ -308,10 +309,10 @@ impl @quickcheck.Arbitrary for QueryCase with fn arbitrary(size, rs) {
 ///|
 fn push_query_case_shrinks(
   results : Array[QueryCase],
-  items : Array[(Int, Int)],
-  start : Int,
-  end_ : Int,
-  pos : Int,
+  items : Array[(Int32, Int32)],
+  start : Int32,
+  end_ : Int32,
+  pos : Int32,
 ) -> Unit {
   let total = generated_items_span(items)
   if start != 0 || end_ != 0 || pos != 0 {
@@ -355,19 +356,19 @@ fn push_query_case_shrinks(
   if start > end_ {
     results.push({ items, start: end_, end_: start, pos, })
   }
-  for next_start in @qc.Shrink::shrink(start) {
+  for next_start in @shrink.Shrink::shrink(start) {
     results.push({ items, start: next_start, end_, pos, })
   }
-  for next_end in @qc.Shrink::shrink(end_) {
+  for next_end in @shrink.Shrink::shrink(end_) {
     results.push({ items, start, end_: next_end, pos, })
   }
-  for next_pos in @qc.Shrink::shrink(pos) {
+  for next_pos in @shrink.Shrink::shrink(pos) {
     results.push({ items, start, end_, pos: next_pos, })
   }
 }
 
 ///|
-fn query_case_abs(value : Int) -> Int {
+fn query_case_abs(value : Int32) -> Int32 {
   if value < 0 {
     -value
   } else {
@@ -386,7 +387,7 @@ fn QueryCase::is_minimal_witness(self : QueryCase) -> Bool {
 }
 
 ///|
-fn QueryCase::shrink_score(self : QueryCase) -> Int {
+fn QueryCase::shrink_score(self : QueryCase) -> Int32 {
   let len = self.items.length()
   if len == 0 {
     return 1_000_000
@@ -410,7 +411,7 @@ fn QueryCase::to_stable_witness(self : QueryCase) -> QueryCase {
     let current_score = current.shrink_score()
     let mut next_case : QueryCase? = None
     let mut next_score = current_score
-    for candidate in @qc.Shrink::shrink(current) {
+    for candidate in @shrink.Shrink::shrink(current) {
       if candidate.is_minimal_witness() {
         return candidate
       }
@@ -429,7 +430,7 @@ fn QueryCase::to_stable_witness(self : QueryCase) -> QueryCase {
 }
 
 ///|
-impl @qc.Shrink for QueryCase with fn shrink(case_) {
+impl @shrink.Shrink for QueryCase with fn shrink(case_) {
   let results : Array[QueryCase] = []
   push_query_case_shrinks(
     results,
@@ -481,18 +482,20 @@ fn prop_from_sorted_exact_content(case_ : FromSortedCase) -> Bool {
 }
 
 ///|
+#derive(Debug)
 enum ArbitrarySpliceShape {
-  Overflow(Int)
+  Overflow(Int32)
   BulkBorrow
   Merge
   RepeatedMerge
-} derive(Debug)
+}
 
 ///|
+#derive(Debug)
 struct ArbitrarySpliceCase {
-  min_degree : Int
+  min_degree : Int32
   shape : ArbitrarySpliceShape
-} derive(Debug)
+}
 
 ///|
 impl @quickcheck.Arbitrary for ArbitrarySpliceCase with fn arbitrary(_size, rs) {
@@ -650,6 +653,7 @@ fn arbitrary_splice_case_matches_model(case_ : ArbitrarySpliceCase) -> Bool {
 }
 
 ///|
+#derive(Debug, Eq)
 enum NormalizeBoundaryShape {
   SameParent
   CrossParent
@@ -658,14 +662,15 @@ enum NormalizeBoundaryShape {
   OuterNoOp
   InteriorNoOp
   StableNoOp
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug)
 struct NormalizeBoundaryCase {
-  min_degree : Int
+  min_degree : Int32
   shape : NormalizeBoundaryShape
-  seed : Int
-} derive(Debug)
+  seed : Int32
+}
 
 ///|
 impl @quickcheck.Arbitrary for NormalizeBoundaryCase with fn arbitrary(
@@ -690,7 +695,7 @@ impl @quickcheck.Arbitrary for NormalizeBoundaryCase with fn arbitrary(
 }
 
 ///|
-impl @qc.Shrink for NormalizeBoundaryCase with fn shrink(case_) {
+impl @shrink.Shrink for NormalizeBoundaryCase with fn shrink(case_) {
   let results : Array[NormalizeBoundaryCase] = []
   if case_.seed != 0 {
     results.push({ ..case_, seed: 0, })
@@ -706,10 +711,10 @@ impl @qc.Shrink for NormalizeBoundaryCase with fn shrink(case_) {
 
 ///|
 fn normalization_items(
-  count : Int,
-  run_start : Int,
-  run_end : Int,
-  seed : Int,
+  count : Int32,
+  run_start : Int32,
+  run_end : Int32,
+  seed : Int32,
 ) -> Array[TItem] {
   Array::makei(count, i => {
     let id = if i >= run_start && i <= run_end {
@@ -724,15 +729,15 @@ fn normalization_items(
 ///|
 fn normalization_boundary_position(
   items : Array[TItem],
-  right_idx : Int,
-) -> Int {
+  right_idx : Int32,
+) -> Int32 {
   items[:right_idx].fold(init=0, (total, item) => total + item.span)
 }
 
 ///|
 fn normalization_case_input(
   case_ : NormalizeBoundaryCase,
-) -> (Array[TItem], Int) {
+) -> (Array[TItem], Int32) {
   let max_degree = 2 * case_.min_degree
   match case_.shape {
     SameParent => {
@@ -784,7 +789,7 @@ fn normalization_case_input(
 }
 
 ///|
-fn model_exact_boundary_index(items : Array[TItem], pos : Int) -> Int? {
+fn model_exact_boundary_index(items : Array[TItem], pos : Int32) -> Int32? {
   guard pos > 0 && pos < model_span(items) else { return None }
   let mut offset = 0
   for i in 0..<items.length() {
@@ -802,7 +807,7 @@ fn model_exact_boundary_index(items : Array[TItem], pos : Int) -> Int? {
 ///|
 /// Independent flat-array oracle for the mergeable closure around one exact
 /// boundary. Mutation is confined to constructing the returned model value.
-fn model_normalize_boundary(items : Array[TItem], pos : Int) -> Array[TItem] {
+fn model_normalize_boundary(items : Array[TItem], pos : Int32) -> Array[TItem] {
   let result = model_copy(items)
   guard model_exact_boundary_index(result, pos) is Some(right_idx) else {
     return result
@@ -846,8 +851,8 @@ fn model_normalize_boundary(items : Array[TItem], pos : Int) -> Array[TItem] {
 ///|
 fn normalization_boundary_path_shape(
   t : BTree[TItem],
-  pos : Int,
-) -> (Int, Int)? {
+  pos : Int32,
+) -> (Int32, Int32)? {
   guard t.root is Some(root) else { return None }
   guard descend_leaf_at_end_boundary(
       root,
@@ -870,7 +875,7 @@ fn normalization_boundary_path_shape(
 fn normalization_case_topology_matches(
   case_ : NormalizeBoundaryCase,
   t : BTree[TItem],
-  pos : Int,
+  pos : Int32,
 ) -> Bool {
   match case_.shape {
     SameParent => normalization_boundary_path_shape(t, pos) == Some((1, 0))
@@ -901,19 +906,21 @@ fn prop_normalize_boundary_matches_model(case_ : NormalizeBoundaryCase) -> Bool 
 }
 
 ///|
+#derive(Debug, Eq)
 enum ModelOp {
-  Append(Int, Int)
-  Insert(Int, Int, Int)
-  DeleteAt(Int)
-  DeleteRange(Int, Int)
-  Query(Int, Int, Int)
-} derive(Debug, Eq)
+  Append(Int32, Int32)
+  Insert(Int32, Int32, Int32)
+  DeleteAt(Int32)
+  DeleteRange(Int32, Int32)
+  Query(Int32, Int32, Int32)
+}
 
 ///|
+#derive(Debug)
 struct OpSequenceCase {
   ops : Array[ModelOp]
-  min_degree : Int
-} derive(Debug)
+  min_degree : Int32
+}
 
 ///|
 impl @quickcheck.Arbitrary for ModelOp with fn arbitrary(size, rs) {
@@ -939,7 +946,7 @@ impl @quickcheck.Arbitrary for ModelOp with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for ModelOp with fn shrink(op) {
+impl @shrink.Shrink for ModelOp with fn shrink(op) {
   let results : Array[ModelOp] = []
   match op {
     Append(id, span) => {
@@ -963,7 +970,7 @@ impl @qc.Shrink for ModelOp with fn shrink(op) {
       if span > 1 {
         results.push(Insert(pos, id, 1))
       }
-      for next_pos in @qc.Shrink::shrink(pos) {
+      for next_pos in @shrink.Shrink::shrink(pos) {
         results.push(Insert(next_pos, id, span))
       }
     }
@@ -974,7 +981,7 @@ impl @qc.Shrink for ModelOp with fn shrink(op) {
       if pos < 0 && pos != -1 {
         results.push(DeleteAt(-1))
       }
-      for next_pos in @qc.Shrink::shrink(pos) {
+      for next_pos in @shrink.Shrink::shrink(pos) {
         results.push(DeleteAt(next_pos))
       }
     }
@@ -991,10 +998,10 @@ impl @qc.Shrink for ModelOp with fn shrink(op) {
       if start != end_ {
         results.push(DeleteRange(start, start))
       }
-      for next_start in @qc.Shrink::shrink(start) {
+      for next_start in @shrink.Shrink::shrink(start) {
         results.push(DeleteRange(next_start, end_))
       }
-      for next_end in @qc.Shrink::shrink(end_) {
+      for next_end in @shrink.Shrink::shrink(end_) {
         results.push(DeleteRange(start, next_end))
       }
     }
@@ -1011,13 +1018,13 @@ impl @qc.Shrink for ModelOp with fn shrink(op) {
       if end_ < 0 && end_ != -1 {
         results.push(Query(pos, start, -1))
       }
-      for next_pos in @qc.Shrink::shrink(pos) {
+      for next_pos in @shrink.Shrink::shrink(pos) {
         results.push(Query(next_pos, start, end_))
       }
-      for next_start in @qc.Shrink::shrink(start) {
+      for next_start in @shrink.Shrink::shrink(start) {
         results.push(Query(pos, next_start, end_))
       }
-      for next_end in @qc.Shrink::shrink(end_) {
+      for next_end in @shrink.Shrink::shrink(end_) {
         results.push(Query(pos, start, next_end))
       }
     }
@@ -1047,7 +1054,7 @@ impl @quickcheck.Arbitrary for OpSequenceCase with fn arbitrary(size, rs) {
 fn push_min_degree_shrinks(
   results : Array[OpSequenceCase],
   ops : Array[ModelOp],
-  min_degree : Int,
+  min_degree : Int32,
 ) -> Unit {
   if min_degree == DEFAULT_MIN_DEGREE {
     results.push({ ops, min_degree: 5, })
@@ -1062,7 +1069,7 @@ fn push_min_degree_shrinks(
 }
 
 ///|
-impl @qc.Shrink for OpSequenceCase with fn shrink(case_) {
+impl @shrink.Shrink for OpSequenceCase with fn shrink(case_) {
   let results : Array[OpSequenceCase] = []
   let len = case_.ops.length()
   if len > 0 {
@@ -1097,7 +1104,7 @@ impl @qc.Shrink for OpSequenceCase with fn shrink(case_) {
       }
     }
     for i in 0..<len {
-      for op in @qc.Shrink::shrink(case_.ops[i]) {
+      for op in @shrink.Shrink::shrink(case_.ops[i]) {
         results.push({
           ops: array_replaced_at(case_.ops, i, op),
           min_degree: case_.min_degree,

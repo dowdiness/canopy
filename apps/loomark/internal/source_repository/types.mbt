@@ -1,6 +1,7 @@
 ///|
 /// The authoritative persisted document: identity plus exact text.
-pub struct DocumentId(String) derive(Eq, Hash, Debug)
+#derive(Eq, Hash, Debug)
+pub struct DocumentId(String)
 
 ///|
 fn valid_uuid(value : String) -> Bool {
@@ -9,12 +10,12 @@ fn valid_uuid(value : String) -> Bool {
     if i == 8 || i == 13 || i == 18 || i == 23 {
       guard value[i] == '-' else { return false }
     } else {
-      guard value[i] is ('0'..='9' | 'a'..='f' | 'A'..='F') else {
+      guard value[i] is ('0'..<='9' | 'a'..<='f' | 'A'..<='F') else {
         return false
       }
     }
   }
-  value[14] is ('1'..='8') && value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B')
+  value[14] is ('1'..<='8') && value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B')
 }
 
 ///|
@@ -29,16 +30,19 @@ pub fn DocumentId::value(self : Self) -> String {
 }
 
 ///|
-pub struct Document(DocumentId, String) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct Document(DocumentId, String)
 
 ///|
 /// An advisory startup-selection hint parsed from accepted SavedDocuments.
-pub struct EditingDocumentHint(DocumentId) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct EditingDocumentHint(DocumentId)
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror DocumentError {
   InvalidIdentity
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Document::create(id : DocumentId, text : String) -> Document {
@@ -61,10 +65,11 @@ pub fn Document::text(self : Self) -> String {
 }
 
 ///|
+#derive(Eq, Debug)
 struct CatalogEntry {
   document_id : DocumentId
   derived_name : @document_lead.DerivedName
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn CatalogEntry::document_id(self : Self) -> DocumentId {
@@ -77,7 +82,8 @@ pub fn CatalogEntry::name(self : Self) -> String {
 }
 
 ///|
-pub struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct Catalog(Array[CatalogEntry])
 
 ///|
 pub fn Catalog::entries(self : Self) -> ArrayView[CatalogEntry] {
@@ -95,29 +101,33 @@ fn catalog_for(documents : Array[Document]) -> Catalog {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   UnsupportedSourceSchema(String)
   InvalidDocumentReplica(String)
   UnknownRecord(String)
   UnsupportedRecord(String)
-  UnsupportedKey(Int)
-} derive(Eq, Debug)
+  UnsupportedKey(Int32)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ReplicaApplyError {
   StaleReplica
   StorageKeyConflict
   InvalidReplicaWrite
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RepositoryChange {
   Stored(Document)
   Deleted(DocumentId)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct SavedDocuments {
   documents : Array[Document]
   // Catalog entries share the documents' lexical identity order.
@@ -126,7 +136,7 @@ pub struct SavedDocuments {
   observed_source_keys : Array[String]
   replicas : Array[DocumentReplica]
   observed_replica_keys : Array[String]
-} derive(Eq, Debug)
+}
 
 ///|
 fn sort_documents(documents : Array[Document]) -> Array[Document] {
@@ -145,7 +155,7 @@ fn sort_keys(keys : Array[String]) -> Array[String] {
 }
 
 ///|
-fn compare_replicas(left : DocumentReplica, right : DocumentReplica) -> Int {
+fn compare_replicas(left : DocumentReplica, right : DocumentReplica) -> Int32 {
   let account_order = left
     .account()
     .value()
@@ -245,7 +255,7 @@ fn SavedDocuments::find_replica_index(
   self : Self,
   account : AccountId,
   document_id : DocumentId,
-) -> Int? {
+) -> Int32? {
   self.replicas
   .exact_view()
   .search_by(replica => {

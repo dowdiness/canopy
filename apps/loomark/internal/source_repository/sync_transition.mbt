@@ -1,13 +1,14 @@
 ///|
 /// The action implied by a replica. It is derived rather than stored beside
 /// transition results, so replica state remains the single source of truth.
+#derive(Eq, Debug)
 pub(all) enum ReplicaDirective {
   Synchronized
   CreateOperation(OperationDraft)
   Send(PendingOperation)
   UpdateAvailable(RemoteDocument)
   RecoveryRequired
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DocumentReplica::directive(self : Self) -> ReplicaDirective {
@@ -115,11 +116,12 @@ pub fn LiveReplica::relation(
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum EditPlan {
   Unchanged
   Unavailable
   Persist(ReplicaWrite)
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DocumentReplica::edit(self : Self, text : String) -> EditPlan {
@@ -150,10 +152,11 @@ pub fn RemoteUpdate::accept(self : Self) -> ReplicaWrite {
 
 ///|
 /// An operation waiting only for an identifier from the effect boundary.
+#derive(Eq, Debug)
 pub struct OperationDraft {
   replica : DocumentReplica
   content : PendingContent
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn OperationDraft::content(self : Self) -> PendingContent {
@@ -199,10 +202,11 @@ pub fn DocumentReplica::request_deletion(
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror DeletionUnavailable {
   AlreadyDeleting
   AlreadyDeleted
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn OperationDraft::start(
@@ -228,11 +232,12 @@ pub fn OperationDraft::start(
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ReceiptMismatch {
   NoPendingOperation
   OperationMismatch
   RevisionMismatch
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DocumentReplica::acknowledge(
@@ -356,10 +361,11 @@ pub fn DocumentReplica::reject_conflict(
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum ReconcilePlan {
   Unchanged
   Persist(ReplicaWrite)
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DocumentReplica::fork(
@@ -441,12 +447,13 @@ pub fn DocumentReplica::reconcile(
 ///|
 /// The next domain step for opening an unmounted Replica at a required remote
 /// revision. Network activity and persistence remain outside this transition.
+#derive(Eq, Debug)
 pub(all) enum OpenStep {
   Ready
   Persist(ReplicaWrite)
   AwaitSync
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
 /// Open an unmounted Replica only from remote content already retained by the

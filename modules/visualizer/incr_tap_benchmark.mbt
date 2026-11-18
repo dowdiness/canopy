@@ -8,14 +8,14 @@ const LARGE_BENCH_CELL_COUNT = 2048
 
 ///|
 fn make_bench_fanout(
-  count : Int,
-) -> (Array[@incr.Derived[Int]], RecomputeTap) raise Failure {
+  count : Int32,
+) -> (Array[@incr.Derived[Int32]], RecomputeTap) raise Failure {
   guard count > 0 else {
     abort("benchmark fanout must contain at least one cell")
   }
   let rt = @incr.Runtime()
   let input = @incr.Input(rt, 0, label="bench_input")
-  let memos : Array[@incr.Derived[Int]] = []
+  let memos : Array[@incr.Derived[Int32]] = []
   for i in 0..<count {
     memos.push(
       @incr.Derived(
@@ -33,7 +33,7 @@ fn make_bench_fanout(
 }
 
 ///|
-fn make_bench_snapshot(count : Int) -> RecomputeSnapshot raise Failure {
+fn make_bench_snapshot(count : Int32) -> RecomputeSnapshot raise Failure {
   let (memos, tap) = make_bench_fanout(count)
   // Keep the derived handles live while the snapshot discovers the graph.
   ignore(memos.length())

@@ -10,10 +10,11 @@
 // re-exported here as a `pub` surface for editor blackbox + whitebox tests.
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum TestExpr {
   Leaf(String)
   Branch(String, Array[TestExpr])
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for TestExpr with fn output(self, logger) {

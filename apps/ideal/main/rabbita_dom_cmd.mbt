@@ -1,7 +1,7 @@
 ///|
 fn dom_after_render_result(
   action : () -> Unit raise @dom_boundary.DomBoundaryError,
-  on_error? : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {
+  on_error~ : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {
     @rabbita.none
   },
 ) -> @rabbita.Cmd {
@@ -14,7 +14,7 @@ fn dom_after_render_result(
 ///|
 fn focus_selector_after_render(
   selector : String,
-  on_error? : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {
+  on_error~ : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {
     @rabbita.none
   },
 ) -> @rabbita.Cmd {
@@ -27,7 +27,7 @@ fn focus_selector_after_render(
 ///|
 fn scroll_selector_after_render(
   selector : String,
-  on_error? : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {
+  on_error~ : (@dom_boundary.DomBoundaryError) -> @rabbita.Cmd = fn(_) {
     @rabbita.none
   },
 ) -> @rabbita.Cmd {

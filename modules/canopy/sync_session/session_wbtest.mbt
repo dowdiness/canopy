@@ -39,7 +39,7 @@ fn version_limit_io(sent : Array[Bytes]) -> SyncIo {
 /// `left` records on_peer_leave calls.
 test "local Version limit ends recovery without sending or scheduling" {
   let sent : Array[Bytes] = []
-  let scheduled : Array[(Int, Int)] = []
+  let scheduled : Array[(Int32, Int32)] = []
   let statuses : Array[SyncStatus] = []
   let session = SyncSession::SyncSession()
   session.set_on_status_change(Some(status => statuses.push(status)))
@@ -537,7 +537,7 @@ test "SyncSession: watchdog exhaustion → Error(Exhausted)" {
 test "SyncSession: watchdog scheduler receives request_id and timeout on send" {
   let session = SyncSession()
   session.on_open()
-  let scheduled : Array[(Int, Int)] = []
+  let scheduled : Array[(Int32, Int32)] = []
   session.set_watchdog_scheduler(
     Some(fn(req_id, ms) { scheduled.push((req_id, ms)) }),
   )

@@ -9,19 +9,19 @@
 /// selected, and the consumer maps that index onto its own domain.
 pub struct Model {
   priv id : String
-  priv tab_count : Int
-  priv selected : Int
+  priv tab_count : Int32
+  priv selected : Int32
 }
 
 ///|
-fn normalized_count(tab_count : Int) -> Int {
+fn normalized_count(tab_count : Int32) -> Int32 {
   tab_count.max(0)
 }
 
 ///|
 /// Clamp a selected index into `[0, tab_count - 1]`, falling back to `0` when
 /// there are no tabs so downstream getters stay total.
-fn clamp_selected(selected : Int, tab_count : Int) -> Int {
+fn clamp_selected(selected : Int32, tab_count : Int32) -> Int32 {
   if tab_count <= 0 {
     0
   } else {
@@ -30,7 +30,7 @@ fn clamp_selected(selected : Int, tab_count : Int) -> Int {
 }
 
 ///|
-fn Model::is_selected(self : Model, index : Int) -> Bool {
+fn Model::is_selected(self : Model, index : Int32) -> Bool {
   self.selected == index
 }
 
@@ -38,7 +38,7 @@ fn Model::is_selected(self : Model, index : Int) -> Bool {
 /// Create tab behavior state for a stable id prefix, tab count, and the
 /// currently selected tab index. `tab_count` is clamped to non-negative and
 /// `selected` into `[0, tab_count - 1]` (`0` when there are no tabs).
-pub fn Model::new(id~ : String, tab_count~ : Int, selected~ : Int) -> Model {
+pub fn Model::new(id~ : String, tab_count~ : Int32, selected~ : Int32) -> Model {
   let tab_count = normalized_count(tab_count)
   { id, tab_count, selected: clamp_selected(selected, tab_count), }
 }
@@ -47,7 +47,7 @@ pub fn Model::new(id~ : String, tab_count~ : Int, selected~ : Int) -> Model {
 /// The stable DOM id for the tab button at `index`. Internal: the behavior owns
 /// the button-id scheme, so `tab_attrs`/`panel_attrs`/`focus_cmd` stay
 /// internally consistent (matches `modules/rabbita-menu`'s private `item_id`).
-fn Model::tab_button_id(self : Model, index : Int) -> String {
+fn Model::tab_button_id(self : Model, index : Int32) -> String {
   self.id + "-tab-" + index.to_string()
 }
 
@@ -57,7 +57,7 @@ fn Model::tab_button_id(self : Model, index : Int) -> String {
 /// Home / End jump to the ends. Returns `None` for keys this behavior does not
 /// handle (including ArrowUp / ArrowDown, which APG reserves for scrolling) and
 /// when there are no tabs.
-pub fn Model::nav_target(self : Model, key : String) -> Int? {
+pub fn Model::nav_target(self : Model, key : String) -> Int32? {
   if self.tab_count <= 0 {
     None
   } else {

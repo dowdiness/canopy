@@ -28,10 +28,10 @@ fn find_row_by_current_id(
 
 ///|
 fn synthetic_heading(
-  id : Int,
+  id : Int32,
   text : String,
-  start : Int,
-  level? : Int = 1,
+  start : Int32,
+  level~ : Int32 = 1,
 ) -> HeadingObservation {
   {
     id: @core.NodeId::from_int(id),
@@ -93,7 +93,7 @@ fn evidence_has_semantic_drift(
 ///|
 fn evidence_has_candidate_count(
   evidence : Array[HeadingEntityEvidence],
-  count : Int,
+  count : Int32,
 ) -> Bool {
   evidence
   .iter()
@@ -123,7 +123,7 @@ fn evidence_has_any_candidate_count(
 fn stable_row_claim_count(
   rows : Array[HeadingSideTableRow],
   stable_id : HeadingStableRowId,
-) -> Int {
+) -> Int32 {
   rows.iter().filter(row => row.stable_id == stable_id).count()
 }
 
@@ -131,7 +131,7 @@ fn stable_row_claim_count(
 fn live_current_claim_count(
   rows : Array[HeadingSideTableRow],
   current_id : @core.NodeId,
-) -> Int {
+) -> Int32 {
   rows
   .iter()
   .filter(row => row.status == HeadingLive && row.current_id == Some(current_id))
@@ -163,7 +163,7 @@ fn heading_side_table_row_shape_valid(
 }
 
 ///|
-fn live_row_count(rows : Array[HeadingSideTableRow]) -> Int {
+fn live_row_count(rows : Array[HeadingSideTableRow]) -> Int32 {
   rows.iter().filter(row => row.status == HeadingLive).count()
 }
 
@@ -204,7 +204,7 @@ fn rows_have_non_empty_evidence(rows : Array[HeadingSideTableRow]) -> Bool {
 
 ///|
 test "sdeg phase0: NodeId side table preserves same-node matches before semantic ones" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let source = "# A\n# B\n"
   let next_source = "# C\n# A\n"
   let (initial_cst, _) = @markdown.parse_cst(
@@ -245,7 +245,7 @@ test "sdeg phase0: NodeId side table preserves same-node matches before semantic
 
 ///|
 test "sdeg phase0: NodeId side table records semantic drift on same-node reorder" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let source = "# A\n# B\n"
   let next_source = "# B\n# A\n"
   let (initial_cst, _) = @markdown.parse_cst(
@@ -292,7 +292,7 @@ test "sdeg phase0: NodeId side table records semantic drift on same-node reorder
 
 ///|
 test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let initial_source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# B\n"
@@ -366,7 +366,7 @@ test "sdeg phase0: NodeId side table tombstone recovers delete-restore" {
 
 ///|
 test "sdeg phase0: NodeId side table keeps duplicate restore ambiguous" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let initial_source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# A\n# B\n"
@@ -533,7 +533,7 @@ test "sdeg phase1: heading level change without same-node evidence stays fresh" 
 
 ///|
 test "sdeg phase0: NodeId side table invariants hold across lifecycle states" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# B\n"

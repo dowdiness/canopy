@@ -11,8 +11,8 @@ pub struct OverlayState {
   priv actions : Array[@lambda_edits.Action]
   priv kind : @ast.Term
   priv error : OverlayError?
-  priv anchor_top : Int
-  priv anchor_left : Int
+  priv anchor_top : Int32
+  priv anchor_left : Int32
   priv menu : @menu.Model
 }
 
@@ -22,8 +22,8 @@ pub fn OverlayState::OverlayState(
   actions~ : Array[@lambda_edits.Action],
   kind~ : @ast.Term,
   error~ : OverlayError?,
-  anchor_top~ : Int,
-  anchor_left~ : Int,
+  anchor_top~ : Int32,
+  anchor_left~ : Int32,
   menu~ : @menu.Model,
 ) -> OverlayState {
   { mode, actions: actions.copy(), kind, error, anchor_top, anchor_left, menu, }
@@ -52,12 +52,12 @@ pub fn OverlayState::overlay_error(self : OverlayState) -> OverlayError? {
 }
 
 ///|
-pub fn OverlayState::anchor_top_px(self : OverlayState) -> Int {
+pub fn OverlayState::anchor_top_px(self : OverlayState) -> Int32 {
   self.anchor_top
 }
 
 ///|
-pub fn OverlayState::anchor_left_px(self : OverlayState) -> Int {
+pub fn OverlayState::anchor_left_px(self : OverlayState) -> Int32 {
   self.anchor_left
 }
 

@@ -60,7 +60,7 @@ fn render_dimming(
   geometry_changed~ : Bool,
 ) -> Unit raise {
   dimming.intent = dimming.intent.settle(
-    focused=focus.text_area.matches(":focus"),
+    focused=@dom.IsElement::matches(focus.text_area, ":focus"),
   )
   let presentation : @writing_focus.Presentation = {
     range,
@@ -162,7 +162,7 @@ pub fn WritingFocus::set_dims(self : WritingFocus, dims : Bool) -> Unit {
   match (self.dimming, dims) {
     (None, true) => {
       self.dimming = Some({
-        intent: if self.text_area.matches(":focus") {
+        intent: if @dom.IsElement::matches(self.text_area, ":focus") {
           Writing
         } else {
           Reading
@@ -201,7 +201,9 @@ pub fn connect(
   on_failure~ : (@js.Any) -> Unit,
 ) -> WritingFocus raise @js.JsError {
   let focus : WritingFocus = @js.try_sync(() => {
-    let document = @browser_api.element_document(text_area.as_element())
+    let document = @browser_api.element_document(
+      @dom.IsElement::as_element(text_area),
+    )
     let window = @browser_api.document_window(document)
     let fonts = @browser_api.document_fonts(document)
     let reduced_motion = window.match_media("(prefers-reduced-motion: reduce)")
@@ -230,7 +232,7 @@ pub fn connect(
     let resized : @dom.Listener = _ => focus.schedule()
     let activate : @dom.Listener = _ => focus.set_intent(Writing)
     let deactivate : @dom.Listener = _ => focus.set_intent(Reading)
-    let source = text_area.as_event_target()
+    let source = @dom.IsEventTarget::as_event_target(text_area)
     for
       name in ["input", "compositionend", "select", "selectionchange", "scroll"] {
       focus.listen(source, name, selected)
@@ -252,7 +254,10 @@ pub fn connect(
     let resize = @dom.ResizeObserver::new((_, _) => focus.schedule())
     focus.cleanup.push(() => resize.disconnect())
     focus.cleanup.push(() => focus.caret.release())
-    @browser_api.observe_border_box(resize, text_area.as_element())
+    @browser_api.observe_border_box(
+      resize,
+      @dom.IsElement::as_element(text_area),
+    )
     focus.schedule()
     @js.any(())
   })

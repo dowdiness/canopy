@@ -1,22 +1,23 @@
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv enum PreviewFailure {
   InitializationFailed
   TransitionFailed
   OutOfSync
   Unusable
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct AcceptedMarkdownRender {
   previous : @markdown.MarkdownPreviousUpdate
-  lazy_keys : Array[Int]
+  lazy_keys : Array[Int32]
 }
 
 ///|
 priv struct PreviewAcceptance {
   domain : Ref[Unit]
-  sequence : Int
+  sequence : Int32
 }
 
 ///|
@@ -27,18 +28,19 @@ impl Eq for PreviewAcceptance with fn equal(self, other) {
 ///|
 priv struct PendingMarkdownRender {
   acceptance : PreviewAcceptance
-  owner_generation : Int?
+  owner_generation : Int32?
   render : AcceptedMarkdownRender
 }
 
 ///|
+#derive(Eq)
 #warnings("-unused_value")
 priv struct PreviewOutput {
   html : @rabbita.Html
   empty : Bool
   block_ranges : Array[SourceRange]
   acceptance : PreviewAcceptance
-} derive(Eq)
+}
 
 ///|
 priv enum EngineState {
@@ -46,7 +48,7 @@ priv enum EngineState {
   Healthy(
     parser~ : @loom.SyntaxParser,
     updates~ : @markdown.MarkdownDocumentUpdates,
-    source~ : String
+    source~ : String,
   )
   Broken
 }
@@ -58,9 +60,9 @@ pub struct PreviewEngine {
   priv mut accepted_render : AcceptedMarkdownRender?
   priv mut pending_render : PendingMarkdownRender?
   priv acceptance_domain : Ref[Unit]
-  priv mut next_acceptance_sequence : Int
-  priv mut next_lazy_key : Int
-  priv mut owner_generation : Int?
+  priv mut next_acceptance_sequence : Int32
+  priv mut next_lazy_key : Int32
+  priv mut owner_generation : Int32?
 }
 
 ///|
@@ -79,7 +81,7 @@ pub fn PreviewEngine::PreviewEngine() -> PreviewEngine {
 ///|
 fn PreviewEngine::activate_generation(
   self : PreviewEngine,
-  generation : Int,
+  generation : Int32,
 ) -> Bool {
   match self.owner_generation {
     Some(current) if generation <= current => false
@@ -94,7 +96,7 @@ fn PreviewEngine::activate_generation(
 }
 
 ///|
-fn PreviewEngine::owns(self : PreviewEngine, generation : Int) -> Bool {
+fn PreviewEngine::owns(self : PreviewEngine, generation : Int32) -> Bool {
   self.owner_generation == Some(generation)
 }
 
@@ -120,7 +122,7 @@ fn create_parser_state(source : String) -> Result[EngineState, PreviewFailure] {
 }
 
 ///|
-fn PreviewEngine::fresh_lazy_key(self : PreviewEngine) -> Int {
+fn PreviewEngine::fresh_lazy_key(self : PreviewEngine) -> Int32 {
   let key = self.next_lazy_key
   self.next_lazy_key += 1
   key
@@ -128,10 +130,10 @@ fn PreviewEngine::fresh_lazy_key(self : PreviewEngine) -> Int {
 
 ///|
 fn previous_block_indexes_are_valid(
-  indexes : ArrayView[Int?],
-  previous_key_count : Int,
+  indexes : ArrayView[Int32?],
+  previous_key_count : Int32,
 ) -> Bool {
-  let seen : Set[Int] = Set([])
+  let seen : Set[Int32] = Set([])
   indexes.all(match_index => {
     match match_index {
       Some(index) =>
@@ -144,7 +146,7 @@ fn previous_block_indexes_are_valid(
 ///|
 fn markdown_matches_are_valid(
   blocks : ArrayView[@markdown.MarkdownTopLevelBlock],
-  previous_key_count : Int,
+  previous_key_count : Int32,
 ) -> Bool {
   previous_block_indexes_are_valid(
     blocks.map(block => block.matched_previous_block_index())[:],
@@ -316,7 +318,7 @@ fn PreviewEngine::discard(self : PreviewEngine) -> Unit {
 ///|
 fn PreviewEngine::prepare_owned(
   self : PreviewEngine,
-  generation : Int,
+  generation : Int32,
   source : String,
 ) -> Result[PreviewOutput, PreviewFailure]? {
   guard self.owns(generation) else { return None }
@@ -326,7 +328,7 @@ fn PreviewEngine::prepare_owned(
 ///|
 fn PreviewEngine::apply_owned(
   self : PreviewEngine,
-  generation : Int,
+  generation : Int32,
   change : @text_change.TextChange,
   source : String,
 ) -> Result[Unit, PreviewFailure]? {
@@ -337,7 +339,7 @@ fn PreviewEngine::apply_owned(
 ///|
 fn PreviewEngine::refresh_owned(
   self : PreviewEngine,
-  generation : Int,
+  generation : Int32,
   source : String,
 ) -> Result[PreviewOutput, PreviewFailure]? {
   guard self.owns(generation) else { return None }
@@ -345,7 +347,10 @@ fn PreviewEngine::refresh_owned(
 }
 
 ///|
-fn PreviewEngine::discard_owned(self : PreviewEngine, generation : Int) -> Bool {
+fn PreviewEngine::discard_owned(
+  self : PreviewEngine,
+  generation : Int32,
+) -> Bool {
   guard self.owns(generation) else { return false }
   self.discard()
   true

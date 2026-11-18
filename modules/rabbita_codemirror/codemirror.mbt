@@ -14,14 +14,14 @@ using @cmd {trait Scheduler}
 ///|
 #cfg(target="js")
 pub struct SelRange {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
 }
 
 ///|
 /// Create a primary CodeMirror selection range from document offsets.
 #cfg(target="js")
-pub fn SelRange::new(from : Int, to : Int) -> SelRange {
+pub fn SelRange::new(from : Int32, to : Int32) -> SelRange {
   { from, to, }
 }
 
@@ -38,15 +38,20 @@ pub fn SelRange::new(from : Int, to : Int) -> SelRange {
 /// The type is deliberately CodeMirror-agnostic of any downstream edit model:
 /// consumers translate an ordered `Array[ChangeDelta]` into whatever
 /// sequential edit representation their document store expects.
+#derive(Eq, Debug)
 pub struct ChangeDelta {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
   insert : String
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct a `ChangeDelta` from a pre-transaction span and its replacement.
-pub fn ChangeDelta::new(from : Int, to : Int, insert : String) -> ChangeDelta {
+pub fn ChangeDelta::new(
+  from : Int32,
+  to : Int32,
+  insert : String,
+) -> ChangeDelta {
   { from, to, insert, }
 }
 
@@ -54,18 +59,19 @@ pub fn ChangeDelta::new(from : Int, to : Int, insert : String) -> ChangeDelta {
 /// A CodeMirror document transaction together with its post-transaction
 /// document snapshot. The source version identifies the CRDT source that was
 /// synchronized into CodeMirror before the transaction was captured.
+#derive(Eq, Debug)
 pub struct ChangeEvent {
   changes : Array[ChangeDelta]
   doc : String
   source_version : String
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct a transaction event from its ordered changes and final document.
 pub fn ChangeEvent::new(
   changes : Array[ChangeDelta],
   doc : String,
-  source_version? : String = "",
+  source_version~ : String = "",
 ) -> ChangeEvent {
   { changes, doc, source_version, }
 }
@@ -98,7 +104,7 @@ pub fn Shortcut::new(
 ///|
 #cfg(target="js")
 priv struct CmEntry {
-  generation : Int
+  generation : Int32
   view : @js_ffi.CmView
   theme_comp : @js_ffi.Compartment
   readonly_comp : @js_ffi.Compartment
@@ -120,7 +126,7 @@ let editors : Map[String, CmEntry] = Map([])
 /// Monotonic mount generations keep retained Rabbita subscriptions from
 /// targeting a replaced CodeMirror view without retaining retired editor ids.
 #cfg(target="js")
-let next_editor_generation : Ref[Int] = { val: 0, }
+let next_editor_generation : Ref[Int32] = { val: 0, }
 
 ///|
 priv suberror CmSubscription {
@@ -132,7 +138,7 @@ priv suberror CmSubscription {
     focus~ : @cmd.Emit[Bool]?,
     changes~ : @cmd.Emit[Array[ChangeDelta]]?,
     changes_with_doc~ : @cmd.Emit[ChangeEvent]?,
-    source_version~ : () -> String
+    source_version~ : () -> String,
   )
 }
 
@@ -284,7 +290,11 @@ fn with_entry(
 
 ///|
 #cfg(target="js")
-fn change_spec(from : Int, to : Int?, text : String) -> @js_ffi.TransactionSpec {
+fn change_spec(
+  from : Int32,
+  to : Int32?,
+  text : String,
+) -> @js_ffi.TransactionSpec {
   let changes = @js_value.Object::new()
   changes["from"] = from
   match to {
@@ -437,7 +447,7 @@ fn cm_sub_loader(
       focus~,
       changes~,
       changes_with_doc~,
-      source_version~
+      source_version~,
     ) => {
       guard editors.get(id) is Some(entry) else { return None }
 
@@ -463,7 +473,7 @@ fn cm_sub_loader(
         guard focus_tagger is Some(msg) else { return }
         scheduler.add(msg(value.cast()))
       }
-      fn on_shortcut(index : Int, shifted : Bool) {
+      fn on_shortcut(index : Int32, shifted : Bool) {
         guard current_shortcuts.get(index) is Some(shortcut) else { return }
         if shifted {
           guard shortcut.shift_command is Some(command) else { return }
@@ -532,7 +542,7 @@ fn cm_sub_loader(
               focus~,
               changes~,
               changes_with_doc~,
-              source_version~
+              source_version~,
             ) else {
             return
           }
@@ -560,16 +570,16 @@ fn cm_sub_loader(
 pub fn mount(
   id : String,
   host_id : String,
-  init_doc? : String = "",
-  source? : String = "https://esm.sh",
-  initial_theme? : @theme.Theme? = None,
-  initial_readonly? : Bool = false,
-  initial_keymap? : @keymap.Keymap? = None,
-  initial_line_numbers? : Bool = true,
-  initial_line_wrapping? : Bool = false,
+  init_doc~ : String = "",
+  source~ : String = "https://esm.sh",
+  initial_theme~ : @theme.Theme? = None,
+  initial_readonly~ : Bool = false,
+  initial_keymap~ : @keymap.Keymap? = None,
+  initial_line_numbers~ : Bool = true,
+  initial_line_wrapping~ : Bool = false,
   on_mounted? : @cmd.Cmd,
   failed? : @cmd.Emit[String],
-  initial_extension? : ((@js_value.Value) -> @js_ffi.Extension raise)? = None,
+  initial_extension~ : ((@js_value.Value) -> @js_ffi.Extension raise)? = None,
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=Immediately, scheduler => {
     @js_value.Promise::from_async(() => {
@@ -715,7 +725,7 @@ pub fn set_doc(
 #cfg(target="js")
 pub fn insert(
   id : String,
-  pos : Int,
+  pos : Int32,
   text : String,
   failed? : @cmd.Emit[String],
 ) -> @cmd.Cmd {
@@ -731,8 +741,8 @@ pub fn insert(
 #cfg(target="js")
 pub fn replace(
   id : String,
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
   text : String,
   failed? : @cmd.Emit[String],
 ) -> @cmd.Cmd {
@@ -749,7 +759,7 @@ pub fn replace(
 pub fn set_selection(
   id : String,
   range : SelRange,
-  scroll_into_view? : Bool = false,
+  scroll_into_view~ : Bool = false,
   failed? : @cmd.Emit[String],
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(kind=Immediately, scheduler => {
@@ -903,8 +913,8 @@ pub fn listen(
   focus? : @cmd.Emit[Bool],
   on_change? : @cmd.Emit[Array[ChangeDelta]],
   on_change_with_doc? : @cmd.Emit[ChangeEvent],
-  shortcuts? : Array[Shortcut] = [],
-  source_version? : () -> String = () => "",
+  shortcuts~ : Array[Shortcut] = [],
+  source_version~ : () -> String = () => "",
 ) -> @sub.Sub {
   let shortcuts = shortcuts.copy()
   let has_doc = doc is Some(_)

@@ -2,16 +2,17 @@
 // A single match returned by ast-grep (from range.byteOffset in its JSON output).
 // Using a named struct rather than a bare tuple keeps the call site self-documenting
 // and is safe if this type is ever exposed across an FFI boundary.
+#derive(@debug.Debug)
 pub(all) struct AstGrepMatch {
-  byte_start : Int
-  byte_end : Int
+  byte_start : Int32
+  byte_end : Int32
   pattern_id : String
-} derive(@debug.Debug)
+}
 
 ///|
 pub fn AstGrepMatch::AstGrepMatch(
-  byte_start~ : Int,
-  byte_end~ : Int,
+  byte_start~ : Int32,
+  byte_end~ : Int32,
   pattern_id~ : String,
 ) -> AstGrepMatch {
   { byte_start, byte_end, pattern_id, }

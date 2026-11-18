@@ -63,15 +63,15 @@ let commit_posts : Array[String] = [
 ]
 
 ///|
-fn commit_cluster_of(post_id : Int) -> Int {
+fn commit_cluster_of(post_id : Int32) -> Int32 {
   post_id / 15
 }
 
 ///|
 fn commit_precision_at_k(
-  results : Array[(Int, Double)],
-  query_id : Int,
-  k : Int,
+  results : Array[(Int32, Double)],
+  query_id : Int32,
+  k : Int32,
 ) -> Double {
   if k <= 0 || results.is_empty() {
     return 0.0
@@ -89,8 +89,8 @@ fn commit_precision_at_k(
 
 ///|
 fn commit_reciprocal_rank(
-  results : Array[(Int, Double)],
-  query_id : Int,
+  results : Array[(Int32, Double)],
+  query_id : Int32,
 ) -> Double {
   let query_cluster = commit_cluster_of(query_id)
   for i in 0..<results.length() {

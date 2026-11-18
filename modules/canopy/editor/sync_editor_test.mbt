@@ -15,7 +15,7 @@ fn insert_each(
 fn insert_each_and_record(
   se : @editor.SyncEditor[@probe.TestExpr],
   text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   se.insert_and_record(text, timestamp_ms)
 }

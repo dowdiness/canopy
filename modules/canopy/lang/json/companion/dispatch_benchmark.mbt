@@ -12,8 +12,8 @@
 /// closure fields plus one optional field (the LanguageCapabilities
 /// pattern) to measure the per-call Option unwrap.
 priv struct TextOpsCaps {
-  apply_text_edit : (Int, Int, String, Int) -> Unit
-  apply_text_edit_opt : ((Int, Int, String, Int) -> Unit)?
+  apply_text_edit : (Int32, Int32, String, Int32) -> Unit
+  apply_text_edit_opt : ((Int32, Int32, String, Int32) -> Unit)?
 }
 
 ///|
@@ -44,7 +44,7 @@ priv enum DispatchMode {
 /// before the loop (S3 stores it in the handle at construction time).
 fn run_text_intent_dispatch_bench(
   b : @bench.T,
-  member_count : Int,
+  member_count : Int32,
   mode : DispatchMode,
 ) -> Unit {
   let source = json_bench_object(member_count)
@@ -55,7 +55,7 @@ fn run_text_intent_dispatch_bench(
   let caps = make_text_ops_caps(editor)
   // Edit positions: just after the value digit of 4 members spread across
   // the doc. Member i line: `  "k<i>": <i>` — find positions by scanning.
-  let positions : Array[Int] = []
+  let positions : Array[Int32] = []
   let quarter = member_count / 4
   for q in 0..<4 {
     let idx = q * quarter
@@ -126,14 +126,14 @@ test "text intent dispatch - caps optional field (1000 members)" (b : @bench.T) 
 // dispatch itself dominates. 1000 calls per iteration, varied operands.
 
 ///|
-fn dispatch_probe_work(a : Int, c : Int, s : String, t : Int) -> Int {
+fn dispatch_probe_work(a : Int32, c : Int32, s : String, t : Int32) -> Int32 {
   a + c + s.length() + t
 }
 
 ///|
 priv struct ProbeCaps {
-  f : (Int, Int, String, Int) -> Int
-  g : ((Int, Int, String, Int) -> Int)?
+  f : (Int32, Int32, String, Int32) -> Int32
+  g : ((Int32, Int32, String, Int32) -> Int32)?
 }
 
 ///|

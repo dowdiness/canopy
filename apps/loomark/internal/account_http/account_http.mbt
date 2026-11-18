@@ -1,7 +1,8 @@
 ///|
+#derive(Eq, Debug)
 pub struct GoogleAuthorizationUrl {
   priv value : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn GoogleAuthorizationUrl::value(self : Self) -> String {
@@ -21,21 +22,24 @@ pub fn GoogleAuthorizationUrl::parse(value : String) -> GoogleAuthorizationUrl? 
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum LogoutResult {
   SignedOut
   Unconfirmed
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(FromJson)
 priv struct AccountResponse {
   id : String
   name : String
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct AuthorizationResponse {
   url : String
-} derive(FromJson)
+}
 
 ///|
 extenum @cmd.Extension += {
@@ -45,7 +49,7 @@ extenum @cmd.Extension += {
 }
 
 ///|
-fn account_result(status : Int, body : String) -> @sync.AccountResult {
+fn account_result(status : Int32, body : String) -> @sync.AccountResult {
   match status {
     200 =>
       try {

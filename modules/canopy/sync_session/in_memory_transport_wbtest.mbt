@@ -3,7 +3,7 @@ test "InMemoryTransport: two peers exchange messages" {
   let room = InMemoryRoom::new()
   let t_a = InMemoryTransport::new("alice", room)
   let t_b = InMemoryTransport::new("bob", room)
-  let received : Array[Int] = []
+  let received : Array[Int32] = []
   t_b.on_receive(fn(data) { received.push(data.length()) })
   let buf = Buffer()
   buf.write_string_utf16le("hello".view())
@@ -15,7 +15,7 @@ test "InMemoryTransport: two peers exchange messages" {
 test "InMemoryTransport: sender does not receive own message" {
   let room = InMemoryRoom::new()
   let t_a = InMemoryTransport::new("alice", room)
-  let received : Array[Int] = []
+  let received : Array[Int32] = []
   t_a.on_receive(fn(data) { received.push(data.length()) })
   let buf = Buffer()
   buf.write_string_utf16le("hello".view())
@@ -29,8 +29,8 @@ test "InMemoryTransport: three peers broadcast" {
   let t_a = InMemoryTransport::new("alice", room)
   let t_b = InMemoryTransport::new("bob", room)
   let t_c = InMemoryTransport::new("carol", room)
-  let b_msgs : Array[Int] = []
-  let c_msgs : Array[Int] = []
+  let b_msgs : Array[Int32] = []
+  let c_msgs : Array[Int32] = []
   t_b.on_receive(fn(data) { b_msgs.push(data.length()) })
   t_c.on_receive(fn(data) { c_msgs.push(data.length()) })
   let buf = Buffer()
@@ -45,7 +45,7 @@ test "InMemoryTransport: close unregisters peer" {
   let room = InMemoryRoom::new()
   let t_a = InMemoryTransport::new("alice", room)
   let t_b = InMemoryTransport::new("bob", room)
-  let a_received : Array[Int] = []
+  let a_received : Array[Int32] = []
   t_a.on_receive(fn(data) { a_received.push(data.length()) })
   t_a.close()
   // Bob sends after alice closed — alice should not receive

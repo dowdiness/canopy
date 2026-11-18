@@ -24,8 +24,8 @@ fn set_token_span(
 ///|
 fn content_end_before_suffix(
   syntax_node : @seam.SyntaxNode,
-  suffix_start : Int,
-) -> Int {
+  suffix_start : Int32,
+) -> Int32 {
   let mut content_end = suffix_start
   for
     newline in syntax_node.tokens_of_kind(
@@ -51,7 +51,7 @@ fn set_content_span(
   proj_id : @core.NodeId,
   role : String,
   prefix_kind : @markdown.SyntaxKind?,
-  suffix_kind? : @markdown.SyntaxKind? = None,
+  suffix_kind~ : @markdown.SyntaxKind? = None,
 ) -> Unit {
   let content_start = match prefix_kind {
     Some(kind) =>

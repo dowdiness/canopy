@@ -8,19 +8,21 @@ using @spatial {type WorldPoint}
 const LAYOUT_QUANTUM : Double = 16.0
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror LayoutError {
   InvalidRegionWidth(Double)
   InvalidGap(Double)
   NonFiniteGeometry
-  ItemTooWide(item_width~ : Int, bin_width~ : Int)
-  NoPlacement(width~ : Int, height~ : Int)
+  ItemTooWide(item_width~ : Int32, bin_width~ : Int32)
+  NoPlacement(width~ : Int32, height~ : Int32)
   CoordinateOverflow
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct LayoutPlan {
   positions : Array[NodePosition]
-} derive(Eq, Debug)
+}
 
 ///|
 fn LayoutPlan::LayoutPlan(positions~ : Array[NodePosition]) -> LayoutPlan {
@@ -38,7 +40,7 @@ fn finite_number(value : Double) -> Bool {
 }
 
 ///|
-fn quantize_length(value : Double) -> Int raise LayoutError {
+fn quantize_length(value : Double) -> Int32 raise LayoutError {
   guard finite_number(value) else { raise NonFiniteGeometry }
   let scaled = (value * LAYOUT_QUANTUM).ceil()
   guard finite_number(scaled) && scaled <= @int.MAX_VALUE.to_double() else {
@@ -53,7 +55,7 @@ fn quantize_length(value : Double) -> Int raise LayoutError {
 }
 
 ///|
-fn dequantize(offset : Int, origin : Double) -> Double {
+fn dequantize(offset : Int32, origin : Double) -> Double {
   origin + offset.to_double() / LAYOUT_QUANTUM
 }
 
@@ -113,7 +115,7 @@ pub fn compact_region_width(
 pub fn arrange_with_skyline(
   nodes : ArrayView[CanvasNode],
   region_width~ : Double,
-  gap? : Double = 0.0,
+  gap~ : Double = 0.0,
   origin? : WorldPoint,
 ) -> LayoutPlan raise LayoutError {
   guard finite_number(region_width) && region_width > 0.0 else {

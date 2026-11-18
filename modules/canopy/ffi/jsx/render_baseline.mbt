@@ -1,29 +1,30 @@
 ///|
 /// The origin of a successful render and the kind currently being planned.
+#derive(Debug, Eq)
 #warnings("-unused_value")
 priv enum RenderKind {
   Source
   Candidate
-} derive(Debug, Eq)
+}
 
 ///|
 /// Application cap below the signed 32-bit edge. Planning rejects the next
 /// render at this revision before any dry-run or DOM work can begin.
-const MAX_SESSION_REVISION : Int = 2147483646
+const MAX_SESSION_REVISION : Int32 = 2147483646
 
 ///|
 /// The logical state committed only after a successful DOM application.
 priv struct SessionBaseline {
   mounted_origin : RenderKind
   dirty : Bool
-  revision : Int
+  revision : Int32
 }
 
 ///|
 fn SessionBaseline::SessionBaseline(
   mounted_origin~ : RenderKind,
   dirty~ : Bool,
-  revision~ : Int,
+  revision~ : Int32,
 ) -> SessionBaseline {
   { mounted_origin, dirty, revision, }
 }
@@ -62,13 +63,14 @@ fn RenderPlan::RenderPlan(
 }
 
 ///|
+#derive(Debug)
 #warnings("-unused_value")
 priv enum RenderOutcome {
   Success
   DryRunFail
   DomFail
   ProjectionFail
-} derive(Debug)
+}
 
 ///|
 priv enum SessionBaselineEffect {

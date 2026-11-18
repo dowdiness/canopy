@@ -255,11 +255,12 @@ fn resolve_applied_edit(
 }
 
 ///|
+#derive(Eq, Debug)
 priv struct ProjectionReplaySpan {
   edit : @loom_core.Edit
   inserted : String
   source_after : String?
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct PreparedTextAdmission {
@@ -270,8 +271,8 @@ priv struct PreparedTextAdmission {
 ///|
 fn scalar_position_to_utf16_offset(
   source : String,
-  scalar_position : Int,
-) -> Int raise Failure {
+  scalar_position : Int32,
+) -> Int32 raise Failure {
   guard scalar_position >= 0 else {
     fail("negative scalar position in authority text effect")
   }
@@ -360,17 +361,19 @@ fn[T : Eq] SyncEditor::settle_prepared_text_admission(
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum ProjectionReplay {
   Single(@loom_core.Edit)
   Spans(Array[ProjectionReplaySpan])
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum ProjectionContinuation {
   Replay(ProjectionReplay)
   SourceUnchanged
   NeedsSeed
-} derive(Eq, Debug)
+}
 
 ///|
 fn classify_projection_continuation(
@@ -390,18 +393,20 @@ fn classify_projection_continuation(
 }
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv suberror CommittedTransitionRejection {
   NoCausalAdvance
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv struct CommittedTransition {
   before_version : @text.Version
   after_version : @text.Version
   continuation : ProjectionContinuation
-} derive(Eq, Debug)
+}
 
 ///|
 fn CommittedTransition::CommittedTransition(

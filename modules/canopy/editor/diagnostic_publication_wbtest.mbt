@@ -12,7 +12,7 @@ fn publication_fixture(message : String) -> @loom_core.DiagnosticSet {
 ///|
 fn publication_channel(
   producer : String,
-  name? : String = "diagnostics",
+  name~ : String = "diagnostics",
 ) -> DiagnosticPublicationChannel {
   DiagnosticPublicationChannel::new(DiagnosticProducerId(producer), name)
 }
@@ -23,7 +23,10 @@ fn publication_state() -> DiagnosticPublicationState {
 }
 
 ///|
-fn source_revision(source : String, revision : Int) -> DiagnosticSourceRevision {
+fn source_revision(
+  source : String,
+  revision : Int32,
+) -> DiagnosticSourceRevision {
   DiagnosticSourceRevision::new(DiagnosticSourceId::new(source), revision)
 }
 
@@ -31,7 +34,7 @@ fn source_revision(source : String, revision : Int) -> DiagnosticSourceRevision 
 fn with_source(
   state : DiagnosticPublicationState,
   source : String,
-  revision : Int,
+  revision : Int32,
 ) -> DiagnosticPublicationState {
   state.set_source_revision(DiagnosticSourceId::new(source), revision)
 }

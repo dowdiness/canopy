@@ -82,7 +82,7 @@ fn apply_panel_position(
 #cfg(target="js")
 pub fn[T] Model::position_cmd(
   self : Model[T],
-  positioning? : Positioning = Positioning::default(),
+  positioning~ : Positioning = Positioning::default(),
 ) -> @rabbita.Cmd {
   match self.anchor() {
     Some(anchor) => {
@@ -114,7 +114,7 @@ pub fn[T] Model::position_cmd(
 #cfg(not(target="js"))
 pub fn[T] Model::position_cmd(
   self : Model[T],
-  positioning? : Positioning = Positioning::default(),
+  positioning~ : Positioning = Positioning::default(),
 ) -> @rabbita.Cmd {
   ignore((self, positioning))
   @rabbita.none

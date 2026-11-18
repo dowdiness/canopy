@@ -12,8 +12,8 @@ fn source_key(document_id : DocumentId) -> String {
 ///|
 fn encode_document(document : Document) -> String {
   Json::object({
-    "document_id": document.id().value().to_json(),
-    "text": document.text().to_json(),
+    "document_id": Json(document.id().value()),
+    "text": Json(document.text()),
   }).stringify()
 }
 
