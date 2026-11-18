@@ -66,6 +66,29 @@ fn prop_constrained_uses_allowed_x(case_ : PackCase) -> Bool {
 }
 
 ///|
+fn prop_preview_matches_place(case_ : PackCase) -> Bool {
+  let packer = try! Packer(width=case_.bin_width)
+  case_.sizes
+  .iter()
+  .all(size => {
+    let before = packer.skyline.copy()
+    let preview = try! packer.preview(size)
+    let unchanged = packer.skyline.length() == before.length() &&
+      packer.skyline
+      .iter()
+      .zip(before.iter())
+      .all(pair => pair.0.x == pair.1.x && pair.0.y == pair.1.y)
+    let placement = try! packer.place(size)
+    unchanged && preview is Some(f) && f.x == placement.x && f.y == placement.y
+  })
+}
+
+///|
+test "property: preview agrees with place and leaves the skyline unchanged" {
+  @qc.quick_check_fn(prop_preview_matches_place)
+}
+
+///|
 test "property: packed rectangles stay in-bin, disjoint, and match the skyline" {
   @qc.quick_check_fn(prop_in_bin_and_disjoint)
 }

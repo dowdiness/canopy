@@ -195,3 +195,35 @@ test "overflowing a stacked top raises CoordinateOverflow" {
   }
   debug_inspect(result, content="Err(CoordinateOverflow)")
 }
+
+///|
+test "preview reports position and trapped area without placing" {
+  let packer = try! @skyline.Packer::Packer(width=10)
+  ignore(try! packer.place(@skyline.Size::Size(width=4, height=5)))
+  let lowest = try! packer.preview(@skyline.Size::Size(width=6, height=2))
+  debug_inspect(lowest, content="Some({ x: 4, y: 0, trapped_area: 0 })")
+  // Only the part of each skyline segment under the rectangle counts.
+  let at_zero = try! packer.preview(@skyline.Size::Size(width=6, height=2), allowed_x=[
+    0,
+  ])
+  debug_inspect(at_zero, content="Some({ x: 0, y: 5, trapped_area: 10 })")
+  let spanning = try! packer.preview(@skyline.Size::Size(width=10, height=1))
+  debug_inspect(spanning, content="Some({ x: 0, y: 5, trapped_area: 30 })")
+  let placed = try! packer.place(@skyline.Size::Size(width=10, height=1))
+  debug_inspect(
+    placed,
+    content=(
+      #|{ x: 0, y: 5, width: 10, height: 1 }
+    ),
+  )
+}
+
+///|
+test "preview returns None where place has no room" {
+  let packer = try! @skyline.Packer::Packer(width=10, max_height=5)
+  ignore(try! packer.place(@skyline.Size::Size(width=4, height=5)))
+  debug_inspect(
+    try! packer.preview(@skyline.Size::Size(width=10, height=1)),
+    content="None",
+  )
+}

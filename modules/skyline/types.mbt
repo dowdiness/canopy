@@ -39,6 +39,24 @@ fn Placement::Placement(
 }
 
 ///|
+/// Where `Packer::preview` would place a rectangle: its bottom-left corner and
+/// the empty area between the skyline and its bottom edge.
+pub struct PlacementPreview {
+  x : Int
+  y : Int
+  trapped_area : Int64
+} derive(Eq, Debug)
+
+///|
+fn PlacementPreview::PlacementPreview(
+  x~ : Int,
+  y~ : Int,
+  trapped_area~ : Int64,
+) -> PlacementPreview {
+  { x, y, trapped_area, }
+}
+
+///|
 pub struct PackResult {
   placements : Array[Placement]
   height : Int
@@ -131,3 +149,9 @@ pub extend Size with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend Size with Eq::{equal, not_equal}
+
+///|
+pub extend PlacementPreview with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend PlacementPreview with Eq::{equal, not_equal}

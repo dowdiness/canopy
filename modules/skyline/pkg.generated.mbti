@@ -37,6 +37,7 @@ pub fn Packer::Packer(width~ : Int, max_height? : Int) -> Self raise PackError
 pub fn Packer::height(Self) -> Int
 pub fn Packer::place(Self, Size) -> Placement raise PackError
 pub fn Packer::place_constrained(Self, Size, ArrayView[Int]) -> Placement raise PackError
+pub fn Packer::preview(Self, Size, allowed_x? : ArrayView[Int]) -> PlacementPreview? raise PackError
 pub fn Packer::to_repr(Self) -> @debug.Repr
 
 pub struct Placement {
@@ -48,6 +49,15 @@ pub struct Placement {
 pub fn Placement::equal(Self, Self) -> Bool
 pub fn Placement::not_equal(Self, Self) -> Bool
 pub fn Placement::to_repr(Self) -> @debug.Repr
+
+pub struct PlacementPreview {
+  x : Int
+  y : Int
+  trapped_area : Int64
+} derive(Eq, @debug.Debug)
+pub fn PlacementPreview::equal(Self, Self) -> Bool
+pub fn PlacementPreview::not_equal(Self, Self) -> Bool
+pub fn PlacementPreview::to_repr(Self) -> @debug.Repr
 
 pub struct Size {
   width : Int

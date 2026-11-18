@@ -151,6 +151,43 @@ pub fn Packer::place_constrained(
 }
 
 ///|
+/// Area left empty under a rectangle whose bottom edge is `y` over
+/// `[left, right)`. Once the rectangle is placed, the skyline no longer tracks it.
+fn Packer::area_under(self : Packer, left : Int, right : Int, y : Int) -> Int64 {
+  self.skyline
+  .windows(2)
+  .iter()
+  .filter(window => window[1].x > left && window[0].x < right)
+  .fold(init=0L, (total, window) => {
+    let width = right.min(window[1].x) - left.max(window[0].x)
+    total + width.to_int64() * (y - window[0].y).to_int64()
+  })
+}
+
+///|
+/// Show where `place` (or `place_constrained` when `allowed_x` is given)
+/// would put a rectangle, and the empty area it would trap beneath it, without
+/// placing it.
+///
+/// Returns `None` where placing would raise `NoPlacement`. Callers compare the
+/// trapped area of alternative sizes before committing one.
+pub fn Packer::preview(
+  self : Packer,
+  size : Size,
+  allowed_x? : ArrayView[Int],
+) -> PlacementPreview? raise PackError {
+  self.validate_size(size)
+  let candidate = match allowed_x {
+    Some(xs) => self.find_constrained_candidate(size, xs)
+    None => self.find_candidate(size)
+  }
+  candidate.map(c => {
+    let trapped_area = self.area_under(c.x, c.x + size.width, c.y)
+    PlacementPreview(x=c.x, y=c.y, trapped_area~)
+  })
+}
+
+///|
 /// Pack rectangles without changing their order.
 ///
 /// The returned placements have the same indices as the input sizes.

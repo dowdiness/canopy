@@ -24,6 +24,7 @@ moon add dowdiness/skyline
 - Bottom-Left heuristic
 - Non-negative `Int` coordinates
 - Optional explicit X candidates via `place_constrained`
+- Side-effect-free `preview` of a placement and the area it would trap
 
 ## Skyline invariants
 
@@ -47,6 +48,23 @@ inspect((third.x, third.y), content="(0, 4)")
 
 `pack_in_order` is the batch form that preserves input indices. Lookahead
 reordering is intentionally not part of `place`.
+
+## Previewing a placement
+
+The skyline forgets empty space once a rectangle covers it from above.
+`preview` shows where `place` would put a rectangle and how much area it would
+trap that way, without changing the packer. Use it to choose between
+alternative sizes before placing one, for example to fall back to a narrower
+card when the wide one would leave a gap:
+
+```moonbit
+let packer = Packer(width=10)
+ignore(packer.place(Size(width=4, height=5)))
+let wide = packer.preview(Size(width=10, height=1))
+inspect(wide.map(p => (p.y, p.trapped_area)), content="Some((5, 30))")
+```
+
+Pass `allowed_x` to preview `place_constrained`.
 
 ## Coordinates
 
