@@ -1,0 +1,161 @@
+@font-face {
+  font-family: "iA Writer Quattro";
+  src: url("./fonts/iAWriterQuattroS-Regular-2.000.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans JP";
+  src: url("./fonts/IBMPlexSansJP-Regular-1.004.woff2") format("woff2");
+  font-display: swap;
+}
+
+/* Loomark's paper tokens. Card heights and the grid width are measured by
+   shell.mbt, so nothing here is mirrored in MoonBit. */
+:root {
+  color-scheme: light dark;
+  --foundation: oklch(0.972 0.004 85);
+  --paper: oklch(0.991 0.003 85);
+  --ink: oklch(0.25 0.01 70);
+  --muted: oklch(0.53 0.012 70);
+  --rule: oklch(0.89 0.006 80);
+  --accent: oklch(0.47 0.12 264);
+  --accent-soft: oklch(0.94 0.024 264);
+  --hover: color-mix(in oklab, var(--ink) 6%, transparent);
+  --track: color-mix(in oklab, var(--ink) 5%, var(--paper));
+  --ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+  --writing: "iA Writer Quattro", "IBM Plex Sans JP", "Hiragino Sans", "Noto Sans JP", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foundation: oklch(0.175 0.005 70);
+    --paper: oklch(0.2 0.005 70);
+    --ink: oklch(0.9 0.008 80);
+    --muted: oklch(0.67 0.01 80);
+    --rule: oklch(0.32 0.007 70);
+    --accent: oklch(0.78 0.1 264);
+    --accent-soft: oklch(0.31 0.045 264);
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--foundation); color: var(--ink); font: 14px/1.5 var(--ui); }
+[hidden] { display: none !important; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ------------------------------------------------------------ index */
+
+.index { max-width: 1280px; margin: 0 auto; padding: 0 24px 64px; }
+.bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 12px; padding: 14px 0 10px;
+  background: color-mix(in oklab, var(--foundation) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+h1 { margin: 0; font-size: 18px; font-weight: 600; white-space: nowrap; }
+.count { margin-left: 6px; color: var(--muted); font-size: 13px; font-weight: 400; }
+.search { margin-left: auto; flex: 0 1 300px; min-width: 0; }
+.search input {
+  width: 100%; height: 34px; padding: 0 12px;
+  border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--paper); color: inherit; font: inherit;
+}
+.search input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+.new, .back {
+  display: inline-flex; align-items: center; height: 34px; padding: 0 12px;
+  border-radius: 8px; color: inherit; text-decoration: none; white-space: nowrap;
+}
+.new { background: var(--ink); color: var(--paper); }
+.back:hover { background: var(--hover); }
+.new:focus-visible, .back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.options {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 0 0 18px; padding: 8px 0;
+  border-top: 1px dashed var(--rule); border-bottom: 1px dashed var(--rule);
+  color: var(--muted); font-size: 12.5px;
+}
+.options-label { font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
+.toggle {
+  padding: 3px 10px; border: 1px solid var(--rule); border-radius: 6px;
+  background: transparent; color: var(--muted); font: inherit; cursor: pointer;
+}
+.toggle[aria-pressed="true"] { background: var(--paper); color: var(--ink); border-color: color-mix(in oklab, var(--ink) 25%, var(--rule)); }
+.toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.segmented { display: inline-flex; padding: 2px; border-radius: 7px; background: var(--track); }
+.segmented .toggle { border-color: transparent; }
+.segmented .toggle[aria-pressed="true"] { box-shadow: 0 1px 2px oklch(0 0 0 / 0.08); }
+
+/* Measured by shell.mbt: the grid's width, and cards not measured yet. */
+/* The index under the editor: laid out, so cards keep their places, but
+   invisible and out of the way. Hidden content is neither focusable nor read. */
+.index.covered { position: fixed; inset: 0; overflow: hidden; visibility: hidden; }
+.index.grid-width-probe { height: 0; padding-block: 0; overflow: hidden; visibility: hidden; }
+.card-measure { position: absolute; top: 0; left: -100000px; visibility: hidden; }
+.card-measure .card { height: auto; }
+
+/* ------------------------------------------------------------ grid */
+
+.grid { position: relative; margin: 0 auto; padding: 0; list-style: none; }
+.grid.cards > .slot {
+  position: absolute; top: 0; left: 0;
+  transition: transform 260ms cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) { .grid.cards > .slot { transition: none; } }
+.grid.list { max-width: 680px; display: grid; gap: 2px; }
+
+.card {
+  --lh: 21px;
+  position: relative; display: block; height: 100%; overflow: hidden;
+  padding: 14px 16px 15px;
+  border: 1px solid var(--rule); border-radius: 10px;
+  background: var(--paper); color: inherit; text-decoration: none;
+  font-family: var(--writing); font-size: 13.5px; line-height: var(--lh);
+  line-break: strict; overflow-wrap: anywhere;
+  transition: border-color 120ms, box-shadow 120ms, background 900ms;
+}
+.card[lang="ja"] { --lh: 23px; }
+.card:hover { border-color: color-mix(in oklab, var(--ink) 22%, var(--rule)); box-shadow: 0 2px 10px oklch(0 0 0 / 0.05); }
+.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card.just-moved { background: color-mix(in oklab, var(--accent-soft) 70%, var(--paper)); }
+.grid.list .card { border-color: transparent; background: transparent; padding: 10px 14px; }
+.grid.list .card:hover { background: var(--hover); box-shadow: none; }
+
+/* The browser breaks and clamps lead text; shell.mbt measures the result. */
+.lead, .desc {
+  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;
+  white-space: pre-line;
+}
+.lead { -webkit-line-clamp: var(--lead-lines, 3); }
+.desc { -webkit-line-clamp: var(--desc-lines, 6); }
+.grid.list { --lead-lines: 2; --desc-lines: 2; }
+.lead-heading { font-size: 15px; font-weight: 600; }
+.lead-quote { padding-left: 10px; border-left: 2px solid var(--rule); font-style: italic; }
+.card[lang="ja"] .lead-quote { font-style: normal; }
+.lead-code {
+  padding: 8px 10px; border-radius: 6px;
+  background: color-mix(in oklab, var(--ink) 4.5%, var(--paper));
+  font: 12px/18px var(--mono);
+}
+.lead.lead-code { display: block; }
+.code-line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.grid.list .code-line:nth-child(n + 3) { display: none; }
+.lead-task.done { color: var(--muted); text-decoration: line-through; }
+.desc { margin-top: 6px; color: var(--muted); }
+
+.empty { margin: 48px 0; color: var(--muted); text-align: center; }
+
+/* ------------------------------------------------------------ editor */
+
+.editor { max-width: 760px; margin: 0 auto; padding: 0 24px; display: flex; flex-direction: column; height: 100dvh; }
+.editor textarea {
+  flex: 1; width: 100%; margin: 8px 0 24px; padding: 24px 28px;
+  border: 1px solid var(--rule); border-radius: 10px;
+  background: var(--paper); color: inherit; resize: none;
+  font: 16px/1.75 var(--writing);
+}
+.editor textarea:focus { outline: none; border-color: color-mix(in oklab, var(--ink) 25%, var(--rule)); }
+
+@media (max-width: 560px) {
+  .index { padding: 0 14px 48px; }
+}
