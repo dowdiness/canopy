@@ -11,23 +11,112 @@ const GAP : Int = 14
 const FALLBACK_GAP : Int = 60
 
 ///|
-/// A note with its Document lead, parsed once when its text is set.
-priv struct Note {
-  id : String
+/// A document as the index lists it, resolved by the host with the same
+/// states its Recent documents entry shows.
+pub(all) struct Seed {
+  /// Identifies the document's card; unique among the listed documents.
+  key : String
+  /// Where choosing the card leads.
+  href : String
+  text : String
+  status : @recent_documents.RowStatus
+  deletion : @recent_documents.DeletionAvailability
+  /// The document was chosen and is still loading.
+  loading : Bool
+} derive(Eq)
+
+///|
+pub extend Seed with Eq::{equal, not_equal}
+
+///|
+/// What a card says about its document besides its text. Every notice is
+/// drawn over the card, so a card measures the same whatever it says.
+priv enum Notice {
+  Quiet
+  NotSaved
+  Progress(String)
+  Problem(String)
+} derive(Eq, Hash)
+
+///|
+/// What a card lets its reader do.
+priv enum Actions {
+  ChooseOrDelete
+  /// Deleting is not available now, as in Recent documents.
+  ChooseOnly
+  /// The document is being deleted; it stays in place until it is gone.
+  Neither
+} derive(Eq, Hash)
+
+///|
+fn notice_of(seed : Seed) -> Notice {
+  match (seed.deletion, seed.loading, seed.status) {
+    (Pending, _, _) => Progress("Deleting")
+    (Failed(_), _, _) => Problem("Delete failed")
+    (Available(_) | Blocked, true, _) => Progress("Loading document")
+    (Available(_) | Blocked, false, Unsaved) => NotSaved
+    (Available(_) | Blocked, false, Saved) => Quiet
+  }
+}
+
+///|
+fn actions_of(deletion : @recent_documents.DeletionAvailability) -> Actions {
+  match deletion {
+    Available(_) | Failed(_) => ChooseOrDelete
+    Blocked => ChooseOnly
+    Pending => Neither
+  }
+}
+
+///|
+/// A listed document with its Document lead, parsed once when its text is set.
+priv struct Card {
+  key : String
+  href : String
   text : String
   lead : @document_lead.DocumentLead
   /// `text` in lower case, which search matches against.
   search_text : String
+  notice : Notice
+  actions : Actions
 } derive(Eq, Hash)
 
 ///|
-/// Make a note; its lead and search text are derived here and nowhere else.
-fn Note::Note(id : String, text : String) -> Note {
+/// Make a card for `seed`, reusing the lead and search text of `previous`
+/// when its text is the same, so only a changed text is parsed again.
+fn Card::of(seed : Seed, previous : Card?) -> Card {
+  let (lead, search_text) = match previous {
+    Some(card) if card.text == seed.text => (card.lead, card.search_text)
+    _ => (@document_lead.extract(seed.text), seed.text.to_lower())
+  }
   {
-    id,
-    text,
-    lead: @document_lead.extract(text),
-    search_text: text.to_lower(),
+    key: seed.key,
+    href: seed.href,
+    text: seed.text,
+    lead,
+    search_text,
+    notice: notice_of(seed),
+    actions: actions_of(seed.deletion),
+  }
+}
+
+///|
+/// Cards for `seeds` in their order, built on the cards of `previous`.
+fn cards_of(seeds : ArrayView[Seed], previous : Vector[Card]) -> Vector[Card] {
+  let known : Map[String, Card] = Map([])
+  for card in previous {
+    known[card.key] = card
+  }
+  Vector(seeds.map(seed => Card::of(seed, known.get(seed.key))))
+}
+
+///|
+/// What a card is called where it has no room for its text: its lead, or
+/// `Empty document`.
+fn card_label(card : Card) -> String {
+  match card.lead.primary() {
+    "" => "Empty document"
+    primary => primary
   }
 }
 
@@ -37,7 +126,7 @@ fn is_japanese(text : String) -> Bool {
 }
 
 ///|
-/// Long code and long notes read better across two columns.
+/// Long code and long cards read better across two columns.
 fn is_wide(lead : @document_lead.DocumentLead) -> Bool {
   if lead.form() is Code {
     lead.primary().split("\n").any(line => line.length() > 44)
@@ -74,32 +163,32 @@ priv struct CardMeasure {
 } derive(Eq, Hash)
 
 ///|
-/// Whether `note` may take two columns in `columns`.
-fn may_be_wide(note : Note, columns : Columns) -> Bool {
-  columns.count >= 3 && is_wide(note.lead)
+/// Whether `card` may take two columns in `columns`.
+fn may_be_wide(card : Card, columns : Columns) -> Bool {
+  columns.count >= 3 && is_wide(card.lead)
 }
 
 ///|
 /// A card to draw off screen so the shell can measure it.
 priv struct MeasureRequest {
   measure : CardMeasure
-  note : Note
+  card : Card
 } derive(Eq)
 
 ///|
-/// Every width each note's card may be drawn at.
+/// Every width each card's card may be drawn at.
 fn measures_for(
-  notes : Vector[Note],
+  cards : Vector[Card],
   columns : Columns,
 ) -> Array[MeasureRequest] {
-  notes
+  cards
   .iter()
-  .flat_map(note => {
+  .flat_map(card => {
     let at = (span : Int) => {
-      measure: { width: columns.span_width(span), text: note.text, },
-      note,
+      measure: { width: columns.span_width(span), text: card.text, },
+      card,
     }
-    if may_be_wide(note, columns) {
+    if may_be_wide(card, columns) {
       [at(1), at(2)].iter()
     } else {
       [at(1)].iter()
@@ -125,30 +214,30 @@ fn unmeasured_among(
 }
 
 ///|
-/// A note with the measured heights of its card.
-priv struct MeasuredNote {
-  note : Note
+/// A card with its measured heights.
+priv struct MeasuredCard {
+  card : Card
   narrow : Int
-  /// The height at two columns, for a note that may take them.
+  /// The height at two columns, for a card that may take them.
   wide : Int?
 }
 
 ///|
-/// Parse the notes into measured ones, or `None` while any card that may be
+/// Parse the cards into measured ones, or `None` while any card that may be
 /// drawn is not measured yet.
-fn measured_notes(
+fn measured_cards(
   heights : @hashmap.HashMap[CardMeasure, Int],
-  notes : Cursor[Note],
+  cards : Cursor[Card],
   columns : Columns,
-) -> Cursor[MeasuredNote]? {
-  notes.map_all(note => {
+) -> Cursor[MeasuredCard]? {
+  cards.map_all(card => {
     let height = (span : Int) => {
-      heights.get({ width: columns.span_width(span), text: note.text, })
+      heights.get({ width: columns.span_width(span), text: card.text, })
     }
-    match (height(1), may_be_wide(note, columns)) {
-      (Some(narrow), false) => Some({ note, narrow, wide: None, })
+    match (height(1), may_be_wide(card, columns)) {
+      (Some(narrow), false) => Some({ card, narrow, wide: None, })
       (Some(narrow), true) =>
-        height(2).map(wide_height => { note, narrow, wide: Some(wide_height), })
+        height(2).map(wide_height => { card, narrow, wide: Some(wide_height), })
       (None, _) => None
     }
   })
@@ -156,7 +245,7 @@ fn measured_notes(
 
 ///|
 priv struct Placed {
-  note : Note
+  card : Card
   x : Int
   y : Int
   width : Int
@@ -178,11 +267,11 @@ priv struct CardLayout {
 /// start where it fits. A wide card whose placement would trap more than
 /// `FALLBACK_GAP` pixels of column height is placed at one column.
 /// Every card is packed one gap wider and taller than it is drawn.
-fn pack_cards(notes : Cursor[MeasuredNote], columns : Columns) -> CardLayout {
+fn pack_cards(cards : Cursor[MeasuredCard], columns : Columns) -> CardLayout {
   let step = columns.width + GAP
   let starts = Array::makei(columns.count, i => i * step)
   let packer = try! @skyline.Packer(width=columns.count * step)
-  let cards = notes.map(measured => {
+  let cards = cards.map(measured => {
     let narrow = (1, measured.narrow)
     let (span, height) = match measured.wide {
       None => narrow
@@ -201,7 +290,7 @@ fn pack_cards(notes : Cursor[MeasuredNote], columns : Columns) -> CardLayout {
     let size = try! @skyline.Size(width=span * step, height=height + GAP)
     let placement = try! packer.place_constrained(size, starts)
     {
-      note: measured.note,
+      card: measured.card,
       x: placement.x,
       y: placement.y,
       width: columns.span_width(span),
@@ -218,7 +307,7 @@ fn pack_cards(notes : Cursor[MeasuredNote], columns : Columns) -> CardLayout {
 ///|
 fn Placed::rect(self : Placed) -> CardRect {
   {
-    id: self.note.id,
+    id: self.card.key,
     left: self.x,
     top: self.y,
     width: self.width,

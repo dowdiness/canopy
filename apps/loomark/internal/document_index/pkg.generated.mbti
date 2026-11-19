@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/document_index"
+
+import {
+  "dowdiness/loomark/internal/recent_documents",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/sub",
+}
+
+// Values
+pub fn view(@rabbita.Val[DocumentIndex], covered~ : @rabbita.Val[Bool], on_delete~ : @cmd.Emit[String], @cmd.Emit[Msg]) -> @rabbita.Val[@html.Html]
+
+// Errors
+
+// Types and methods
+type DocumentIndex derive(Eq)
+pub fn DocumentIndex::DocumentIndex(ArrayView[Seed], grid_width~ : Double, new_href~ : String) -> Self
+pub fn DocumentIndex::equal(Self, Self) -> Bool
+pub fn DocumentIndex::listing(Self, ArrayView[Seed]) -> Self
+pub fn DocumentIndex::not_equal(Self, Self) -> Bool
+pub fn DocumentIndex::removed(Self, ArrayView[Seed], key~ : String, announcement~ : String) -> (Self, @cmd.Cmd)
+pub fn DocumentIndex::return_focus(Self) -> Self
+pub fn DocumentIndex::returned_from(Self, ArrayView[Seed], key~ : String) -> Self
+pub fn DocumentIndex::subscriptions(Self, HostPage, @cmd.Emit[Msg]) -> @sub.Sub
+pub fn DocumentIndex::update(Self, Msg) -> (Self, @cmd.Cmd)
+
+type HostPage
+pub fn HostPage::HostPage(grid_probe~ : @dom.HTMLElement, fonts~ : @dom.EventTarget) -> Self
+
+type Msg
+
+pub(all) struct Seed {
+  key : String
+  href : String
+  text : String
+  status : @recent_documents.RowStatus
+  deletion : @recent_documents.DeletionAvailability
+  loading : Bool
+} derive(Eq)
+pub fn Seed::equal(Self, Self) -> Bool
+pub fn Seed::not_equal(Self, Self) -> Bool
+
+// Type aliases
+
+// Traits

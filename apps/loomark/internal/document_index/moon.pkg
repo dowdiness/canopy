@@ -1,0 +1,17 @@
+import {
+  "dowdiness/loomark/internal/browser",
+  "dowdiness/loomark/internal/document_lead",
+  "dowdiness/loomark/internal/recent_documents",
+  "dowdiness/loomark/internal/timeout",
+  "dowdiness/skyline",
+  "moonbitlang/core/immut/hashmap",
+  "moonbitlang/core/immut/vector",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/dom",
+  "moonbit-community/rabbita/html",
+  "moonbit-community/rabbita/nav",
+  "moonbit-community/rabbita/sub",
+}
+
+supported_targets = "js"

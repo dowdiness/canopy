@@ -116,7 +116,7 @@ test("a narrower window packs the cards again once the width holds still", async
 })
 
 test("a search marks its matches in any case and keeps cards at their measured heights", async ({ page }) => {
-  await page.locator("#search").fill("WRIT")
+  await page.locator("#document-index-search").fill("WRIT")
   await expect(page.locator(".count")).toHaveText(/^\d+ of \d+$/)
   const marks = await page.locator(".grid mark").allTextContents()
   expect(marks.length).toBeGreaterThan(1)
@@ -126,10 +126,10 @@ test("a search marks its matches in any case and keeps cards at their measured h
 
 test("clearing a search that matched nothing returns to the search field", async ({ page }) => {
   const count = await page.locator(".grid.cards > .slot").count()
-  await page.locator("#search").fill("zzz")
+  await page.locator("#document-index-search").fill("zzz")
   await page.getByRole("button", { name: "Clear search" }).click()
-  await expect(page.locator("#search")).toBeFocused()
-  await expect(page.locator("#search")).toHaveValue("")
+  await expect(page.locator("#document-index-search")).toBeFocused()
+  await expect(page.locator("#document-index-search")).toHaveValue("")
   await expect(page.locator(".grid.cards > .slot")).toHaveCount(count)
 })
 
@@ -230,4 +230,51 @@ test("a note emptied in the editor is removed and focus moves to its place", asy
   await expect(cards).toHaveCount(count - 1)
   await expect(page.locator(`#${ids[2]}`)).toBeFocused()
   await expect(page.locator("[aria-live=polite]")).toHaveText("Removed empty document")
+})
+
+test("a card's trash button follows it in Tab order and deletes after confirmation", async ({ page }) => {
+  const cards = page.locator(".grid.cards > .slot .card")
+  const count = await cards.count()
+  const ids = await cards.evaluateAll(each => each.map(card => card.id))
+  const before = await boxes(page)
+  const second = page.locator(`#${ids[1]}`)
+  const trash = page.locator(`#${ids[1]} + .card-delete`)
+  await second.focus()
+  // The Tab stop, and the trash button with it, follows the focused card
+  // once it is drawn.
+  await expect(trash).toHaveAttribute("tabindex", "0")
+  await page.keyboard.press("Tab")
+  await expect(trash).toBeFocused()
+
+  // Cancel keeps the card and returns to its button.
+  await page.keyboard.press("Enter")
+  const dialog = page.getByRole("dialog")
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole("button", { name: "Cancel" }).click()
+  await expect(dialog).toBeHidden()
+  await expect(cards).toHaveCount(count)
+  await expect(trash).toBeFocused()
+
+  // Escape cancels as well, even after the confirmation was answered once.
+  await page.keyboard.press("Enter")
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(dialog).toBeHidden()
+  await expect(cards).toHaveCount(count)
+
+  await page.keyboard.press("Enter")
+  await dialog.getByRole("button", { name: "Delete document" }).click()
+  // Pending deletion: in place, marked, and not a way into the editor.
+  await expect(page.locator(`#${ids[1]}`)).toHaveAttribute("aria-disabled", "true")
+  await expect(page.getByRole("status").filter({ hasText: "Deleting" })).toBeVisible()
+  expect(await boxes(page)).toEqual(before)
+  await page.locator(`#${ids[1]}`).click({ force: true })
+  await expect(page.getByRole("textbox", { name: "Document text" })).toHaveCount(0)
+
+  await expect(page.locator(`#${ids[1]}`)).toHaveCount(0)
+  await expect(cards).toHaveCount(count - 1)
+  await expect(page.locator(`#${ids[2]}`)).toBeFocused()
+  await expect(page.locator("[aria-live=polite]")).toContainText("Deleted")
+  await packed(page)
+  await expectPackedWell(page)
 })
