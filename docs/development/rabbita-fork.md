@@ -20,11 +20,11 @@ updates still follow the normal Canopy PR and CI workflow.
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
-- **Downstream branch:** `main`
-- **Upstream base:** `b46d141fa3f4971be010d7d5bb5a178dfa20f300` (upstream `main`)
-- **Pinned commit:** `78160a0f73c18c433a453986303c8d616ff71b73`
+- **Downstream branch:** `canopy/rebase-20261119`. Each upstream sync gets a new `canopy/rebase-<date>` branch; earlier branches (and `main`, which stays at `78160a0f73c18c433a453986303c8d616ff71b73`) are kept so earlier pins stay reachable.
+- **Upstream base:** `316bab8d9012540b7af44690da72bdb98c98a256` (upstream `main`, 2026-11-18)
+- **Pinned commit:** `11074559c331178c887d0ea056594317de4a3448`
 - **Pin tag:** None for the current pin; `canopy-worker-20261004` identifies the earlier Worker binding pin.
-- **History:** 17 rebased fork commits, followed by integration fixes, the upstream-only website deployment guard and the Worker binding; no downstream merge commits.
+- **History:** the 25 fork commits rebased onto the upstream base, plus one `style:` commit applying the MoonBit 0.10.21 formatter; no merge commits. 15 of the 26 commits do not type-check on their own, exactly as in the original stack, so the stack is for reading, not for `git bisect`.
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -88,15 +88,16 @@ SSR cannot import this package. See the
 
 ## Upgrade procedure
 
-1. Fetch the upstream and downstream repositories.
-2. Rebase the fork-specific commits onto upstream `main`, keeping the downstream history linear.
-3. Run the full Rabbita test suite.
-4. Run the full Canopy test suite and the affected Ideal E2E tests.
-5. Build the JavaScript artifacts.
-6. Publish the verified downstream `main` and a new pin tag without moving existing tags.
-7. Update the `deps/rabbita` submodule and
+1. Fetch the upstream and downstream repositories. Keep a working clone outside `/tmp` and enable `git config rerere.enabled true`; its cache is local to the clone.
+2. Create `canopy/rebase-<date>` from the current downstream branch and rebase it onto upstream `main`, keeping the history linear. Resolve generated `.mbti` files by taking the upstream side and running `moon info`, never by hand. Check that no commit contains conflict markers (`git grep '^<<<<<<< ' <commit>` for every commit).
+3. Adapt the fork to upstream API changes that merged without a textual conflict (`git range-diff` against the previous stack shows which commits changed), then run `moon check`.
+4. Run the full Rabbita test suite.
+5. Run the full Canopy test suite, `scripts/check-strict.sh` on the default and `--target js` targets after `moon clean`, and the affected Ideal E2E tests. Canopy needs adapting to upstream breaking changes (`!` commits).
+6. Build the JavaScript artifacts.
+7. Push the verified branch (and a new pin tag, without moving existing tags) to `dowdiness/rabbita` only. Never push to, open a pull request against, or comment on `moonbit-community/rabbita`: disable the upstream remote's push URL in the working clone (`git remote set-url --push upstream DISABLED`), and give API calls an explicit `dowdiness/rabbita` repository.
+8. Update the `deps/rabbita` submodule and
    `scripts/install-local-warren.sh` to the same published downstream commit.
-8. Record the new commit and tag here, then verify the superproject is clean.
+9. Record the new commit and tag here, then verify the superproject is clean.
 
 A downstream commit must be pushed to `dowdiness/rabbita` before its gitlink is
 updated in Canopy so fresh recursive checkouts can resolve it.
