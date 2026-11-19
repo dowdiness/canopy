@@ -32,7 +32,7 @@ impl @cmd.Scheduler for FakeScheduler with fn set_url_request_injector(
 }
 
 ///|
-impl @cmd.Context for FakeScheduler with fn get_origin(_self) {
+impl @cmd.Context for FakeScheduler with fn get_base_uri(_self) {
   "test"
 }
 

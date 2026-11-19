@@ -184,7 +184,7 @@ pub fn MarkdownEditor::input_view(
     attrs=self.area.attach(
       @html.Attrs::build()
       .aria_label(label)
-      .autocomplete(Off)
+      .autocomplete("off")
       .autocorrect("off"),
       input => on_change({ input, }),
       on_composing,

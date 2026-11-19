@@ -266,14 +266,34 @@ let op : @cmd.Op = @cmd.Op()..on_invoke((extension, context) => {
   match extension {
     Deliver(account, document_id, operation, done) =>
       @cmd.Async(() => {
-        done(request(context.get_origin(), account, document_id, operation))
+        done(
+          request(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+            account,
+            document_id,
+            operation,
+          ),
+        )
       })
     Get(account, document_id, done) =>
       @cmd.Async(() => {
-        done(request_remote(context.get_origin(), account, document_id))
+        done(
+          request_remote(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+            account,
+            document_id,
+          ),
+        )
       })
     Discover(account, done) =>
-      @cmd.Async(() => done(request_discovery(context.get_origin(), account)))
+      @cmd.Async(() => {
+        done(
+          request_discovery(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+            account,
+          ),
+        )
+      })
     _ => raise @cmd.Unhandled
   }
 })

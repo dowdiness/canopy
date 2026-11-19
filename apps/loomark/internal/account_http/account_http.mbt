@@ -133,11 +133,25 @@ async fn logout_request(origin : String) -> LogoutResult noraise {
 let op : @cmd.Op = @cmd.Op()..on_invoke((extension, context) => {
   match extension {
     ResolveAccount(done) =>
-      @cmd.Async(() => done(resolve_request(context.get_origin())))
+      @cmd.Async(() => {
+        done(
+          resolve_request(@base_uri.origin_of_base_uri(context.get_base_uri())),
+        )
+      })
     RequestAuthorizationUrl(done) =>
-      @cmd.Async(() => done(authorization_request(context.get_origin())))
+      @cmd.Async(() => {
+        done(
+          authorization_request(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+          ),
+        )
+      })
     SignOut(done) =>
-      @cmd.Async(() => done(logout_request(context.get_origin())))
+      @cmd.Async(() => {
+        done(
+          logout_request(@base_uri.origin_of_base_uri(context.get_base_uri())),
+        )
+      })
     _ => raise @cmd.Unhandled
   }
 })

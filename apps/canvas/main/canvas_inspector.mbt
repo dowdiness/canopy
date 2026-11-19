@@ -637,7 +637,7 @@ fn canvas_inspector_input(
     )
     .type_("text")
     .value(canonical)
-    .autocomplete(@html.Off)
+    .autocomplete("off")
     .spellcheck(false)
     .disabled(state.terminal)
     .aria_label(label)
