@@ -89,7 +89,7 @@ priv struct MeasureRequest {
 ///|
 /// Every width each note's card may be drawn at.
 fn measures_for(
-  notes : Array[Note],
+  notes : Vector[Note],
   columns : Columns,
 ) -> Array[MeasureRequest] {
   notes

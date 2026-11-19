@@ -2,6 +2,7 @@ import {
   "dowdiness/loomark/internal/browser",
   "dowdiness/loomark/internal/document_lead",
   "dowdiness/skyline",
+  "dowdiness/loomark/internal/timeout",
   "moonbitlang/core/immut/hashmap",
   "moonbitlang/core/immut/vector",
   "moonbit-community/rabbita",

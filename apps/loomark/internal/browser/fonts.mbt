@@ -44,3 +44,32 @@ pub extern "js" fn when_font_faces_ready(
   callback : () -> Unit,
 ) -> Unit =
   #| (faces, callback) => { faces.ready.then(() => callback()) }
+
+///|
+priv suberror FontsLoaded {
+  FontsLoaded(@dom.EventTarget, @cmd.Cmd)
+}
+
+///|
+/// Send `loaded` whenever font faces finish loading, such as a late web font
+/// or a face for characters not drawn before, while the subscription is
+/// active. `fonts` is the document's `FontFaceSet`, resolved at startup.
+pub fn fonts_loaded(fonts : @dom.EventTarget, loaded : @cmd.Cmd) -> @sub.Sub {
+  @sub.custom_sub("browser.fonts_loaded", Local, FontsLoaded(fonts, loaded), (
+    payload,
+    scheduler,
+  ) => {
+    guard payload is FontsLoaded(fonts, tagger) else { return None }
+    let mut tagger = tagger
+    let report : @dom.Listener = _ => scheduler.queue_command(tagger)
+    fonts.add_event_listener("loadingdone", report)
+    Some({
+      unload: _ => fonts.remove_event_listener("loadingdone", report),
+      update_tagger: payload => {
+        if payload is FontsLoaded(_, next) {
+          tagger = next
+        }
+      },
+    })
+  })
+}

@@ -25,7 +25,11 @@ fn go(model : Model, fragment : String) -> Model {
 fn three_notes() -> Model {
   {
     ..initial_state(IndexRoute, 1232).0,
-    notes: [Note("a", "# Alpha"), Note("b", "# Beta"), Note("c", "# Gamma")],
+    notes: Vector([
+      Note("a", "# Alpha"),
+      Note("b", "# Beta"),
+      Note("c", "# Gamma"),
+    ]),
     next_id: 4,
   }
 }
@@ -50,8 +54,8 @@ fn shown(grid : ShownGrid) -> Array[(String, String)] {
 }
 
 ///|
-fn ids_of(notes : Array[Note]) -> Array[String] {
-  notes.map(note => note.id)
+fn ids_of(notes : Vector[Note]) -> Array[String] {
+  notes.map(note => note.id).to_array()
 }
 
 ///|
@@ -130,17 +134,7 @@ test "Escape in search clears it before it leaves" {
 }
 
 ///|
-test "arrows in the List layout follow the order, from the focused card" {
-  let list = step(step(three_notes(), LayoutChosen(List)), CardFocused("a"))
-  let down = step(list, CardKey(MoveFocus(Down)))
-  assert_eq(down.focused, Some("b"))
-  // A second press before focus has moved still starts from b.
-  assert_eq(step(down, CardKey(MoveFocus(Down))).focused, Some("c"))
-  assert_eq(step(list, CardKey(MoveFocus(Up))).focused, Some("a"))
-}
-
-///|
-test "arrows in the Cards layout follow the grid on screen" {
+test "arrows follow the grid on screen" {
   let packed = step(measured(three_notes(), 50), CardFocused("a"))
   assert_eq(step(packed, CardKey(MoveFocus(Right))).focused, Some("b"))
   // Before the grid is measured there is nothing to move along.

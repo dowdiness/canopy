@@ -16,7 +16,7 @@ let wide_card_under_two : Array[CardRect] = [
 ///|
 /// The layout above with the focus on card `id`.
 fn focused_on(id : String) -> Cursor[CardRect] {
-  Cursor::focus_on(wide_card_under_two, card => card.id == id).unwrap()
+  Cursor::focus_on(Vector(wide_card_under_two), card => card.id == id).unwrap()
 }
 
 ///|
@@ -45,21 +45,23 @@ test "at the right edge, Right continues in reading order" {
 
 ///|
 test "a cursor focuses the wanted item, or the first, and is absent only when empty" {
-  let filtered_out = Cursor::focus_on(["a", "b", "c"], id => id == "z").unwrap()
+  let filtered_out = Cursor::focus_on(Vector(["a", "b", "c"]), id => id == "z").unwrap()
   assert_eq(filtered_out.current, "a")
-  let wanted = Cursor::focus_on(["a", "b", "c"], id => id == "c").unwrap()
+  let wanted = Cursor::focus_on(Vector(["a", "b", "c"]), id => id == "c").unwrap()
   assert_eq(
-    (wanted.before, wanted.current, wanted.after),
+    (wanted.before.to_array(), wanted.current, wanted.after.to_array()),
     (["a", "b"], "c", []),
   )
-  assert_eq(list_neighbour(wanted, Down), None)
-  assert_eq(list_neighbour(wanted, Up), Some("b"))
-  assert_true(Cursor::focus_on([], (_ : String) => true) is None)
+  assert_eq(wanted.next(), None)
+  assert_eq(wanted.previous(), Some("b"))
+  assert_true(Cursor::focus_on(Vector([]), (_ : String) => true) is None)
 }
 
 ///|
 test "card keys move focus only without modifiers or composition" {
-  let press = (key : String) => { key, modified: false, composing: false, }
+  let press = fn(key : String) -> KeyPress {
+    { key, modified: false, composing: false, }
+  }
   assert_true(card_key_action(press("ArrowDown")) is MoveFocus(Down))
   assert_true(card_key_action(press("/")) is FocusSearch)
   assert_true(card_key_action(press("Enter")) is LetBrowserHandle)

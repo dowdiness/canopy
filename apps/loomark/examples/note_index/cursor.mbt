@@ -1,30 +1,43 @@
 ///|
+using @vector {type Vector}
+
+///|
 /// A non-empty sequence with one item in focus. Holding one proves there is
 /// something to show and something holding the tab stop, so code that receives
 /// a cursor never checks for an empty list or a missing focus.
 priv struct Cursor[T] {
-  before : Array[T]
+  before : Vector[T]
   current : T
-  after : Array[T]
+  after : Vector[T]
 } derive(Eq)
 
 ///|
 /// Focus the first item `is_wanted` accepts, or else the first item.
 /// `None` means there are no items: the only case without a focus.
-fn[T] Cursor::focus_on(items : Array[T], is_wanted : (T) -> Bool) -> Cursor[T]? {
-  let at = match items.search_by(is_wanted) {
-    Some(i) => i
-    None => 0
+fn[T] Cursor::focus_on(
+  items : Vector[T],
+  is_wanted : (T) -> Bool,
+) -> Cursor[T]? {
+  let mut at = 0
+  for i in 0..<items.length() {
+    if is_wanted(items[i]) {
+      at = i
+      break
+    }
   }
-  match items.get(at) {
-    Some(current) =>
-      Some({
-        before: items[:at].to_owned(),
-        current,
-        after: items[at + 1:].to_owned(),
-      })
-    None => None
-  }
+  Cursor::at(items, at)
+}
+
+///|
+/// Focus the item at `at`, or `None` when there is none.
+fn[T] Cursor::at(items : Vector[T], at : Int) -> Cursor[T]? {
+  items
+  .get(at)
+  .map(current => {
+    before: items.take(at),
+    current,
+    after: items.drop(at + 1),
+  })
 }
 
 ///|
@@ -39,7 +52,7 @@ fn[T, U] Cursor::map(self : Cursor[T], to_item : (T) -> U) -> Cursor[U] {
 
 ///|
 fn[T] Cursor::to_array(self : Cursor[T]) -> Array[T] {
-  [..self.before, self.current, ..self.after]
+  [..self.before.to_array(), self.current, ..self.after.to_array()]
 }
 
 ///|
@@ -49,24 +62,18 @@ fn[T] Cursor::length(self : Cursor[T]) -> Int {
 
 ///|
 fn[T] Cursor::first(self : Cursor[T]) -> T {
-  match self.before {
-    [first, ..] => first
-    [] => self.current
-  }
+  self.before.get(0).unwrap_or(self.current)
 }
 
 ///|
 fn[T] Cursor::last(self : Cursor[T]) -> T {
-  match self.after {
-    [.., last] => last
-    [] => self.current
-  }
+  self.after.peek().unwrap_or(self.current)
 }
 
 ///|
 /// The item before the focus in reading order; none at the start.
 fn[T] Cursor::previous(self : Cursor[T]) -> T? {
-  self.before.last()
+  self.before.peek()
 }
 
 ///|
@@ -77,8 +84,8 @@ fn[T] Cursor::next(self : Cursor[T]) -> T? {
 
 ///|
 /// Every item except the focused one.
-fn[T] Cursor::others(self : Cursor[T]) -> Array[T] {
-  [..self.before, ..self.after]
+fn[T] Cursor::others(self : Cursor[T]) -> Vector[T] {
+  self.before.concat(self.after)
 }
 
 ///|
@@ -89,10 +96,5 @@ fn[T, U] Cursor::map_all(self : Cursor[T], to_item : (T) -> U?) -> Cursor[U]? {
     guard to_item(item) is Some(mapped) else { return None }
     all.push(mapped)
   }
-  let at = self.before.length()
-  Some({
-    before: all[:at].to_owned(),
-    current: all[at],
-    after: all[at + 1:].to_owned(),
-  })
+  Cursor::at(Vector(all), self.before.length())
 }

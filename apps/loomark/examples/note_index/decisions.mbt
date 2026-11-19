@@ -1,13 +1,7 @@
 // Functional core: decisions over plain values read by the shell.
 
 ///|
-/// The parts of a key press that decide what it does.
-priv struct KeyPress {
-  key : String
-  /// Ctrl, Meta, or Alt is held; such shortcuts stay the browser's.
-  modified : Bool
-  composing : Bool
-}
+using @browser {type KeyPress}
 
 ///|
 priv enum Direction {
@@ -128,16 +122,5 @@ fn neighbour(cards : Cursor[CardRect], direction : Direction) -> CardRect? {
     (None, Right) => cards.next()
     (None, Left) => cards.previous()
     (None, Up | Down) => None
-  }
-}
-
-///|
-/// In the List layout, arrows move through reading order.
-fn[T] list_neighbour(items : Cursor[T], direction : Direction) -> T? {
-  match direction {
-    First => Some(items.first())
-    Last => Some(items.last())
-    Down | Right => items.next()
-    Up | Left => items.previous()
   }
 }

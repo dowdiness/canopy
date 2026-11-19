@@ -4,6 +4,7 @@ import {
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js" @dom_js,
+  "moonbit-community/rabbita/sub",
   "moonbitlang/core/double",
   "moonbitlang/core/string",
 }

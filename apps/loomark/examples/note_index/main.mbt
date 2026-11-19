@@ -1,7 +1,6 @@
 // App code: state transitions and their commands. DOM effects are requested
-// through the shell's `focus_after_render`, `grid_width_subscription`,
-// `card_height_subscription`, `fonts_loaded_subscription`, and
-// `once_after_subscription`.
+// from `@browser` and `@timeout` as subscriptions and commands, such as
+// measuring the grid width and the cards, and moving focus.
 //
 // The Model is shaped so that each page carries exactly what it needs: the
 // note being written travels inside `Writing`. Nothing refers to a note by id
@@ -13,26 +12,8 @@
 using @rabbita {type Cmd, type Emit, type Html, type Val}
 
 ///|
-priv enum Layout {
-  Cards
-  List
-} derive(Eq)
-
-///|
-priv enum CardSize {
-  Small
-  Medium
-  Large
-} derive(Eq)
-
-///|
-fn CardSize::min_width(self : CardSize) -> Int {
-  match self {
-    Small => 200
-    Medium => 250
-    Large => 320
-  }
-}
+/// The narrowest a card column may be; the grid fits as many as it can.
+const MIN_COLUMN : Int = 250
 
 ///|
 /// What the URL asks for, parsed once from its fragment.
@@ -102,11 +83,9 @@ const HIGHLIGHT_MS : Int = 1200
 ///|
 priv struct Model {
   /// Most recently changed first, without a note held by the page.
-  notes : Array[Note]
+  notes : Vector[Note]
   page : Page
   query : String
-  layout : Layout
-  size : CardSize
   /// Width available to the card grid, measured by the shell.
   grid_width : Int
   resize : GridResize
@@ -138,8 +117,8 @@ priv enum Msg {
   FontsLoaded
   Searched(String)
   SearchLeft
-  LayoutChosen(Layout)
-  SizeChosen(CardSize)
+  /// The search was cleared from the empty result; typing resumes there.
+  SearchCleared
   /// The text typed into `Editor`.
   Edited(Editor, String)
   EditorLeft
@@ -179,13 +158,10 @@ fn route_of_href(href : String) -> Route {
 /// The notes the index lists. A note being written is listed as it was when
 /// writing began, so the index behind the editor keeps its measured layout,
 /// and on leaving, the card moves from there to its new place.
-fn listed(model : Model) -> Array[Note] {
+fn listed(model : Model) -> Vector[Note] {
   match model.page {
-    Editing(Writing({ origin: Listed(at~, original~), .. })) => {
-      let notes = model.notes.copy()
-      notes.insert(at, original)
-      notes
-    }
+    Editing(Writing({ origin: Listed(at~, original~), .. })) =>
+      inserted(model.notes, at, original)
     Index | Editing(Writing({ origin: Created, .. }) | Drafting) => model.notes
   }
 }
@@ -194,21 +170,23 @@ fn listed(model : Model) -> Array[Note] {
 /// Every note, with whatever the page holds put back where it belongs once
 /// the page is left: a written note at the front if it changed, otherwise
 /// at its old place.
-fn settled_notes(model : Model) -> Array[Note] {
+fn settled_notes(model : Model) -> Vector[Note] {
   match model.page {
     Editing(Writing({ note, origin: Listed(at~, original~), })) if note.text ==
-      original.text => {
-      let notes = model.notes.copy()
-      notes.insert(at, note)
-      notes
-    }
+      original.text => inserted(model.notes, at, note)
     Editing(Writing({ note, .. })) =>
       match kept(note) {
-        Some(note) => [note, ..model.notes]
+        Some(note) => inserted(model.notes, 0, note)
         None => model.notes
       }
     Index | Editing(Drafting) => model.notes
   }
+}
+
+///|
+/// `notes` with `note` inserted at `at`.
+fn inserted(notes : Vector[Note], at : Int, note : Note) -> Vector[Note] {
+  notes.take(at).push(note).concat(notes.drop(at))
 }
 
 ///|
@@ -223,9 +201,15 @@ fn kept(note : Note) -> Note? {
 }
 
 ///|
+/// The search as notes are matched against it.
+fn search_query(model : Model) -> String {
+  model.query.trim().to_owned().to_lower()
+}
+
+///|
 /// The visible notes with the focused card, or `None` when none match.
 fn visible_cursor(model : Model) -> Cursor[Note]? {
-  let query = model.query.trim().to_owned().to_lower()
+  let query = search_query(model)
   let visible = listed(model).filter(note => {
     query == "" || note.search_text.contains(query)
   })
@@ -234,7 +218,7 @@ fn visible_cursor(model : Model) -> Cursor[Note]? {
 
 ///|
 fn columns(model : Model) -> Columns {
-  columns_for(grid_width=model.grid_width, min_column=model.size.min_width())
+  columns_for(grid_width=model.grid_width, min_column=MIN_COLUMN)
 }
 
 ///|
@@ -242,14 +226,7 @@ fn columns(model : Model) -> Columns {
 /// listed note. All listed notes are measured, not only the visible ones, so
 /// a search never waits for a measurement.
 fn unmeasured(model : Model) -> Array[MeasureRequest] {
-  match model.layout {
-    Cards =>
-      unmeasured_among(
-        model.heights,
-        measures_for(listed(model), columns(model)),
-      )
-    List => []
-  }
+  unmeasured_among(model.heights, measures_for(listed(model), columns(model)))
 }
 
 ///|
@@ -266,9 +243,7 @@ fn to_measure(model : Model) -> Array[MeasureRequest] {
 /// The visible cards packed, once all of them are measured; `None` means the
 /// grid on screen stays as it is.
 fn packed_now(model : Model) -> CardLayout? {
-  guard model.layout is Cards && visible_cursor(model) is Some(visible) else {
-    return None
-  }
+  guard visible_cursor(model) is Some(visible) else { return None }
   let columns = columns(model)
   measured_notes(model.heights, visible, columns).map(notes => {
     pack_cards(notes, columns)
@@ -319,14 +294,10 @@ fn focus_note(model : Model, note : Note) -> Model {
 ///|
 /// Whether the grid the view draws for `model` holds the card of `id`.
 fn shows_card(model : Model, id : String) -> Bool {
-  guard model.page is Index && visible_cursor(model) is Some(visible) else {
-    return false
-  }
-  match (model.layout, model.grid) {
-    (Cards, Packed(layout)) =>
+  match (model.page, model.grid) {
+    (Index, Packed(layout)) =>
       layout.cards.to_array().any(card => card.note.id == id)
-    (Cards, NotMeasured) => false
-    (List, _) => visible.to_array().any(note => note.id == id)
+    (Index, NotMeasured) | (Editing(_), _) => false
   }
 }
 
@@ -365,7 +336,7 @@ fn leave_writing(model : Model, session : Session) -> (Model, Cmd) {
     (Some(note), Listed(_) | Created) => {
       let back = {
         ..model,
-        notes: [note, ..model.notes],
+        notes: inserted(model.notes, 0, note),
         page: Index,
         focused: Some(note.id),
         highlight: Some(note.id),
@@ -378,22 +349,19 @@ fn leave_writing(model : Model, session : Session) -> (Model, Cmd) {
 
 ///|
 fn open_note(model : Model, id : String) -> (Model, Cmd) {
-  let notes = settled_notes(model)
-  match notes.search_by(note => note.id == id) {
-    Some(at) => {
-      let note = notes[at]
-      let rest = notes.copy()
-      rest.remove(at) |> ignore
+  match Cursor::focus_on(settled_notes(model), note => note.id == id) {
+    Some({ before, current: note, after, }) if note.id == id => {
+      let at = before.length()
       (
         {
           ..model,
-          notes: rest,
+          notes: before.concat(after),
           page: Editing(Writing({ note, origin: Listed(at~, original=note), })),
         },
         @cmd.none,
       )
     }
-    None => (model, @nav.replace_url("#/"))
+    _ => (model, @nav.replace_url("#/"))
   }
 }
 
@@ -448,21 +416,21 @@ fn edit(model : Model, editor : Editor, text : String) -> (Model, Cmd) {
 }
 
 ///|
-/// Arrows follow the cards as they are shown: in Cards, the packed grid on
-/// screen.
+/// Arrows follow the cards as they are shown: the packed grid on screen.
 fn move_focus(model : Model, direction : Direction) -> (Model, Cmd) {
-  let next = match (model.layout, model.grid, visible_cursor(model)) {
-    (Cards, Packed(layout), _) =>
+  let next = match model.grid {
+    Packed(layout) =>
       neighbour(layout.cards.map(card => card.rect()), direction).map(card => {
         card.id
       })
-    (Cards, NotMeasured, _) | (List, _, None) => None
-    (List, _, Some(cursor)) =>
-      list_neighbour(cursor, direction).map(note => note.id)
+    NotMeasured => None
   }
   match next {
     Some(id) =>
-      ({ ..model, focused: Some(id), }, focus_after_render(card_dom_id(id)))
+      (
+        { ..model, focused: Some(id), },
+        @browser.focus_after_render(card_dom_id(id)),
+      )
     None => (model, @cmd.none)
   }
 }
@@ -502,14 +470,14 @@ fn transition(model : Model, msg : Msg) -> (Model, Cmd) {
         ("", None) => (model, @cmd.none)
         (_, _) => ({ ..model, query: "", }, @cmd.none)
       }
-    LayoutChosen(layout) => ({ ..model, layout, }, @cmd.none)
-    SizeChosen(size) => ({ ..model, size, }, @cmd.none)
+    SearchCleared =>
+      ({ ..model, query: "", }, @browser.focus_after_render("search"))
     Edited(editor, text) => edit(model, editor, text)
     EditorLeft => (model, @nav.push_url("#/"))
     // Focus moves after the next render; a key pressed before then still
     // starts from the card the model already chose.
     CardKey(MoveFocus(direction)) => move_focus(model, direction)
-    CardKey(FocusSearch) => (model, focus_after_render("search"))
+    CardKey(FocusSearch) => (model, @browser.focus_after_render("search"))
     CardKey(OpenNewDocument) => (model, @nav.push_url("#/new"))
     CardKey(LetBrowserHandle) => (model, @cmd.none)
     CardFocused(id) =>
@@ -523,13 +491,15 @@ fn subscriptions(page : HostPage, model : Model, emit : Emit[Msg]) -> @sub.Sub {
   @sub.batch([
     @sub.on_url_changed(url => emit(UrlChanged(url))),
     @sub.on_url_request(request => emit(UrlRequested(request))),
-    grid_width_subscription(page.grid_probe, width => emit(GridMeasured(width))),
-    fonts_loaded_subscription(page.fonts, emit(FontsLoaded)),
+    @browser.element_width("note-index.grid", page.grid_probe, width => {
+      emit(GridMeasured(width))
+    }),
+    @browser.fonts_loaded(page.fonts, emit(FontsLoaded)),
     match model.resize {
       Steady => @sub.none
       // Keyed by the width, so each change restarts the wait.
       Resizing =>
-        once_after_subscription(
+        @timeout.after(
           "note-index.resize-settled(\{model.grid_width})",
           RESIZE_SETTLE_MS,
           emit(ResizeSettled),
@@ -537,13 +507,13 @@ fn subscriptions(page : HostPage, model : Model, emit : Emit[Msg]) -> @sub.Sub {
     },
     match model.focus_pending {
       Some(id) if shows_card(model, id) =>
-        focus_card_subscription(card_dom_id(id), emit(CardFocused(id)))
+        @browser.focus_when_drawn(card_dom_id(id), emit(CardFocused(id)))
       _ => @sub.none
     },
     match model.highlight {
       None => @sub.none
       Some(id) =>
-        once_after_subscription(
+        @timeout.after(
           "note-index.highlight(\{id})",
           HIGHLIGHT_MS,
           emit(HighlightEnded),
@@ -551,23 +521,26 @@ fn subscriptions(page : HostPage, model : Model, emit : Emit[Msg]) -> @sub.Sub {
     },
     match to_measure(model) {
       [] => @sub.none
-      requests =>
-        card_height_subscription(requests.map(request => request.measure), measured => {
-          emit(CardsMeasured(measured))
-        })
+      requests => {
+        let measures = requests.map(request => request.measure)
+        @browser.rendered_heights(
+          "note-index.cards(\{measures.hash()})",
+          "card-measure",
+          measures,
+          measured => emit(CardsMeasured(measured)),
+        )
+      }
     },
   ])
 }
 
 ///|
 fn initial_state(route : Route, grid_width : Int) -> (Model, Cmd) {
-  let notes = sample_texts.mapi((i, text) => Note("n\{i + 1}", text))
+  let notes = Vector(sample_texts.mapi((i, text) => Note("n\{i + 1}", text)))
   let model = {
     notes,
     page: Index,
     query: "",
-    layout: Cards,
-    size: Medium,
     grid_width,
     resize: Steady,
     highlight: None,

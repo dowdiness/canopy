@@ -5,6 +5,7 @@ import {
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js",
+  "moonbit-community/rabbita/sub",
 }
 
 // Values
@@ -30,7 +31,17 @@ pub fn download(String, String) -> @cmd.Cmd
 
 pub fn element_document(@dom.Element) -> @dom.Document
 
+pub fn element_width(String, @dom.HTMLElement, @cmd.Emit[Double]) -> @sub.Sub
+
+pub fn focus_after_render(String) -> @cmd.Cmd
+
+pub fn focus_when_drawn(String, @cmd.Cmd) -> @sub.Sub
+
+pub fn fonts_loaded(@dom.EventTarget, @cmd.Cmd) -> @sub.Sub
+
 pub fn idle_opacity_animation(@dom.HTMLElement, ArrayView[OpacityKeyframe], duration_ms~ : Double, iterations~ : Double) -> @dom.Animation
+
+pub fn key_press(@dom.KeyboardEvent) -> KeyPress
 
 pub fn load_font_faces(FontFaceSet, String, String) -> Unit
 
@@ -41,6 +52,8 @@ pub fn parse_css_number(String) -> Double
 pub fn play_animation(@dom.Animation) -> Unit
 
 pub fn read(@dom.File, @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd
+
+pub fn[T] rendered_heights(String, String, Array[T], @cmd.Emit[Array[(T, Int)]]) -> @sub.Sub
 
 pub fn replace_text_data(@dom.Node, Int, Int, String) -> Unit
 
@@ -79,6 +92,12 @@ pub enum AnimationClock {
 
 #external
 pub type FontFaceSet
+
+pub(all) struct KeyPress {
+  key : String
+  modified : Bool
+  composing : Bool
+}
 
 pub(all) struct OpacityKeyframe {
   offset : Double

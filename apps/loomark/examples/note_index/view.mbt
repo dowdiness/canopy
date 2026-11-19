@@ -12,13 +12,65 @@ fn marked(text : String, truncated : Bool) -> String {
 }
 
 ///|
-/// A card's Document lead. The browser breaks and clamps its lines.
-fn lead_view(lead : @document_lead.DocumentLead) -> Array[Html] {
+/// `text` with each occurrence of `query`, already in lower case, marked.
+/// Marks only colour the text, so a card measures the same with or without.
+fn matched(text : String, query : String) -> Array[Html] {
+  let lower = text.to_lower()
+  guard query != "" && lower.length() == text.length() else {
+    return [@html.text(text)]
+  }
+  let runs = []
+  let mut from = 0
+  while lower.view(start_offset=from).find(query) is Some(offset) {
+    let at = from + offset
+    let end = at + query.length()
+    if at > from {
+      runs.push(
+        @html.text(text.view(start_offset=from, end_offset=at).to_owned()),
+      )
+    }
+    runs.push(@html.mark(text.view(start_offset=at, end_offset=end).to_owned()))
+    from = end
+  }
+  if from < text.length() {
+    runs.push(@html.text(text.view(start_offset=from).to_owned()))
+  }
+  runs
+}
+
+///|
+/// A Markdown list or task marker drawn as the mark a reader sees.
+fn tidied(line : String) -> String {
+  let markers = [
+    ("- [ ] ", "☐ "),
+    ("- [x] ", "☑ "),
+    ("- [X] ", "☑ "),
+    ("- ", "• "),
+    ("* ", "• "),
+    ("+ ", "• "),
+  ]
+  for marker in markers {
+    if line.has_prefix(marker.0) {
+      return marker.1 + line.view(start_offset=marker.0.length()).to_owned()
+    }
+  }
+  line
+}
+
+///|
+fn tidied_lines(text : String) -> String {
+  text.split("\n").map(line => tidied(line.to_owned())).collect().join("\n")
+}
+
+///|
+/// A card's Document lead, with `query` marked. The browser breaks and
+/// clamps its lines.
+fn lead_view(lead : @document_lead.DocumentLead, query : String) -> Array[Html] {
   let text = marked(lead.primary(), lead.primary_truncated())
   let primary = match lead.form() {
     Empty => @html.nothing
-    Heading => @html.div(class="lead lead-heading", text)
-    Quote => @html.div(class="lead lead-quote", text)
+    Heading => @html.div(class="lead lead-heading", matched(text, query))
+    Quote => @html.div(class="lead lead-quote", matched(text, query))
     Code => {
       let lines = lead
         .primary()
@@ -33,21 +85,28 @@ fn lead_view(lead : @document_lead.DocumentLead) -> Array[Html] {
       )
       @html.div(
         class="lead lead-code",
-        shown.map(line => @html.div(class="code-line", line)),
+        shown.map(line => @html.div(class="code-line", matched(line, query))),
       )
     }
     Task(done) =>
       @html.div(
         class=if done { "lead lead-task done" } else { "lead lead-task" },
-        (if done { "☑ " } else { "☐ " }) + text,
+        matched((if done { "☑ " } else { "☐ " }) + text, query),
       )
-    List(marker) => @html.div(class="lead", marker + " " + text)
-    Plain => @html.div(class="lead", text)
+    List(marker) =>
+      @html.div(class="lead", matched(tidied(marker + " " + text), query))
+    Plain => @html.div(class="lead", matched(text, query))
   }
   let description = match (lead.form(), lead.description()) {
     (Empty, _) | (_, "") => @html.nothing
     (_, description) =>
-      @html.div(class="desc", marked(description, lead.description_truncated()))
+      @html.div(
+        class="desc",
+        matched(
+          tidied_lines(marked(description, lead.description_truncated())),
+          query,
+        ),
+      )
   }
   [primary, description]
 }
@@ -68,6 +127,7 @@ fn card_view(
   note : Note,
   just_arrived : Bool,
   tab_stop : Bool,
+  query : String,
 ) -> Html {
   let lead = note.lead
   let id = note.id
@@ -79,7 +139,7 @@ fn card_view(
     id=card_dom_id(id),
     class=if just_arrived { "card just-moved" } else { "card" },
     attrs~,
-    lead_view(lead),
+    lead_view(lead, query),
   )
 }
 
@@ -96,7 +156,7 @@ fn card_measure_view(requests : Array[MeasureRequest]) -> Html {
         @html.div(
           class="card",
           attrs=card_attrs(request.note),
-          lead_view(request.note.lead),
+          lead_view(request.note.lead, ""),
         ),
       ])
     }),
@@ -104,52 +164,42 @@ fn card_measure_view(requests : Array[MeasureRequest]) -> Html {
 }
 
 ///|
-/// Where a card's slot sits.
-priv enum SlotPlace {
-  PackedAt(x~ : Int, y~ : Int, width~ : Int, height~ : Int)
-  InList
-} derive(Eq, Hash)
-
-///|
-/// Everything one card slot shows. Each card is its own branch of the
-/// incremental graph, so it is rebuilt only when its slot changes.
+/// Everything one card slot shows: its note, placed in the packed grid.
+/// Each card is its own branch of the incremental graph, so it is rebuilt
+/// only when its slot changes.
 priv struct CardSlot {
   note : Note
-  place : SlotPlace
+  x : Int
+  y : Int
+  width : Int
+  height : Int
   tab_stop : Bool
   just_arrived : Bool
+  /// The search, in lower case, whose matches the card marks.
+  query : String
 } derive(Eq, Hash)
 
 ///|
-/// The slots the grid shows, in reading order: the packed grid on screen in
-/// Cards, the visible notes in List.
+/// The slots of the packed grid on screen, in reading order.
 fn card_slots(model : Model) -> @vector.Vector[CardSlot] {
-  let slot = (note : Note, place, tab_stop) => {
-    note,
-    place,
-    tab_stop,
-    just_arrived: model.highlight == Some(note.id),
-  }
-  let slots = match (model.layout, model.grid, visible_cursor(model)) {
-    (_, _, None) | (Cards, NotMeasured, _) => []
-    (Cards, Packed(layout), Some(_)) => {
+  match (model.grid, visible_cursor(model)) {
+    (Packed(layout), Some(_)) => {
       let tab_stop = layout.cards.current.note.id
-      layout.cards
-      .to_array()
-      .map(card => {
-        slot(
-          card.note,
-          PackedAt(x=card.x, y=card.y, width=card.width, height=card.height),
-          card.note.id == tab_stop,
-        )
+      let query = search_query(model)
+      let slots = layout.cards.map(card => {
+        note: card.note,
+        x: card.x,
+        y: card.y,
+        width: card.width,
+        height: card.height,
+        tab_stop: card.note.id == tab_stop,
+        just_arrived: model.highlight == Some(card.note.id),
+        query,
       })
+      @vector.Vector(slots.to_array())
     }
-    (List, _, Some(visible)) =>
-      visible
-      .to_array()
-      .map(note => slot(note, InList, note.id == visible.current.id))
+    (NotMeasured, _) | (_, None) => @vector.Vector([])
   }
-  @vector.Vector(slots)
 }
 
 ///|
@@ -163,37 +213,27 @@ fn card_slot(slot : Val[CardSlot], emit : Emit[Msg]) -> Val[Html] {
 
 ///|
 fn card_slot_view(slot : CardSlot, emit : Emit[Msg]) -> Html {
-  let card = card_view(emit, slot.note, slot.just_arrived, slot.tab_stop)
-  match slot.place {
-    PackedAt(x~, y~, width~, height~) =>
-      @html.li(
-        class="slot",
-        style=[
-          "transform:translate(\{x}px,\{y}px);width:\{width}px;height:\{height}px",
-        ],
-        card,
-      )
-    InList => @html.li(class="slot", card)
-  }
-}
-
-///|
-/// The grid's own box, apart from the cards in it.
-priv struct GridFrame {
-  layout : Layout
-  grid : ShownGrid
-} derive(Eq)
-
-///|
-fn grid_frame(model : Model) -> GridFrame {
-  { layout: model.layout, grid: model.grid, }
+  let card = card_view(
+    emit,
+    slot.note,
+    slot.just_arrived,
+    slot.tab_stop,
+    slot.query,
+  )
+  @html.li(
+    class="slot",
+    style=[
+      "transform:translate(\{slot.x}px,\{slot.y}px);width:\{slot.width}px;height:\{slot.height}px",
+    ],
+    card,
+  )
 }
 
 ///|
 /// Keys pressed on a card reach the grid.
 fn grid_view(
   emit : Emit[Msg],
-  frame : GridFrame,
+  grid : ShownGrid,
   slots : @vector.Vector[CardSlot],
   rows : @vector.Vector[Html],
 ) -> Html {
@@ -201,86 +241,23 @@ fn grid_view(
   for pair in slots.iter().zip(rows.iter()) {
     items[pair.0.note.id] = pair.1
   }
-  let class = match frame.layout {
-    Cards => "grid cards"
-    List => "grid list"
-  }
-  let style = match (frame.layout, frame.grid) {
-    (Cards, Packed(layout)) =>
-      ["width:\{layout.width}px;height:\{layout.height}px"]
-    (Cards, NotMeasured) | (List, _) => []
+  let style = match grid {
+    Packed(layout) => ["width:\{layout.width}px;height:\{layout.height}px"]
+    NotMeasured => []
   }
   @html.ol(
-    class~,
+    class="grid cards",
     style~,
     attrs=@html.Attrs::build()
       .aria_label("Documents, most recently changed first")
       .on_keydown(event => {
-        let action = card_key_action(key_press(event))
+        let action = card_key_action(@browser.key_press(event))
         if action.replaces_default() {
           event.prevent_default()
         }
         emit(CardKey(action))
       }),
     items,
-  )
-}
-
-///|
-fn toggle(label : String, pressed : Bool, on_click : Cmd) -> Html {
-  @html.button(
-    class="toggle",
-    type_="button",
-    attrs=@html.Attrs::build().aria_pressed(pressed.to_string()),
-    on_click~,
-    label,
-  )
-}
-
-///|
-fn segmented(label : String, buttons : Array[Html]) -> Html {
-  @html.div(
-    class="segmented",
-    attrs=@html.Attrs::build().role("group").aria_label(label),
-    buttons,
-  )
-}
-
-///|
-/// The prototype options a reader can change.
-priv struct Options {
-  layout : Layout
-  size : CardSize
-} derive(Eq)
-
-///|
-fn options_of(model : Model) -> Options {
-  { layout: model.layout, size: model.size, }
-}
-
-///|
-fn options_view(model : Options, emit : Emit[Msg]) -> Html {
-  let cards = model.layout == Cards
-  let options = [
-    @html.span(class="options-label", "Prototype"),
-    segmented("Layout", [
-      toggle("Cards", cards, emit(LayoutChosen(Cards))),
-      toggle("List", !cards, emit(LayoutChosen(List))),
-    ]),
-  ]
-  if cards {
-    options.push(
-      segmented("Card size", [
-        toggle("S", model.size == Small, emit(SizeChosen(Small))),
-        toggle("M", model.size == Medium, emit(SizeChosen(Medium))),
-        toggle("L", model.size == Large, emit(SizeChosen(Large))),
-      ]),
-    )
-  }
-  @html.div(
-    class="options",
-    attrs=@html.Attrs::build().role("group").aria_label("Prototype options"),
-    options,
   )
 }
 
@@ -326,12 +303,12 @@ fn header_view(header : Header, emit : Emit[Msg]) -> Html {
         id="search",
         input_type=Search,
         value=header.query,
-        placeholder="Search",
+        placeholder="Search notes",
         on_input=query => emit(Searched(query)),
         attrs=@html.Attrs::build()
           .spellcheck(false)
           .on_keydown(event => {
-            if is_leaving_key(key_press(event)) {
+            if is_leaving_key(@browser.key_press(event)) {
               emit(SearchLeft)
             } else {
               @cmd.none
@@ -339,26 +316,45 @@ fn header_view(header : Header, emit : Emit[Msg]) -> Html {
           }),
       ),
     ]),
-    @html.a(href="#/new", class="new", title="New document (N)", "＋ New"),
+    @html.a(href="#/new", class="new", title="New document (N)", [
+      @html.span(
+        class="new-plus",
+        attrs=@html.Attrs::build().aria_hidden("true"),
+        "+",
+      ),
+      @html.text("New"),
+    ]),
   ])
 }
 
 ///|
-fn documents_view(documents : Documents, grid : Html) -> Html {
+fn documents_view(documents : Documents, grid : Html, emit : Emit[Msg]) -> Html {
   match documents {
     Shown => grid
-    NoDocuments => @html.p(class="empty", "No documents yet")
+    NoDocuments =>
+      @html.div(class="empty", [
+        @html.p(class="empty-title", "No documents yet"),
+        @html.a(href="#/new", class="empty-action", "Write the first one"),
+      ])
     NoMatch(query) =>
-      @html.p(class="empty", "No documents contain “\{query}”")
+      @html.div(class="empty", [
+        @html.p(class="empty-title", "No documents contain “\{query}”"),
+        @html.button(
+          type_="button",
+          class="empty-action",
+          on_click=emit(SearchCleared),
+          "Clear search",
+        ),
+      ])
   }
 }
 
 ///|
 /// The editor exists only while a note or a New document is open.
 fn editor_view(editor : Editor, emit : Emit[Msg]) -> Html {
-  let text = match editor {
-    Writing(session) => session.note.text
-    Drafting => ""
+  let (text, name) = match editor {
+    Writing(session) => (session.note.text, derived_name(session.note))
+    Drafting => ("", "New document")
   }
   @html.section(
     id="editor",
@@ -366,12 +362,15 @@ fn editor_view(editor : Editor, emit : Emit[Msg]) -> Html {
     attrs=@html.Attrs::build().aria_label("Editor"),
     [
       @html.header(class="bar", [
-        @html.a(
-          href="#/",
-          class="back",
-          title="Back to notes (Esc)",
-          "← Notes",
-        ),
+        @html.a(href="#/", class="back", title="Back to notes (Esc)", [
+          @html.span(
+            class="back-arrow",
+            attrs=@html.Attrs::build().aria_hidden("true"),
+            "←",
+          ),
+          @html.text("Notes"),
+        ]),
+        @html.span(class="editor-name", name),
       ]),
       @html.textarea(
         id="editor-text",
@@ -382,7 +381,7 @@ fn editor_view(editor : Editor, emit : Emit[Msg]) -> Html {
           .aria_label("Document text")
           .spellcheck(false)
           .on_keydown(event => {
-            if is_leaving_key(key_press(event)) {
+            if is_leaving_key(@browser.key_press(event)) {
               emit(EditorLeft)
             } else {
               @cmd.none
@@ -399,7 +398,7 @@ fn editor_view(editor : Editor, emit : Emit[Msg]) -> Html {
 /// or the New document alike, until it is left.
 fn editor_page(editing : Val[Editor?], emit : Emit[Msg]) -> Val[Html] {
   let _ = @rabbita.create_state_with_init(
-    init=_ => ((), focus_after_render("editor-text")),
+    init=_ => ((), @browser.focus_after_render("editor-text")),
     update=(_, _ : Unit, _) => ((), @cmd.none),
   )
   editing.view(editor => {
@@ -436,34 +435,30 @@ fn view(model : Val[Model], emit : Emit[Msg]) -> Val[Html] {
   let header = header_and_documents
     .map(pair => pair.0)
     .view(header => header_view(header, emit))
-  let options = index_model
-    .map(options_of)
-    .view(options => options_view(options, emit))
   let slots = index_model.map(card_slots)
   let rows = slots.assoc_by((_, slot) => card_slot(slot, emit), by=slot => {
     slot.note.id
   })
   let grid = index_model
-    .map(grid_frame)
-    .view3(slots, rows, (frame, slots, rows) => {
-      grid_view(emit, frame, slots, rows)
+    .map(model => model.grid)
+    .view3(slots, rows, (grid, slots, rows) => {
+      grid_view(emit, grid, slots, rows)
     })
   let documents = header_and_documents
     .map(pair => pair.1)
-    .view2(grid, documents_view)
+    .view2(grid, (documents, grid) => documents_view(documents, grid, emit))
   // Under the editor the index stays laid out but invisible, rather than
   // `hidden`, so its cards keep their positions and slide from them on return.
   let index_covered = model.map(model => !(model.page is Index))
-  let index = header.view4(options, documents, index_covered, (
+  let index = header.view3(documents, index_covered, (
     header,
-    options,
     documents,
     covered,
   ) => {
     @html.main_(
       id="index",
       class=if covered { "index covered" } else { "index" },
-      [header, options, documents],
+      [header, documents],
     )
   })
   // Outside the index, so cards are measured while it is hidden as well.

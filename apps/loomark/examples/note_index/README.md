@@ -52,8 +52,7 @@ Notes live in memory; reloading restores the samples.
 - Arrow keys move between cards by position, Home and End jump to the first
   and last, `/` focuses Search, and `N` opens a New document. Tab and screen
   readers follow recency order.
-- Resize the window or change the card size; the columns follow the width.
+- Resize the window; the columns follow the width.
 - Long code and notes take two columns. `Packer::preview` places such a
   wide card at one column instead when it would trap more than 60px of
   column height.
-- **List** shows the same leads as one column.
