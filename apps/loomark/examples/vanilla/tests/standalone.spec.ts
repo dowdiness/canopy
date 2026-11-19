@@ -4221,6 +4221,7 @@ for (const destination of ["Split", "Text"] as const) {
     expect(errors).toEqual([])
     // The extra bottom padding permits EOF to retain the old reading depth,
     // rather than forcing the textarea to its absolute scroll limit.
+    console.log('ZZGEOM ' + destination + ' ' + JSON.stringify({ oldPosition, ...(await text.evaluate((element, depth) => { const area = element as HTMLTextAreaElement; const cs = getComputedStyle(area); return { depth, lineHeight: cs.lineHeight, fontFamily: cs.fontFamily, fontSize: cs.fontSize, paddingBottom: cs.paddingBottom, paddingTop: cs.paddingTop, scrollTop: area.scrollTop, scrollHeight: area.scrollHeight, clientHeight: area.clientHeight, lines: area.value.split('\n').length, dpr: window.devicePixelRatio, previewFont: getComputedStyle(document.querySelector('#loomark-preview-scroll h2')!).fontFamily, previewH2LineHeight: getComputedStyle(document.querySelector('#loomark-preview-scroll h2')!).lineHeight } }, depth)) }))
     await expect.poll(() => text.evaluate((element, depth) => {
       const area = element as HTMLTextAreaElement
       const lineHeight = Number.parseFloat(getComputedStyle(area).lineHeight)
