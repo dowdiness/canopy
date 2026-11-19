@@ -1,6 +1,6 @@
 ///|
 fn doc(id : String, text : String) -> Document {
-  Document::create(test_document_id(id), text)
+  Document::create(test_document_id(id), text, ChangeTime(0.0))
 }
 
 ///|
@@ -30,7 +30,7 @@ test "DocumentId parses identity and Document updates exactly" {
   assert_true(rejects_empty_id())
   assert_true(valid_uuid(test_document_id("identity").value()))
   let first = doc("a", "old")
-  assert_eq(first.update("new").text(), "new")
+  assert_eq(first.update("new", ChangeTime(1.0)).text(), "new")
   assert_eq(first.text(), "old")
 }
 
@@ -157,7 +157,10 @@ test "catalog reinterprets an unfinished inline when its paragraph continues" {
 ///|
 test "saving a changed body retains its name and exact new text" {
   let original = doc("a", "# Stable\n\nOld body\n")
-  let edited = original.update("# Stable\n\nNew body 日本語\n")
+  let edited = original.update(
+    "# Stable\n\nNew body 日本語\n",
+    ChangeTime(1.0),
+  )
   let initial = SavedDocuments::from_documents([original]).unwrap()
   let saved = initial.apply(Stored(edited)).unwrap()
   assert_eq(saved.catalog().entries()[0].name(), "Stable")
@@ -236,7 +239,7 @@ test "committed replica removal removes only its account membership" {
 test "replica removal commits identity despite unpersisted newer text" {
   let durable = DocumentReplica(test_account(), doc("one", "durable"))
   let saved = SavedDocuments::from_documents([]).unwrap().apply_replica(durable)
-  guard durable.edit("newer") is EditPlan::Persist(newer) else {
+  guard test_edit(durable, "newer") is EditPlan::Persist(newer) else {
     fail("newer candidate")
   }
   let removed = saved.apply_replica_write(ReplicaWrite::Remove(newer.replica()))

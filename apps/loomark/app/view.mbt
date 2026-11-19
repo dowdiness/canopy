@@ -48,7 +48,13 @@ fn view(
   })
   let on_editor : @rabbita.Emit[EditorUiEvent] = emit.map(event => {
     match event {
-      InputChanged(generation, input) => Msg::InputChanged(generation, input)
+      // Runs when the event is dispatched, so the edit carries its own time.
+      InputChanged(generation, input) =>
+        Msg::InputChanged(
+          generation,
+          input,
+          @source_repository.ChangeTime::now(),
+        )
       CompositionStarted(generation) => Msg::CompositionStarted(generation)
       CompositionEnded(generation) => Msg::CompositionEnded(generation)
       PaneEngaged(pane) => Msg::PaneEngaged(pane)

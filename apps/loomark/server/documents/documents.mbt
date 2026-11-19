@@ -74,7 +74,8 @@ async fn handle_request(
   guard decode_mutation(body, deleting=verb == "DELETE") is Some(mutation) else {
     return error_response("invalid_request", 400)
   }
-  if mutation.text is Some(text) && @utf8.encode(text).length() > MAX_TEXT_BYTES {
+  if mutation.content is Some({ text, .. }) &&
+    @utf8.encode(text).length() > MAX_TEXT_BYTES {
     return error_response("document_too_large", 413)
   }
   match @store.commit(db, owner, id, mutation) {

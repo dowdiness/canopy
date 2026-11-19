@@ -3,7 +3,7 @@
 pub async fn list(db : @d1.Database, owner : String, after : String?) -> Page {
   let rows = db
     .prepare(
-      "SELECT id, revision, deleted, preview FROM loomark_document WHERE owner = ? AND id > ? ORDER BY id LIMIT 101",
+      "SELECT id, revision, deleted, preview, changed_at FROM loomark_document WHERE owner = ? AND id > ? ORDER BY id LIMIT 101",
       [Text(owner), Text(after.unwrap_or(""))],
     )
     .all()
@@ -17,7 +17,7 @@ pub async fn open(db : @d1.Database, owner : String, id : String) -> Document? {
   match
     db
     .prepare(
-      "SELECT id, revision, text, deleted, preview FROM loomark_document WHERE owner = ? AND id = ?",
+      "SELECT id, revision, text, deleted, changed_at FROM loomark_document WHERE owner = ? AND id = ?",
       [Text(owner), Text(id)],
     )
     .first() {
@@ -33,26 +33,38 @@ pub async fn commit(
   id : String,
   mutation : Mutation,
 ) -> CommitResult {
-  let deleted = if mutation.text is None { 1.0 } else { 0.0 }
-  let text_json = match mutation.text {
-    Some(text) => text.to_json()
-    None => Json::null()
+  // A retry repeats the whole request, Change time included.
+  let (deleted, text, preview, changed_at, payload) : (
+    Double,
+    @d1.Value,
+    @d1.Value,
+    @d1.Value,
+    Json,
+  ) = match mutation.content {
+    Some({ text, changed_at, }) =>
+      (
+        0.0,
+        Text(text),
+        Text(@document_lead.extract(text).primary()),
+        Number(changed_at),
+        [
+          id.to_json(),
+          mutation.base_revision.to_json(),
+          text.to_json(),
+          changed_at.to_json(),
+        ],
+      )
+    None =>
+      (
+        1.0,
+        Null,
+        Null,
+        Null,
+        [id.to_json(), mutation.base_revision.to_json(), Json::null()],
+      )
   }
-  let payload : Json = [
-    id.to_json(),
-    mutation.base_revision.to_json(),
-    text_json,
-  ]
   let hash = @crypto.sha256(payload.stringify())
   let next = mutation.base_revision + 1.0
-  let text_parameter = match mutation.text {
-    Some(text) => @d1.Value::Text(text)
-    None => @d1.Value::Null
-  }
-  let preview_parameter = match mutation.text {
-    Some(text) => @d1.Value::Text(@document_lead.extract(text).primary())
-    None => @d1.Value::Null
-  }
   // D1, not a pre-read in application code, enforces the atomic CAS. Admission,
   // document write and receipt commit together; retries keep the original receipt.
   let results = db.batch([
@@ -84,20 +96,22 @@ pub async fn commit(
     ),
     db.prepare(
       (
-        #|INSERT INTO loomark_document (owner, id, revision, text, deleted, preview)
-        #|SELECT ?, ?, ?, ?, ?, ? FROM loomark_receipt
+        #|INSERT INTO loomark_document (owner, id, revision, text, deleted, preview, changed_at)
+        #|SELECT ?, ?, ?, ?, ?, ?, ? FROM loomark_receipt
         #|WHERE owner = ? AND operation_id = ? AND request_hash = ?
         #|ON CONFLICT (owner, id) DO UPDATE SET
-        #|  revision = excluded.revision, text = excluded.text, deleted = excluded.deleted, preview = excluded.preview
+        #|  revision = excluded.revision, text = excluded.text, deleted = excluded.deleted, preview = excluded.preview,
+        #|  changed_at = excluded.changed_at
         #|WHERE loomark_document.revision = ? AND loomark_document.deleted = 0
       ),
       [
         Text(owner),
         Text(id),
         Number(next),
-        text_parameter,
+        text,
         Number(deleted),
-        preview_parameter,
+        preview,
+        changed_at,
         Text(owner),
         Text(mutation.operation_id),
         Text(hash),

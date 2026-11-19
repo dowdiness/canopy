@@ -245,11 +245,10 @@ _Avoid_: locale, translation
 ## 3. Recent Documents & Navigation
 
 **Recent documents**:
-The place for choosing a Loomark document as one continuous, ungrouped list,
-with the most recently changed first within the current page lifetime. A
-Document text change immediately moves its document to the first position, even
-before Autosave succeeds; reopening restores deterministic lexical Document ID
-order; recency is never persisted.
+The place for choosing a Loomark document from the Editor as one continuous,
+ungrouped list, most recently changed first by Change time. A Document text
+change immediately moves its document to the first position, even before
+Autosave succeeds; reopening orders documents by their saved Change time.
 It starts closed on every launch or reload, on both wide and narrow screens.
 On wide screens it shifts the editor as it opens or closes. The sidebar spans the
 viewport height. The same top-left icon opens and closes it at a fixed position;
@@ -315,6 +314,22 @@ success indicator. On compact screens, an attention action or message takes
 priority over the caption; the icon retains the complete accessible name.
 This is a browser-storage status, not a sync or publication confirmation.
 _Avoid_: edit history, backup
+
+**Change time**:
+The time of a Loomark document's latest Document text change, by the clock of
+the device where the change was made. Every Loomark document has one: it is
+taken when the text changes (or when the document is created or imported),
+saved with the text, and carried unchanged with that text to the server and to
+other devices, so every device orders documents the same way. Text that
+becomes equal to a version Loomark already has, its Saved text or a revision
+received from the server, takes that version's Change time. It orders Recent
+documents and the Document index, most recently changed first; documents with
+the same Change time follow Document ID order. Documents saved before Change
+time existed were given the start of 1970 when Loomark upgraded their storage,
+so they keep their earlier order until they next change.
+Change time is ordering metadata: it is not displayed and is not part of
+Document text or Export.
+_Avoid_: updated at, modified date, timestamp
 
 **Unsaved document**:
 A Loomark document whose latest text has not reached browser storage. Loomark

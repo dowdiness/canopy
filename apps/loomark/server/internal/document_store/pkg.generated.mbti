@@ -31,28 +31,39 @@ pub enum CommitResult {
   OperationReused
 }
 
+pub struct Content {
+  text : String
+  changed_at : Double
+}
+pub fn Content::Content(String, Double) -> Self raise StoreError
+
 pub struct Document {
-  metadata : Metadata
-  text : String?
+  id : String
+  revision : Double
+  content : Content?
 }
 
 pub struct Metadata {
   id : String
   revision : Double
-  deleted : Bool
-  preview : String?
+  summary : Summary?
 }
 
 pub struct Mutation {
   operation_id : String
   base_revision : Double
-  text : String?
+  content : Content?
 }
-pub fn Mutation::Mutation(String, Double, String?) -> Self raise StoreError
+pub fn Mutation::Mutation(String, Double, Content?) -> Self raise StoreError
 
 pub struct Page {
   documents : ArrayView[Metadata]
   next : String?
+}
+
+pub struct Summary {
+  preview : String
+  changed_at : Double
 }
 
 // Type aliases

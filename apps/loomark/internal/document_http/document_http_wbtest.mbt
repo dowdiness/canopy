@@ -25,7 +25,11 @@ fn pending_save() -> @source_repository.PendingOperation {
     @source_repository.AccountId::parse("account") catch {
       _ => abort("valid account")
     },
-    @source_repository.Document::create(document_id(), "exact text"),
+    @source_repository.Document::create(
+      document_id(),
+      "exact text",
+      test_change_time(0.0),
+    ),
   )
   guard replica.directive()
     is @source_repository.ReplicaDirective::CreateOperation(draft) else {
@@ -85,7 +89,7 @@ test "mutation JSON is derived from a typed pending operation" {
   assert_eq(
     parse_json(operation_json(save)),
     parse_json(
-      "{\"baseRevision\":0,\"operationId\":\"20000000-0000-4000-8000-000000000002\",\"text\":\"exact text\"}",
+      "{\"baseRevision\":0,\"operationId\":\"20000000-0000-4000-8000-000000000002\",\"text\":\"exact text\",\"changedAt\":0}",
     ),
   )
 
@@ -93,7 +97,11 @@ test "mutation JSON is derived from a typed pending operation" {
     @source_repository.AccountId::parse("account") catch {
       _ => abort("valid account")
     },
-    @source_repository.Document::create(document_id(), "exact text"),
+    @source_repository.Document::create(
+      document_id(),
+      "exact text",
+      test_change_time(0.0),
+    ),
   )
   guard replica.directive()
     is @source_repository.ReplicaDirective::CreateOperation(save_draft) else {
@@ -153,11 +161,12 @@ test "receipt parser accepts only the matching operation" {
 test "remote parser distinguishes present documents and tombstones" {
   assert_true(
     remote_document(
-      "{\"id\":\"10000000-0000-4000-8000-000000000001\",\"revision\":3,\"deleted\":false,\"text\":\"remote\"}",
+      "{\"id\":\"10000000-0000-4000-8000-000000000001\",\"revision\":3,\"deleted\":false,\"text\":\"remote\",\"changedAt\":5}",
       document_id(),
     )
-    is Some(@source_repository.RemoteDocument::Present(revision, "remote")) &&
-    revision.value() == 3.0,
+    is Some(@source_repository.RemoteDocument::Present(revision, content)) &&
+    revision.value() == 3.0 &&
+    content.text() == "remote",
   )
   assert_true(
     remote_document(
@@ -180,7 +189,7 @@ test "remote parser distinguishes present documents and tombstones" {
 test "discovery parser admits only ordered bounded metadata" {
   let first = "10000000-0000-4000-8000-000000000001"
   let second = "10000000-0000-4000-8000-000000000002"
-  let body = "{\"documents\":[{\"id\":\"\{first}\",\"revision\":1,\"deleted\":false,\"preview\":\"First\"},{\"id\":\"\{second}\",\"revision\":2,\"deleted\":true}],\"next\":\"\{second}\"}"
+  let body = "{\"documents\":[{\"id\":\"\{first}\",\"revision\":1,\"deleted\":false,\"preview\":\"First\",\"changedAt\":1},{\"id\":\"\{second}\",\"revision\":2,\"deleted\":true}],\"next\":\"\{second}\"}"
   guard discovery_page(body, None) is Some(page) else {
     fail("valid discovery page")
   }
@@ -202,9 +211,9 @@ async test "HTTP requests complete pagination and reject interrupted bodies" {
   let second_id = "10000000-0000-4000-8000-000000000002"
   install_test_fetch(
     "{\"id\":\"\{first_id}\",\"operationId\":\"20000000-0000-4000-8000-000000000002\",\"revision\":1}",
-    "{\"documents\":[{\"id\":\"\{first_id}\",\"revision\":1,\"deleted\":false,\"preview\":\"First\"}],\"next\":\"\{first_id}\"}",
-    "{\"documents\":[{\"id\":\"\{second_id}\",\"revision\":2,\"deleted\":false,\"preview\":\"Second\"}],\"next\":null}",
-    "{\"documents\":[{\"id\":\"\{first_id}\",\"revision\":1,\"deleted\":false,\"preview\":\"Partial\"}],\"next\":null}",
+    "{\"documents\":[{\"id\":\"\{first_id}\",\"revision\":1,\"deleted\":false,\"preview\":\"First\",\"changedAt\":1}],\"next\":\"\{first_id}\"}",
+    "{\"documents\":[{\"id\":\"\{second_id}\",\"revision\":2,\"deleted\":false,\"preview\":\"Second\",\"changedAt\":2}],\"next\":null}",
+    "{\"documents\":[{\"id\":\"\{first_id}\",\"revision\":1,\"deleted\":false,\"preview\":\"Partial\",\"changedAt\":1}],\"next\":null}",
   )
   defer restore_fetch()
   let account = @source_repository.AccountId::parse("account") catch {
@@ -237,4 +246,11 @@ test "error parser rejects ambiguous response shapes" {
     error_code("{\"error\":\"revision_conflict\",\"extra\":true}"),
     None,
   )
+}
+
+///|
+fn test_change_time(value : Double) -> @source_repository.ChangeTime {
+  @source_repository.ChangeTime::parse(value) catch {
+    _ => abort("change time")
+  }
 }

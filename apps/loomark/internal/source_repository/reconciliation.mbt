@@ -57,13 +57,9 @@ fn reconcile_scan(
   let saved = rebuild_saved_documents(
     documents, issues, observed, replicas, observed_replicas,
   )
-  let selected = match editing {
-    Some(id) =>
-      match saved.find(id) {
-        Some(document) => Some(document)
-        None => saved.all().get(0)
-      }
-    None => saved.all().get(0)
+  let selected = match editing.bind(id => saved.find(id)) {
+    Some(document) => Some(document)
+    None => first_in_index(saved.all(), Document::index_key)
   }
   (saved, selected)
 }

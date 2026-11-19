@@ -1,7 +1,9 @@
 import {
+  "dowdiness/loomark/internal/browser",
   "dowdiness/loomark/internal/document_lead",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/indexed_db",
+  "moonbitlang/async/js_async",
   "moonbitlang/core/double",
   "moonbitlang/core/json",
   "moonbitlang/core/debug",
@@ -13,6 +15,8 @@ import {
 } for "wbtest"
 
 supported_targets = "js"
+
+warnings = "-alert_experimental"
 
 options(
   targets: { "*.mbt": [ "js" ] },

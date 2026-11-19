@@ -23,7 +23,7 @@ pub fn DocumentReplica::directive(self : Self) -> ReplicaDirective {
       } else {
         CreateOperation({
           replica: self,
-          content: PendingContent::Save(document.text()),
+          content: PendingContent::Save(document.content()),
         })
       }
     Live({ phase: Available(remote), .. }) => UpdateAvailable(remote)
@@ -33,16 +33,37 @@ pub fn DocumentReplica::directive(self : Self) -> ReplicaDirective {
 }
 
 ///|
-fn LiveReplica::with_text(self : Self, text : String) -> LiveReplica {
+/// The working copy holding `text` (`Document::working`). The versions this
+/// Replica knows, newest first: an observed remote revision, the saved
+/// baseline, and the current document.
+pub fn LiveReplica::working(
+  self : Self,
+  text : String,
+  changed_at : ChangeTime,
+) -> Document {
+  let known = []
+  if self.phase is (Available(Present(_, remote)) | Diverged(Present(_, remote))) {
+    known.push(remote)
+  }
+  if self.baseline is Saved(_, saved) {
+    known.push(saved)
+  }
+  known.push(self.document.content())
+  self.document.working(text, changed_at, known~)
+}
+
+///|
+fn LiveReplica::with_working(self : Self, working : Document) -> LiveReplica {
+  let text = working.text()
   guard text != self.document.text() else { return self }
-  let edited = { ..self, document: self.document.update(text), }
+  let edited = { ..self, document: working, }
   match self.phase {
     Available(remote) | Diverged(remote) if remote.same_present_text(text) =>
       match remote {
-        RemoteDocument::Present(revision, remote_text) =>
+        RemoteDocument::Present(revision, content) =>
           {
             ..edited,
-            baseline: LiveBaseline::Saved(revision, remote_text),
+            baseline: LiveBaseline::Saved(revision, content),
             phase: LivePhase::Ready,
           }
         Missing | Deleted(_) => abort("present text without a present remote")
@@ -77,10 +98,10 @@ fn LiveReplica::remote_head_advances(self : Self, head : RemoteHead) -> Bool {
 /// cannot be mistaken for synchronized visible text.
 pub fn LiveReplica::relation(
   self : Self,
-  working_text : String,
+  working : Document,
   knowledge : RemoteKnowledge,
 ) -> Relation {
-  let live = self.with_text(working_text)
+  let live = self.with_working(working)
   let known_remote = knowledge.head()
   let remote_ahead = known_remote
     .map(head => live.remote_head_advances(head))
@@ -122,10 +143,13 @@ pub enum EditPlan {
 } derive(Eq, Debug)
 
 ///|
-pub fn DocumentReplica::edit(self : Self, text : String) -> EditPlan {
+pub fn DocumentReplica::edit(self : Self, working : Document) -> EditPlan {
   guard self.state is ReplicaState::Live(live) else { return Unavailable }
-  guard text != live.document.text() else { return Unchanged }
-  let replica = { ..self, state: ReplicaState::Live(live.with_text(text)), }
+  guard working.text() != live.document.text() else { return Unchanged }
+  let replica = {
+    ..self,
+    state: ReplicaState::Live(live.with_working(working)),
+  }
   Persist(Store(replica.advance()))
 }
 
@@ -137,10 +161,10 @@ pub fn RemoteUpdate::accept(self : Self) -> ReplicaWrite {
     abort("remote update without a live replica")
   }
   let state = match self.content {
-    PresentUpdate(revision, text) =>
+    PresentUpdate(revision, content) =>
       ReplicaState::Live({
-        document: live.document.update(text),
-        baseline: LiveBaseline::Saved(revision, text),
+        document: live.document.with_content(content),
+        baseline: LiveBaseline::Saved(revision, content),
         phase: LivePhase::Ready,
       })
     DeletedUpdate(revision) => ReplicaState::Tombstone(revision)
@@ -185,10 +209,10 @@ pub fn DocumentReplica::request_deletion(
       })
     Live({ document, phase: Available(remote) | Diverged(remote), .. }) =>
       match remote {
-        Present(revision, text) =>
+        Present(revision, content) =>
           ReplicaState::Deleting({
             document,
-            baseline: LiveBaseline::Saved(revision, text),
+            baseline: LiveBaseline::Saved(revision, content),
             phase: DeletionPhase::Ready,
           })
         Deleted(revision) => ReplicaState::Tombstone(revision)
@@ -251,16 +275,16 @@ pub fn DocumentReplica::acknowledge(
     raise RevisionMismatch
   }
   let state = match (self.state, operation.content) {
-    (Live(live), Save(text)) =>
+    (Live(live), Save(content)) =>
       ReplicaState::Live({
         ..live,
-        baseline: LiveBaseline::Saved(revision, text),
+        baseline: LiveBaseline::Saved(revision, content),
         phase: LivePhase::Ready,
       })
-    (Deleting(deleting), Save(text)) =>
+    (Deleting(deleting), Save(content)) =>
       ReplicaState::Deleting({
         ..deleting,
-        baseline: LiveBaseline::Saved(revision, text),
+        baseline: LiveBaseline::Saved(revision, content),
         phase: DeletionPhase::Ready,
       })
     (Deleting(_), Delete) => ReplicaState::Tombstone(revision)
@@ -371,13 +395,13 @@ pub fn DocumentReplica::fork(
     raise InvalidRecoveryId
   }
   let recovery = recovery_identity(self.document_id, value)
-  let recovery_document = recovery.document(live.document.text())
+  let recovery_document = recovery.document(live.document)
   let (state, recovery_identity) = match remote {
-    RemoteDocument::Present(revision, text) =>
+    RemoteDocument::Present(revision, content) =>
       (
         ReplicaState::Live({
-          document: live.document.update(text),
-          baseline: LiveBaseline::Saved(revision, text),
+          document: live.document.with_content(content),
+          baseline: LiveBaseline::Saved(revision, content),
           phase: LivePhase::Ready,
         }),
         Some(recovery),
@@ -411,17 +435,19 @@ pub fn DocumentReplica::reconcile(
   }
   if remote.same_content(baseline) ||
     remote.same_present_text(live.document.text()) {
-    guard remote is RemoteDocument::Present(revision, text) else {
+    guard remote is RemoteDocument::Present(revision, content) else {
       return Unchanged
     }
-    let next = {
-      ..self,
-      state: ReplicaState::Live({
-        ..live,
-        baseline: LiveBaseline::Saved(revision, text),
-        phase: LivePhase::Ready,
-      }),
-    }.advance()
+    let settled : LiveReplica = {
+      ..live,
+      baseline: LiveBaseline::Saved(revision, content),
+      phase: LivePhase::Ready,
+    }
+    let document = settled.working(
+      live.document.text(),
+      live.document.changed_at(),
+    )
+    let next = { ..self, state: ReplicaState::Live({ ..settled, document, }), }.advance()
     return Persist(Store(next))
   }
   if live.baseline.same_text(live.document.text()) {
@@ -463,14 +489,14 @@ pub fn DocumentReplica::open(self : Self, required : SavedRevision) -> OpenStep 
     Ready | Sending(_) | Diverged(_) => AwaitSync
     Available(remote) if remote.revision() < required.value() => AwaitSync
     Available(RemoteDocument::Missing | Deleted(_)) => Unavailable
-    Available(Present(revision, text)) =>
+    Available(Present(revision, content)) =>
       Persist(
         Store(
           {
             ..self,
             state: ReplicaState::Live({
-              document: live.document.update(text),
-              baseline: LiveBaseline::Saved(revision, text),
+              document: live.document.with_content(content),
+              baseline: LiveBaseline::Saved(revision, content),
               phase: LivePhase::Ready,
             }),
           }.advance(),

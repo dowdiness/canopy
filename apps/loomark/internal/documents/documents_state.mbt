@@ -145,7 +145,8 @@ fn find_record(records : Array[Record], key : Key) -> Record? {
 }
 
 ///|
-fn prepend_record(records : Array[Record], record : Record) -> Array[Record] {
+/// Record order carries no meaning; the Document index orders by Change time.
+fn add_record(records : Array[Record], record : Record) -> Array[Record] {
   [record] + records
 }
 

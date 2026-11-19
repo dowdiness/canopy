@@ -33,9 +33,15 @@ and the Catalog remains a rebuildable in-memory view rather than a persisted
 aggregate. A `source/v1` value contains only Document ID and exact Saved text.
 Earlier three-field values are preserved as unsupported records rather than
 guessed or migrated. Reload reconstructs `SavedDocuments` in lexical Document
-ID order; no persisted recency metadata exists. During a page lifetime, an
-accepted text change, Import, or promoted New moves that Document to the front.
-Selection and save acknowledgment do not reorder it.
+ID order; no persisted recency metadata exists. (Amended 2026-11-18: every Document
+now carries a required Change time, taken from the device clock when its text
+changes and saved in the Source value as `changed_at`; Replicas and the server
+keep the same value with their text. The Document index is ordered by Change
+time, most recent first, then Document ID, so no in-memory recency list exists.
+Data written before Change time existed is rewritten once, in the IndexedDB
+upgrade to version 2, with the epoch as its Change time; a value without
+`changed_at` is unsupported, as the earlier `change_order` values are.)
+Selection and save acknowledgment do not change a Document's Change time.
 
 A repository with zero valid Sources is a normal `SavedDocuments` value. It does
 not create a Source as a repair. The application opens an ephemeral New
@@ -88,7 +94,7 @@ and remain preserved.
 
 - Delete does not require Trash, a durable tombstone, a persisted Catalog, or a
   mutable repository actor.
-- Empty repositories, New-document promotion, page-local recency, and
+- Empty repositories, New-document promotion, Change time order, and
   acknowledged document changes are part of this contract.
 - The Raw input task updates text and in-memory order only; serialization,
   IndexedDB, and list-content preparation remain outside it.

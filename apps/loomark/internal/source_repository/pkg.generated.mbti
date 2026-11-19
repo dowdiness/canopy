@@ -11,6 +11,10 @@ pub fn create(SavedDocuments, @cmd.Emit[CreateResult]) -> @cmd.Cmd
 
 pub fn delete(SavedDocuments, DocumentId, @cmd.Emit[DeleteResult]) -> @cmd.Cmd
 
+pub fn[T] first_in_index(ArrayView[T], (T) -> IndexKey) -> T?
+
+pub fn index_order(IndexKey, IndexKey) -> Int
+
 pub fn open(@cmd.Emit[OpenResult]) -> @cmd.Cmd
 
 pub fn operation_id(@cmd.Emit[OperationId?]) -> @cmd.Cmd
@@ -39,6 +43,11 @@ pub(all) suberror InvalidAccountId derive(Eq, @debug.Debug)
 pub fn InvalidAccountId::equal(Self, Self) -> Bool
 pub fn InvalidAccountId::not_equal(Self, Self) -> Bool
 pub fn InvalidAccountId::to_repr(Self) -> @debug.Repr
+
+pub(all) suberror InvalidChangeTime derive(Eq, @debug.Debug)
+pub fn InvalidChangeTime::equal(Self, Self) -> Bool
+pub fn InvalidChangeTime::not_equal(Self, Self) -> Bool
+pub fn InvalidChangeTime::to_repr(Self) -> @debug.Repr
 
 pub(all) suberror InvalidOperationId derive(Eq, @debug.Debug)
 pub fn InvalidOperationId::equal(Self, Self) -> Bool
@@ -101,6 +110,26 @@ pub fn CatalogEntry::name(Self) -> String
 pub fn CatalogEntry::not_equal(Self, Self) -> Bool
 pub fn CatalogEntry::to_repr(Self) -> @debug.Repr
 
+pub struct ChangeTime(Double) derive(Compare, Eq, @debug.Debug)
+pub fn ChangeTime::compare(Self, Self) -> Int
+pub fn ChangeTime::equal(Self, Self) -> Bool
+pub fn ChangeTime::not_equal(Self, Self) -> Bool
+pub fn ChangeTime::now() -> Self
+pub fn ChangeTime::op_ge(Self, Self) -> Bool
+pub fn ChangeTime::op_gt(Self, Self) -> Bool
+pub fn ChangeTime::op_le(Self, Self) -> Bool
+pub fn ChangeTime::op_lt(Self, Self) -> Bool
+pub fn ChangeTime::parse(Double) -> Self raise InvalidChangeTime
+pub fn ChangeTime::to_repr(Self) -> @debug.Repr
+pub fn ChangeTime::value(Self) -> Double
+
+pub(all) struct Content(String, ChangeTime) derive(Eq, @debug.Debug)
+pub fn Content::changed_at(Self) -> ChangeTime
+pub fn Content::equal(Self, Self) -> Bool
+pub fn Content::not_equal(Self, Self) -> Bool
+pub fn Content::text(Self) -> String
+pub fn Content::to_repr(Self) -> @debug.Repr
+
 pub(all) enum CreateFailure {
   DocumentIdentityUnavailable
 } derive(Eq, @debug.Debug)
@@ -109,7 +138,7 @@ pub fn CreateFailure::not_equal(Self, Self) -> Bool
 pub fn CreateFailure::to_repr(Self) -> @debug.Repr
 
 pub(all) enum CreateResult {
-  Created(DocumentId)
+  Created(DocumentId, ChangeTime)
   CreateFailed(CreateFailure)
 } derive(Eq, @debug.Debug)
 pub fn CreateResult::equal(Self, Self) -> Bool
@@ -152,14 +181,19 @@ pub fn DeletionPhase::equal(Self, Self) -> Bool
 pub fn DeletionPhase::not_equal(Self, Self) -> Bool
 pub fn DeletionPhase::to_repr(Self) -> @debug.Repr
 
-pub struct Document(DocumentId, String) derive(Eq, @debug.Debug)
-pub fn Document::create(DocumentId, String) -> Self
+pub struct Document(DocumentId, Content) derive(Eq, @debug.Debug)
+pub fn Document::changed_at(Self) -> ChangeTime
+pub fn Document::content(Self) -> Content
+pub fn Document::create(DocumentId, String, ChangeTime) -> Self
 pub fn Document::equal(Self, Self) -> Bool
 pub fn Document::id(Self) -> DocumentId
+pub fn Document::index_key(Self) -> IndexKey
 pub fn Document::not_equal(Self, Self) -> Bool
 pub fn Document::text(Self) -> String
 pub fn Document::to_repr(Self) -> @debug.Repr
-pub fn Document::update(Self, String) -> Self
+pub fn Document::update(Self, String, ChangeTime) -> Self
+pub fn Document::with_content(Self, Content) -> Self
+pub fn Document::working(Self, String, ChangeTime, known~ : Array[Content]) -> Self
 
 pub struct DocumentId(String) derive(Eq, Hash, @debug.Debug)
 pub fn DocumentId::equal(Self, Self) -> Bool
@@ -184,7 +218,7 @@ pub fn DocumentReplica::baseline_revision(Self) -> Double
 pub fn DocumentReplica::directive(Self) -> ReplicaDirective
 pub fn DocumentReplica::document(Self) -> Document?
 pub fn DocumentReplica::document_id(Self) -> DocumentId
-pub fn DocumentReplica::edit(Self, String) -> EditPlan
+pub fn DocumentReplica::edit(Self, Document) -> EditPlan
 pub fn DocumentReplica::equal(Self, Self) -> Bool
 pub fn DocumentReplica::fork(Self, DocumentId) -> ReplicaWrite raise InvalidRecoveryId
 pub fn DocumentReplica::generation(Self) -> Double
@@ -222,9 +256,14 @@ pub fn EditingDocumentHint::not_equal(Self, Self) -> Bool
 pub fn EditingDocumentHint::remember(Self) -> @cmd.Cmd
 pub fn EditingDocumentHint::to_repr(Self) -> @debug.Repr
 
+pub(all) struct IndexKey(ChangeTime, DocumentId) derive(Eq, @debug.Debug)
+pub fn IndexKey::equal(Self, Self) -> Bool
+pub fn IndexKey::not_equal(Self, Self) -> Bool
+pub fn IndexKey::to_repr(Self) -> @debug.Repr
+
 pub enum LiveBaseline {
   Unpublished
-  Saved(SavedRevision, String)
+  Saved(SavedRevision, Content)
 } derive(Eq, @debug.Debug)
 pub fn LiveBaseline::equal(Self, Self) -> Bool
 pub fn LiveBaseline::not_equal(Self, Self) -> Bool
@@ -247,8 +286,9 @@ pub struct LiveReplica {
 } derive(Eq, @debug.Debug)
 pub fn LiveReplica::equal(Self, Self) -> Bool
 pub fn LiveReplica::not_equal(Self, Self) -> Bool
-pub fn LiveReplica::relation(Self, String, RemoteKnowledge) -> Relation
+pub fn LiveReplica::relation(Self, Document, RemoteKnowledge) -> Relation
 pub fn LiveReplica::to_repr(Self) -> @debug.Repr
+pub fn LiveReplica::working(Self, String, ChangeTime) -> Document
 
 pub(all) enum OpenFailure {
   StorageUnavailable
@@ -294,7 +334,7 @@ pub fn OperationId::to_repr(Self) -> @debug.Repr
 pub fn OperationId::value(Self) -> String
 
 pub(all) enum PendingContent {
-  Save(String)
+  Save(Content)
   Delete
 } derive(Eq, @debug.Debug)
 pub fn PendingContent::equal(Self, Self) -> Bool
@@ -321,7 +361,7 @@ pub fn ReconcilePlan::equal(Self, Self) -> Bool
 pub fn ReconcilePlan::not_equal(Self, Self) -> Bool
 pub fn ReconcilePlan::to_repr(Self) -> @debug.Repr
 
-pub struct RecoveryIdentity(Document) derive(Eq, @debug.Debug)
+pub struct RecoveryIdentity(DocumentId) derive(Eq, @debug.Debug)
 pub fn RecoveryIdentity::equal(Self, Self) -> Bool
 pub fn RecoveryIdentity::not_equal(Self, Self) -> Bool
 pub fn RecoveryIdentity::to_repr(Self) -> @debug.Repr
@@ -341,7 +381,7 @@ pub fn Relation::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RemoteDocument {
   Missing
-  Present(SavedRevision, String)
+  Present(SavedRevision, Content)
   Deleted(SavedRevision)
 } derive(Eq, @debug.Debug)
 pub fn RemoteDocument::entry(Self, DocumentId) -> RemoteEntry?
@@ -351,7 +391,7 @@ pub fn RemoteDocument::revision(Self) -> Double
 pub fn RemoteDocument::to_repr(Self) -> @debug.Repr
 
 pub(all) enum RemoteEntry {
-  Present(DocumentId, SavedRevision, String)
+  Present(DocumentId, SavedRevision, String, ChangeTime)
   Deleted(DocumentId, SavedRevision)
 } derive(Eq, @debug.Debug)
 pub fn RemoteEntry::document_id(Self) -> DocumentId

@@ -50,12 +50,15 @@ fn test_revision(value : Double) -> SavedRevision {
 
 ///|
 fn remote_present(revision : Double, text : String) -> RemoteDocument {
-  RemoteDocument::Present(test_revision(revision), text)
+  RemoteDocument::Present(
+    test_revision(revision),
+    Content(text, ChangeTime(0.0)),
+  )
 }
 
 ///|
 fn sync_doc(text : String) -> Document {
-  Document::create(test_document_id("document"), text)
+  Document::create(test_document_id("document"), text, ChangeTime(0.0))
 }
 
 ///|
@@ -79,7 +82,7 @@ fn sending_replica(text : String, operation_id : String) -> DocumentReplica {
 
 ///|
 fn edit_write(replica : DocumentReplica, text : String) -> ReplicaWrite {
-  guard replica.edit(text) is EditPlan::Persist(write) else {
+  guard test_edit(replica, text) is EditPlan::Persist(write) else {
     abort("expected edit write")
   }
   write
@@ -119,16 +122,16 @@ test "relation includes visible text that has not entered a Replica write" {
   )
   let live = replica.live().unwrap()
   assert_eq(
-    live.relation("base", replica.remote_knowledge(None)),
+    live.relation(sync_doc("base"), replica.remote_knowledge(None)),
     Relation::Current,
   )
   assert_eq(
-    live.relation("typing", replica.remote_knowledge(None)),
+    live.relation(sync_doc("typing"), replica.remote_knowledge(None)),
     Relation::LocalAhead,
   )
   assert_eq(
     live.relation(
-      "typing",
+      sync_doc("typing"),
       replica.remote_knowledge(Some(RemoteHead::Present(test_revision(2.0)))),
     ),
     Relation::Concurrent,
@@ -145,14 +148,14 @@ test "relation distinguishes a known remote update from local durability" {
   let live = replica.live().unwrap()
   assert_eq(
     live.relation(
-      "base",
+      sync_doc("base"),
       replica.remote_knowledge(Some(RemoteHead::Present(test_revision(2.0)))),
     ),
     Relation::RemoteAhead,
   )
   assert_eq(
     live.relation(
-      "base",
+      sync_doc("base"),
       replica.remote_knowledge(Some(RemoteHead::Deleted(test_revision(2.0)))),
     ),
     Relation::DeletedRemotely,
@@ -174,7 +177,7 @@ test "newer catalog deletion supersedes an available stored update" {
   let live = available.live().unwrap()
   assert_eq(
     live.relation(
-      "base",
+      sync_doc("base"),
       available.remote_knowledge(Some(RemoteHead::Deleted(test_revision(3.0)))),
     ),
     Relation::DeletedRemotely,
@@ -189,7 +192,10 @@ test "restart resends the exact parsed durable pending operation" {
   }
   assert_eq(operation.operation_id(), test_operation(TEST_OPERATION_1))
   assert_eq(operation.base_revision(), 0.0)
-  assert_eq(operation.content(), PendingContent::Save("first"))
+  assert_eq(
+    operation.content(),
+    PendingContent::Save(Content("first", ChangeTime(0.0))),
+  )
 }
 
 ///|
@@ -201,14 +207,19 @@ test "acknowledgment retains an edit made during sending" {
     .replica()
   assert_true(
     completed.directive() is ReplicaDirective::CreateOperation(draft) &&
-    draft.content() == PendingContent::Save("newer"),
+    draft.content() == PendingContent::Save(Content("newer", ChangeTime(1.0))),
   )
   assert_eq(replica_document(completed).text(), "newer")
   assert_true(
     completed.state
     is ReplicaState::Live(
-      { baseline: LiveBaseline::Saved(_, "first"), phase: LivePhase::Ready, .. }
-    ),
+      {
+        baseline: LiveBaseline::Saved(_, baseline),
+        phase: LivePhase::Ready,
+        ..
+      }
+    ) &&
+    baseline.text() == "first",
   )
 }
 
@@ -231,7 +242,7 @@ test "definitive non-application retires only the matching operation" {
     .replica()
   assert_true(
     rejected.directive() is ReplicaDirective::CreateOperation(draft) &&
-    draft.content() == PendingContent::Save("first"),
+    draft.content() == PendingContent::Save(Content("first", ChangeTime(0.0))),
   )
   let mismatch : Result[ReplicaWrite, ReceiptMismatch] = Ok(
     replica.reject_operation(test_operation(TEST_OPERATION_2)),
@@ -454,7 +465,8 @@ test "editing after a remote-update notice persists divergence before recovery" 
     available.directive(),
     ReplicaDirective::UpdateAvailable(remote_present(2.0, "remote")),
   )
-  guard available.edit("local after notice") is EditPlan::Persist(diverged) else {
+  guard test_edit(available, "local after notice")
+    is EditPlan::Persist(diverged) else {
     fail("expected durable divergence")
   }
   assert_eq(diverged.replica().directive(), ReplicaDirective::RecoveryRequired)
@@ -491,7 +503,10 @@ test "deletion resolves an uncertain save before creating delete operation" {
     fail("resolve save first")
   }
   assert_eq(save.operation_id(), test_operation(TEST_OPERATION_1))
-  assert_eq(save.content(), PendingContent::Save("sent"))
+  assert_eq(
+    save.content(),
+    PendingContent::Save(Content("sent", ChangeTime(0.0))),
+  )
   let resolved = deleting
     .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
     .replica()
@@ -529,7 +544,7 @@ test "deletion rejects an observed tombstone instead of persisting a no-op" {
     },
     Some(DeletionUnavailable::AlreadyDeleted),
   )
-  assert_eq(deleted.edit("later"), EditPlan::Unavailable)
+  assert_eq(test_edit(deleted, "later"), EditPlan::Unavailable)
 }
 
 ///|
@@ -566,4 +581,67 @@ test "ingress rejects malformed identifiers and revisions" {
       _ => true
     },
   )
+}
+
+///|
+/// The replica's working document after the user types `text`.
+fn test_working(replica : DocumentReplica, text : String) -> Document {
+  match replica.document() {
+    Some(document) => document.update(text, ChangeTime(1.0))
+    None => Document::create(replica.document_id(), text, ChangeTime(1.0))
+  }
+}
+
+///|
+fn test_edit(replica : DocumentReplica, text : String) -> EditPlan {
+  replica.edit(test_working(replica, text))
+}
+
+///|
+/// A Replica saved as "base" at 1, edited to "local" at 3, that then observes
+/// a remote "remote" revision at 2.
+fn rule_a_replica(remote : String) -> DocumentReplica raise {
+  let id = test_document_id("document")
+  let saved = DocumentReplica(
+      test_account(),
+      Document::create(id, "base", ChangeTime(1.0)),
+    )
+    |> start_save(TEST_OPERATION_1)
+    |> ReplicaWrite::replica
+  let saved = saved
+    .acknowledge(test_operation(TEST_OPERATION_1), test_revision(1.0))
+    .replica()
+  guard saved.edit(Document::create(id, "local", ChangeTime(3.0)))
+    is EditPlan::Persist(edited) else {
+    abort("edit")
+  }
+  reconcile_change(
+    edited.replica(),
+    RemoteDocument::Present(
+      test_revision(2.0),
+      Content(remote, ChangeTime(2.0)),
+    ),
+  ).replica()
+}
+
+///|
+test "a working copy equal to a known version keeps that version's Change time" {
+  let live = rule_a_replica("remote").live().unwrap()
+  let time = (text : String) => live.working(text, ChangeTime(9.0)).changed_at()
+  assert_eq(time("remote"), ChangeTime(2.0))
+  assert_eq(time("base"), ChangeTime(1.0))
+  assert_eq(time("local"), ChangeTime(3.0))
+  assert_eq(time("new"), ChangeTime(9.0))
+}
+
+///|
+test "a remote revision with the local text gives it the remote Change time" {
+  let settled = rule_a_replica("local")
+  assert_eq(
+    settled.document(),
+    Some(
+      Document::create(test_document_id("document"), "local", ChangeTime(2.0)),
+    ),
+  )
+  assert_eq(settled.directive(), ReplicaDirective::Synchronized)
 }

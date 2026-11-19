@@ -135,7 +135,10 @@ test "local document status exposes sign-in and sync-start states" {
   assert_eq(action.document_id(), document_id("one"))
 
   guard signed_in.page is Editing(editing) else { fail("editing") }
-  let transition = editing.documents.create(document_id("new"))
+  let transition = editing.documents.create(
+    document_id("new"),
+    test_change_time(0.0),
+  )
   let documents = transition.model
   let ephemeral = {
     ..signed_in,
@@ -188,7 +191,7 @@ test "replica status keeps local durability separate from transfer" {
     is @source_repository.ReplicaDirective::Synchronized else {
     fail("synchronized replica")
   }
-  let edited = synchronized.edit("edited")
+  let edited = test_edit(synchronized, "edited")
   guard edited is @source_repository.EditPlan::Persist(write) else {
     fail("edited replica")
   }
@@ -293,7 +296,7 @@ test "unsaved visible text projects durability and relation independently" {
     document,
     status_revision(1.0),
   )
-  guard synchronized.edit("edited")
+  guard test_edit(synchronized, "edited")
     is @source_repository.EditPlan::Persist(write) else {
     fail("edited replica")
   }
@@ -339,7 +342,7 @@ test "network retry cannot become a saving retry" {
     document,
     status_revision(1.0),
   )
-  guard synchronized.edit("sent")
+  guard test_edit(synchronized, "sent")
     is @source_repository.EditPlan::Persist(edited) &&
     edited.replica().directive()
     is @source_repository.ReplicaDirective::CreateOperation(draft) else {
@@ -382,7 +385,7 @@ test "account retry leaves failed replica persistence unchanged" {
     document,
     status_revision(1.0),
   )
-  guard synchronized.edit("edited")
+  guard test_edit(synchronized, "edited")
     is @source_repository.EditPlan::Persist(write) else {
     fail("edited replica")
   }
@@ -427,7 +430,8 @@ test "replica persistence remains actionable without an account session" {
     documents_test_document("one", "base"),
     status_revision(1.0),
   )
-  guard replica.edit("edited") is @source_repository.EditPlan::Persist(write) else {
+  guard test_edit(replica, "edited")
+    is @source_repository.EditPlan::Persist(write) else {
     fail("edited replica")
   }
   let (persistence, attempt) = @replica_persistence.State().submit(write)
@@ -455,13 +459,16 @@ test "fork persistence belongs to its recovery Source until commit" {
     documents_test_document("one", "base"),
     first,
   )
-  let edited = match replica.edit("local") {
+  let edited = match test_edit(replica, "local") {
     @source_repository.EditPlan::Persist(write) => write.replica()
     _ => abort("local edit")
   }
   let divergence = match
     edited.reconcile(
-      @source_repository.RemoteDocument::Present(status_revision(2.0), "remote"),
+      @source_repository.RemoteDocument::Present(
+        status_revision(2.0),
+        @source_repository.Content("remote", test_change_time(0.0)),
+      ),
     ) {
     @source_repository.ReconcilePlan::Persist(write) => write.replica()
     _ => abort("divergence")
@@ -556,7 +563,10 @@ test "remote update capability is projected independently of durability" {
     status_revision(1.0),
   )
   guard synchronized.reconcile(
-      @source_repository.RemoteDocument::Present(status_revision(2.0), "remote"),
+      @source_repository.RemoteDocument::Present(
+        status_revision(2.0),
+        @source_repository.Content("remote", test_change_time(0.0)),
+      ),
     )
     is @source_repository.ReconcilePlan::Persist(write) else {
     fail("remote update")
@@ -567,6 +577,7 @@ test "remote update capability is projected independently of durability" {
       document.id(),
       status_revision(2.0),
       "remote",
+      test_change_time(0.0),
     ),
   )
   guard document_sync_view(status_model(write.replica(), remote_sync))
@@ -629,7 +640,11 @@ test "native callbacks keep their activation across sync-start rekeying" {
   )
   let (changed, _) = test_root_update(
     rekeyed,
-    TextChanged(0, @text_change.TextChange::ReplaceAll("composed")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("composed"),
+      test_change_time(0.0),
+    ),
   )
   let (ended, _) = test_root_update(changed, CompositionEnded(0))
   guard ended.page is Editing(after) else { fail("editing") }

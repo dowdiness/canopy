@@ -154,7 +154,7 @@ pub struct Transition {
 
 ///|
 pub(all) enum Msg {
-  Imported(@source_repository.DocumentId, String)
+  Imported(@source_repository.DocumentId, String, @source_repository.ChangeTime)
   CompositionStarted(Key)
   CompositionEnded(Key)
   RetrySave(Key)
@@ -254,6 +254,17 @@ pub(all) suberror UpdateError {
   DocumentAlreadyExists(Key)
   InvalidAcknowledgment(Key)
 } derive(Eq, Debug)
+
+///|
+/// A document listed in the Document index.
+pub struct ListedDocument {
+  key : Key
+  /// The text its lead is taken from, which lags typing by a short pause.
+  source : String
+  save_status : SaveStatus
+  delete_status : DeleteStatus
+  index_key : @source_repository.IndexKey
+}
 
 ///|
 pub(all) enum SaveStatus {

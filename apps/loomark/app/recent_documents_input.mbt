@@ -38,26 +38,32 @@ fn remote_documents(sync : @sync.State) -> RemoteDocuments {
 fn remote_document_seeds(
   remote : RemoteDocuments,
   membership : DocumentMembership,
-) -> Array[@recent_documents.Seed[@documents.Key]] {
+) -> Array[
+  (@source_repository.IndexKey, @recent_documents.Seed[@documents.Key]),
+] {
   match remote.account {
     Some(account) =>
       remote.entries.filter_map(entry => {
-        guard entry is @source_repository.RemoteEntry::Present(id, _, preview) else {
+        guard entry
+          is @source_repository.RemoteEntry::Present(id, _, preview, changed_at) else {
           return None
         }
         let key = @documents.Key::replica(account, id)
         guard !membership.keys.contains(key) else { return None }
         Some(
-          @recent_documents.Seed::Seed(
-            docid=key,
-            source=preview,
-            selection=if membership.can_activate {
-              @recent_documents.Selection::Selectable
-            } else {
-              @recent_documents.Selection::Blocked
-            },
-            deletion=@recent_documents.DeletionAvailability::Blocked,
-            status=@recent_documents.RowStatus::Saved,
+          (
+            @source_repository.IndexKey(changed_at, id),
+            @recent_documents.Seed::Seed(
+              docid=key,
+              source=preview,
+              selection=if membership.can_activate {
+                @recent_documents.Selection::Selectable
+              } else {
+                @recent_documents.Selection::Blocked
+              },
+              deletion=@recent_documents.DeletionAvailability::Blocked,
+              status=@recent_documents.RowStatus::Saved,
+            ),
           ),
         )
       })
@@ -65,16 +71,19 @@ fn remote_document_seeds(
   }
 }
 
+
 ///|
 /// Resolve app state into the narrow Recent documents feature input.
 fn recent_document_seeds(
   editing : EditingDocument,
-  remote : Array[@recent_documents.Seed[@documents.Key]],
+  remote : Array[
+  (@source_repository.IndexKey, @recent_documents.Seed[@documents.Key]),
+],
 ) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
   let saved = editing.documents
     .recent()
     .filter_map(item => {
-      let (id, source, save, deletion_status) = item
+      let { key: id, source, save_status: save, delete_status: deletion_status, index_key } = item
       guard id == editing.activation.key ||
         deletion_status != @documents.DeleteStatus::DeletePending else {
         return None
@@ -113,14 +122,19 @@ fn recent_document_seeds(
         _ => @recent_documents.RowStatus::Unsaved
       }
       Some(
-        @recent_documents.Seed::Seed(
-          docid=id,
-          source~,
-          selection~,
-          deletion~,
-          status~,
+        (
+          index_key,
+          @recent_documents.Seed::Seed(
+            docid=id,
+            source~,
+            selection~,
+            deletion~,
+            status~,
+          ),
         ),
       )
     })
-  @vector.Vector((saved + remote)[:])
+  let rows = saved + remote
+  rows.sort_by((left, right) => @source_repository.index_order(left.0, right.0))
+  @vector.Vector(rows.map(row => row.1)[:])
 }

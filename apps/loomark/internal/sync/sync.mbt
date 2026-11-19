@@ -507,7 +507,7 @@ fn merge_catalog(
         merged[index].revision().value() => merged[index] = candidate
       Some(index) if candidate.revision() == merged[index].revision() &&
         candidate is @source_repository.RemoteEntry::Deleted(_, _) &&
-        merged[index] is @source_repository.RemoteEntry::Present(_, _, _) =>
+        merged[index] is @source_repository.RemoteEntry::Present(_, _, _, _) =>
         merged[index] = candidate
       Some(_) => ()
       None => merged.push(candidate)
@@ -536,7 +536,7 @@ fn Opening::observe(
   }
   match entry {
     @source_repository.RemoteEntry::Deleted(_, _) => Idle
-    Present(_, _, _) =>
+    Present(_, _, _, _) =>
       match self {
         Ready(_) => Selected(selection)
         Idle | Selected(_) | Fetching(_) | Failed(_) | Persisting(_) => self
@@ -588,7 +588,7 @@ fn remote_advances(
       revision.value() > entry.revision().value() ||
       (
         revision == entry.revision() &&
-        entry is @source_repository.RemoteEntry::Present(_, _, _)
+        entry is @source_repository.RemoteEntry::Present(_, _, _, _)
       )
   }
 }
@@ -692,7 +692,7 @@ fn State::selected_revision(
   guard self.session is Current(account, _) &&
     account == selection.account &&
     self.remote_entry(selection.document_id)
-    is Some(@source_repository.RemoteEntry::Present(_, revision, _)) else {
+    is Some(@source_repository.RemoteEntry::Present(_, revision, _, _)) else {
     return None
   }
   Some(revision)
@@ -704,7 +704,7 @@ pub fn State::select(
   document_id : @source_repository.DocumentId,
 ) -> Self {
   guard self.remote_entry(document_id)
-    is Some(@source_repository.RemoteEntry::Present(_, _, _)) &&
+    is Some(@source_repository.RemoteEntry::Present(_, _, _, _)) &&
     self.session is Current(account, _) else {
     return self
   }
@@ -778,10 +778,11 @@ pub fn State::opened(
     remote,
   )
   match remote {
-    @source_repository.RemoteDocument::Present(revision, text) => {
+    @source_repository.RemoteDocument::Present(revision, content) => {
       let document = @source_repository.Document::create(
         selection.document_id,
-        text,
+        content.text(),
+        content.changed_at(),
       )
       let write = @source_repository.DocumentReplica::receive(
         selection.account,
@@ -1159,9 +1160,9 @@ fn State::retain_compatible_network(
 pub fn State::save(
   self : Self,
   replica : @source_repository.DocumentReplica,
-  text : String,
+  working : @source_repository.Document,
 ) -> (Self, @source_repository.ReplicaWrite?) {
-  match replica.edit(text) {
+  match replica.edit(working) {
     @source_repository.EditPlan::Persist(write) => {
       let self = self.retain_compatible_network(write.replica())
       (self, Some(write))
@@ -1177,9 +1178,9 @@ pub fn State::save(
 pub fn State::delete(
   self : Self,
   replica : @source_repository.DocumentReplica,
-  text : String,
+  working : @source_repository.Document,
 ) -> (Self, @source_repository.ReplicaWrite) {
-  let replica = match replica.edit(text) {
+  let replica = match replica.edit(working) {
     @source_repository.EditPlan::Persist(write) => write.replica()
     Unchanged => replica
     Unavailable => abort("deletion requested without a live replica")
@@ -1426,10 +1427,10 @@ pub fn State::delivery_too_large(
     raise StaleWork
   }
   let unchanged = match (durable.is_deleting(), operation.content()) {
-    (false, @source_repository.PendingContent::Save(text)) =>
+    (false, @source_repository.PendingContent::Save(content)) =>
       durable
       .document()
-      .map(document => document.text() == text)
+      .map(document => document.text() == content.text())
       .unwrap_or(false)
     (true, Save(_)) | (_, Delete) => false
   }

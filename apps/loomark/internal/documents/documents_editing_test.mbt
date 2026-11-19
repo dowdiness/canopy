@@ -10,7 +10,11 @@ fn editing_fixture_document(
   id : String,
   text : String,
 ) -> @source_repository.Document {
-  @source_repository.Document::create(editing_fixture_id(id), text)
+  @source_repository.Document::create(
+    editing_fixture_id(id),
+    text,
+    test_change_time(0.0),
+  )
 }
 
 ///|
@@ -36,8 +40,8 @@ fn editing_recent_text(
   let entries = model.recent()
   entries
   .exact_view()
-  .search_by(entry => entry.0 == key)
-  .map(index => entries[index].1)
+  .search_by(entry => entry.key == key)
+  .map(index => entries[index].source)
 }
 
 ///|
@@ -51,7 +55,8 @@ fn editing_applied(outcome : @documents.Update) -> @documents.Transition raise {
 ///|
 test "editing updates text immediately but publishes Recent after the quiet callback" {
   let key = editing_fixture_key("a0000000-0000-4000-8000-000000000011")
-  let (documents, _) = match editing_fixture_model().edit(key, "changed") {
+  let (documents, _) = match
+    editing_fixture_model().edit(key, "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -62,7 +67,8 @@ test "editing updates text immediately but publishes Recent after the quiet call
     fail("expected a pending edit")
   }
 
-  let (documents, _) = match documents.edit(key, "newer") {
+  let (documents, _) = match
+    documents.edit(key, "newer", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -87,11 +93,13 @@ test "editing updates text immediately but publishes Recent after the quiet call
 ///|
 test "returning exactly to saved text cancels pending work and Recent lead" {
   let key = editing_fixture_key("a0000000-0000-4000-8000-000000000011")
-  let (documents, _) = match editing_fixture_model().edit(key, "changed") {
+  let (documents, _) = match
+    editing_fixture_model().edit(key, "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
-  let (documents, effects) = match documents.edit(key, "one") {
+  let (documents, effects) = match
+    documents.edit(key, "one", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -108,7 +116,7 @@ test "first edit to New establishes a public Recent entry" {
   let documents = @documents.Model(
     @source_repository.SavedDocuments::from_documents([]).unwrap(),
   )
-  let created = documents.create(id)
+  let created = documents.create(id, test_change_time(0.0))
   let key = @documents.Key::source(id)
   assert_eq(
     created.model.document(key).map(document => document.text()),
@@ -117,7 +125,8 @@ test "first edit to New establishes a public Recent entry" {
   assert_eq(editing_recent_text(created.model, key), None)
   assert_true(created.effects.is_empty())
   assert_eq(created.model.snapshot(), documents.snapshot())
-  let (documents, _) = match created.model.edit(key, "first") {
+  let (documents, _) = match
+    created.model.edit(key, "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -132,7 +141,7 @@ test "empty Import is immediately visible and requests persistence" {
   let created = editing_applied(
     @documents.Model(
       @source_repository.SavedDocuments::from_documents([]).unwrap(),
-    ).update(Imported(id, "")),
+    ).update(Imported(id, "", test_change_time(0.0))),
   )
   guard created.effects is [PersistSource(operation)] else {
     fail("empty Import must persist immediately")
@@ -151,7 +160,7 @@ test "saved activation remains resumable while an ephemeral New does not" {
   let original_id = editing_fixture_id("a0000000-0000-4000-8000-000000000011")
   let original_key = @documents.Key::source(original_id)
   let (documents, _) = match
-    editing_fixture_model().edit(original_key, "one!") {
+    editing_fixture_model().edit(original_key, "one!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -166,7 +175,7 @@ test "saved activation remains resumable while an ephemeral New does not" {
   )
 
   let new_id = editing_fixture_id("a0000000-0000-4000-8000-000000000015")
-  let documents = documents.create(new_id).model
+  let documents = documents.create(new_id, test_change_time(0.0)).model
   let new_key = @documents.Key::source(new_id)
   assert_eq(
     documents.document(new_key).map(document => document.text()),
@@ -178,21 +187,22 @@ test "saved activation remains resumable while an ephemeral New does not" {
 ///|
 test "duplicate text edit is SameText" {
   let key = editing_fixture_key("a0000000-0000-4000-8000-000000000011")
-  let (documents, _) = match editing_fixture_model().edit(key, "one!") {
+  let (documents, _) = match
+    editing_fixture_model().edit(key, "one!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
-  assert_true(documents.edit(key, "one!") is SameText)
+  assert_true(documents.edit(key, "one!", test_change_time(0.0)) is SameText)
 }
 
 ///|
 test "creation rejects saved and ephemeral identities without replacing their documents" {
   let existing_id = editing_fixture_id("a0000000-0000-4000-8000-000000000011")
   let new_id = editing_fixture_id("a0000000-0000-4000-8000-000000000016")
-  let documents = editing_fixture_model().create(new_id).model
+  let documents = editing_fixture_model().create(new_id, test_change_time(0.0)).model
   for id in [existing_id, new_id] {
     let refusal = try {
-      ignore(documents.create(id))
+      ignore(documents.create(id, test_change_time(0.0)))
       None
     } catch {
       error => Some(error)
@@ -208,4 +218,61 @@ test "creation rejects saved and ephemeral identities without replacing their do
   }
   assert_eq(documents.text(@documents.Key::source(existing_id)), Some("one"))
   assert_eq(documents.text(@documents.Key::source(new_id)), Some(""))
+}
+
+///|
+test "an edit takes its Change time, and returning to the saved text restores the saved one" {
+  let id = "a0000000-0000-4000-8000-000000000011"
+  let key = editing_fixture_key(id)
+  fn change_time(model : @documents.Model) -> @source_repository.ChangeTime? {
+    let entries = model.recent()
+    entries
+    .exact_view()
+    .search_by(entry => entry.key == key)
+    .map(index => entries[index].index_key.0)
+  }
+
+  guard editing_fixture_model().edit(key, "changed", test_change_time(5.0))
+    is Changed({ model: changed, .. }) else {
+    fail("expected the edit to change the text")
+  }
+  assert_eq(change_time(changed), Some(test_change_time(5.0)))
+  guard changed.edit(key, "one", test_change_time(9.0))
+    is Changed({ model: reverted, effects, }) else {
+    fail("expected the revert to change the text")
+  }
+  assert_eq(change_time(reverted), Some(test_change_time(0.0)))
+  assert_true(effects.is_empty())
+}
+
+///|
+fn test_change_time(value : Double) -> @source_repository.ChangeTime {
+  @source_repository.ChangeTime::parse(value) catch {
+    _ => abort("change time")
+  }
+}
+
+///|
+test "the fallback document is the first one in the Document index" {
+  let document = (id : String, time : Double) => {
+    @source_repository.Document::create(
+      editing_fixture_id(id),
+      id,
+      test_change_time(time),
+    )
+  }
+  let a = "a0000000-0000-4000-8000-000000000011"
+  let b = "a0000000-0000-4000-8000-000000000012"
+  let c = "a0000000-0000-4000-8000-000000000013"
+  let model = @documents.Model(
+    @source_repository.SavedDocuments::from_documents([
+      document(a, 9.0),
+      document(b, 1.0),
+      document(c, 5.0),
+    ]).unwrap(),
+  )
+  assert_eq(
+    model.fallback_document(editing_fixture_key(a)),
+    Some(editing_fixture_key(c)),
+  )
 }

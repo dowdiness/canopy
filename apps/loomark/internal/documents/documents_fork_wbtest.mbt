@@ -14,7 +14,7 @@ fn fork_fixture() -> (
     documents_test_document("one", "base"),
     revision,
   )
-  let edited = match base.edit("local") {
+  let edited = match test_edit(base, "local") {
     @source_repository.EditPlan::Persist(write) => write.replica()
     _ => abort("local edit")
   }
@@ -23,7 +23,10 @@ fn fork_fixture() -> (
   }
   let divergence = match
     edited.reconcile(
-      @source_repository.RemoteDocument::Present(remote_revision, "remote"),
+      @source_repository.RemoteDocument::Present(
+        remote_revision,
+        @source_repository.Content("remote", test_change_time(0.0)),
+      ),
     ) {
     @source_repository.ReconcilePlan::Persist(write) => write.replica()
     _ => abort("divergence")
@@ -58,7 +61,10 @@ fn fork_changed(
   key : Key,
   text : String,
 ) -> (Model, ReadOnlyArray[Action]) {
-  match (model.edit(key, text) catch { _ => abort("valid edit") }) {
+  match
+    (model.edit(key, text, test_change_time(0.0)) catch {
+      _ => abort("valid edit")
+    }) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => abort("expected changed text")
   }
@@ -154,7 +160,8 @@ test "a newer committed Replica refreshes the unmounted branch created by a fork
     _ => abort("valid revision")
   }
   let next = @source_repository.RemoteDocument::Present(
-    revision, "newer remote",
+    revision,
+    @source_repository.Content("newer remote", test_change_time(0.0)),
   )
   guard fork.replica().reconcile(next)
     is @source_repository.ReconcilePlan::Persist(available) &&

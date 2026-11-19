@@ -32,11 +32,38 @@ pub fn Model::begin_fork(
   let transferred = {
     ..record,
     persistence: Forking(ownership, autosave),
-    document: recovery.update(record.document.text()),
+    document: recovery.update(
+      record.document.text(),
+      record.document.changed_at(),
+    ),
   }
   {
     ..self,
-    records: prepend_record(remove_record(self.records, key), transferred),
+    records: add_record(remove_record(self.records, key), transferred),
+  }
+}
+
+///|
+/// The working copy holding `text` (`Document::working`), so returning to a
+/// version the document already has leaves nothing to save.
+fn working_document(
+  saved : @source_repository.SavedDocuments,
+  record : Record,
+  text : String,
+  changed_at : @source_repository.ChangeTime,
+) -> @source_repository.Document {
+  match record.key() {
+    Replica(account, document_id) if saved.replica(account, document_id).bind(
+        replica => replica.live(),
+      )
+      is Some(live) => live.working(text, changed_at)
+    Source(document_id) =>
+      record.document.working(
+        text,
+        changed_at,
+        known=saved.find(document_id).map(saved => [saved.content()]).unwrap_or([]),
+      )
+    Replica(_, _) => record.document.update(text, changed_at)
   }
 }
 
@@ -45,18 +72,18 @@ fn apply_text(
   documents : Model,
   record : Record,
   text : String,
+  changed_at : @source_repository.ChangeTime,
 ) -> (Model, ReadOnlyArray[Action]) {
   let key = record.key()
-  let document = record.document.update(text)
+  let acknowledged = acknowledged_document(documents.saved, key)
+  let document = working_document(documents.saved, record, text, changed_at)
   let lead_source = match record.lead_source {
     Unlisted => LeadSource::Available(text)
     source => source
   }
   // Replica writes compare against the persistence lane, not its older durable snapshot.
   let clean = record.persistence is Source(_, _) &&
-    acknowledged_document(documents.saved, key)
-    .map(saved => saved.text() == text)
-    .unwrap_or(false)
+    acknowledged == Some(document)
   let (documents, window) = if clean && !record.has_source_write() {
     (documents, None)
   } else {
@@ -103,7 +130,7 @@ fn apply_text(
   (
     {
       ..documents,
-      records: prepend_record(remove_record(documents.records, key), record),
+      records: add_record(remove_record(documents.records, key), record),
     },
     effects,
   )
@@ -349,7 +376,7 @@ fn refresh_replica_record(
       let (documents, version) = allocate_working_copy_version(documents)
       {
         ..documents,
-        records: prepend_record(documents.records, {
+        records: add_record(documents.records, {
           ..replica_record(replica, document),
           version,
         }),
@@ -366,6 +393,17 @@ fn refresh_replica_record(
         autosave is Idle &&
         record.edit is Idle
       if !restore && !refresh {
+        // A settled revision with the record's own text brings only its
+        // Change time, which the record takes without touching the editor.
+        if previous.document() == Some(record.document) &&
+          document.text() == record.document.text() {
+          return {
+            ..documents,
+            records: replace_record(documents.records, key, record => {
+              { ..record, document, }
+            }),
+          }
+        }
         return documents
       }
       let (documents, version) = allocate_working_copy_version(documents)
@@ -504,7 +542,7 @@ fn settle_replica(
             ),
           }
           let (recovered, effects) = resume_autosave(saved, recovered)
-          let records = prepend_record(
+          let records = add_record(
             remove_record(documents.records, record.key()),
             recovered,
           )
@@ -518,7 +556,7 @@ fn settle_replica(
                 transition(
                   {
                     ..documents,
-                    records: prepend_record(documents.records, {
+                    records: add_record(documents.records, {
                       ..replica_record(replica, document),
                       version,
                     }),
@@ -602,7 +640,7 @@ fn complete_sync_start(
       {
         ..documents,
         saved,
-        records: prepend_record(remove_record(documents.records, key), record),
+        records: add_record(remove_record(documents.records, key), record),
       },
       effects,
     ),

@@ -66,7 +66,7 @@ pub fn SavedRevision::value(self : Self) -> Double {
 ///|
 pub(all) enum RemoteDocument {
   Missing
-  Present(SavedRevision, String)
+  Present(SavedRevision, Content)
   Deleted(SavedRevision)
 } derive(Eq, Debug)
 
@@ -80,21 +80,21 @@ pub fn RemoteDocument::revision(self : Self) -> Double {
 
 ///|
 pub(all) enum RemoteEntry {
-  Present(DocumentId, SavedRevision, String)
+  Present(DocumentId, SavedRevision, String, ChangeTime)
   Deleted(DocumentId, SavedRevision)
 } derive(Eq, Debug)
 
 ///|
 pub fn RemoteEntry::document_id(self : Self) -> DocumentId {
   match self {
-    Present(id, _, _) | Deleted(id, _) => id
+    Present(id, _, _, _) | Deleted(id, _) => id
   }
 }
 
 ///|
 pub fn RemoteEntry::revision(self : Self) -> SavedRevision {
   match self {
-    Present(_, revision, _) | Deleted(_, revision) => revision
+    Present(_, revision, _, _) | Deleted(_, revision) => revision
   }
 }
 
@@ -114,7 +114,7 @@ pub struct RemoteKnowledge(RemoteHead?) derive(Eq, Debug)
 ///|
 pub fn RemoteEntry::head(self : Self) -> RemoteHead {
   match self {
-    Present(_, revision, _) => RemoteHead::Present(revision)
+    Present(_, revision, _, _) => RemoteHead::Present(revision)
     Deleted(_, revision) => RemoteHead::Deleted(revision)
   }
 }
@@ -152,12 +152,13 @@ pub fn RemoteDocument::entry(
 ) -> RemoteEntry? {
   match self {
     Missing => None
-    Present(revision, text) =>
+    Present(revision, content) =>
       Some(
         RemoteEntry::Present(
           document_id,
           revision,
-          @document_lead.extract(text).primary(),
+          @document_lead.extract(content.text()).primary(),
+          content.changed_at(),
         ),
       )
     Deleted(revision) => Some(RemoteEntry::Deleted(document_id, revision))
@@ -168,7 +169,7 @@ pub fn RemoteDocument::entry(
 fn RemoteDocument::same_content(self : Self, other : Self) -> Bool {
   match (self, other) {
     (Missing, Missing) | (Deleted(_), Deleted(_)) => true
-    (Present(_, left), Present(_, right)) => left == right
+    (Present(_, left), Present(_, right)) => left.text() == right.text()
     _ => false
   }
 }
@@ -176,7 +177,7 @@ fn RemoteDocument::same_content(self : Self, other : Self) -> Bool {
 ///|
 fn RemoteDocument::same_present_text(self : Self, text : String) -> Bool {
   match self {
-    Present(_, remote_text) => remote_text == text
+    Present(_, remote) => remote.text() == text
     Missing | Deleted(_) => false
   }
 }
@@ -192,7 +193,7 @@ fn RemoteDocument::head(self : Self) -> RemoteHead? {
 
 ///|
 pub(all) enum PendingContent {
-  Save(String)
+  Save(Content)
   Delete
 } derive(Eq, Debug)
 
@@ -219,26 +220,26 @@ pub fn PendingOperation::content(self : Self) -> PendingContent {
 }
 
 ///|
-pub struct RecoveryIdentity(Document) derive(Eq, Debug)
+pub struct RecoveryIdentity(DocumentId) derive(Eq, Debug)
 
 ///|
 fn recovery_identity(
   document_id : DocumentId,
   value : DocumentId,
 ) -> RecoveryIdentity raise InvalidRecoveryId {
-  let identity = Document::create(value, "")
   guard value != document_id else { raise InvalidRecoveryId }
-  RecoveryIdentity(identity)
+  RecoveryIdentity(value)
 }
 
 ///|
 fn RecoveryIdentity::id(self : Self) -> DocumentId {
-  self.0.id()
+  self.0
 }
 
 ///|
-fn RecoveryIdentity::document(self : Self, text : String) -> Document {
-  self.0.update(text)
+/// The diverged local text keeps the Change time of its last edit.
+fn RecoveryIdentity::document(self : Self, working : Document) -> Document {
+  Document(self.0, working.content())
 }
 
 ///|
@@ -252,7 +253,7 @@ pub enum LivePhase {
 ///|
 pub enum LiveBaseline {
   Unpublished
-  Saved(SavedRevision, String)
+  Saved(SavedRevision, Content)
 } derive(Eq, Debug)
 
 ///|
@@ -306,7 +307,7 @@ pub struct RemoteUpdate {
 
 ///|
 priv enum RemoteUpdateContent {
-  PresentUpdate(SavedRevision, String)
+  PresentUpdate(SavedRevision, Content)
   DeletedUpdate(SavedRevision)
 } derive(Eq, Debug)
 
@@ -349,7 +350,7 @@ pub fn DocumentReplica::receive(
     document_id: document.id(),
     state: ReplicaState::Live({
       document,
-      baseline: LiveBaseline::Saved(revision, document.text()),
+      baseline: LiveBaseline::Saved(revision, document.content()),
       phase: LivePhase::Ready,
     }),
     recovery: None,
@@ -449,8 +450,16 @@ pub fn DocumentReplica::remote_knowledge(
 ///|
 pub fn DocumentReplica::remote_update(self : Self) -> RemoteUpdate? {
   match self.state {
-    Live({ phase: Available(RemoteDocument::Present(revision, text)), .. }) =>
-      Some({ replica: self, content: PresentUpdate(revision, text), })
+    Live(
+      {
+        phase: Available(RemoteDocument::Present(revision, content)),
+        ..
+      }
+    ) =>
+      Some({
+        replica: self,
+        content: PresentUpdate(revision, content),
+      })
     Live({ phase: Available(Deleted(revision)), .. }) =>
       Some({ replica: self, content: DeletedUpdate(revision), })
     Live(_) | Deleting(_) | Tombstone(_) => None
@@ -460,7 +469,7 @@ pub fn DocumentReplica::remote_update(self : Self) -> RemoteUpdate? {
 ///|
 pub fn RemoteUpdate::remote(self : Self) -> RemoteDocument {
   match self.content {
-    PresentUpdate(revision, text) => RemoteDocument::Present(revision, text)
+    PresentUpdate(revision, content) => RemoteDocument::Present(revision, content)
     DeletedUpdate(revision) => RemoteDocument::Deleted(revision)
   }
 }
@@ -490,14 +499,14 @@ fn LiveBaseline::revision(self : Self) -> Double {
 fn LiveBaseline::remote(self : Self) -> RemoteDocument {
   match self {
     Unpublished => RemoteDocument::Missing
-    Saved(revision, text) => RemoteDocument::Present(revision, text)
+    Saved(revision, content) => RemoteDocument::Present(revision, content)
   }
 }
 
 ///|
 fn LiveBaseline::same_text(self : Self, text : String) -> Bool {
   match self {
-    Saved(_, baseline) => baseline == text
+    Saved(_, baseline) => baseline.text() == text
     Unpublished => false
   }
 }

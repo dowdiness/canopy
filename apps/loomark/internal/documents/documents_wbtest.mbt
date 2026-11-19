@@ -30,8 +30,16 @@ fn account_id(value : String) -> @source_repository.AccountId {
 ///|
 fn documents_test_snapshot() -> @source_repository.SavedDocuments {
   @source_repository.SavedDocuments::from_documents([
-    @source_repository.Document::create(document_id("one"), "one"),
-    @source_repository.Document::create(document_id("two"), "two"),
+    @source_repository.Document::create(
+      document_id("one"),
+      "one",
+      test_change_time(0.0),
+    ),
+    @source_repository.Document::create(
+      document_id("two"),
+      "two",
+      test_change_time(0.0),
+    ),
   ]).unwrap()
 }
 
@@ -40,7 +48,11 @@ fn documents_test_document(
   id : String,
   text : String,
 ) -> @source_repository.Document {
-  @source_repository.Document::create(document_id(id), text)
+  @source_repository.Document::create(
+    document_id(id),
+    text,
+    test_change_time(0.0),
+  )
 }
 
 ///|
@@ -168,12 +180,16 @@ test "same document id remains isolated across source and accounts" {
   let account_a = account_id("account-a")
   let account_b = account_id("account-b")
   let saved = @source_repository.SavedDocuments::from_documents([
-    @source_repository.Document::create(id, "source"),
+    @source_repository.Document::create(id, "source", test_change_time(0.0)),
   ]).unwrap()
   let saved = saved.apply_replica(
     @source_repository.DocumentReplica(
       account_a,
-      @source_repository.Document::create(id, "account A"),
+      @source_repository.Document::create(
+        id,
+        "account A",
+        test_change_time(0.0),
+      ),
     ),
   ) catch {
     _ => abort("valid account A replica")
@@ -181,7 +197,11 @@ test "same document id remains isolated across source and accounts" {
   let saved = saved.apply_replica(
     @source_repository.DocumentReplica(
       account_b,
-      @source_repository.Document::create(id, "account B"),
+      @source_repository.Document::create(
+        id,
+        "account B",
+        test_change_time(0.0),
+      ),
     ),
   ) catch {
     _ => abort("valid account B replica")
@@ -190,7 +210,7 @@ test "same document id remains isolated across source and accounts" {
   let replica_a = Key::replica(account_a, id)
   let replica_b = Key::replica(account_b, id)
   let state = Model(saved).project_account(account_a).project_account(account_b)
-  guard (state.edit(replica_a, "edited A") catch {
+  guard (state.edit(replica_a, "edited A", test_change_time(0.0)) catch {
       _ => abort("unexpected edit error")
     })
     is Changed(transition) else {

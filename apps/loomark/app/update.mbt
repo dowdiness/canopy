@@ -318,13 +318,18 @@ fn create_with_text(
   documents : @documents.Model,
   document_id : @source_repository.DocumentId,
   text : String,
+  changed_at : @source_repository.ChangeTime,
   actions : Array[@documents.Action],
 ) -> @documents.Model raise CreationFault {
-  let created = documents.create(document_id) catch {
+  let created = documents.create(document_id, changed_at) catch {
     DocumentAlreadyExists(_) => raise IdentityInUse
   }
   actions.append(created.effects)
-  let edit = created.model.edit(@documents.Key::source(document_id), text) catch {
+  let edit = created.model.edit(
+    @documents.Key::source(document_id),
+    text,
+    changed_at,
+  ) catch {
     error => raise EditRejected(error)
   }
   match edit {
@@ -454,7 +459,7 @@ fn update_page(
               OpeningNew(opening, { ..creation, status: Failed(failure), }),
               notify(emit, "A new document could not be created."),
             )
-          Created(document_id) => {
+          Created(document_id, changed_at) => {
             let text = match creation.intent {
               NewDocument => ""
               Example(text) => text
@@ -463,6 +468,7 @@ fn update_page(
               opening.documents,
               document_id,
               text,
+              changed_at,
               actions,
             ) catch {
               fault => {
@@ -541,7 +547,7 @@ fn update_page(
       }
     (
       Editing(editing),
-      ExampleCreateCompleted(request_id, text, Created(document_id)),
+      ExampleCreateCompleted(request_id, text, Created(document_id, changed_at)),
     ) =>
       if !creation_request_is_current(editing.creation, request_id) {
         (Editing(editing), @cmd.none)
@@ -551,6 +557,7 @@ fn update_page(
           editing.documents,
           document_id,
           text,
+          changed_at,
           actions,
         ) catch {
           fault =>
@@ -588,19 +595,19 @@ fn update_page(
       } else {
         (Editing(editing), @cmd.none)
       }
-    (Editing(editing), InputChanged(generation, input)) =>
+    (Editing(editing), InputChanged(generation, input, changed_at)) =>
       match editor.admit(input) {
         None => (Editing(editing), @cmd.none)
         Some(change) =>
           update_page(
             Editing(editing),
-            TextChanged(generation, change),
+            TextChanged(generation, change, changed_at),
             emit,
             editor,
             actions,
           )
       }
-    (Editing(editing), TextChanged(generation, change)) =>
+    (Editing(editing), TextChanged(generation, change, changed_at)) =>
       if generation != editing.activation.generation {
         (Editing(editing), @cmd.none)
       } else if creation_in_progress(editing.creation) ||
@@ -620,7 +627,7 @@ fn update_page(
               editor.restore(editing.documents.text(key).unwrap_or("")),
             )
           Some(text) => {
-            let edit = editing.documents.edit(key, text) catch {
+            let edit = editing.documents.edit(key, text, changed_at) catch {
               error =>
                 return (
                   Editing(editing),
@@ -734,14 +741,17 @@ fn update_page(
         }),
         notify(emit, "The Markdown file could not be imported."),
       )
-    (Editing(editing), ImportCreateCompleted(text, Created(document_id))) => {
+    (
+      Editing(editing),
+      ImportCreateCompleted(text, Created(document_id, changed_at)),
+    ) => {
       let editing = {
         ..editing,
         imports_pending: (editing.imports_pending - 1).max(0),
       }
       let (next, outcome) = document_update(
         editing,
-        @documents.Msg::Imported(document_id, text),
+        @documents.Msg::Imported(document_id, text, changed_at),
       )
       guard outcome is DocumentUpdate::Updated(transition) else {
         return (
@@ -831,11 +841,14 @@ fn update_page(
           ),
         )
       }
-    (Editing(editing), CreateCompleted(request_id, Created(document_id))) =>
+    (
+      Editing(editing),
+      CreateCompleted(request_id, Created(document_id, changed_at)),
+    ) =>
       if !creation_request_is_current(editing.creation, request_id) {
         (Editing(editing), @cmd.none)
       } else {
-        let transition = editing.documents.create(document_id) catch {
+        let transition = editing.documents.create(document_id, changed_at) catch {
           DocumentAlreadyExists(_) =>
             return (
               Editing({ ..editing, creation: None, }),
@@ -1039,7 +1052,7 @@ fn apply_document_actions(
         }
         let (replication, effect) = model.replication.save_local(
           edit.durable(),
-          edit.document().text(),
+          edit.document(),
         )
         let model = { ..model, replication, }
         match effect {
@@ -1051,7 +1064,7 @@ fn apply_document_actions(
       @documents.Action::DeleteReplica(edit) => {
         let durable = edit.durable()
         let base = model.replication.editing_base(durable)
-        let (sync, write) = model.sync().delete(base, edit.document().text())
+        let (sync, write) = model.sync().delete(base, edit.document())
         let (model, command) = submit_replica(
           model.with_sync(sync),
           write,
@@ -1419,8 +1432,8 @@ fn begin_account_lookup(
 ///|
 fn is_user_mutating(msg : Msg) -> Bool {
   match msg {
-    InputChanged(_, _)
-    | TextChanged(_, _)
+    InputChanged(_, _, _)
+    | TextChanged(_, _, _)
     | CompositionStarted(_)
     | ExampleSelected(_, _)
     | ImportFilesSelected(_)
@@ -1906,7 +1919,7 @@ fn reduce(
       }
     }
     Sync(RecoveryCreated(attempt, result)) => {
-      guard result is @source_repository.CreateResult::Created(recovery_id) else {
+      guard result is @source_repository.CreateResult::Created(recovery_id, _) else {
         let sync = model.sync().recovery_failed(attempt) catch {
             _ => return (model, @cmd.none)
           }
@@ -1941,7 +1954,7 @@ fn reduce(
       model.sync().session() is @sync.Session::Current(current, _) &&
       current == account => {
       guard model.sync().remote_entry(document_id) is Some(entry) &&
-        entry is @source_repository.RemoteEntry::Present(_, _, _) &&
+        entry is @source_repository.RemoteEntry::Present(_, _, _, _) &&
         editing.can_activate() &&
         model.page.saved_documents() is Some(saved) else {
         return (model, @cmd.none)

@@ -21,7 +21,8 @@ test "hidden flush leaves an active deletion alone while saving another document
   }
   guard deletion is [DeleteSource(_)] else { fail("active deletion") }
   let before = documents.delete_status(source_key("one"))
-  let (documents, _) = match documents.edit(source_key("two"), "two!") {
+  let (documents, _) = match
+    documents.edit(source_key("two"), "two!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -38,11 +39,13 @@ test "hidden flush leaves an active deletion alone while saving another document
 ///|
 test "hidden flush starts all waiting documents once and accepts reverse acknowledgments" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "one!") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "one!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
-  let (documents, _) = match documents.edit(source_key("two"), "two!") {
+  let (documents, _) = match
+    documents.edit(source_key("two"), "two!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -86,11 +89,13 @@ test "hidden flush starts all waiting documents once and accepts reverse acknowl
 test "hidden flush coalesces both in-flight lanes regardless of acknowledgment order" {
   for reverse in [false, true] {
     let documents = Model::Model(documents_test_snapshot())
-    let (documents, _) = match documents.edit(source_key("one"), "first one") {
+    let (documents, _) = match
+      documents.edit(source_key("one"), "first one", test_change_time(0.0)) {
       Changed(transition) => (transition.model, transition.effects)
       SameText => fail("unexpected unchanged edit")
     }
-    let (documents, _) = match documents.edit(source_key("two"), "first two") {
+    let (documents, _) = match
+      documents.edit(source_key("two"), "first two", test_change_time(0.0)) {
       Changed(transition) => (transition.model, transition.effects)
       SameText => fail("unexpected unchanged edit")
     }
@@ -100,11 +105,13 @@ test "hidden flush coalesces both in-flight lanes regardless of acknowledgment o
     }
     let first = visibility_save(actions, "one")
     let second = visibility_save(actions, "two")
-    let (documents, _) = match documents.edit(source_key("one"), "latest one") {
+    let (documents, _) = match
+      documents.edit(source_key("one"), "latest one", test_change_time(0.0)) {
       Changed(transition) => (transition.model, transition.effects)
       SameText => fail("unexpected unchanged edit")
     }
-    let (documents, _) = match documents.edit(source_key("two"), "latest two") {
+    let (documents, _) = match
+      documents.edit(source_key("two"), "latest two", test_change_time(0.0)) {
       Changed(transition) => (transition.model, transition.effects)
       SameText => fail("unexpected unchanged edit")
     }
@@ -150,7 +157,8 @@ test "hidden flush coalesces both in-flight lanes regardless of acknowledgment o
 ///|
 test "hidden flush defers composition and does not retry a failed document" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("two"), "failed two") {
+  let (documents, _) = match
+    documents.edit(source_key("two"), "failed two", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -170,7 +178,7 @@ test "hidden flush defers composition and does not retry a failed document" {
     Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, _) = match
-    documents.edit(source_key("one"), "composing one") {
+    documents.edit(source_key("one"), "composing one", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }

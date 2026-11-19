@@ -16,7 +16,11 @@ fn test_document_id() -> @source_repository.DocumentId {
 fn replica(text : String) -> @source_repository.DocumentReplica {
   @source_repository.DocumentReplica(
     test_account(),
-    @source_repository.Document::create(test_document_id(), text),
+    @source_repository.Document::create(
+      test_document_id(),
+      text,
+      test_change_time(0.0),
+    ),
   )
 }
 
@@ -48,11 +52,11 @@ fn synchronized_replica(text : String) -> @source_repository.DocumentReplica {
 ///|
 test "a lane persists one write and retains only its newest successor" {
   let first = replica("first").store()
-  let second = first.replica().edit("second")
+  let second = test_edit(first.replica(), "second")
   guard second is @source_repository.EditPlan::Persist(second) else {
     fail("second write")
   }
-  let third = second.replica().edit("third")
+  let third = test_edit(second.replica(), "third")
   guard third is @source_repository.EditPlan::Persist(third) else {
     fail("third write")
   }
@@ -76,7 +80,7 @@ test "a lane persists one write and retains only its newest successor" {
 ///|
 test "failure retains the exact newest write for explicit retry" {
   let first = replica("first").store()
-  let second = first.replica().edit("second")
+  let second = test_edit(first.replica(), "second")
   guard second is @source_repository.EditPlan::Persist(second) else {
     fail("second write")
   }
@@ -147,7 +151,7 @@ test "a newer eligible edit replaces a failed write and starts immediately" {
   guard completion is Retryable(_, _, QuotaExceeded) else {
     fail("retryable failure")
   }
-  guard first.replica().edit("smaller")
+  guard test_edit(first.replica(), "smaller")
     is @source_repository.EditPlan::Persist(smaller) else {
     fail("newer write")
   }
@@ -162,7 +166,7 @@ test "a newer eligible edit replaces a failed write and starts immediately" {
 test "failed source ownership transfer closes its lane" {
   let write = replica("text").promote_source()
   let (state, attempt) = State().submit(write)
-  guard write.replica().edit("newer")
+  guard test_edit(write.replica(), "newer")
     is @source_repository.EditPlan::Persist(newer) else {
     fail("newer write")
   }
@@ -183,7 +187,7 @@ test "failed source ownership transfer closes its lane" {
 ///|
 test "successful source ownership transfer releases its newest successor" {
   let write = replica("text").promote_source()
-  guard write.replica().edit("newer")
+  guard test_edit(write.replica(), "newer")
     is @source_repository.EditPlan::Persist(newer) else {
     fail("newer write")
   }
@@ -202,7 +206,8 @@ test "successful source ownership transfer releases its newest successor" {
 ///|
 test "queued deletion supersedes an active save without losing its intent" {
   let current = synchronized_replica("first")
-  guard current.edit("newer") is @source_repository.EditPlan::Persist(save) else {
+  guard test_edit(current, "newer")
+    is @source_repository.EditPlan::Persist(save) else {
     fail("save write")
   }
   let deletion = save.replica().request_deletion()
@@ -230,7 +235,7 @@ test "failed deletion branches new edits from the durable replica" {
   }
   assert_true(completion is Retryable(_, _, WriteFailed))
   assert_eq(state.editing_base(durable), durable)
-  guard state.editing_base(durable).edit("edited after failure")
+  guard test_edit(state.editing_base(durable), "edited after failure")
     is @source_repository.EditPlan::Persist(edit) else {
     fail("durable replica remains editable")
   }
@@ -244,7 +249,7 @@ test "failed deletion branches new edits from the durable replica" {
 ///|
 test "a delayed acknowledgment rebases a failed newer edit" {
   let base = synchronized_replica("base")
-  guard base.edit("sent") is @source_repository.EditPlan::Persist(ready) &&
+  guard test_edit(base, "sent") is @source_repository.EditPlan::Persist(ready) &&
     ready.replica().directive()
     is @source_repository.ReplicaDirective::CreateOperation(draft) else {
     fail("save draft")
@@ -255,7 +260,8 @@ test "a delayed acknowledgment rebases a failed newer edit" {
     _ => abort("operation id")
   }
   let durable = draft.start(operation).replica()
-  guard durable.edit("newer") is @source_repository.EditPlan::Persist(newer) else {
+  guard test_edit(durable, "newer")
+    is @source_repository.EditPlan::Persist(newer) else {
     fail("newer edit")
   }
   let (state, attempt) = State().submit(newer)
@@ -280,7 +286,12 @@ test "a delayed acknowledgment rebases a failed newer edit" {
     is @source_repository.ReplicaDirective::CreateOperation(draft) else {
     fail("newer edit remains pending")
   }
-  assert_eq(draft.content(), @source_repository.PendingContent::Save("newer"))
+  assert_eq(
+    draft.content(),
+    @source_repository.PendingContent::Save(
+      @source_repository.Content("newer", test_change_time(1.0)),
+    ),
+  )
 }
 
 ///|
@@ -296,4 +307,36 @@ test "a replayed completion is explicitly stale" {
     error => Err(error)
   }
   assert_eq(replay, Err(StaleAttempt::StaleAttempt))
+}
+
+///|
+/// The replica's working document after the user types `text`.
+fn test_working(
+  replica : @source_repository.DocumentReplica,
+  text : String,
+) -> @source_repository.Document {
+  match replica.document() {
+    Some(document) => document.update(text, test_change_time(1.0))
+    None =>
+      @source_repository.Document::create(
+        replica.document_id(),
+        text,
+        test_change_time(1.0),
+      )
+  }
+}
+
+///|
+fn test_edit(
+  replica : @source_repository.DocumentReplica,
+  text : String,
+) -> @source_repository.EditPlan {
+  replica.edit(test_working(replica, text))
+}
+
+///|
+fn test_change_time(value : Double) -> @source_repository.ChangeTime {
+  @source_repository.ChangeTime::parse(value) catch {
+    _ => abort("change time")
+  }
 }

@@ -23,6 +23,7 @@ fn applied_record(
 pub fn Model::create(
   self : Self,
   document_id : @source_repository.DocumentId,
+  changed_at : @source_repository.ChangeTime,
 ) -> Transition raise CreateError {
   let key = Key::source(document_id)
   if find_record(self.records, key) is Some(_) {
@@ -30,12 +31,12 @@ pub fn Model::create(
   }
   let record : Record = {
     persistence: Source(EphemeralNew, Writable(Idle, None)),
-    document: @source_repository.Document::create(document_id, ""),
+    document: @source_repository.Document::create(document_id, "", changed_at),
     version: 0,
     edit: Idle,
     lead_source: Unlisted,
   }
-  transition({ ..self, records: prepend_record(self.records, record), }, [])
+  transition({ ..self, records: add_record(self.records, record), }, [])
 }
 
 ///|
@@ -43,6 +44,7 @@ pub fn Model::edit(
   self : Self,
   key : Key,
   text : String,
+  changed_at : @source_repository.ChangeTime,
 ) -> Edit raise EditError {
   guard find_record(self.records, key) is Some(record) else {
     raise DocumentMissing(key)
@@ -53,19 +55,21 @@ pub fn Model::edit(
   if record.document.text() == text {
     return SameText
   }
-  let (model, effects) = apply_text(self, record, text)
+  let (model, effects) = apply_text(self, record, text, changed_at)
   Changed(transition(model, effects))
 }
 
 ///|
 pub fn Model::update(self : Self, message : Msg) -> Update raise UpdateError {
   match message {
-    Imported(document_id, text) => {
+    Imported(document_id, text, changed_at) => {
       let key = Key::source(document_id)
       if find_record(self.records, key) is Some(_) {
         raise DocumentAlreadyExists(key)
       }
-      let document = @source_repository.Document::create(document_id, text)
+      let document = @source_repository.Document::create(
+        document_id, text, changed_at,
+      )
       let record : Record = {
         persistence: Source(ImportedNew, Writable(Idle, None)),
         document,
@@ -76,7 +80,7 @@ pub fn Model::update(self : Self, message : Msg) -> Update raise UpdateError {
       let (model, record, effects) = request_save(self, record)
       Applied(
         transition(
-          { ..model, records: prepend_record(model.records, record), },
+          { ..model, records: add_record(model.records, record), },
           effects,
         ),
       )

@@ -5,7 +5,7 @@ fn fixture_document(text : String) -> @source_repository.Document {
   ) catch {
     _ => abort("invalid fixture identity")
   }
-  @source_repository.Document::create(id, text)
+  @source_repository.Document::create(id, text, test_change_time(0.0))
 }
 
 ///|
@@ -23,7 +23,7 @@ fn edited(
   key : @documents.Key,
   text : String,
 ) -> @documents.Transition raise {
-  guard model.edit(key, text) is Changed(transition) else {
+  guard model.edit(key, text, test_change_time(0.0)) is Changed(transition) else {
     fail("fixture edit must change text")
   }
   transition
@@ -49,7 +49,7 @@ test "edit refusal and duplicate deletion are distinct public outcomes" {
     @source_repository.DocumentId::parse("a0000000-0000-4000-8000-000000000002"),
   )
   let missing_edit = try {
-    ignore(model.edit(missing, "text"))
+    ignore(model.edit(missing, "text", test_change_time(0.0)))
     false
   } catch {
     @documents.EditError::DocumentMissing(actual) => actual == missing
@@ -62,7 +62,7 @@ test "edit refusal and duplicate deletion are distinct public outcomes" {
   let deleting = deletion.model
   assert_true(deleting.delete(key) is AlreadyPending)
   let blocked_edit = try {
-    ignore(deleting.edit(key, "must not replace text"))
+    ignore(deleting.edit(key, "must not replace text", test_change_time(0.0)))
     false
   } catch {
     @documents.EditError::PendingDeletion(actual) => actual == key
@@ -238,7 +238,10 @@ test "save attempts fence callbacks after reimporting identical identity and tex
   let empty = @documents.Model(
     @source_repository.SavedDocuments::from_documents([]).unwrap(),
   )
-  let importing = applied(empty, Imported(document.id(), document.text()))
+  let importing = applied(
+    empty,
+    Imported(document.id(), document.text(), test_change_time(0.0)),
+  )
   guard importing.effects is [PersistSource(first)] else {
     fail("first import")
   }
@@ -248,7 +251,7 @@ test "save attempts fence callbacks after reimporting identical identity and tex
   }
   let importing = applied(
     removed.model,
-    Imported(document.id(), document.text()),
+    Imported(document.id(), document.text(), test_change_time(0.0)),
   )
   guard importing.effects is [PersistSource(current)] else {
     fail("second import")

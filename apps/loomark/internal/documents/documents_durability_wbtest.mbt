@@ -31,7 +31,7 @@ fn durability_deleted(
 ///|
 test "untouched new document is locally durable" {
   let documents = Model::Model(documents_test_snapshot())
-  let documents = documents.create(document_id("new")).model
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
   assert_true(
     documents.local_durability(@replica_persistence.State::State())
     is LocalDurability::Durable,
@@ -42,7 +42,7 @@ test "untouched new document is locally durable" {
 test "imported blank document is not durable before persistence" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = durability_applied(
-    documents.update(Imported(document_id("new"), "")),
+    documents.update(Imported(document_id("new"), "", test_change_time(0.0))),
   )
   assert_true(
     documents.local_durability(@replica_persistence.State::State())
@@ -69,7 +69,8 @@ test "hidden replica candidates are not committed text and failures unblock savi
     documents_test_document("replica", "durable"),
   )
   let saved = documents_test_snapshot().apply_replica(replica)
-  guard replica.edit("accepted") is @source_repository.EditPlan::Persist(write) else {
+  guard test_edit(replica, "accepted")
+    is @source_repository.EditPlan::Persist(write) else {
     fail("changed text")
   }
   let (persistence, attempt) = @replica_persistence.State().submit(write)
@@ -95,11 +96,11 @@ test "queued return to durable text still waits for older in-flight write" {
     documents_test_document("replica", "durable"),
   )
   let saved = documents_test_snapshot().apply_replica(replica)
-  guard replica.edit("intermediate")
+  guard test_edit(replica, "intermediate")
     is @source_repository.EditPlan::Persist(older) else {
     fail("changed text")
   }
-  guard older.replica().edit("durable")
+  guard test_edit(older.replica(), "durable")
     is @source_repository.EditPlan::Persist(newer) else {
     fail("changed back")
   }
@@ -141,7 +142,11 @@ test "promotion commit remains non-durable until newer accepted text is stored" 
   guard attempt is Some(attempt) else { fail("promotion must start") }
   let (documents, _) = durability_changed(
     documents,
-    documents.edit(source_key("one"), "newer accepted text"),
+    documents.edit(
+      source_key("one"),
+      "newer accepted text",
+      test_change_time(0.0),
+    ),
   )
   assert_true(documents.local_durability(persistence) is Saving)
 
@@ -178,7 +183,7 @@ test "promotion commit remains non-durable until newer accepted text is stored" 
   }
   assert_eq(edit.document().text(), "newer accepted text")
   assert_true(documents.local_durability(persistence) is Saving)
-  guard edit.durable().edit(edit.document().text())
+  guard edit.durable().edit(edit.document())
     is @source_repository.EditPlan::Persist(write) else {
     fail("newer Replica text must require persistence")
   }
@@ -215,7 +220,7 @@ test "fork recovery commit remains non-durable until newer accepted text is stor
   guard attempt is Some(attempt) else { fail("fork must start") }
   let (documents, _) = durability_changed(
     documents,
-    documents.edit(key, "newer recovery"),
+    documents.edit(key, "newer recovery", test_change_time(0.0)),
   )
   assert_true(documents.local_durability(persistence) is Saving)
 
@@ -257,7 +262,7 @@ test "fork recovery commit remains non-durable until newer accepted text is stor
 test "imported blank save failure releases local durability instead of waiting forever" {
   let documents = Model(documents_test_snapshot())
   let (documents, actions) = durability_applied(
-    documents.update(Imported(document_id("blank"), "")),
+    documents.update(Imported(document_id("blank"), "", test_change_time(0.0))),
   )
   guard actions[0] is PersistSource(operation) else {
     fail("import persists immediately")
@@ -300,4 +305,29 @@ test "saving retries failed replica deletion without retaining stale failure" {
     _ => abort("save changes must recover the replica lane")
   }
   assert_true(saved_after_changes.model.local_durability(retrying) is Saving)
+}
+
+///|
+/// The replica's working document after the user types `text`.
+fn test_working(
+  replica : @source_repository.DocumentReplica,
+  text : String,
+) -> @source_repository.Document {
+  match replica.document() {
+    Some(document) => document.update(text, test_change_time(1.0))
+    None =>
+      @source_repository.Document::create(
+        replica.document_id(),
+        text,
+        test_change_time(1.0),
+      )
+  }
+}
+
+///|
+fn test_edit(
+  replica : @source_repository.DocumentReplica,
+  text : String,
+) -> @source_repository.EditPlan {
+  replica.edit(test_working(replica, text))
 }

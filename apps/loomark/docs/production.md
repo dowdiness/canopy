@@ -59,6 +59,34 @@ Upload Inactive Version ──> Apply D1 Migrations ──> Promote to 100% Traf
 > [!WARNING]
 > A failed health check may leave production changed; the script performs no automatic Worker-code or D1 rollback. Rolling back Worker code does **not** roll back applied D1 database migrations. Always author backward-compatible migrations (expand-contract pattern): add columns or tables in one release, migrate consumers in the next, and drop obsolete schemas only after verification.
 
+### Change time release (migration `0004`)
+
+Change time arrives in one ordinary release that ships the server and the
+client together. Existing data is rewritten once, outside the application
+code, so neither the Worker nor the client knows the old formats:
+
+- **Server.** `0004_document_change_time.sql` rebuilds `loomark_document`
+  with `changed_at`, required for present documents and absent for
+  tombstones. Existing present documents get the epoch, which keeps their
+  current (Document ID) order until they next change.
+- **Browsers.** The client opens IndexedDB at version 2. The upgrade from
+  version 1 rewrites every Source and Replica record once, in the upgrade
+  transaction, giving each saved text the epoch as its Change time.
+
+Expect temporary sync failure around the release; it is accepted rather than
+staged, and nothing is lost or overwritten:
+
+- Between the migration and the new Worker serving traffic, the previous
+  Worker cannot store present documents. Its saves fail, and clients keep them
+  pending and retry.
+- Tabs still running the previous client lose their IndexedDB connection when
+  another tab upgrades the database, so their saves report "Not saved". Their
+  syncs fail too, because the new Worker requires `changedAt` and they reject
+  its replies. Reloading the tab loads the new client.
+- A save that the previous Worker accepted but whose reply was lost is
+  retried at the epoch and refused as a reused operation. The client then
+  finds the same text on the server and settles without a conflict.
+
 ### Running a Manual Release
 
 Outside Workers Builds, the script requires a clean checkout, including submodules, but does not check the branch. Verify the intended release commit before running an authorized manual release:

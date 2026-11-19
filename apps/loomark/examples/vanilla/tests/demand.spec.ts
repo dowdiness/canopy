@@ -9,7 +9,7 @@ const docs: Document[] = [
 
 async function seed(page: Page, documents: Document[]) {
   await page.evaluate(async documents => {
-    const request = indexedDB.open("loomark", 1)
+    const request = indexedDB.open("loomark", 2)
     await new Promise<void>((resolve, reject) => {
       request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains("documents")) request.result.createObjectStore("documents")
@@ -22,7 +22,10 @@ async function seed(page: Page, documents: Document[]) {
       const tx = db.transaction("documents", "readwrite")
       tx.objectStore("documents").clear()
       for (const document of documents) {
-        tx.objectStore("documents").put(JSON.stringify(document), `source/v1/${document.document_id}`)
+        tx.objectStore("documents").put(
+          JSON.stringify({ ...document, changed_at: 0 }),
+          `source/v1/${document.document_id}`,
+        )
       }
       tx.oncomplete = () => resolve()
       tx.onerror = () => reject(tx.error)
@@ -38,7 +41,7 @@ async function count(page: Page): Promise<number> {
 
 async function waitForSavedText(page: Page, documentId: string, text: string): Promise<void> {
   await expect.poll(() => page.evaluate(async ({ documentId }) => {
-    const request = indexedDB.open("loomark", 1)
+    const request = indexedDB.open("loomark", 2)
     return await new Promise<string | null>(resolve => {
       request.onsuccess = () => {
         const db = request.result
@@ -58,7 +61,7 @@ async function waitForSavedText(page: Page, documentId: string, text: string): P
 
 async function readStoredDocument(page: Page, documentId: string): Promise<unknown> {
   return page.evaluate(async documentId => {
-    const request = indexedDB.open("loomark", 1)
+    const request = indexedDB.open("loomark", 2)
     return await new Promise<unknown>((resolve, reject) => {
       request.onsuccess = () => {
         const db = request.result

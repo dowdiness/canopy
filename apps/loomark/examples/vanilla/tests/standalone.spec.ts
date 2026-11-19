@@ -67,7 +67,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 }
 
 const DOCUMENT_DATABASE_NAME = "loomark"
-const DOCUMENT_DATABASE_VERSION = 1
+const DOCUMENT_DATABASE_VERSION = 2
 const DOCUMENT_STORE_NAME = "documents"
 const LEGACY_ACTIVE_KEY = "active"
 const EDITING_DOCUMENT_KEY = "editing-document"
@@ -709,6 +709,14 @@ async function scanStoreRecords(page: Page): Promise<StoreRecord[]> {
   })
 }
 
+/** A Source record: identity, text, and the Change time of that text. */
+function isSourceSchema(record: object): boolean {
+  return JSON.stringify(Object.keys(record).sort())
+      === JSON.stringify(["changed_at", "document_id", "text"])
+    && "changed_at" in record
+    && Number.isSafeInteger(record.changed_at)
+}
+
 function decodeStoredDocument(key: IDBValidKey, value: unknown): StoredDocument | null {
   if (typeof key !== "string" || !key.startsWith(SOURCE_KEY_PREFIX) || typeof value !== "string") {
     return null
@@ -718,10 +726,7 @@ function decodeStoredDocument(key: IDBValidKey, value: unknown): StoredDocument 
     if (
       parsed === null
       || typeof parsed !== "object"
-      || JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify([
-        "document_id",
-        "text",
-      ])
+      || !isSourceSchema(parsed)
       || !("document_id" in parsed)
       || typeof parsed.document_id !== "string"
       || parsed.document_id !== key.slice(SOURCE_KEY_PREFIX.length)
@@ -819,8 +824,9 @@ async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<
   })
 }
 
+/** Fixtures are changed at the epoch, so they list in Document ID order. */
 function encodeStoredDocument(document: StoredDocument): string {
-  return JSON.stringify(document)
+  return JSON.stringify({ ...document, changed_at: 0 })
 }
 
 function encodeReadyReplica(
@@ -834,6 +840,7 @@ function encodeReadyReplica(
     state: {
       kind: "live",
       current: 0,
+      changed_at: 0,
       baseline: { kind: "missing" },
       phase: { kind: "ready" },
     },
@@ -898,7 +905,8 @@ async function expectStoredDocument(
   const raw = await readStoredDocumentRaw(page, sourceKey(document.document_id))
   if (typeof raw !== "string") throw new Error("stored Source missing")
   const parsed = JSON.parse(raw) as Record<string, unknown>
-  expect(parsed).toEqual(document)
+  expect(isSourceSchema(parsed)).toBe(true)
+  expect({ document_id: parsed.document_id, text: parsed.text }).toEqual(document)
 }
 
 declare global {
@@ -2086,6 +2094,7 @@ test("opening and saving persist only authoritative Source records", async ({ pa
   expect(JSON.parse(savedRaw as string)).toEqual({
     document_id: baseline.document_id,
     text: "# Source only\n",
+    changed_at: expect.any(Number),
   })
 })
 
@@ -2180,7 +2189,7 @@ test("failed document discovery can be retried without reloading or signing out"
       body: JSON.stringify({
         documents: [{
           id: fixtureDocumentId("recovered"), revision: 1,
-          deleted: false, preview: "Recovered remote",
+          deleted: false, preview: "Recovered remote", changedAt: 1,
         }],
         next: null,
       }),
@@ -2848,7 +2857,7 @@ test("duplicate leads select and delete by Document ID", async ({ page }) => {
   await expect(documents.getByRole("button", { name: /^Same \(/ })).toHaveCount(0)
 })
 
-test("page-local recency reorders edits but reload restores lexical order", async ({ page }) => {
+test("edits reorder documents at once, and reload keeps their Change time order", async ({ page }) => {
   await page.goto("/")
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
@@ -2881,15 +2890,23 @@ test("page-local recency reorders edits but reload restores lexical order", asyn
   await documents.getByRole("button", { name: "B", exact: true }).click()
   await expect.poll(order).toEqual(["C changed", "A", "B"])
 
+  // Documents changed at the same time follow Document ID order.
   await page.reload()
   await openDocuments(page)
-  await expect.poll(order).toEqual(["A", "B", "C changed"])
+  await expect.poll(order).toEqual(["C changed", "A", "B"])
+  await documents.getByRole("button", { name: "B", exact: true }).click()
+  await expect(text).toHaveValue(documentB.text)
+  await text.fill("# B changed\n")
+  await expectStoredDocument(page, { ...documentB, text: "# B changed\n" })
+  await page.reload()
+  await openDocuments(page)
+  await expect.poll(order).toEqual(["B changed", "C changed", "A"])
 
   await page.getByLabel("Import Markdown")
     .setInputFiles("tests/fixtures/import-bom-crlf.bin")
   await expect.poll(order).toHaveLength(4)
   await expect.poll(async () => (await order())[0]).toBe("Imported\ntext")
-  await page.getByRole("button", { name: "B", exact: true }).click()
+  await page.getByRole("button", { name: "B changed", exact: true }).click()
   await expect.poll(async () => (await order())[0]).toBe("Imported\ntext")
 
   await page.locator("#loomark-editor").getByRole("button", { name: "New document" }).click()
@@ -3072,17 +3089,12 @@ test("New stays ephemeral and its first Source save is not remembered", async ({
   expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   const renamed = await readStoredDocuments(page)
 
+  // Without an Editing Document hint, the most recently changed one opens.
   await page.reload()
   await openDocuments(page)
-  const firstLexical = [...renamed].sort((left, right) => (
-    left.document_id.localeCompare(right.document_id)
-  ))[0]
-  const firstName = firstLexical.text === "# Project notes\n"
-    ? "Project notes"
-    : "Untitled"
-  await expect(documents.getByRole("button", { name: firstName, exact: true }))
+  await expect(documents.getByRole("button", { name: "Project notes", exact: true }))
     .toHaveAttribute("data-state", "active")
-  await expect(text).toHaveValue(firstLexical.text)
+  await expect(text).toHaveValue("# Project notes\n")
   expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
   expect(await readStoredDocuments(page)).toEqual(renamed)
 })
@@ -3531,6 +3543,58 @@ test("old three-field Source records remain preserved and unreadable", async ({ 
   expect(await readStoredDocumentRaw(page, legacyKey)).toBe(legacy)
 })
 
+
+test("a version 1 database is upgraded once and keeps every document", async ({ page }) => {
+  // A static file shares the origin, so the old database exists before Loomark opens it.
+  await page.goto("/favicon.svg")
+  const source = { document_id: fixtureDocumentId("version-1-source"), text: "# Old source\n" }
+  const replica = { document_id: fixtureDocumentId("version-1-replica"), text: "Old replica" }
+  const header = JSON.stringify({
+    account_id: "account-a",
+    document_id: replica.document_id,
+    generation: 0,
+    state: { kind: "live", current: 0, baseline: { kind: "missing" }, phase: { kind: "ready" } },
+    recovery_document_id: null,
+    text_lengths: [replica.text.length],
+  })
+  const records = [
+    { key: sourceKey(source.document_id), value: JSON.stringify(source) },
+    {
+      key: replicaKey("account-a", replica.document_id),
+      value: `loomark-replica\n${header.length}\n${header}${replica.text}`,
+    },
+  ]
+  await page.evaluate(records => new Promise<void>((resolve, reject) => {
+    const open = indexedDB.open("loomark", 1)
+    open.onupgradeneeded = () => {
+      const store = open.result.createObjectStore("documents")
+      for (const { key, value } of records) store.put(value, key)
+    }
+    open.onsuccess = () => {
+      open.result.close()
+      resolve()
+    }
+    open.onerror = () => reject(open.error)
+  }), records)
+
+  await page.goto("/")
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(source.text)
+  await openDocuments(page)
+  await expect(page.getByRole("complementary", { name: "Documents" })
+    .getByRole("button", { name: "Old source", exact: true })).toBeVisible()
+  await expectStoredDocument(page, source)
+  expect(JSON.parse(await readStoredDocumentRaw(page, records[0].key) as string).changed_at).toBe(0)
+  const upgradedReplica = await readStoredDocumentRaw(page, records[1].key) as string
+  expect(replicaCurrentText(upgradedReplica)).toBe(replica.text)
+  expect(upgradedReplica).toContain('"changed_at":0')
+  expect(await page.evaluate(() => new Promise<number>(resolve => {
+    const open = indexedDB.open("loomark")
+    open.onsuccess = () => {
+      resolve(open.result.version)
+      open.result.close()
+    }
+  }))).toBe(2)
+})
 
 test("unknown metadata is preserved and cannot override a Source", async ({ page }) => {
   await page.goto("/")

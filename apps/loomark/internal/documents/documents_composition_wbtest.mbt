@@ -8,7 +8,8 @@ test "composition blocks persistence but keeps fresh revision" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, decisions) = match documents.edit(source_key("one"), "one!") {
+  let (documents, decisions) = match
+    documents.edit(source_key("one"), "one!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -29,14 +30,16 @@ test "composition blocks persistence but keeps fresh revision" {
 ///|
 test "pending revision advances while maximum identity stays fresh" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, first) = match documents.edit(source_key("one"), "b") {
+  let (documents, first) = match
+    documents.edit(source_key("one"), "b", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
   guard first is [Action::ArmMaximum(maximum)] else { fail("initial timers") }
   assert_eq(pending_revision(documents, source_key("one")), 1)
   assert_eq(maximum, 1)
-  let (documents, second) = match documents.edit(source_key("one"), "c") {
+  let (documents, second) = match
+    documents.edit(source_key("one"), "c", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -47,14 +50,16 @@ test "pending revision advances while maximum identity stays fresh" {
 ///|
 test "maximum eligibility persists latest text during uninterrupted editing" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, decisions) = match documents.edit(source_key("one"), "b") {
+  let (documents, decisions) = match
+    documents.edit(source_key("one"), "b", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
   guard decisions is [Action::ArmMaximum(maximum)] else {
     fail("initial timers")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "c") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "c", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -74,7 +79,8 @@ test "maximum eligibility persists latest text during uninterrupted editing" {
 ///|
 test "composition defers timers for an in-flight save until it ends" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, decisions) = match documents.edit(source_key("one"), "one!") {
+  let (documents, decisions) = match
+    documents.edit(source_key("one"), "one!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -98,7 +104,7 @@ test "composition defers timers for an in-flight save until it ends" {
     Unchanged | Superseded => fail("expected an applied document update")
   }
   let (documents, decisions) = match
-    documents.edit(source_key("one"), "one!!") {
+    documents.edit(source_key("one"), "one!!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -118,7 +124,8 @@ test "composition defers timers for an in-flight save until it ends" {
 ///|
 test "visibility makes an in-flight save's latest replica eligible" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, timers) = match documents.edit(source_key("one"), "first") {
+  let (documents, timers) = match
+    documents.edit(source_key("one"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -136,7 +143,8 @@ test "visibility makes an in-flight save's latest replica eligible" {
   guard persist is [Action::PersistSource(operation)] else {
     fail("first save")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "latest") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -165,7 +173,8 @@ test "duplicate composition end emits one maximum decision" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "first") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -190,7 +199,8 @@ test "genuine composition cycles arm maximum once with saving pending" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "first") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -218,7 +228,8 @@ test "genuine composition cycles arm maximum once with saving pending" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "second") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "second", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -236,7 +247,8 @@ test "genuine composition cycles arm maximum once with saving pending" {
 ///|
 test "queued composition callback applies immediately at composition end" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "new") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "new", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -271,7 +283,8 @@ test "composition end without callback does not accept the edit" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "ime") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "ime", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -290,7 +303,8 @@ test "composition end without callback does not accept the edit" {
 ///|
 test "IME callback then newer edit waits for latest pending revision" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "composed") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "composed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -305,7 +319,8 @@ test "IME callback then newer edit waits for latest pending revision" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "newer") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "newer", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -338,7 +353,8 @@ test "composition end with no newer edit starts one pending subscription" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "composed") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "composed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -354,7 +370,8 @@ test "composition end with no newer edit starts one pending subscription" {
 ///|
 test "composition end does not duplicate an already pending edit" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "changed") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -375,7 +392,7 @@ test "composition end does not duplicate an already pending edit" {
 test "eligible maximum during composition persists at composition end" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = match
-    documents.edit(source_key("one"), "changed") {
+    documents.edit(source_key("one"), "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -403,7 +420,8 @@ test "eligible maximum during composition persists at composition end" {
 ///|
 test "duplicate composition starts preserve waiting and ready evidence" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "changed") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -444,7 +462,8 @@ test "ready composition end persists once" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "composed") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "composed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -479,7 +498,8 @@ test "matching final text keeps ready evidence" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "same") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "same", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -489,7 +509,9 @@ test "matching final text keeps ready evidence" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  assert_true(documents.edit(source_key("one"), "same") is SameText)
+  assert_true(
+    documents.edit(source_key("one"), "same", test_change_time(0.0)) is SameText,
+  )
   assert_true(
     find_record(documents.records, source_key("one")).unwrap().edit
     is ComposingReady,
@@ -511,7 +533,8 @@ test "matching final text keeps ready evidence" {
 ///|
 test "ready composition end marks in-flight follow-up eligible once" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, first) = match documents.edit(source_key("one"), "first") {
+  let (documents, first) = match
+    documents.edit(source_key("one"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -532,7 +555,8 @@ test "ready composition end marks in-flight follow-up eligible once" {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
-  let (documents, _) = match documents.edit(source_key("one"), "latest") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -569,7 +593,8 @@ test "ready composition end marks in-flight follow-up eligible once" {
 ///|
 test "composition end outside composition leaves the pending edit intact" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "changed") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -583,3 +608,10 @@ test "composition end outside composition leaves the pending edit intact" {
 /// A stale callback must not reach a replacement record with the same ID.
 
 ///|
+
+///|
+fn test_change_time(value : Double) -> @source_repository.ChangeTime {
+  @source_repository.ChangeTime::parse(value) catch {
+    _ => abort("change time")
+  }
+}

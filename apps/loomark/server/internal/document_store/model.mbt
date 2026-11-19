@@ -5,37 +5,64 @@ pub(all) suberror StoreError {
 } derive(Debug, Eq)
 
 ///|
+/// A present document's text with the client's Change time for it, in
+/// milliseconds since the epoch. The server stores the time; it never sets it.
+pub struct Content {
+  text : String
+  changed_at : Double
+}
+
+///|
+pub fn Content::Content(
+  text : String,
+  changed_at : Double,
+) -> Content raise StoreError {
+  guard valid_change_time(changed_at) else { raise InvalidMutation }
+  { text, changed_at, }
+}
+
+///|
+/// `content` is `None` for a deletion.
 pub struct Mutation {
   operation_id : String
   base_revision : Double
-  text : String?
+  content : Content?
 }
 
 ///|
 pub fn Mutation::Mutation(
   operation_id : String,
   base_revision : Double,
-  text : String?,
+  content : Content?,
 ) -> Mutation raise StoreError {
   guard valid_identity(operation_id) &&
     valid_revision(base_revision, saved=false) else {
     raise InvalidMutation
   }
-  { operation_id, base_revision, text, }
+  { operation_id, base_revision, content, }
 }
 
 ///|
+/// What discovery lists about a present document.
+pub struct Summary {
+  preview : String
+  changed_at : Double
+}
+
+///|
+/// `summary` is `None` for a tombstone.
 pub struct Metadata {
   id : String
   revision : Double
-  deleted : Bool
-  preview : String?
+  summary : Summary?
 }
 
 ///|
+/// `content` is `None` for a tombstone.
 pub struct Document {
-  metadata : Metadata
-  text : String?
+  id : String
+  revision : Double
+  content : Content?
 }
 
 ///|
@@ -74,37 +101,55 @@ fn valid_revision(value : Double, saved~ : Bool) -> Bool {
 }
 
 ///|
-fn decode_metadata(row : Json) -> Metadata raise StoreError {
+/// Milliseconds since the epoch, as `Date.now()` reports them.
+fn valid_change_time(value : Double) -> Bool {
+  value >= 0.0 && value <= 9007199254740991.0 && @double.floor(value) == value
+}
+
+///|
+fn decode_head(row : Json) -> (String, Double, Double?) raise StoreError {
   guard row
     is {
       "id": String(id),
       "revision": Number(revision, ..),
       "deleted": Number(deleted, ..),
-      "preview": preview,
+      "changed_at": changed_at,
       ..
     } &&
     valid_identity(id) &&
-    valid_revision(revision, saved=true) &&
-    (deleted == 0.0 || deleted == 1.0) else {
+    valid_revision(revision, saved=true) else {
     raise InvalidStoredData
   }
-  let preview = match (deleted, preview) {
-    (0.0, String(preview)) if preview.char_length() <= 80 => Some(preview)
-    (1.0, Null) => None
+  match (deleted, changed_at) {
+    (0.0, Number(changed_at, ..)) if valid_change_time(changed_at) =>
+      (id, revision, Some(changed_at))
+    (1.0, Null) => (id, revision, None)
     _ => raise InvalidStoredData
   }
-  { id, revision, deleted: deleted == 1.0, preview, }
+}
+
+///|
+fn decode_metadata(row : Json) -> Metadata raise StoreError {
+  let (id, revision, changed_at) = decode_head(row)
+  let summary = match (changed_at, row) {
+    (Some(changed_at), { "preview": String(preview), .. }) if preview.char_length() <=
+      80 => Some({ preview, changed_at, })
+    (None, { "preview": Null, .. }) => None
+    _ => raise InvalidStoredData
+  }
+  { id, revision, summary, }
 }
 
 ///|
 fn decode_document(row : Json) -> Document raise StoreError {
-  let metadata = decode_metadata(row)
-  let text = match row {
-    { "text": String(text), .. } if !metadata.deleted => Some(text)
-    { "text": Null, .. } if metadata.deleted => None
+  let (id, revision, changed_at) = decode_head(row)
+  let content = match (changed_at, row) {
+    (Some(changed_at), { "text": String(text), .. }) =>
+      Some({ text, changed_at, })
+    (None, { "text": Null, .. }) => None
     _ => raise InvalidStoredData
   }
-  { metadata, text, }
+  { id, revision, content, }
 }
 
 ///|

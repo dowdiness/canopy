@@ -31,11 +31,12 @@ fn intern_text(texts : Array[String], text : String) -> Int {
 fn encode_remote(remote : RemoteDocument, texts : Array[String]) -> Json {
   match remote {
     Missing => Json::object({ "kind": "missing" })
-    Present(revision, text) =>
+    Present(revision, content) =>
       Json::object({
         "kind": "present",
         "revision": revision.value(),
-        "text": intern_text(texts, text),
+        "text": intern_text(texts, content.text()),
+        "changed_at": content.changed_at().value(),
       })
     Deleted(revision) =>
       Json::object({ "kind": "deleted", "revision": revision.value() })
@@ -59,13 +60,14 @@ fn decode_remote(value : Json, texts : Array[String]) -> RemoteDocument? {
   match fields.get("kind") {
     Some(Json::String("missing")) if fields.length() == 1 =>
       Some(RemoteDocument::Missing)
-    Some(Json::String("present")) if fields.length() == 3 => {
+    Some(Json::String("present")) if fields.length() == 4 => {
       guard fields.get("revision") is Some(Json::Number(revision, ..)) &&
-        decode_text(fields.get("text"), texts) is Some(text) else {
+        decode_text(fields.get("text"), texts) is Some(text) &&
+        decode_change_time(fields.get("changed_at")) is Some(changed_at) else {
         return None
       }
       let revision = SavedRevision::parse(revision) catch { _ => return None }
-      Some(RemoteDocument::Present(revision, text))
+      Some(RemoteDocument::Present(revision, Content(text, changed_at)))
     }
     Some(Json::String("deleted")) if fields.length() == 2 => {
       guard fields.get("revision") is Some(Json::Number(revision, ..)) else {
@@ -92,12 +94,13 @@ fn encode_operation(
   texts : Array[String],
 ) -> Json {
   match operation.content {
-    Save(text) =>
+    Save(content) =>
       Json::object({
         "kind": "save",
         "operation_id": operation.operation_id.value(),
         "base_revision": operation.base_revision,
-        "text": intern_text(texts, text),
+        "text": intern_text(texts, content.text()),
+        "changed_at": content.changed_at().value(),
       })
     Delete =>
       Json::object({
@@ -122,15 +125,19 @@ fn decode_operation(value : Json, texts : Array[String]) -> PendingOperation? {
     _ => return None
   }
   match fields.get("kind") {
-    Some(Json::String("save")) if fields.length() == 4 =>
-      match decode_text(fields.get("text"), texts) {
-        Some(text) =>
+    Some(Json::String("save")) if fields.length() == 5 =>
+      match
+        (
+          decode_text(fields.get("text"), texts),
+          decode_change_time(fields.get("changed_at")),
+        ) {
+        (Some(text), Some(changed_at)) =>
           Some({
             operation_id,
             base_revision,
-            content: PendingContent::Save(text),
+            content: PendingContent::Save(Content(text, changed_at)),
           })
-        None => None
+        _ => None
       }
     Some(Json::String("delete")) if fields.length() == 3 =>
       Some({ operation_id, base_revision, content: PendingContent::Delete, })
@@ -208,6 +215,7 @@ fn encode_state(state : ReplicaState, texts : Array[String]) -> Json {
       Json::object({
         "kind": "live",
         "current": intern_text(texts, value.document.text()),
+        "changed_at": value.document.changed_at().value(),
         "baseline": encode_remote(value.baseline.remote(), texts),
         "phase": encode_live_phase(value.phase, texts),
       })
@@ -215,6 +223,7 @@ fn encode_state(state : ReplicaState, texts : Array[String]) -> Json {
       Json::object({
         "kind": "deleting",
         "current": intern_text(texts, value.document.text()),
+        "changed_at": value.document.changed_at().value(),
         "baseline": encode_remote(value.baseline.remote(), texts),
         "phase": match value.phase {
           DeletionPhase::Ready => Json::object({ "kind": "ready" })
@@ -317,8 +326,8 @@ fn decode_baseline(value : Json?, texts : Array[String]) -> LiveBaseline? {
     Some(value) =>
       match decode_remote(value, texts) {
         Some(RemoteDocument::Missing) => Some(LiveBaseline::Unpublished)
-        Some(RemoteDocument::Present(revision, text)) =>
-          Some(LiveBaseline::Saved(revision, text))
+        Some(RemoteDocument::Present(revision, content)) =>
+          Some(LiveBaseline::Saved(revision, content))
         Some(RemoteDocument::Deleted(_)) | None => None
       }
     None => None
@@ -364,12 +373,13 @@ fn decode_state(
 ) -> ReplicaState? {
   guard value is Some(Json::Object(fields)) else { return None }
   match fields.get("kind") {
-    Some(Json::String("live")) if fields.length() == 4 => {
+    Some(Json::String("live")) if fields.length() == 5 => {
       guard decode_text(fields.get("current"), texts) is Some(text) &&
+        decode_change_time(fields.get("changed_at")) is Some(changed_at) &&
         decode_baseline(fields.get("baseline"), texts) is Some(baseline) else {
         return None
       }
-      let document = Document::create(document_id, text)
+      let document = Document::create(document_id, text, changed_at)
       match fields.get("phase") {
         Some(value) =>
           decode_live_phase(value, texts, baseline, document).map(phase => {
@@ -378,8 +388,9 @@ fn decode_state(
         None => None
       }
     }
-    Some(Json::String("deleting")) if fields.length() == 4 => {
+    Some(Json::String("deleting")) if fields.length() == 5 => {
       guard decode_text(fields.get("current"), texts) is Some(text) &&
+        decode_change_time(fields.get("changed_at")) is Some(changed_at) &&
         decode_baseline(fields.get("baseline"), texts) is Some(baseline) &&
         decode_deletion_phase(fields.get("phase"), texts, baseline)
         is Some(phase) else {
@@ -387,7 +398,7 @@ fn decode_state(
       }
       Some(
         ReplicaState::Deleting({
-          document: Document::create(document_id, text),
+          document: Document::create(document_id, text, changed_at),
           baseline,
           phase,
         }),

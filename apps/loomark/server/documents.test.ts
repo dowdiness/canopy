@@ -30,17 +30,19 @@ test("a newly signed-in device can list and reopen a committed document", async 
   const phone = await account();
   const id = crypto.randomUUID();
   const write = await phone.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 0, text: "# スマホ\n続き 🌳",
+    operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "# スマホ\n続き 🌳",
   });
   expect(write.status).toBe(200);
   expect(await write.json()).toMatchObject({ id, revision: 1 });
   const list = await phone.request("");
   expect(await list.json()).toMatchObject({
-    documents: [{ id, revision: 1, deleted: false, preview: "スマホ" }],
+    documents: [{ id, revision: 1, deleted: false, preview: "スマホ", changedAt: 1000 }],
   });
   // Every request constructs a new auth instance; no live peer or in-memory room.
   const opened = await phone.request(`/${id}`);
-  expect(await opened.json()).toEqual({ id, revision: 1, text: "# スマホ\n続き 🌳", deleted: false });
+  expect(await opened.json()).toEqual({
+    id, revision: 1, text: "# スマホ\n続き 🌳", deleted: false, changedAt: 1000,
+  });
 });
 
 test("document discovery returns bounded previews and tombstones without text", async () => {
@@ -50,7 +52,7 @@ test("document discovery returns bounded previews and tombstones without text", 
   const heading = "界".repeat(100);
   for (const id of [present, deleted]) {
     await client.request(`/${id}`, "PUT", {
-      operationId: crypto.randomUUID(), baseRevision: 0, text: `# ${heading}\nbody`,
+      operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: `# ${heading}\nbody`,
     });
   }
   await client.request(`/${deleted}`, "DELETE", {
@@ -62,7 +64,7 @@ test("document discovery returns bounded previews and tombstones without text", 
     documents: Array<Record<string, unknown>>;
   };
   expect(body.documents.find(document => document.id === present)).toEqual({
-    id: present, revision: 1, deleted: false, preview: "界".repeat(80),
+    id: present, revision: 1, deleted: false, preview: "界".repeat(80), changedAt: 1000,
   });
   expect(body.documents.find(document => document.id === deleted)).toEqual({
     id: deleted, revision: 2, deleted: true,
@@ -72,11 +74,11 @@ test("document discovery returns bounded previews and tombstones without text", 
 test("a lost response retry cannot overwrite a later PC edit", async () => {
   const client = await account();
   const id = crypto.randomUUID();
-  const first = { operationId: crypto.randomUUID(), baseRevision: 0, text: "phone" };
+  const first = { operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "phone" };
   const accepted = await client.request(`/${id}`, "PUT", first);
   expect(accepted.status).toBe(200);
   const second = await client.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 1, text: "phone + PC",
+    operationId: crypto.randomUUID(), baseRevision: 1, changedAt: 1000, text: "phone + PC",
   });
   expect(second.status).toBe(200);
   const replay = await client.request(`/${id}`, "PUT", first);
@@ -84,16 +86,42 @@ test("a lost response retry cannot overwrite a later PC edit", async () => {
   expect(await (await client.request(`/${id}`)).json()).toMatchObject({ revision: 2, text: "phone + PC" });
   const misuse = await client.request(`/${id}`, "PUT", { ...first, text: "different" });
   expect(misuse.status).toBe(422);
+  const retimed = await client.request(`/${id}`, "PUT", { ...first, changedAt: 2000 });
+  expect(retimed.status).toBe(422);
+});
+
+test("the server keeps each save's client Change time instead of its own clock", async () => {
+  const client = await account();
+  const id = crypto.randomUUID();
+  // An old device clock is kept as sent: ordering follows the device that edited.
+  await client.request(`/${id}`, "PUT", {
+    operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 5, text: "first",
+  });
+  expect(await (await client.request(`/${id}`)).json()).toMatchObject({ revision: 1, changedAt: 5 });
+  await client.request(`/${id}`, "PUT", {
+    operationId: crypto.randomUUID(), baseRevision: 1, changedAt: 1_700_000_000_123, text: "second",
+  });
+  expect(await (await client.request(`/${id}`)).json()).toMatchObject({
+    revision: 2, text: "second", changedAt: 1_700_000_000_123,
+  });
+  expect(await (await client.request("")).json()).toMatchObject({
+    documents: [{ id, revision: 2, changedAt: 1_700_000_000_123 }],
+  });
+  for (const changedAt of [undefined, -1, 1.5, "1000"]) {
+    expect((await client.request(`/${id}`, "PUT", {
+      operationId: crypto.randomUUID(), baseRevision: 2, changedAt, text: "invalid",
+    })).status).toBe(400);
+  }
 });
 
 test("concurrent saves accept one version and preserve it against stale writes/deletes", async () => {
   const client = await account();
   const id = crypto.randomUUID();
   expect((await client.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 0, text: "base",
+    operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "base",
   })).status).toBe(200);
   const edits = await Promise.all(["phone", "PC"].map(text => client.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 1, text,
+    operationId: crypto.randomUUID(), baseRevision: 1, changedAt: 1000, text,
   })));
   expect(edits.map(response => response.status).sort()).toEqual([200, 409]);
   expect((await client.request(`/${id}`, "DELETE", {
@@ -106,7 +134,7 @@ test("a tombstone survives repeated deletion and cannot be recreated by an offli
   const client = await account();
   const id = crypto.randomUUID();
   await client.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 0, text: "original",
+    operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "original",
   });
   const deletion = { operationId: crypto.randomUUID(), baseRevision: 1 };
   const deleted = await client.request(`/${id}`, "DELETE", deletion);
@@ -114,7 +142,7 @@ test("a tombstone survives repeated deletion and cannot be recreated by an offli
   expect(await (await client.request(`/${id}`, "DELETE", deletion)).json()).toEqual(await deleted.json());
   for (const baseRevision of [0, 1, 2]) {
     expect((await client.request(`/${id}`, "PUT", {
-      operationId: crypto.randomUUID(), baseRevision, text: "offline edit",
+      operationId: crypto.randomUUID(), baseRevision, changedAt: 1000, text: "offline edit",
     })).status).toBe(409);
   }
   expect(await (await client.request(`/${id}`)).json()).toEqual({ id, revision: 2, text: null, deleted: true });
@@ -125,12 +153,12 @@ test("another account cannot read or mutate a guessed document identity", async 
   const other = await account();
   const id = crypto.randomUUID();
   await owner.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 0, text: "private",
+    operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "private",
   });
   expect((await other.request(`/${id}`)).status).toBe(404);
   expect(await (await other.request("")).json()).toMatchObject({ documents: [] });
   expect((await other.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 1, text: "attack",
+    operationId: crypto.randomUUID(), baseRevision: 1, changedAt: 1000, text: "attack",
   })).status).toBe(409);
   other.headers.set("X-Loomark-Account", owner.id);
   expect((await other.request(`/${id}`)).status).toBe(409);
@@ -140,7 +168,7 @@ test("another account cannot read or mutate a guessed document identity", async 
 test("document mutations reject cross-origin requests and malformed data", async () => {
   const client = await account();
   const id = crypto.randomUUID();
-  const body = { operationId: crypto.randomUUID(), baseRevision: 0, text: "valid" };
+  const body = { operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "valid" };
   expect((await client.request(`/${id}`, "PUT", { ...body, owner: "forged" })).status).toBe(400);
   client.headers.set("Origin", "https://attacker.test");
   expect((await client.request(`/${id}`, "PUT", body)).status).toBe(403);
@@ -153,7 +181,7 @@ test.each(["prepare", "batch"])("synchronous D1 %s exceptions reject the FFI pro
     headers: {
       "X-Loomark-Account": "account", Origin: "https://loomark.test", "Content-Type": "application/json",
     },
-    body: JSON.stringify({ operationId: crypto.randomUUID(), baseRevision: 0, text: "retained locally" }),
+    body: JSON.stringify({ operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "retained locally" }),
   });
   const brokenDb = new Proxy(env.AUTH_DB, {
     get(target, key, receiver) {
@@ -169,10 +197,10 @@ test("Unicode byte limits and invalid UTF-8 reject without replacing saved text"
   const id = crypto.randomUUID();
   const text = "界".repeat(349525) + "a"; // exactly 1 MiB, not 1 Mi characters
   expect((await client.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 0, text,
+    operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text,
   })).status).toBe(200);
   expect((await client.request(`/${id}`, "PUT", {
-    operationId: crypto.randomUUID(), baseRevision: 1, text: text + "a",
+    operationId: crypto.randomUUID(), baseRevision: 1, changedAt: 1000, text: text + "a",
   })).status).toBe(413);
   const invalid = await worker.fetch(new Request(`https://loomark.test/api/documents/${id}`, {
     method: "PUT", headers: client.headers, body: new Uint8Array([0xff]),
@@ -184,7 +212,7 @@ test("Unicode byte limits and invalid UTF-8 reject without replacing saved text"
 test("failed D1 document write rolls back its receipt and permits the same retry", async () => {
   const client = await account();
   const id = crypto.randomUUID();
-  const body = { operationId: crypto.randomUUID(), baseRevision: 0, text: "recoverable" };
+  const body = { operationId: crypto.randomUUID(), baseRevision: 0, changedAt: 1000, text: "recoverable" };
   // Make the real session refresh-due without expiring it.
   const oldExpiry = Date.now() + 60_000;
   await env.AUTH_DB.prepare('UPDATE "session" SET "expiresAt" = ? WHERE "userId" = ?')

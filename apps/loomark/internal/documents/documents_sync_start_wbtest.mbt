@@ -47,7 +47,7 @@ test "edit during sync start follows the document into replica storage" {
   )
   let (documents, _) = sync_changed(
     documents,
-    documents.edit(source_key("one"), "latest"),
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)),
   )
   let (documents, effects) = sync_applied(
     documents.update(
@@ -81,7 +81,7 @@ test "failed sync start resumes local persistence for a newer edit" {
   )
   let (documents, _) = sync_changed(
     documents,
-    documents.edit(source_key("one"), "latest"),
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)),
   )
   let (documents, _) = sync_applied(
     documents.update(
@@ -117,7 +117,7 @@ test "composition remains active while sync start changes persistence owner" {
   )
   let (documents, _) = sync_changed(
     documents,
-    documents.edit(source_key("one"), "composing"),
+    documents.edit(source_key("one"), "composing", test_change_time(0.0)),
   )
   let (documents, _) = sync_applied(
     documents.update(
@@ -147,7 +147,7 @@ test "sync start waits for acknowledged source persistence" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = sync_changed(
     documents,
-    documents.edit(source_key("one"), "new"),
+    documents.edit(source_key("one"), "new", test_change_time(0.0)),
   )
   assert_true(documents.sync_start(source_key("one"), account) is Unavailable)
 }
@@ -161,7 +161,7 @@ test "maximum timer follows a document across sync-start rekeying" {
   )
   let (documents, effects) = sync_changed(
     documents,
-    documents.edit(source_key("one"), "latest"),
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)),
   )
   guard effects is [ArmMaximum(maximum)] else { fail("maximum") }
   let (documents, _) = sync_applied(

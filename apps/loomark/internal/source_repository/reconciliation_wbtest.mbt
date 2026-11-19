@@ -1,6 +1,6 @@
 ///|
 fn rdoc(id : String, text : String) -> Document {
-  Document::create(test_document_id(id), text)
+  Document::create(test_document_id(id), text, ChangeTime(0.0))
 }
 
 ///|
@@ -139,4 +139,35 @@ test "malformed sync data is isolated without hiding legacy sources" {
     RepositoryIssue::InvalidDocumentReplica(key),
     RepositoryIssue::InvalidDocumentReplica("replica/malformed"),
   ])
+}
+
+///|
+test "index order puts the latest Change time first and breaks ties by Document ID" {
+  let first = IndexKey(ChangeTime(5.0), test_document_id("a"))
+  let tied = IndexKey(ChangeTime(5.0), test_document_id("b"))
+  let older = IndexKey(ChangeTime(4.0), test_document_id("0"))
+  let keys = [older, tied, first]
+  keys.sort_by(index_order)
+  assert_true(keys == [first, tied, older])
+}
+
+///|
+test "without an editing hint startup selects the most recently changed Source" {
+  fn entry(id : String, time : Double) -> @indexed_db.Entry {
+    let document = Document::create(test_document_id(id), id, ChangeTime(time))
+    @indexed_db.Entry::StringRecord(
+      source_key(document.id()),
+      encode_document(document),
+    )
+  }
+
+  let (_, selected) = reconcile_scan([
+    entry("a", 1.0),
+    entry("c", 3.0),
+    entry("b", 2.0),
+  ])
+  assert_eq(
+    selected.map(document => document.id()),
+    Some(test_document_id("c")),
+  )
 }

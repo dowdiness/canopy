@@ -12,7 +12,7 @@ fn test_document() -> @source_repository.Document {
   ) catch {
     _ => abort("valid document id")
   }
-  @source_repository.Document::create(id, "durable")
+  @source_repository.Document::create(id, "durable", test_change_time(0.0))
 }
 
 ///|
@@ -37,7 +37,7 @@ fn test_replica() -> @source_repository.DocumentReplica {
 
 ///|
 fn edited_write() -> @source_repository.ReplicaWrite {
-  guard test_replica().edit("edited")
+  guard test_edit(test_replica(), "edited")
     is @source_repository.EditPlan::Persist(write) else {
     abort("edited replica")
   }
@@ -53,6 +53,7 @@ fn remote_entry() -> @source_repository.RemoteEntry {
     test_document().id(),
     revision,
     "Remote",
+    test_change_time(0.0),
   )
 }
 
@@ -70,7 +71,7 @@ fn received_replica() -> @source_repository.DocumentReplica {
 
 ///|
 fn edited_received_write() -> @source_repository.ReplicaWrite {
-  guard received_replica().edit("edited")
+  guard test_edit(received_replica(), "edited")
     is @source_repository.EditPlan::Persist(write) else {
     abort("edited received replica")
   }
@@ -243,6 +244,7 @@ test "selection retains an earlier failed refresh" {
           test_document().id(),
           revision,
           "Remote",
+          test_change_time(0.0),
         ),
       ]),
     ).0
@@ -283,6 +285,7 @@ test "selection rejects a refresh response older than the current catalog" {
           test_document().id(),
           revision,
           "Remote",
+          test_change_time(0.0),
         ),
       ]),
     ).0
@@ -298,7 +301,7 @@ test "selection rejects a refresh response older than the current catalog" {
     @source_repository.SavedRevision::parse(1.0) catch {
       _ => abort("valid revision")
     },
-    "durable",
+    @source_repository.Content("durable", test_change_time(0.0)),
   )
   let rejected = try opening.receive_remote(durable, attempt, stale) catch {
     @sync.WorkError::StaleWork => true
@@ -321,6 +324,7 @@ test "remote refresh response from an old account persists without new network w
           durable.document_id(),
           revision,
           "Remote",
+          test_change_time(0.0),
         ),
       ]),
     ).0
@@ -336,7 +340,10 @@ test "remote refresh response from an old account persists without new network w
   }
   let protocol = protocol.resolved(lookup, @sync.Resolved(other, "Other")).0
   let state = State(protocol~)
-  let remote = @source_repository.RemoteDocument::Present(revision, "durable")
+  let remote = @source_repository.RemoteDocument::Present(
+    revision,
+    @source_repository.Content("durable", test_change_time(0.0)),
+  )
   let (state, effect) = state.receive_remote(durable, read, remote)
   guard effect is Some(Persist(attempt)) else { fail("old account write") }
   let (state, completion) = state.complete(attempt, Ok(()))
@@ -383,8 +390,14 @@ test "replacing a selection starts only the new remote-only fetch" {
           test_document().id(),
           revision1,
           "First",
+          test_change_time(0.0),
         ),
-        @source_repository.RemoteEntry::Present(second, revision1, "Second"),
+        @source_repository.RemoteEntry::Present(
+          second,
+          revision1,
+          "Second",
+          test_change_time(0.0),
+        ),
       ]),
     ).0
   let saved = @source_repository.SavedDocuments::from_documents([])
@@ -401,8 +414,14 @@ test "replacing a selection starts only the new remote-only fetch" {
           test_document().id(),
           revision2,
           "First",
+          test_change_time(0.0),
         ),
-        @source_repository.RemoteEntry::Present(second, revision1, "Second"),
+        @source_repository.RemoteEntry::Present(
+          second,
+          revision1,
+          "Second",
+          test_change_time(0.0),
+        ),
       ]),
     ).0
   guard selected.with_protocol(protocol).select(saved, second)
@@ -530,7 +549,10 @@ test "save_local replaces obsolete failed text even when replacement also fails"
     is @replica_persistence.Retryable(old_retry, _) else {
     fail("failed write")
   }
-  let (state, effect) = state.save_local(durable, "durable")
+  let (state, effect) = state.save_local(
+    durable,
+    test_working(durable, "durable"),
+  )
   guard effect is Some(Persist(replacement)) else { fail("replacement write") }
   let expired = try state.retry_save(old_retry) catch {
     ExpiredRetry => true
@@ -581,7 +603,10 @@ test "save_local retries matching failed acknowledgment without losing its basel
   let (state, effect) = State().submit(acknowledged)
   guard effect is Some(Persist(attempt)) else { fail("receipt write") }
   let (state, _) = state.complete(attempt, Err(@source_repository.WriteFailed))
-  let (state, effect) = state.save_local(durable, "edited")
+  let (state, effect) = state.save_local(
+    durable,
+    test_working(durable, "edited"),
+  )
   guard effect is Some(Persist(retry)) else { fail("receipt retry") }
   let (_, completion) = state.complete(retry, Ok(()))
   guard completion is @replica_persistence.Current(write) else {
@@ -597,7 +622,10 @@ test "save_local returning to durable text queues behind an in-flight edit" {
   let durable = test_replica()
   let (state, effect) = State().submit(edited_write())
   guard effect is Some(Persist(first)) else { fail("first write") }
-  let (state, effect) = state.save_local(durable, "durable")
+  let (state, effect) = state.save_local(
+    durable,
+    test_working(durable, "durable"),
+  )
   assert_eq(effect, None)
   let (state, completion) = state.complete(first, Ok(()))
   guard completion is @replica_persistence.Superseded(older, next) else {
@@ -628,7 +656,10 @@ test "save_local unchanged text does not replace a failed atomic recovery" {
   let replica = edited_received_write().replica()
   let revision = @source_repository.SavedRevision::parse(2.0)
   guard replica.reconcile(
-      @source_repository.RemoteDocument::Present(revision, "remote"),
+      @source_repository.RemoteDocument::Present(
+        revision,
+        @source_repository.Content("remote", test_change_time(0.0)),
+      ),
     )
     is @source_repository.ReconcilePlan::Persist(diverged) else {
     fail("divergence")
@@ -641,7 +672,10 @@ test "save_local unchanged text does not replace a failed atomic recovery" {
   let (state, effect) = State().submit(fork)
   guard effect is Some(Persist(attempt)) else { fail("atomic fork") }
   let (state, _) = state.complete(attempt, Err(@source_repository.WriteFailed))
-  let (state, effect) = state.save_local(durable, "edited")
+  let (state, effect) = state.save_local(
+    durable,
+    test_working(durable, "edited"),
+  )
   assert_eq(effect, None)
   let (state, effect) = state.retry_document(
     durable.account(),
@@ -675,7 +709,8 @@ test "delivery receipt follows the newest queued edit without early network work
     is (protocol, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
-  guard durable.edit("latest") is @source_repository.EditPlan::Persist(newer) else {
+  guard test_edit(durable, "latest")
+    is @source_repository.EditPlan::Persist(newer) else {
     fail("newer edit")
   }
   let (state, effect) = State(protocol~).submit(newer)
@@ -709,7 +744,8 @@ test "delivery outcomes share the causal replica lane without equating their eff
     is (delivering, Some(@sync.Action::Deliver(delivery, operation))) else {
     fail("delivery")
   }
-  guard durable.edit("newer") is @source_repository.EditPlan::Persist(newer) else {
+  guard test_edit(durable, "newer")
+    is @source_repository.EditPlan::Persist(newer) else {
     fail("newer edit")
   }
   let (busy, effect) = State(protocol=delivering).submit(newer)
@@ -833,7 +869,8 @@ test "413 retires an oversized operation without blocking newer text" {
     is (delivering, Some(@sync.Action::Deliver(delivery, _))) else {
     fail("delivery")
   }
-  guard durable.edit("smaller") is @source_repository.EditPlan::Persist(newer) else {
+  guard test_edit(durable, "smaller")
+    is @source_repository.EditPlan::Persist(newer) else {
     fail("newer text")
   }
   let (busy, effect) = State(protocol=delivering).submit(newer)
@@ -900,6 +937,7 @@ test "remote refresh remains pending until its replica write commits" {
           durable.document_id(),
           revision,
           "Remote",
+          test_change_time(0.0),
         ),
       ]),
     ).0
@@ -908,7 +946,10 @@ test "remote refresh remains pending until its replica write commits" {
     fail("refresh read")
   }
   let state = State(protocol~)
-  let remote = @source_repository.RemoteDocument::Present(revision, "remote")
+  let remote = @source_repository.RemoteDocument::Present(
+    revision,
+    @source_repository.Content("remote", test_change_time(0.0)),
+  )
   let (state, effect) = state.receive_remote(durable, read, remote)
   guard effect is Some(Persist(attempt)) else { fail("reconciled write") }
   assert_eq(attempt.write().replica().document().unwrap().text(), "durable")
@@ -953,6 +994,7 @@ test "remote refresh queues behind an in-flight edit without losing local text" 
           durable.document_id(),
           revision,
           "Remote",
+          test_change_time(0.0),
         ),
       ]),
     ).0
@@ -960,9 +1002,15 @@ test "remote refresh queues behind an in-flight edit without losing local text" 
     is (protocol, Some(@sync.Action::GetRemote(read))) else {
     fail("refresh read")
   }
-  let (state, effect) = State(protocol~).save_local(durable, "latest")
+  let (state, effect) = State(protocol~).save_local(
+    durable,
+    test_working(durable, "latest"),
+  )
   guard effect is Some(Persist(first)) else { fail("local edit write") }
-  let remote = @source_repository.RemoteDocument::Present(revision, "remote")
+  let remote = @source_repository.RemoteDocument::Present(
+    revision,
+    @source_repository.Content("remote", test_change_time(0.0)),
+  )
   let (state, effect) = state.receive_remote(durable, read, remote)
   assert_eq(effect, None)
   assert_eq(state.settle_replica(durable).1, None)
@@ -1010,4 +1058,36 @@ test "remote refresh queues behind an in-flight edit without losing local text" 
     .text(),
     "remote",
   )
+}
+
+///|
+/// The replica's working document after the user types `text`.
+fn test_working(
+  replica : @source_repository.DocumentReplica,
+  text : String,
+) -> @source_repository.Document {
+  match replica.document() {
+    Some(document) => document.update(text, test_change_time(1.0))
+    None =>
+      @source_repository.Document::create(
+        replica.document_id(),
+        text,
+        test_change_time(1.0),
+      )
+  }
+}
+
+///|
+fn test_edit(
+  replica : @source_repository.DocumentReplica,
+  text : String,
+) -> @source_repository.EditPlan {
+  replica.edit(test_working(replica, text))
+}
+
+///|
+fn test_change_time(value : Double) -> @source_repository.ChangeTime {
+  @source_repository.ChangeTime::parse(value) catch {
+    _ => abort("change time")
+  }
 }

@@ -73,7 +73,7 @@ pub fn Model::remote_state(
     return Unavailable
   }
   let knowledge = replica.remote_knowledge(catalog_head)
-  let relation = live.relation(record.document.text(), knowledge)
+  let relation = live.relation(record.document, knowledge)
   let action = if record.persistence is Replica(account, ReplicaAvailable, Idle) &&
     account == replica.account() &&
     self.visible_account == Some(account) &&
@@ -147,16 +147,17 @@ pub fn StartSync::document_id(self : Self) -> @source_repository.DocumentId {
 }
 
 ///|
+/// The first listed document in the Document index other than `excluding`.
 pub fn Model::fallback_document(self : Self, excluding : Key) -> Key? {
-  self.records
-  .exact_view()
-  .search_by(record => {
+  let candidates = self.records.filter(record => {
     record.key() != excluding &&
     self.record_is_visible(record) &&
     record.delete_status() != DeletePending &&
     !(record.persistence is Source(EphemeralNew, _))
   })
-  .map(index => self.records[index].key())
+  @source_repository.first_in_index(candidates[:], record => {
+    record.document.index_key()
+  }).map(record => record.key())
 }
 
 ///|
@@ -232,22 +233,20 @@ pub fn Model::delete_status(self : Self, key : Key) -> DeleteStatus? {
 }
 
 ///|
-pub fn Model::recent(
-  self : Self,
-) -> Array[(Key, String, SaveStatus, DeleteStatus)] {
+/// The documents listed in the Document index, in no particular order.
+pub fn Model::recent(self : Self) -> Array[ListedDocument] {
   self.records.filter_map(record => {
     guard self.record_is_visible(record) &&
       record.lead_source is Available(source) else {
       return None
     }
-    Some(
-      (
-        record.key(),
-        source,
-        self.record_save_status(record),
-        record.delete_status(),
-      ),
-    )
+    Some({
+      key: record.key(),
+      source,
+      save_status: self.record_save_status(record),
+      delete_status: record.delete_status(),
+      index_key: record.document.index_key(),
+    })
   })
 }
 

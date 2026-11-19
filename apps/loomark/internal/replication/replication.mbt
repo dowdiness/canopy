@@ -80,8 +80,9 @@ pub fn State::editing_base(
 pub fn State::save_local(
   self : Self,
   durable : @source_repository.DocumentReplica,
-  text : String,
+  working : @source_repository.Document,
 ) -> (Self, Effect?) {
+  let text = working.text()
   if self.persistence.failed_write(durable.account(), durable.document_id())
     is Some(@source_repository.ReplicaWrite::Store(retained)) &&
     retained.document() is Some(current) &&
@@ -94,7 +95,7 @@ pub fn State::save_local(
     }
   }
   let base = self.persistence.editing_base(durable)
-  let (protocol, write) = self.protocol.save(base, text)
+  let (protocol, write) = self.protocol.save(base, working)
   let self = { ..self, protocol, }
   match write {
     Some(write) => self.submit(write)
@@ -332,7 +333,7 @@ pub fn State::select(
   document_id : @source_repository.DocumentId,
 ) -> (Self, Array[Effect]) {
   guard self.protocol.remote_entry(document_id)
-    is Some(@source_repository.RemoteEntry::Present(_, _, _)) &&
+    is Some(@source_repository.RemoteEntry::Present(_, _, _, _)) &&
     self.protocol.session() is @sync.Session::Current(account, _) else {
     return (self, [])
   }
@@ -396,7 +397,7 @@ pub fn State::take_selection(
     is @replica_persistence.Status::Current &&
     saved.replica(account, document_id) is Some(replica) &&
     self.protocol.remote_entry(document_id)
-    is Some(@source_repository.RemoteEntry::Present(_, required, _)) &&
+    is Some(@source_repository.RemoteEntry::Present(_, required, _, _)) &&
     replica.open(required) is @source_repository.OpenStep::Ready else {
     return (self, None, None)
   }

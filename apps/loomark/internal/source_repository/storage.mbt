@@ -1,6 +1,8 @@
 ///|
 let document_store : @indexed_db.Store = @indexed_db.Store::Store(
-  "loomark", 1, "documents",
+  DATABASE_NAME,
+  DATABASE_VERSION,
+  STORE_NAME,
 )
 
 ///|
@@ -10,6 +12,7 @@ extern "js" fn random_uuid_available() -> Bool =
 ///|
 extern "js" fn random_uuid() -> String =
   #| () => globalThis.crypto.randomUUID()
+
 
 ///|
 pub(all) enum OpenFailure {
@@ -52,7 +55,7 @@ pub(all) enum SaveResult {
 
 ///|
 pub(all) enum CreateResult {
-  Created(DocumentId)
+  Created(DocumentId, ChangeTime)
   CreateFailed(CreateFailure)
 } derive(Eq, Debug)
 
@@ -72,6 +75,22 @@ pub(all) enum ReplicaFailure {
 
 ///|
 pub fn open(msg : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
+  // The upgrade must finish before the store is opened at the new version,
+  // or the old records would stay as they are.
+  @cmd.perform(
+    upgraded => {
+      if upgraded {
+        scan(msg)
+      } else {
+        msg(OpenFailed(OpenFailure::StorageUnavailable))
+      }
+    },
+    async fn() noraise { upgrade_storage().wait() catch { _ => false } },
+  )
+}
+
+///|
+fn scan(msg : @cmd.Emit[OpenResult]) -> @cmd.Cmd {
   document_store.entries(entries => {
     match entries {
       Ok(entries) => {
@@ -225,7 +244,7 @@ pub fn create(
   guard saved.find(id) is None && !saved.observed(source_key(id)) else {
     return msg(CreateFailed(CreateFailure::DocumentIdentityUnavailable))
   }
-  msg(Created(id))
+  msg(Created(id, ChangeTime::now()))
 }
 
 ///|

@@ -200,7 +200,7 @@ pub fn State::begin_lookup(Self) -> (Self, Int) raise LookupBlocked
 pub fn State::cancel_selection(Self) -> Self
 pub fn State::catalog(Self) -> Array[@source_repository.RemoteEntry]
 pub fn State::complete_selection(Self, SelectionIntent) -> Self raise WorkError
-pub fn State::delete(Self, @source_repository.DocumentReplica, String) -> (Self, @source_repository.ReplicaWrite)
+pub fn State::delete(Self, @source_repository.DocumentReplica, @source_repository.Document) -> (Self, @source_repository.ReplicaWrite)
 pub fn State::delivery_failed(Self, @source_repository.DocumentReplica, DeliveryAttempt) -> Self raise WorkError
 pub fn State::delivery_too_large(Self, @source_repository.DocumentReplica, DeliveryAttempt) -> (Self, @source_repository.ReplicaWrite?) raise WorkError
 pub fn State::discovered(Self, @source_repository.AccountId, DiscoveryId, Array[@source_repository.RemoteEntry]?) -> (Self, Bool)
@@ -225,7 +225,7 @@ pub fn State::resolved(Self, Int, AccountResult) -> (Self, AccountSelection?)
 pub fn State::retry(Self, @source_repository.DocumentReplica, Retry) -> (Self, Action) raise WorkError
 pub fn State::retry_selection(Self, SelectionRetry) -> (Self, Action) raise WorkError
 pub fn State::revision_conflict(Self, @source_repository.DocumentReplica, DeliveryAttempt) -> Self raise WorkError
-pub fn State::save(Self, @source_repository.DocumentReplica, String) -> (Self, @source_repository.ReplicaWrite?)
+pub fn State::save(Self, @source_repository.DocumentReplica, @source_repository.Document) -> (Self, @source_repository.ReplicaWrite?)
 pub fn State::select(Self, @source_repository.DocumentId) -> Self
 pub fn State::selection(Self) -> (SelectionIntent, @source_repository.AccountId, @source_repository.DocumentId)?
 pub fn State::selection_activity(Self) -> SelectionActivity

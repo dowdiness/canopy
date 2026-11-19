@@ -44,6 +44,7 @@ test "late authorization result releases a request without advancing a newer sav
           "00000000-0000-4000-8000-000000000001",
         ),
         "pending text",
+        test_change_time(0.0),
       ),
     ) {
     @documents.Update::Applied(transition) => transition.model
@@ -102,4 +103,11 @@ test "authorization returned during account checking waits and navigates once" {
   assert_true(navigating.state.update(Event::Refresh, ready).effects is [])
   let restored = navigating.state.update(Event::PageRestored, ready)
   assert_true(restored.effects is [Effect::CheckAccount])
+}
+
+///|
+fn test_change_time(value : Double) -> @source_repository.ChangeTime {
+  @source_repository.ChangeTime::parse(value) catch {
+    _ => abort("change time")
+  }
 }

@@ -20,7 +20,10 @@ test "codec retains parsed pending operation and newer text" {
     fail("expected persisted operation")
   }
   assert_eq(operation.operation_id(), test_operation(TEST_OPERATION_1))
-  assert_eq(operation.content(), PendingContent::Save("sent"))
+  assert_eq(
+    operation.content(),
+    PendingContent::Save(Content("sent", ChangeTime(0.0))),
+  )
   assert_eq(replica_document(reopened).text(), "newer")
 }
 
@@ -49,7 +52,7 @@ test "codec retains pending deletion for restart" {
 test "tombstone frame retains only identity and revision" {
   let saved = DocumentReplica::receive(
     test_account(),
-    Document::create(test_document_id("document"), "text"),
+    Document::create(test_document_id("document"), "text", ChangeTime(0.0)),
     test_revision(1.0),
   )
   guard saved.request_deletion().replica().directive()
@@ -68,7 +71,7 @@ test "tombstone frame retains only identity and revision" {
 
 ///|
 test "codec retains deletion while resolving a save" {
-  let deleting = sending_replica("sent", TEST_OPERATION_1).edit("newer")
+  let deleting = test_edit(sending_replica("sent", TEST_OPERATION_1), "newer")
   guard deleting is EditPlan::Persist(edited) else { fail("edit") }
   let deleting = edited.replica().request_deletion().replica()
   let reopened = decode_replica(test_replica_key(), encode_replica(deleting)).unwrap()
@@ -77,7 +80,10 @@ test "codec retains deletion while resolving a save" {
     fail("saved operation")
   }
   assert_eq(operation.operation_id(), test_operation(TEST_OPERATION_1))
-  assert_eq(operation.content(), PendingContent::Save("sent"))
+  assert_eq(
+    operation.content(),
+    PendingContent::Save(Content("sent", ChangeTime(0.0))),
+  )
 }
 
 ///|

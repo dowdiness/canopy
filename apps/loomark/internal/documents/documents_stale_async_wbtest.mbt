@@ -3,12 +3,14 @@
 ///|
 test "stale timers are superseded and mismatched stored records raise" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, decisions) = match documents.edit(source_key("one"), "b") {
+  let (documents, decisions) = match
+    documents.edit(source_key("one"), "b", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
-  let (documents, _) = match documents.edit(source_key("one"), "c") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "c", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -48,7 +50,7 @@ test "page-local revision orders edits across documents" {
   let saved = documents_test_snapshot()
   let documents = Model::Model(saved)
   let (documents, first_decisions) = match
-    documents.edit(source_key("two"), "two!") {
+    documents.edit(source_key("two"), "two!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -58,7 +60,7 @@ test "page-local revision orders edits across documents" {
   assert_eq(pending_revision(documents, source_key("two")), 1)
   assert_eq(max_two, 1)
   let (documents, second_decisions) = match
-    documents.edit(source_key("one"), "one!") {
+    documents.edit(source_key("one"), "one!", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -85,7 +87,7 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
   ]).unwrap()
   let documents = Model::Model(saved)
   let (documents, decisions) = match
-    documents.edit(source_key("one"), "changed") {
+    documents.edit(source_key("one"), "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -113,7 +115,9 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
   assert_eq(operation.document.text(), "changed")
   // Import with same saved still persists via page-local revision
   let (documents, decisions) = match
-    documents.update(Imported(document_id("imported"), "text")) {
+    documents.update(
+      Imported(document_id("imported"), "text", test_change_time(0.0)),
+    ) {
     Applied(transition) => (transition.model, transition.effects)
     Unchanged | Superseded => fail("expected an applied document update")
   }
@@ -127,8 +131,9 @@ test "page-local revision retains authority unchanged and re-arms after stale ti
 ///|
 test "delete and recreate keeps pending revisions monotonic and isolated" {
   let documents = Model::Model(documents_test_snapshot())
-  let documents = documents.create(document_id("new")).model
-  let (documents, _) = match documents.edit(source_key("new"), "first") {
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
+  let (documents, _) = match
+    documents.edit(source_key("new"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -137,14 +142,16 @@ test "delete and recreate keeps pending revisions monotonic and isolated" {
     Accepted(transition) => (transition.model, transition.effects)
     AlreadyPending => fail("unexpected pending deletion")
   }
-  let documents = documents.create(document_id("new")).model
-  let (documents, _) = match documents.edit(source_key("new"), "second") {
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
+  let (documents, _) = match
+    documents.edit(source_key("new"), "second", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
   let current_revision = pending_revision(documents, source_key("new"))
   assert_true(current_revision > old_revision)
-  let (documents, _) = match documents.edit(source_key("one"), "other") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "other", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -156,7 +163,7 @@ test "delete and recreate keeps pending revisions monotonic and isolated" {
 test "matching maximum after delete confirmation is ignored" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = match
-    documents.edit(source_key("one"), "changed") {
+    documents.edit(source_key("one"), "changed", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -177,7 +184,7 @@ test "matching maximum after delete confirmation is ignored" {
 test "matching maximum during waiting deletion of in-flight save is ignored" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = match
-    documents.edit(source_key("one"), "first") {
+    documents.edit(source_key("one"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -194,7 +201,7 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
   }
   guard decisions is [PersistSource(save)] else { fail("save") }
   let (documents, decisions) = match
-    documents.edit(source_key("one"), "latest") {
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -222,8 +229,9 @@ test "matching maximum during waiting deletion of in-flight save is ignored" {
 ///|
 test "old pending callback after recreate is ignored" {
   let documents = Model::Model(documents_test_snapshot())
-  let documents = documents.create(document_id("new")).model
-  let (documents, _) = match documents.edit(source_key("new"), "first") {
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
+  let (documents, _) = match
+    documents.edit(source_key("new"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -232,8 +240,9 @@ test "old pending callback after recreate is ignored" {
     Accepted(transition) => (transition.model, transition.effects)
     AlreadyPending => fail("unexpected pending deletion")
   }
-  let documents = documents.create(document_id("new")).model
-  let (documents, _) = match documents.edit(source_key("new"), "second") {
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
+  let (documents, _) = match
+    documents.edit(source_key("new"), "second", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -250,7 +259,8 @@ test "old pending callback after recreate is ignored" {
 ///|
 test "waiting delete rejects mismatched stored completion" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "first") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -265,7 +275,8 @@ test "waiting delete rejects mismatched stored completion" {
     Unchanged | Superseded => fail("expected an applied document update")
   }
   guard persist is [PersistSource(save)] else { fail("save") }
-  let (documents, _) = match documents.edit(source_key("one"), "latest") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -289,7 +300,8 @@ test "waiting delete rejects mismatched stored completion" {
 ///|
 test "duplicate save completion after delete issue is ignored" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "x") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "x", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -324,7 +336,8 @@ test "duplicate save completion after delete issue is ignored" {
 ///|
 test "stale save completion cannot finish a replacement operation" {
   let documents = Model::Model(documents_test_snapshot())
-  let (documents, _) = match documents.edit(source_key("one"), "first") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "first", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }
@@ -339,7 +352,8 @@ test "stale save completion cannot finish a replacement operation" {
     Unchanged | Superseded => fail("expected an applied document update")
   }
   guard persist is [PersistSource(first)] else { fail("first save") }
-  let (documents, _) = match documents.edit(source_key("one"), "latest") {
+  let (documents, _) = match
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)) {
     Changed(transition) => (transition.model, transition.effects)
     SameText => fail("unexpected unchanged edit")
   }

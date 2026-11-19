@@ -29,7 +29,84 @@ pub fn DocumentId::value(self : Self) -> String {
 }
 
 ///|
-pub struct Document(DocumentId, String) derive(Eq, Debug)
+/// When a document's text last changed, in whole milliseconds since the epoch
+/// by the clock of the device where it changed. It travels with the text, so
+/// every device orders documents the same way.
+pub struct ChangeTime(Double) derive(Eq, Compare, Debug)
+
+///|
+/// The device clock, read by the shell at the moment text changes.
+pub fn ChangeTime::now() -> ChangeTime {
+  ChangeTime(@browser.now())
+}
+
+///|
+pub(all) suberror InvalidChangeTime derive(Eq, Debug)
+
+///|
+/// The rule every boundary shares: whole milliseconds from the epoch up to
+/// the largest integer JavaScript represents exactly.
+pub fn ChangeTime::parse(value : Double) -> ChangeTime raise InvalidChangeTime {
+  guard value >= 0.0 &&
+    value <= 9007199254740991.0 &&
+    @double.floor(value) == value else {
+    raise InvalidChangeTime
+  }
+  ChangeTime(value)
+}
+
+///|
+pub fn ChangeTime::value(self : Self) -> Double {
+  self.0
+}
+
+///|
+/// A document's position in the Document index: its Change time, then its
+/// Document ID for documents changed at the same time.
+pub(all) struct IndexKey(ChangeTime, DocumentId) derive(Eq, Debug)
+
+///|
+/// Document index order: the most recently changed document first, and
+/// Document ID order among documents changed at the same time.
+pub fn index_order(left : IndexKey, right : IndexKey) -> Int {
+  match right.0.compare(left.0) {
+    0 => left.1.value().lexical_compare(right.1.value())
+    order => order
+  }
+}
+
+///|
+/// The item that leads the Document index among `items`.
+pub fn[T] first_in_index(
+  items : ArrayView[T],
+  index_key : (T) -> IndexKey,
+) -> T? {
+  items.fold(init=None, (first, item) => {
+    match first {
+      Some(first) if index_order(index_key(first), index_key(item)) <= 0 =>
+        Some(first)
+      _ => Some(item)
+    }
+  })
+}
+
+///|
+/// One version of a document's content: its text and the Change time of that
+/// text. Saved documents, remote revisions, and pending saves each hold one.
+pub(all) struct Content(String, ChangeTime) derive(Eq, Debug)
+
+///|
+pub fn Content::text(self : Self) -> String {
+  self.0
+}
+
+///|
+pub fn Content::changed_at(self : Self) -> ChangeTime {
+  self.1
+}
+
+///|
+pub struct Document(DocumentId, Content) derive(Eq, Debug)
 
 ///|
 /// An advisory startup-selection hint parsed from accepted SavedDocuments.
@@ -41,13 +118,42 @@ pub(all) suberror DocumentError {
 } derive(Eq, Debug)
 
 ///|
-pub fn Document::create(id : DocumentId, text : String) -> Document {
-  Document(id, text)
+pub fn Document::create(
+  id : DocumentId,
+  text : String,
+  changed_at : ChangeTime,
+) -> Document {
+  Document(id, Content(text, changed_at))
 }
 
 ///|
-pub fn Document::update(self : Self, text : String) -> Document {
-  Document(self.0, text)
+pub fn Document::update(
+  self : Self,
+  text : String,
+  changed_at : ChangeTime,
+) -> Document {
+  Document(self.0, Content(text, changed_at))
+}
+
+///|
+pub fn Document::with_content(self : Self, content : Content) -> Document {
+  Document(self.0, content)
+}
+
+///|
+/// The working copy holding `text`. Text equal to one of the `known`
+/// versions keeps that version, Change time included (the first match wins);
+/// other text takes `changed_at`.
+pub fn Document::working(
+  self : Self,
+  text : String,
+  changed_at : ChangeTime,
+  known~ : Array[Content],
+) -> Document {
+  match known.search_by(content => content.text() == text) {
+    Some(index) => Document(self.0, known[index])
+    None => self.update(text, changed_at)
+  }
 }
 
 ///|
@@ -56,8 +162,24 @@ pub fn Document::id(self : Self) -> DocumentId {
 }
 
 ///|
-pub fn Document::text(self : Self) -> String {
+pub fn Document::content(self : Self) -> Content {
   self.1
+}
+
+///|
+pub fn Document::text(self : Self) -> String {
+  self.1.text()
+}
+
+///|
+pub fn Document::changed_at(self : Self) -> ChangeTime {
+  self.1.changed_at()
+}
+
+///|
+/// The position of this document in `index_order`.
+pub fn Document::index_key(self : Self) -> IndexKey {
+  IndexKey(self.changed_at(), self.0)
 }
 
 ///|
@@ -496,3 +618,30 @@ pub extend SavedDocuments with @moonbitlang/core/debug.Debug::{to_repr}
 
 ///|
 pub extend SavedDocuments with Eq::{equal, not_equal}
+
+///|
+pub extend ChangeTime with Eq::{equal, not_equal}
+
+///|
+pub extend ChangeTime with Compare::{compare, op_lt, op_le, op_gt, op_ge}
+
+///|
+pub extend ChangeTime with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Content with Eq::{equal, not_equal}
+
+///|
+pub extend Content with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend InvalidChangeTime with Eq::{equal, not_equal}
+
+///|
+pub extend InvalidChangeTime with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend IndexKey with Eq::{equal, not_equal}
+
+///|
+pub extend IndexKey with @moonbitlang/core/debug.Debug::{to_repr}

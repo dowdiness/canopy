@@ -35,8 +35,10 @@ fn operation_json(operation : @source_repository.PendingOperation) -> String {
     "baseRevision": operation.base_revision(),
   }
   match operation.content() {
-    @source_repository.PendingContent::Save(text) =>
-      fields["text"] = text.to_json()
+    @source_repository.PendingContent::Save(content) => {
+      fields["text"] = content.text().to_json()
+      fields["changedAt"] = content.changed_at().value().to_json()
+    }
     Delete => ()
   }
   Json::object(fields).stringify()
@@ -83,7 +85,6 @@ fn remote_document(
 ) -> @source_repository.RemoteDocument? {
   let value = @json.parse(body) catch { _ => return None }
   guard value is Json::Object(fields) &&
-    fields.length() == 4 &&
     fields.get("id") is Some(Json::String(id)) &&
     id == document_id.value() &&
     fields.get("revision") is Some(Json::Number(revision, ..)) else {
@@ -92,10 +93,20 @@ fn remote_document(
   let revision = @source_repository.SavedRevision::parse(revision) catch {
     _ => return None
   }
-  match (fields.get("deleted"), fields.get("text")) {
-    (Some(Json::False), Some(Json::String(text))) =>
-      Some(@source_repository.RemoteDocument::Present(revision, text))
-    (Some(Json::True), Some(Json::Null)) =>
+  match (fields.get("deleted"), fields.get("text"), fields.get("changedAt")) {
+    (Some(Json::False), Some(Json::String(text)), Some(Json::Number(time, ..))) if fields.length() ==
+      5 => {
+      let changed_at = @source_repository.ChangeTime::parse(time) catch {
+        _ => return None
+      }
+      Some(
+        @source_repository.RemoteDocument::Present(
+          revision,
+          @source_repository.Content(text, changed_at),
+        ),
+      )
+    }
+    (Some(Json::True), Some(Json::Null), None) if fields.length() == 4 =>
       Some(@source_repository.RemoteDocument::Deleted(revision))
     _ => None
   }
@@ -133,10 +144,24 @@ fn discovery_page(body : String, after : String?) -> DiscoveryPage? {
       return None
     }
     let document = match
-      (entry.get("deleted"), entry.get("preview"), entry.length()) {
-      (Some(Json::False), Some(Json::String(preview)), 4) if preview.char_length() <=
-        80 => @source_repository.RemoteEntry::Present(id, revision, preview)
-      (Some(Json::True), None, 3) =>
+      (
+        entry.get("deleted"),
+        entry.get("preview"),
+        entry.get("changedAt"),
+        entry.length(),
+      ) {
+      (
+        Some(Json::False),
+        Some(Json::String(preview)),
+        Some(Json::Number(time, ..)),
+        5,
+      ) if preview.char_length() <= 80 => {
+        let changed_at = @source_repository.ChangeTime::parse(time) catch {
+          _ => return None
+        }
+        @source_repository.RemoteEntry::Present(id, revision, preview, changed_at)
+      }
+      (Some(Json::True), None, None, 3) =>
         @source_repository.RemoteEntry::Deleted(id, revision)
       _ => return None
     }

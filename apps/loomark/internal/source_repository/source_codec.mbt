@@ -14,7 +14,16 @@ fn encode_document(document : Document) -> String {
   Json::object({
     "document_id": document.id().value().to_json(),
     "text": document.text().to_json(),
+    "changed_at": document.changed_at().value().to_json(),
   }).stringify()
+}
+
+///|
+fn decode_change_time(value : Json?) -> ChangeTime? {
+  guard value is Some(Json::Number(time, ..)) else { return None }
+  Some(ChangeTime::parse(time)) catch {
+    _ => None
+  }
 }
 
 ///|
@@ -24,7 +33,9 @@ fn decode_document(storage_key : String, encoded : String) -> Document? {
     return None
   }
   let value = @json.parse(encoded) catch { _ => return None }
-  guard value is Json::Object(fields) && fields.length() == 2 else {
+  guard value is Json::Object(fields) &&
+    fields.length() == 3 &&
+    decode_change_time(fields.get("changed_at")) is Some(changed_at) else {
     return None
   }
   let id = match fields.get("document_id") {
@@ -37,5 +48,5 @@ fn decode_document(storage_key : String, encoded : String) -> Document? {
   }
   guard identity.equal_to_string(id) else { return None }
   let id = DocumentId::parse(id) catch { _ => return None }
-  Some(Document::create(id, text))
+  Some(Document::create(id, text, changed_at))
 }

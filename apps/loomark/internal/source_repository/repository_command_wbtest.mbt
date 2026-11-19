@@ -1,12 +1,12 @@
 ///|
 fn command_doc(id : String) -> Document {
-  Document::create(test_document_id(id), "# text\n")
+  Document::create(test_document_id(id), "# text\n", ChangeTime(0.0))
 }
 
 ///|
-test "open begins with complete Store entries scan" {
+test "opening scans complete Store entries after the storage upgrade" {
   assert_true(
-    @debug.to_string(open(_ => @cmd.none)).contains("IndexedDBEntries"),
+    @debug.to_string(scan(_ => @cmd.none)).contains("IndexedDBEntries"),
   )
 }
 

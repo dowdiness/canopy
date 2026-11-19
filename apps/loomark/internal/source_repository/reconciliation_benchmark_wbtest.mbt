@@ -5,7 +5,7 @@ fn bench_document(index : Int, large : Bool) -> Document {
   } else {
     "# Document \{index}\n"
   }
-  Document::create(test_document_id("document-\{index}"), text)
+  Document::create(test_document_id("document-\{index}"), text, ChangeTime(0.0))
 }
 
 ///|
@@ -33,7 +33,7 @@ test "bench: complete a tail edit without reinterpreting unchanged names" (
   let unrelated = doc("other", "# [Unresolved]\n\n" + body)
   let saved = SavedDocuments::from_documents([original, unrelated]).unwrap()
   let edits = Array::makei(8, index => {
-    original.update(original.text() + "\{index}")
+    original.update(original.text() + "\{index}", ChangeTime(1.0))
   })
   let mut index = 0
   b.bench(fn() {

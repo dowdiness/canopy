@@ -81,8 +81,8 @@ fn EditingDocument::settled_text(self : Self) -> String? {
   self.documents
   .recent()
   .iter()
-  .find_first(item => item.0 == self.activation.key)
-  .map(item => item.1)
+  .find_first(listed => listed.key == self.activation.key)
+  .map(listed => listed.source)
 }
 
 ///|
@@ -142,8 +142,9 @@ priv enum Msg {
   EmptyCreateCompleted(Int, @source_repository.CreateResult)
   ExampleSelected(Activation, String)
   ExampleCreateCompleted(Int, String, @source_repository.CreateResult)
-  InputChanged(Int, @editor.InputEdit)
-  TextChanged(Int, @text_change.TextChange)
+  /// Editor input, stamped with the device clock when it happened.
+  InputChanged(Int, @editor.InputEdit, @source_repository.ChangeTime)
+  TextChanged(Int, @text_change.TextChange, @source_repository.ChangeTime)
   CompositionStarted(Int)
   CompositionEnded(Int)
   ModeSelected(@editor.Mode)

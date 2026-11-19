@@ -40,7 +40,7 @@ fn remote_revision(
     @source_repository.SavedRevision::parse(value) catch {
       _ => abort("valid revision")
     },
-    text,
+    @source_repository.Content(text, test_change_time(0.0)),
   )
 }
 
@@ -51,7 +51,7 @@ test "remote update capability expires after a local edit" {
   )
   guard remote is UpdateAvailable(action) else { fail("available update") }
   let key = Key::replica(replica.account(), replica.document_id())
-  guard (documents.edit(key, "local") catch {
+  guard (documents.edit(key, "local", test_change_time(0.0)) catch {
       _ => abort("unexpected edit error")
     })
     is Changed(transition) else {
@@ -282,7 +282,9 @@ test "replica commit refreshes only an unmounted clean working copy" {
   let mounted = transition.model
   assert_eq(mounted.text(key), Some("base"))
 
-  guard (clean.edit(key, "local") catch { _ => abort("unexpected edit error") })
+  guard (clean.edit(key, "local", test_change_time(0.0)) catch {
+      _ => abort("unexpected edit error")
+    })
     is Changed(transition) else {
     fail("local edit")
   }
@@ -295,4 +297,48 @@ test "replica commit refreshes only an unmounted clean working copy" {
   }
   let edited = transition.model
   assert_eq(edited.text(key), Some("local"))
+}
+
+///|
+test "a settled revision with the same text gives even a mounted record its Change time" {
+  let account = account_id("account")
+  let created = @source_repository.Document::create(
+    documents_test_document("one", "same").id(),
+    "same",
+    test_change_time(5.0),
+  )
+  let first = @source_repository.SavedRevision::parse(1.0) catch {
+    _ => abort("valid revision")
+  }
+  let base = @source_repository.DocumentReplica::receive(
+    account, created, first,
+  )
+  let saved = @source_repository.SavedDocuments::from_documents([])
+    .unwrap()
+    .apply_replica(base)
+  let key = Key::replica(account, created.id())
+  let remote = @source_repository.RemoteDocument::Present(
+    @source_repository.SavedRevision::parse(2.0) catch {
+      _ => abort("valid revision")
+    },
+    @source_repository.Content("same", test_change_time(2.0)),
+  )
+  guard base.reconcile(remote)
+    is @source_repository.ReconcilePlan::Persist(write) else {
+    fail("settled remote revision")
+  }
+  guard (Model(saved)
+    .project_account(account)
+    .update(ReplicaSettled(write, Some(key))) catch {
+      _ => abort("unexpected update error")
+    })
+    is Applied(transition) else {
+    fail("replica settled")
+  }
+  let settled = transition.model
+  assert_eq(
+    settled.document(key).map(document => document.changed_at()),
+    Some(test_change_time(2.0)),
+  )
+  assert_true(settled.save_status(key) is Some(SaveStatus::Clean))
 }

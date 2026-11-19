@@ -10,7 +10,11 @@ fn sync_test_document(
   id : String,
   text : String,
 ) -> @source_repository.Document {
-  @source_repository.Document::create(document_id(id), text)
+  @source_repository.Document::create(
+    document_id(id),
+    text,
+    test_change_time(0.0),
+  )
 }
 
 ///|
@@ -231,7 +235,10 @@ test "delete conflict restores the working copy for a new decision" {
     .replica()
     .reject_conflict(
       operation_id,
-      @source_repository.RemoteDocument::Present(revision, "remote"),
+      @source_repository.RemoteDocument::Present(
+        revision,
+        @source_repository.Content("remote", test_change_time(0.0)),
+      ),
     )
     is @source_repository.ReconcilePlan::Persist(conflict) else {
     fail("delete conflict")

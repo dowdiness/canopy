@@ -144,7 +144,7 @@ test "logout fences lookup and hides account membership without discarding open 
   assert_true(late.sync().session() is @sync.Session::NoAccount)
   guard late.page is Editing(editing) else { fail("open editor retained") }
   assert_eq(editing.documents.text(key), Some("one"))
-  assert_false(editing.documents.recent().any(row => row.0 == key))
+  assert_false(editing.documents.recent().any(row => row.key == key))
 }
 
 ///|
@@ -158,7 +158,11 @@ test "signed-out replica edits enter persistence synchronously during sign-in" {
   }
   let (edited, _) = test_root_update(
     signed_out_model(editing),
-    TextChanged(0, @text_change.TextChange::ReplaceAll("offline change")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("offline change"),
+      test_change_time(0.0),
+    ),
   )
   let (waiting, _) = start_sign_in(edited)
   assert_true(waiting.sign_in is @sign_in.SavingChanges(..))
@@ -179,7 +183,11 @@ test "racing text cancels sign-in and fences provider completion" {
   let request = sign_in_request(connecting)
   let (edited, _) = test_root_update(
     connecting,
-    TextChanged(0, @text_change.TextChange::ReplaceAll("racing text")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("racing text"),
+      test_change_time(0.0),
+    ),
   )
   let (late, _) = test_root_update(
     edited,
@@ -229,7 +237,11 @@ test "a joined sign-in consumes the physical result and stale results cannot rel
   let first_cancel = cancel_sign_in_action(first)
   let (canceled, _) = test_root_update(
     first,
-    TextChanged(0, @text_change.TextChange::ReplaceAll("one")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("one"),
+      test_change_time(0.0),
+    ),
   )
   let (joined, _) = start_sign_in(canceled)
   assert_true(cancel_sign_in_action(joined) != first_cancel)
@@ -299,7 +311,11 @@ test "physical completion during a newer save cannot bypass local persistence" {
   let physical = sign_in_request(connecting)
   let (edited, _) = test_root_update(
     connecting,
-    TextChanged(0, @text_change.TextChange::ReplaceAll("new text")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("new text"),
+      test_change_time(0.0),
+    ),
   )
   let saved = edited.page.documents_state().unwrap().save_changes() catch {
       @documents.DeleteError::DocumentMissing(_) =>
@@ -408,7 +424,11 @@ test "canceling sign-in leaves its save alive and preserves subsequent editing" 
   assert_false(canceled.sign_in.blocks_editing())
   let (edited, _) = test_root_update(
     canceled,
-    TextChanged(0, @text_change.TextChange::ReplaceAll("newer text")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("newer text"),
+      test_change_time(0.0),
+    ),
   )
   let (completed, _) = test_root_update(
     edited,
@@ -437,7 +457,11 @@ test "queued input cannot cancel an already dispatched redirect" {
   let redirecting = redirecting_model()
   let (after_input, _) = test_root_update(
     redirecting,
-    TextChanged(0, @text_change.TextChange::ReplaceAll("queued text")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("queued text"),
+      test_change_time(0.0),
+    ),
   )
   assert_true(account_controls_input(after_input).sign_in is @sign_in.Leaving)
   assert_true(after_input.sign_in.blocks_editing())
@@ -478,7 +502,11 @@ test "BFCache restoration releases redirecting and fences the old account lookup
   assert_true(confirmed.sync().session() is NoAccount)
   let (edited, _) = test_root_update(
     confirmed,
-    TextChanged(0, @text_change.TextChange::ReplaceAll("after Back")),
+    TextChanged(
+      0,
+      @text_change.TextChange::ReplaceAll("after Back"),
+      test_change_time(0.0),
+    ),
   )
   assert_eq(
     edited.page.documents_state().unwrap().text(test_editing().activation.key),
@@ -553,4 +581,11 @@ test "authentication return retains a pending request and its failure notice dur
     account_controls_input(unavailable).sign_in
     is @sign_in.Failed(Authentication, retry=None),
   )
+}
+
+///|
+fn test_change_time(value : Double) -> @source_repository.ChangeTime {
+  @source_repository.ChangeTime::parse(value) catch {
+    _ => abort("change time")
+  }
 }

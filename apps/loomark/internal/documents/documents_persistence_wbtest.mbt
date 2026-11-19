@@ -32,7 +32,9 @@ fn persistence_deleted(
 test "failed Import remains available through the existing Retry" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_applied(
-    documents.update(Imported(document_id("imported"), "text")),
+    documents.update(
+      Imported(document_id("imported"), "text", test_change_time(0.0)),
+    ),
   )
   guard decisions is [PersistSource(operation)] else { fail("persist") }
   let (documents, _) = persistence_applied(
@@ -55,7 +57,9 @@ test "failed Import deletion is local because it was never saved" {
   let documents = Model::Model(documents_test_snapshot())
   let before = documents.snapshot()
   let (documents, decisions) = persistence_applied(
-    documents.update(Imported(document_id("imported"), "text")),
+    documents.update(
+      Imported(document_id("imported"), "text", test_change_time(0.0)),
+    ),
   )
   guard decisions is [PersistSource(operation)] else { fail("persist") }
   let (documents, _) = persistence_applied(
@@ -75,7 +79,7 @@ test "a second document persists while the first document is in flight" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "one!"),
+    documents.edit(source_key("one"), "one!", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("initial timers") }
   let (documents, first) = persistence_applied(
@@ -92,7 +96,7 @@ test "a second document persists while the first document is in flight" {
   }
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("two"), "two!"),
+    documents.edit(source_key("two"), "two!", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("two timers") }
   let (documents, second) = persistence_applied(
@@ -121,7 +125,7 @@ test "reverse save acknowledgments merge into the latest snapshot" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "one!"),
+    documents.edit(source_key("one"), "one!", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("one timers") }
   let (documents, one_decisions) = persistence_applied(
@@ -135,7 +139,7 @@ test "reverse save acknowledgments merge into the latest snapshot" {
   guard one_decisions[0] is PersistSource(one) else { fail("one save") }
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("two"), "two!"),
+    documents.edit(source_key("two"), "two!", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("two timers") }
   let (documents, two_decisions) = persistence_applied(
@@ -168,7 +172,7 @@ test "inactive save completion updates the latest snapshot" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("two"), "two!"),
+    documents.edit(source_key("two"), "two!", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -198,7 +202,7 @@ test "returning to operation text while saving preserves final fresh revision" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "b"),
+    documents.edit(source_key("one"), "b", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -214,7 +218,7 @@ test "returning to operation text while saving preserves final fresh revision" {
   }
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "one"),
+    documents.edit(source_key("one"), "one", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else {
     fail("new save window timers")
@@ -245,7 +249,7 @@ test "deferred and eligible failures preserve or promote pending replica" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "b"),
+    documents.edit(source_key("one"), "b", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -261,7 +265,7 @@ test "deferred and eligible failures preserve or promote pending replica" {
   }
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "c"),
+    documents.edit(source_key("one"), "c", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else {
     fail("pending save window timers")
@@ -285,7 +289,7 @@ test "deferred and eligible failures preserve or promote pending replica" {
   }
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "d"),
+    documents.edit(source_key("one"), "d", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else {
     fail("latest save window timers")
@@ -331,7 +335,7 @@ test "confirmation waits for the matching save and then deletes" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "new"),
+    documents.edit(source_key("one"), "new", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -374,7 +378,7 @@ test "duplicate confirmation during waiting deletion preserves original operatio
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "new"),
+    documents.edit(source_key("one"), "new", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -429,7 +433,7 @@ test "failed existing save still releases a waiting delete" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "new"),
+    documents.edit(source_key("one"), "new", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -457,7 +461,7 @@ test "failed existing save still releases a waiting delete" {
 test "new document deletion is local and does not change snapshot" {
   let documents = Model::Model(documents_test_snapshot())
   let before = documents.snapshot()
-  let documents = documents.create(document_id("new")).model
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
   let (documents, decisions) = persistence_deleted(
     documents,
     documents.delete(source_key("new")),
@@ -470,10 +474,10 @@ test "new document deletion is local and does not change snapshot" {
 ///|
 test "new in-flight stored save promotes before deletion" {
   let documents = Model::Model(documents_test_snapshot())
-  let documents = documents.create(document_id("new")).model
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("new"), "hello"),
+    documents.edit(source_key("new"), "hello", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -501,10 +505,10 @@ test "new in-flight stored save promotes before deletion" {
 ///|
 test "new in-flight failed save is removed locally" {
   let documents = Model::Model(documents_test_snapshot())
-  let documents = documents.create(document_id("new")).model
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("new"), "hello"),
+    documents.edit(source_key("new"), "hello", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -545,7 +549,7 @@ test "retry allocates a fresh operation and fences an active save" {
   assert_eq(documents.text(source_key("one")), Some("one"))
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "edited"),
+    documents.edit(source_key("one"), "edited", test_change_time(0.0)),
   )
   guard decisions is [Action::ArmMaximum(_)] else { fail("timers") }
   let (documents, decisions) = persistence_applied(
@@ -578,7 +582,7 @@ test "maximum save completion then pending callback accepts source" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "maximum"),
+    documents.edit(source_key("one"), "maximum", test_change_time(0.0)),
   )
   guard decisions is [ArmMaximum(maximum)] else { fail("maximum") }
   let (documents, decisions) = persistence_applied(
@@ -608,7 +612,7 @@ test "failed accepted save then clean revert keeps lead pending without save" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "new"),
+    documents.edit(source_key("one"), "new", test_change_time(0.0)),
   )
   let (documents, decisions) = persistence_applied(
     documents.update(
@@ -624,7 +628,7 @@ test "failed accepted save then clean revert keeps lead pending without save" {
   )
   let (documents, decisions) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "one"),
+    documents.edit(source_key("one"), "one", test_change_time(0.0)),
   )
   assert_true(decisions.is_empty())
   assert_true(
@@ -638,7 +642,7 @@ test "eligible pending latest text waits for delete without an intermediate writ
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "first"),
+    documents.edit(source_key("one"), "first", test_change_time(0.0)),
   )
   let (documents, persist) = persistence_applied(
     documents.update(
@@ -651,7 +655,7 @@ test "eligible pending latest text waits for delete without an intermediate writ
   guard persist is [PersistSource(first)] else { fail("first save") }
   let (documents, _) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "latest"),
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)),
   )
   let (documents, _) = persistence_applied(
     documents.update(
@@ -677,10 +681,10 @@ test "eligible pending latest text waits for delete without an intermediate writ
 ///|
 test "failed absent New completion removes the record before delete" {
   let documents = Model::Model(documents_test_snapshot())
-  let documents = documents.create(document_id("new")).model
+  let documents = documents.create(document_id("new"), test_change_time(0.0)).model
   let (documents, timer) = persistence_changed(
     documents,
-    documents.edit(source_key("new"), "x"),
+    documents.edit(source_key("new"), "x", test_change_time(0.0)),
   )
   guard timer is [ArmMaximum(_)] else { fail("timer") }
   let (documents, persist) = persistence_applied(
@@ -707,7 +711,9 @@ test "failed absent New completion removes the record before delete" {
 test "failed absent Import completion removes the record before delete" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, persist) = persistence_applied(
-    documents.update(Imported(document_id("imported"), "x")),
+    documents.update(
+      Imported(document_id("imported"), "x", test_change_time(0.0)),
+    ),
   )
   guard persist is [PersistSource(save)] else { fail("save") }
   let (documents, _) = persistence_deleted(
@@ -741,7 +747,7 @@ test "delete failure resumes the retained eligible latest replica" {
   let documents = Model::Model(documents_test_snapshot())
   let (documents, _) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "first"),
+    documents.edit(source_key("one"), "first", test_change_time(0.0)),
   )
   let (documents, persist) = persistence_applied(
     documents.update(
@@ -754,7 +760,7 @@ test "delete failure resumes the retained eligible latest replica" {
   guard persist is [PersistSource(first)] else { fail("first save") }
   let (documents, _) = persistence_changed(
     documents,
-    documents.edit(source_key("one"), "latest"),
+    documents.edit(source_key("one"), "latest", test_change_time(0.0)),
   )
   let (documents, _) = persistence_applied(
     documents.update(

@@ -111,6 +111,14 @@ pub fn Key::replica(@source_repository.AccountId, @source_repository.DocumentId)
 pub fn Key::source(@source_repository.DocumentId) -> Self
 pub fn Key::to_repr(Self) -> @debug.Repr
 
+pub struct ListedDocument {
+  key : Key
+  source : String
+  save_status : SaveStatus
+  delete_status : DeleteStatus
+  index_key : @source_repository.IndexKey
+}
+
 pub enum LocalDurability {
   AwaitingInput
   Saving
@@ -134,11 +142,11 @@ pub struct Model {
 pub fn Model::Model(@source_repository.SavedDocuments) -> Self
 pub fn Model::accept_remote(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?, AcceptRemote) -> RemoteAcceptance raise ActionError
 pub fn Model::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise ActionError
-pub fn Model::create(Self, @source_repository.DocumentId) -> Transition raise CreateError
+pub fn Model::create(Self, @source_repository.DocumentId, @source_repository.ChangeTime) -> Transition raise CreateError
 pub fn Model::delete(Self, Key) -> Delete raise DeleteError
 pub fn Model::delete_status(Self, Key) -> DeleteStatus?
 pub fn Model::document(Self, Key) -> @source_repository.Document?
-pub fn Model::edit(Self, Key, String) -> Edit raise EditError
+pub fn Model::edit(Self, Key, String, @source_repository.ChangeTime) -> Edit raise EditError
 pub fn Model::equal(Self, Self) -> Bool
 pub fn Model::fallback_document(Self, Key) -> Key?
 pub fn Model::hide_accounts(Self) -> Self
@@ -150,7 +158,7 @@ pub fn Model::not_equal(Self, Self) -> Bool
 pub fn Model::open_replica(Self, @source_repository.DocumentReplica) -> RemoteOpen
 pub fn Model::pending_edits(Self) -> Array[(Key, Int)]
 pub fn Model::project_account(Self, @source_repository.AccountId) -> Self
-pub fn Model::recent(Self) -> Array[(Key, String, SaveStatus, DeleteStatus)]
+pub fn Model::recent(Self) -> Array[ListedDocument]
 pub fn Model::remote_state(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?) -> RemoteState
 pub fn Model::replica_owner(Self, Key) -> (@source_repository.AccountId, @source_repository.DocumentId)?
 pub fn Model::resume_hint(Self, Key) -> @source_repository.EditingDocumentHint?
@@ -163,7 +171,7 @@ pub fn Model::text(Self, Key) -> String?
 pub fn Model::update(Self, Msg) -> Update raise UpdateError
 
 pub(all) enum Msg {
-  Imported(@source_repository.DocumentId, String)
+  Imported(@source_repository.DocumentId, String, @source_repository.ChangeTime)
   CompositionStarted(Key)
   CompositionEnded(Key)
   RetrySave(Key)

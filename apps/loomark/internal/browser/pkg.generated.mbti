@@ -45,6 +45,8 @@ pub fn key_press(@dom.KeyboardEvent) -> KeyPress
 
 pub fn load_font_faces(FontFaceSet, String, String) -> Unit
 
+pub fn now() -> Double
+
 pub fn observe_border_box(@dom.ResizeObserver, @dom.Element) -> Unit
 
 pub fn parse_css_number(String) -> Double

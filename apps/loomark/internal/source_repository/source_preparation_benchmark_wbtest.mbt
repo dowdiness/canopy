@@ -3,6 +3,7 @@ fn preparation_document(size : Int) -> Document {
   Document::create(
     test_document_id("bench-document"),
     "# Stable\n" + String::make(size, 'x'),
+    ChangeTime(0.0),
   )
 }
 
@@ -23,7 +24,7 @@ test "bench: encode shared 1 MiB sync replica text" (b : @bench.T) {
   let text = String::make(1024 * 1024, 'x')
   let replica = DocumentReplica(
     test_account(value="bench-account"),
-    Document::create(test_document_id("bench-document"), text),
+    Document::create(test_document_id("bench-document"), text, ChangeTime(0.0)),
   )
   let pending = start_save(replica, "11111111-1111-4111-8111-111111111111")
   let acknowledged = pending
