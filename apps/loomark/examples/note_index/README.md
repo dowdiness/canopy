@@ -44,6 +44,15 @@ python3 -m http.server 8000 --directory $P
 
 Notes live in memory; reloading restores the samples.
 
+## Browser tests
+
+`scripts/test-loomark-standalone-e2e.sh` builds this page into
+`apps/loomark/.note-index-e2e-dist` and runs
+[`tests/note-index.spec.ts`](../vanilla/tests/note-index.spec.ts) against it.
+The tests check that packed slots match the cards the browser draws, after a
+resize and a late font, and that arrow keys and focus follow the cards on
+screen.
+
 ## Things to try
 
 - Open a card, change it, and press Escape. The index reappears in its old

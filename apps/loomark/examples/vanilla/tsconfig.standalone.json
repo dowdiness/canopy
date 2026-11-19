@@ -9,5 +9,5 @@
     "allowImportingTsExtensions": true,
     "allowJs": false
   },
-  "include": ["playwright.standalone.config.ts", "tests/standalone.spec.ts", "playwright.sidebar.config.ts", "tests/sidebar.spec.ts", "playwright.focus.config.ts", "tests/writing-focus.spec.ts", "benchmarks/*.ts"]
+  "include": ["playwright.standalone.config.ts", "tests/standalone.spec.ts", "playwright.sidebar.config.ts", "tests/sidebar.spec.ts", "playwright.focus.config.ts", "tests/writing-focus.spec.ts", "playwright.note-index.config.ts", "tests/note-index.spec.ts", "benchmarks/*.ts"]
 }

@@ -3,4 +3,5 @@
 .env.development
 .env.production
 .sidebar-e2e-dist/
+.note-index-e2e-dist/
 examples/vanilla/benchmark-results/
