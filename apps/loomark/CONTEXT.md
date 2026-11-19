@@ -35,7 +35,8 @@ does not show the hint.
 _Avoid_: blank record, draft
 
 **Welcome document**:
-The Welcome example that opens when the repository holds no Loomark documents.
+The Welcome example that opens at startup, instead of the Document index, when
+the repository holds no Loomark documents.
 It is stored as soon as it opens, like an Example, so it appears in Recent
 documents. Like every example, it opens at its beginning rather than at its
 end. Deleting the final document still leaves a New document; only a later
@@ -291,6 +292,73 @@ from the newer text replaces it after a short pause; a document entering Recent
 documents for the first time uses its current text for its first lead.
 _Avoid_: Document list, catalog, title list, file browser
 
+**Document index**:
+The screen Loomark opens at startup for choosing, finding, and starting Loomark
+documents. It shows every Loomark document in Recent documents as a card, most
+recently changed first by Change time, packed into as many columns of at least
+250px as the width allows. Cards keep reading order: left to right, then top to
+bottom, each placed in the column that ends highest. A card shows the Document
+lead with the same forms and extractor as Recent documents; its primary content
+may occupy up to three visual lines and its description up to six, and a long
+code or text lead may span two columns when that leaves no tall gap beneath a
+neighbour. Cards are sized from their rendered text, never from an estimate,
+so a card is shown only once its height is known. Like Recent documents, a card
+shows no image thumbnail or change time, marks an Unsaved document with the
+`Not saved` warning mark, and shows Loading and Pending deletion states. A
+document whose text is empty keeps a short card with no placeholder text and an
+accessible `Empty document` label.
+
+The header names the screen (`Notes`) with the number of documents, a Search
+field, and a New button. Search narrows the cards, case-insensitively, to
+documents whose Document text contains the query, marks the matching text, and
+counts `n of m`; a document known only from the remote catalog is matched
+against its preview text. A search with no match says `No documents contain
+“query”` and offers `Clear search`, which empties the field and keeps focus in
+it. Search is never persisted.
+
+Arrow keys move focus to the nearest card in their direction, Home and End to
+the first and last card, `/` to Search, and `N` opens a New document; Tab and
+screen readers follow recency order, and only one card is a Tab stop. Choosing a
+card performs a Document switch into the Editor. On returning, a changed
+document's card moves to the first position with movement easing (immediately
+under reduced motion), keeps focus, is briefly highlighted, and is announced;
+an unchanged document's card keeps its place and focus.
+
+Each card offers Delete document with the same trash button, availability, and
+Delete confirmation as its Recent documents entry; the button sits on the card
+beside its link rather than inside it, so choosing the card and deleting it stay
+separate targets. Only the button of the card holding the Tab stop is in Tab
+order, directly after that card. While Pending deletion, the card stays in place
+with its progress and cannot be chosen. Once deleted, the remaining cards move
+to their new places with movement easing (immediately under reduced motion),
+focus moves to the card that now holds the deleted card's place in reading
+order, or the previous card when it was last, or Search when none remains, and
+the deletion is announced. Deleting from the Document index opens no document;
+deleting the last one leaves the Document index showing `No documents yet` with
+New. A failed deletion keeps the card and its focus, and reports the failure as
+Recent documents does.
+
+The Document index is not shown at startup when the repository holds no Loomark
+documents (Welcome opens), when Loomark is embedded in another page (a New
+document opens), or when the URL names a document (that document opens).
+_Avoid_: Document list, catalog, dashboard, home screen, file browser
+
+**Index navigation**:
+Moving between the Document index and the Editor through browser history. The
+Document index and each opened document have their own URL fragment, and a
+document URL names its Document ID. Opening a document from the Document index
+or New adds one history entry; a Document switch from Recent documents replaces
+the current entry, so Back from the Editor always returns to the Document index.
+Back restores the Document index's search, scroll position, and focused card;
+Forward performs a Document switch to the document again. The Editor also offers
+an explicit `Notes` control at the start of its toolbar that does the same as
+Back. Escape keeps its existing meanings in the Editor and never leaves it. An
+untouched New document left this way is discarded, as on any other Document
+switch. A URL naming a document that does not exist, or no longer exists, opens
+the Document index without a notice. Leaving the Editor waits for IME
+composition to end, like a Document switch.
+_Avoid_: routing, back button, close document
+
 **Document switch**:
 Choosing another Loomark document without waiting for the current document to
 finish saving. The current document remains visible until its IME input has
@@ -418,13 +486,14 @@ _Avoid_: backup, saved copy, publish
 
 **Delete document**:
 Permanently removing any one Loomark document without first opening it. Each
-Recent documents entry exposes a direct icon-only trash button with a
+Recent documents entry and each Document index card exposes a direct icon-only trash button with a
 target-specific accessible name and tooltip. With a hover-capable fine pointer
-it appears while its entry is hovered or holds focus; touch screens always show
+it appears while its entry or card is hovered or holds focus; touch screens always show
 it with a 44px target, and keyboard focus always reveals it. Pointer or
 keyboard activation opens Delete confirmation; there is no Actions, context, or overflow menu.
-Deleting the Editing Document opens the most recently changed remainder, or a
-New document when none remains; Loomark keeps no Trash.
+Deleting the Editing Document from the Editor opens the most recently changed
+remainder, or a New document when none remains; deleting from the Document
+index keeps the Document index. Loomark keeps no Trash.
 _Avoid_: archive, trash, soft delete
 
 **Delete confirmation**:
@@ -441,7 +510,8 @@ _Avoid_: deletion warning, delete prompt
 
 **Pending deletion**:
 A confirmed Delete document awaiting Browser storage acknowledgment. A non-open
-target shows its progress in Recent documents while editing continues; an open
+target shows its progress in Recent documents and on its Document index card
+while editing or browsing continues; an open
 target remains visible and permits neither editing nor Document switch.
 Failure restores the target to retryable availability.
 _Avoid_: loading document, optimistic deletion
