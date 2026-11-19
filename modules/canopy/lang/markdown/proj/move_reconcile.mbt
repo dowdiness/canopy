@@ -31,9 +31,9 @@ fn build_markdown_hints_map(
 fn reconcile_markdown_projection_hinted(
   old : @core.ProjNode[@markdown.Block],
   new_ : @core.ProjNode[@markdown.Block],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[@core.NodeId, @core.IdentityTransform],
-  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@markdown.Block] {
   if hints.is_empty() || !has_move_hint(hints) {
     return @core.reconcile_hinted(old, new_, counter, hints, trace_ref~)
@@ -73,9 +73,9 @@ fn is_block_container(block : @markdown.Block) -> Bool {
 fn reconcile_markdown_children_hinted(
   old_children : Array[@core.ProjNode[@markdown.Block]],
   new_children : Array[@core.ProjNode[@markdown.Block]],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[@core.NodeId, @core.IdentityTransform],
-  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> Array[@core.ProjNode[@markdown.Block]] {
   let old_len = old_children.length()
   let new_len = new_children.length()
@@ -173,11 +173,11 @@ fn is_move_source(
 fn markdown_move_pair_counts(
   old_children : Array[@core.ProjNode[@markdown.Block]],
   new_children : Array[@core.ProjNode[@markdown.Block]],
-  old_matched : Array[Int],
-  new_matched : Array[Int],
+  old_matched : Array[Int32],
+  new_matched : Array[Int32],
   hints : Map[@core.NodeId, @core.IdentityTransform],
-) -> Map[@core.NodeId, Int] {
-  let counts : Map[@core.NodeId, Int] = Map([])
+) -> Map[@core.NodeId, Int32] {
+  let counts : Map[@core.NodeId, Int32] = Map([])
   for oi, old_child in old_children {
     if old_matched[oi] < 0 && is_move_source(hints, old_child.id()) {
       let count = [
@@ -196,12 +196,12 @@ fn markdown_move_pair_counts(
 fn markdown_move_pair(
   new_child : @core.ProjNode[@markdown.Block],
   old_children : Array[@core.ProjNode[@markdown.Block]],
-  old_matched : Array[Int],
-  old_pair_counts : Map[@core.NodeId, Int],
+  old_matched : Array[Int32],
+  old_pair_counts : Map[@core.NodeId, Int32],
   consumed : Map[@core.NodeId, Bool],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[@core.NodeId, @core.IdentityTransform],
-  trace_ref? : Ref[Array[@core.ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[@core.ReconcileTraceEvent]]? = None,
 ) -> @core.ProjNode[@markdown.Block]? {
   let candidates = [
     for idx, old_child in old_children if old_matched[idx] < 0 &&

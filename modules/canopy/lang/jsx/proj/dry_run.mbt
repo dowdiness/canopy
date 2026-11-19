@@ -5,16 +5,18 @@
 /// the same patches that the imperative adapter applies, including releasing
 /// nodes before evaluating insertion indexes. The model is session-owned by
 /// the JSX adapter and is only advanced after a real DOM apply succeeds.
+#derive(Debug, Eq)
 pub struct DryRunModel {
   priv children : Array[DryRunNode]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub enum DryRunNode {
-  Element(Int, String, Array[@jsx.JsxAttr], Array[DryRunNode])
-  Text(Int, String)
-  ExprSpan(Int, String)
-} derive(Debug, Eq)
+  Element(Int32, String, Array[@jsx.JsxAttr], Array[DryRunNode])
+  Text(Int32, String)
+  ExprSpan(Int32, String)
+}
 
 ///|
 pub fn DryRunModel::empty() -> DryRunModel {
@@ -192,7 +194,7 @@ fn copy_node(node : DryRunNode) -> DryRunNode {
 }
 
 ///|
-fn contains_node(children : Array[DryRunNode], node_id : Int) -> Bool {
+fn contains_node(children : Array[DryRunNode], node_id : Int32) -> Bool {
   for child in children {
     match child {
       Element(id, _, _, nested) =>
@@ -206,7 +208,7 @@ fn contains_node(children : Array[DryRunNode], node_id : Int) -> Bool {
 }
 
 ///|
-fn remove_node(children : Array[DryRunNode], node_id : Int) -> Bool {
+fn remove_node(children : Array[DryRunNode], node_id : Int32) -> Bool {
   for index in 0..<children.length() {
     match children[index] {
       Element(id, _, _, nested) => {
@@ -231,9 +233,9 @@ fn remove_node(children : Array[DryRunNode], node_id : Int) -> Bool {
 ///|
 fn insert_node(
   children : Array[DryRunNode],
-  parent_id : Int,
+  parent_id : Int32,
   node : DryRunNode,
-  index : Int,
+  index : Int32,
 ) -> Result[Unit, String] {
   if parent_id == -1 {
     return insert_at(children, node, index)
@@ -259,7 +261,7 @@ fn insert_node(
 fn insert_at(
   children : Array[DryRunNode],
   node : DryRunNode,
-  index : Int,
+  index : Int32,
 ) -> Result[Unit, String] {
   if index < 0 {
     return Err("negative sibling index: " + index.to_string())
@@ -272,7 +274,7 @@ fn insert_at(
 ///|
 fn update_node(
   children : Array[DryRunNode],
-  node_id : Int,
+  node_id : Int32,
   update : DryRunUpdate,
 ) -> Bool {
   for index in 0..<children.length() {

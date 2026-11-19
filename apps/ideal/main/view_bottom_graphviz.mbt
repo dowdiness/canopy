@@ -1,5 +1,5 @@
 ///|
-fn render_graphviz_parse_error(position : Int, message : String) -> String {
+fn render_graphviz_parse_error(position : Int32, message : String) -> String {
   "<span class=\"problem-text\">Parse error at \{position}: \{@history_render.escape_html_string(message)}</span>"
 }
 

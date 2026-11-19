@@ -25,7 +25,7 @@ test "term_freq - single token" {
 ///|
 test "to_sparse_vec - basic" {
   let tf : TermFreq = { counts: { "ab": 2, "cd": 1 }, total: 3, }
-  let doc_freq : Map[String, Int] = { "ab": 2, "cd": 1 }
+  let doc_freq : Map[String, Int32] = { "ab": 2, "cd": 1 }
   let vec = to_sparse_vec(tf, 4, doc_freq)
   // TF("ab") = 2/3, IDF("ab") = ln(4/2) ≈ 0.693
   // TF("cd") = 1/3, IDF("cd") = ln(4/1) ≈ 1.386

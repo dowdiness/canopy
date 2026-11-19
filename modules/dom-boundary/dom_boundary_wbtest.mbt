@@ -104,7 +104,7 @@ extern "js" fn set_fail_remove(value : Bool) -> Unit =
   #| (value) => { globalThis.__canopyFailRemove = value; }
 
 ///|
-extern "js" fn listener_count() -> Int =
+extern "js" fn listener_count() -> Int32 =
   #| () => globalThis.__canopyListeners.length
 
 ///|
@@ -115,7 +115,7 @@ extern "js" fn remove_remove_method() -> Unit =
   #| }
 
 ///|
-extern "js" fn emit_detail(kind : Int) -> Unit =
+extern "js" fn emit_detail(kind : Int32) -> Unit =
   #| (kind) => {
   #|   const entry = globalThis.__canopyListeners[0];
   #|   let detail = { value: 1 };
@@ -149,8 +149,8 @@ extern "js" fn clear_descendant_document() -> Unit =
 extern "js" fn install_text_control_document(
   id : String,
   value : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   direction : String,
 ) -> Unit =
   #| (id, value, start, end, direction) => {
@@ -214,8 +214,8 @@ extern "js" fn install_unsupported_text_input_document(id : String) -> Unit =
 ///|
 extern "js" fn update_text_control_selection(
   id : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   direction : String,
 ) -> Unit =
   #| (id, start, end, direction) => {
@@ -239,7 +239,7 @@ extern "js" fn text_control_value(id : String) -> String =
   #| (id) => globalThis.document.getElementById(id).value
 
 ///|
-extern "js" fn text_selection_write_count() -> Int =
+extern "js" fn text_selection_write_count() -> Int32 =
   #| () => globalThis.__canopyTextSelectionWrites
 
 ///|
@@ -532,8 +532,8 @@ test "listener and disposal failures map to action errors" {
       ActionFailed(
         action=ListenCustomEvent,
         target=Id("host"),
-        detail="listen failed"
-      )
+        detail="listen failed",
+      ),
     ) => ()
     _ => fail("expected listener failure")
   }
@@ -553,8 +553,8 @@ test "listener and disposal failures map to action errors" {
       ActionFailed(
         action=RemoveCustomEventListener,
         target=EventSubscription,
-        detail="remove failed"
-      )
+        detail="remove failed",
+      ),
     ) => ()
     _ => fail("expected disposal failure")
   }
@@ -576,8 +576,8 @@ test "unsupported disposal maps to UnsupportedAction" {
     Some(
       UnsupportedAction(
         action=RemoveCustomEventListener,
-        target=EventSubscription
-      )
+        target=EventSubscription,
+      ),
     ) => ()
     _ => fail("expected unsupported disposal")
   }
@@ -615,8 +615,8 @@ test "action failures preserve action context" {
       ActionFailed(
         action=ScrollIntoView,
         target=Id("host"),
-        detail="scroll failed"
-      )
+        detail="scroll failed",
+      ),
     ) => ()
     _ => fail("expected scroll failure")
   }
@@ -625,8 +625,8 @@ test "action failures preserve action context" {
       ActionFailed(
         action=DispatchCustomEvent,
         target=Id("host"),
-        detail="dispatch failed"
-      )
+        detail="dispatch failed",
+      ),
     ) => ()
     _ => fail("expected dispatch failure")
   }
@@ -791,7 +791,7 @@ test "write rejects input types without text selection support" {
   clear_fake_document()
   guard captured
     is Some(
-      UnsupportedAction(action=WriteTextSelection, target=Id("number-input"))
+      UnsupportedAction(action=WriteTextSelection, target=Id("number-input")),
     ) else {
     fail("expected unsupported input type")
   }
@@ -818,8 +818,8 @@ test "capability getter exceptions retain action context" {
       ActionFailed(
         action=ReadTextSelection,
         target=Id("editor"),
-        detail="getter failed"
-      )
+        detail="getter failed",
+      ),
     ) else {
     fail("expected selection getter failure")
   }
@@ -828,8 +828,8 @@ test "capability getter exceptions retain action context" {
       ActionFailed(
         action=MeasureElement,
         target=Selector("#editor"),
-        detail="getter failed"
-      )
+        detail="getter failed",
+      ),
     ) else {
     fail("expected measurement getter failure")
   }
@@ -888,8 +888,8 @@ test "text selection write exceptions retain action context" {
       ActionFailed(
         action=WriteTextSelection,
         target=Id("editor"),
-        detail="write failed"
-      )
+        detail="write failed",
+      ),
     ) else {
     fail("expected text selection write failure")
   }
@@ -922,8 +922,8 @@ test "unknown text selection directions retain action context" {
       ActionFailed(
         action=ReadTextSelection,
         target=Id("editor"),
-        detail="unknown text selection direction: sideways"
-      )
+        detail="unknown text selection direction: sideways",
+      ),
     ) else {
     fail("expected unknown selection direction failure")
   }

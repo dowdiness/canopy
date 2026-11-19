@@ -4,7 +4,7 @@
 pub fn EphemeralHub::get_cursor(
   self : EphemeralHub,
   peer_id : String,
-) -> (Int, (Int, Int)?)? {
+) -> (Int32, (Int32, Int32)?)? {
   let wire_id = to_wire_peer_id(peer_id)
   match self.stores[Cursor].get(wire_id) {
     Some(EphemeralValue::Map(map)) => {

@@ -55,7 +55,7 @@ fn resolve_selected_node(
 
 ///|
 /// Count children of a tree node.
-fn children_count(node : @proj.InteractiveTreeNode[@ast.Term]) -> Int {
+fn children_count(node : @proj.InteractiveTreeNode[@ast.Term]) -> Int32 {
   match node.children {
     @proj.Loaded(children) => children.length()
     @proj.Elided(n) => n

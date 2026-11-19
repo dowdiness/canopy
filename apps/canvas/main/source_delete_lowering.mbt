@@ -6,8 +6,8 @@ priv enum SourceOperationEdit {
 
 ///|
 priv struct SourceDeletionSpan {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
 }
 
 ///|
@@ -67,7 +67,7 @@ fn survivor_reference_to_deleted_binding(
 }
 
 ///|
-fn source_line_delete_end(source : String, end : Int) -> Int {
+fn source_line_delete_end(source : String, end : Int32) -> Int32 {
   if end >= source.length() {
     end
   } else if source[end] == '\r' {
@@ -84,7 +84,7 @@ fn source_line_delete_end(source : String, end : Int) -> Int {
 }
 
 ///|
-fn previous_line_break_start(source : String, start : Int) -> Int {
+fn previous_line_break_start(source : String, start : Int32) -> Int32 {
   if start >= 2 && source[start - 2] == '\r' && source[start - 1] == '\n' {
     start - 2
   } else if start >= 1 &&
@@ -107,7 +107,7 @@ fn deletion_span_for_graph_node(
 fn compare_deletion_span_start(
   a : SourceDeletionSpan,
   b : SourceDeletionSpan,
-) -> Int {
+) -> Int32 {
   if a.start < b.start {
     -1
   } else if a.start > b.start {
@@ -125,7 +125,7 @@ fn compare_deletion_span_start(
 fn compare_deletion_span_start_desc(
   a : SourceDeletionSpan,
   b : SourceDeletionSpan,
-) -> Int {
+) -> Int32 {
   0 - compare_deletion_span_start(a, b)
 }
 

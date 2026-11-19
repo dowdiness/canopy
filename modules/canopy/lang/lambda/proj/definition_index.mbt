@@ -41,7 +41,7 @@ pub fn DefinitionIndex::from_proj_node(
 
 ///|
 /// Number of indexed module definitions, preserving source order.
-pub fn DefinitionIndex::length(self : DefinitionIndex) -> Int {
+pub fn DefinitionIndex::length(self : DefinitionIndex) -> Int32 {
   self.entries.length()
 }
 
@@ -50,7 +50,7 @@ pub fn DefinitionIndex::length(self : DefinitionIndex) -> Int {
 pub fn DefinitionIndex::binding_for_node(
   self : DefinitionIndex,
   node_id : NodeId,
-) -> (NodeId, Int)? {
+) -> (NodeId, Int32)? {
   self.entries
   .search_by(fn(entry) { entry.binding_id == node_id })
   .map(fn(i) { (self.entries[i].binding_id, i) })
@@ -66,7 +66,7 @@ pub fn DefinitionIndex::cutoff_at_node(
   self : DefinitionIndex,
   source_map : SourceMap,
   node_id : NodeId,
-) -> Int {
+) -> Int32 {
   guard source_map.get_range(node_id) is Some(r) else { return self.length() }
   self.entries
   .search_by(fn(entry) {

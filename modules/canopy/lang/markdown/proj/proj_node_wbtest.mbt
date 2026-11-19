@@ -160,7 +160,7 @@ test "projection: thematic break keeps neighboring heading alignment" {
 
 ///|
 test "projection: quote and heading terminators preserve alignment" {
-  let cases : Array[(String, Int)] = [
+  let cases : Array[(String, Int32)] = [
     ("> quoted\n\n# Heading\n", 10),
     ("> quoted\r\n\r\n# Heading", 12),
     ("> quoted\r\r# Heading", 10),
@@ -370,7 +370,7 @@ test "source map: top-level list items separate marker and payload" {
 
 ///|
 test "source map: fenced code spans preserve all line terminators" {
-  let cases : Array[(String, (Int, Int), (Int, Int), (Int, Int))] = [
+  let cases : Array[(String, (Int32, Int32), (Int32, Int32), (Int32, Int32))] = [
     ("```js\nline\n```\n", (6, 10), (11, 15), (0, 5)),
     ("```js\r\nline\r\n```\r\n", (7, 11), (13, 18), (0, 5)),
     ("```js\rline\r```\r", (6, 10), (11, 15), (0, 5)),
@@ -406,7 +406,7 @@ test "source map: fenced code spans preserve all line terminators" {
 
 ///|
 test "source map: empty fenced code spans retain zero-length payloads" {
-  let cases : Array[(String, (Int, Int), (Int, Int), (Int, Int))] = [
+  let cases : Array[(String, (Int32, Int32), (Int32, Int32), (Int32, Int32))] = [
     ("```\n```\n", (4, 4), (4, 8), (0, 3)),
     ("~~~\r\n~~~\r\n", (5, 5), (5, 10), (0, 3)),
     ("```\r```\r", (4, 4), (4, 8), (0, 3)),
@@ -693,7 +693,7 @@ test "projection: IDs are unique" {
   let (proj, _) = parse_to_proj_node(
     markdown_projection_test_source, "# H1\n\n- a\n- b",
   )
-  let ids : Array[Int] = []
+  let ids : Array[Int32] = []
   fn collect(node : @core.ProjNode[@markdown.Block]) {
     ids.push(node.node_id)
     for child in node.children {
@@ -701,7 +701,7 @@ test "projection: IDs are unique" {
     }
   }
   collect(proj)
-  let unique : Map[Int, Bool] = Map([])
+  let unique : Map[Int32, Bool] = Map([])
   let mut all_unique = true
   for id in ids {
     if unique.get(id) == Some(true) {
@@ -718,7 +718,7 @@ test "projection: incremental reparse preserves IDs" {
   let parser = @loom.new_imperative_parser(
     markdown_projection_test_source, source, @markdown.markdown_grammar,
   )
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   // Initial parse
   let _ = parser.parse()
   // First projection
@@ -747,7 +747,7 @@ test "projection: incremental quote edit matches fresh shape ranges and identity
   let parser = @loom.new_imperative_parser(
     markdown_projection_test_source, source, @markdown.markdown_grammar,
   )
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let _ = parser.parse()
   let syntax1 = parser.get_syntax_tree().unwrap()
   let initial = syntax_to_proj_node(syntax1, counter)
@@ -780,7 +780,7 @@ test "projection: incremental quote insertion keeps following heading identity" 
   let parser = @loom.new_imperative_parser(
     markdown_projection_test_source, source, @markdown.markdown_grammar,
   )
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let _ = parser.parse()
   let syntax1 = parser.get_syntax_tree().unwrap()
   let initial = syntax_to_proj_node(syntax1, counter)
@@ -809,7 +809,7 @@ test "projection: reference definition insertion preserves following blocks" {
     markdown_projection_test_source, source, @markdown.markdown_grammar,
   )
   // Keep one allocator across both projections and reconciliation so IDs stay deterministic.
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let _ = parser.parse()
   let initial_syntax = parser.get_syntax_tree().unwrap()
   let initial = syntax_to_proj_node(initial_syntax, counter)

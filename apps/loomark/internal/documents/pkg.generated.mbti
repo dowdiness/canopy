@@ -10,37 +10,42 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ActionError {
   ExpiredAction
-} derive(Eq, @debug.Debug)
+}
 pub fn ActionError::equal(Self, Self) -> Bool
 pub fn ActionError::not_equal(Self, Self) -> Bool
 pub fn ActionError::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror CreateError {
   DocumentAlreadyExists(Key)
-} derive(Eq, @debug.Debug)
+}
 pub fn CreateError::equal(Self, Self) -> Bool
 pub fn CreateError::not_equal(Self, Self) -> Bool
 pub fn CreateError::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror DeleteError {
   DocumentMissing(Key)
   OwnershipTransferInProgress(Key)
   ReplicaMissing(Key)
-} derive(Eq, @debug.Debug)
+}
 pub fn DeleteError::equal(Self, Self) -> Bool
 pub fn DeleteError::not_equal(Self, Self) -> Bool
 pub fn DeleteError::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror EditError {
   DocumentMissing(Key)
   PendingDeletion(Key)
-} derive(Eq, @debug.Debug)
+}
 pub fn EditError::equal(Self, Self) -> Bool
 pub fn EditError::not_equal(Self, Self) -> Bool
 pub fn EditError::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror UpdateError {
   DocumentMissing(Key)
   PendingDeletion(Key)
@@ -48,20 +53,21 @@ pub(all) suberror UpdateError {
   DocumentMismatch(Key)
   DocumentAlreadyExists(Key)
   InvalidAcknowledgment(Key)
-} derive(Eq, @debug.Debug)
+}
 pub fn UpdateError::equal(Self, Self) -> Bool
 pub fn UpdateError::not_equal(Self, Self) -> Bool
 pub fn UpdateError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq)
 pub struct AcceptRemote {
   // private fields
-} derive(Eq)
+}
 pub fn AcceptRemote::equal(Self, Self) -> Bool
 pub fn AcceptRemote::not_equal(Self, Self) -> Bool
 
 pub(all) enum Action {
-  ArmMaximum(Int)
+  ArmMaximum(Int32)
   PersistSource(SaveOperation)
   StoreReplica(@source_repository.ReplicaWrite)
   SaveReplica(ReplicaEdit)
@@ -75,21 +81,23 @@ pub enum Delete {
   AlreadyPending
 }
 
+#derive(Eq)
 pub struct DeleteOperation {
   key : Key
   document_id : @source_repository.DocumentId
-  request_id : Int
-} derive(Eq)
+  request_id : Int32
+}
 pub fn DeleteOperation::equal(Self, Self) -> Bool
 pub fn DeleteOperation::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum DeleteStatus {
   NotDeletable
   Deletable
   DeletePending
   DeleteFailed(@source_repository.DeleteFailure)
   DeletePersistenceFailed(@source_repository.ReplicaFailure)
-} derive(Eq)
+}
 pub fn DeleteStatus::equal(Self, Self) -> Bool
 pub fn DeleteStatus::not_equal(Self, Self) -> Bool
 
@@ -98,12 +106,13 @@ pub enum Edit {
   SameText
 }
 
+#derive(Eq, Hash, @debug.Debug)
 pub enum Key {
   Source(@source_repository.DocumentId)
   Replica(@source_repository.AccountId, @source_repository.DocumentId)
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn Key::equal(Self, Self) -> Bool
-pub fn Key::hash(Self) -> Int
+pub fn Key::hash(Self) -> Int32
 pub fn Key::hash_combine(Self, Hasher) -> Unit
 pub fn Key::lifecycle_key(Self) -> String
 pub fn Key::not_equal(Self, Self) -> Bool
@@ -111,26 +120,29 @@ pub fn Key::replica(@source_repository.AccountId, @source_repository.DocumentId)
 pub fn Key::source(@source_repository.DocumentId) -> Self
 pub fn Key::to_repr(Self) -> @debug.Repr
 
+#derive(Eq)
 pub enum LocalDurability {
   AwaitingInput
   Saving
   Failed(LocalSaveFailure)
   Durable
-} derive(Eq)
+}
 pub fn LocalDurability::equal(Self, Self) -> Bool
 pub fn LocalDurability::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub enum LocalSaveFailure {
   Save(Key, @source_repository.SaveFailure)
   Delete(Key, @source_repository.DeleteFailure)
   Replica(Key, @source_repository.ReplicaFailure)
-} derive(Eq)
+}
 pub fn LocalSaveFailure::equal(Self, Self) -> Bool
 pub fn LocalSaveFailure::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub struct Model {
   // private fields
-} derive(Eq)
+}
 pub fn Model::Model(@source_repository.SavedDocuments) -> Self
 pub fn Model::accept_remote(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?, AcceptRemote) -> RemoteAcceptance raise ActionError
 pub fn Model::begin_fork(Self, @source_repository.ReplicaWrite) -> Self raise ActionError
@@ -148,7 +160,7 @@ pub fn Model::known_keys(Self) -> Array[Key]
 pub fn Model::local_durability(Self, @replica_persistence.State) -> LocalDurability
 pub fn Model::not_equal(Self, Self) -> Bool
 pub fn Model::open_replica(Self, @source_repository.DocumentReplica) -> RemoteOpen
-pub fn Model::pending_edits(Self) -> Array[(Key, Int)]
+pub fn Model::pending_edits(Self) -> Array[(Key, Int32)]
 pub fn Model::project_account(Self, @source_repository.AccountId) -> Self
 pub fn Model::recent(Self) -> Array[(Key, String, SaveStatus, DeleteStatus)]
 pub fn Model::remote_state(Self, @source_repository.DocumentReplica, @source_repository.RemoteHead?) -> RemoteState
@@ -169,9 +181,9 @@ pub(all) enum Msg {
   RetrySave(Key)
   VisibilityFlush(Key)
   VisibilityFlushAll
-  ApplyPendingEdit(Key, Int)
+  ApplyPendingEdit(Key, Int32)
   DismissDeleteFailure(Key)
-  MaximumElapsed(Int)
+  MaximumElapsed(Int32)
   Saved(SaveOperation, @source_repository.Document)
   SaveFailed(SaveOperation, @source_repository.SaveFailure)
   Deleted(DeleteOperation, @source_repository.DocumentId)
@@ -201,6 +213,7 @@ pub(all) enum RemoteOpen {
   Superseded
 }
 
+#derive(Eq)
 pub(all) enum RemoteState {
   Current
   LocalAhead
@@ -211,47 +224,52 @@ pub(all) enum RemoteState {
   UpdateAvailable(AcceptRemote)
   DeletionAvailable(AcceptRemote)
   Unavailable
-} derive(Eq)
+}
 pub fn RemoteState::equal(Self, Self) -> Bool
 pub fn RemoteState::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub struct ReplicaEdit {
   // private fields
-} derive(Eq)
+}
 pub fn ReplicaEdit::document(Self) -> @source_repository.Document
 pub fn ReplicaEdit::durable(Self) -> @source_repository.DocumentReplica
 pub fn ReplicaEdit::equal(Self, Self) -> Bool
 pub fn ReplicaEdit::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub struct SaveOperation {
   key : Key
   document : @source_repository.Document
   // private fields
-} derive(Eq)
+}
 pub fn SaveOperation::equal(Self, Self) -> Bool
 pub fn SaveOperation::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum SaveStatus {
   Clean
   Unsaved
   SaveFailed(@source_repository.SaveFailure)
-} derive(Eq)
+}
 pub fn SaveStatus::equal(Self, Self) -> Bool
 pub fn SaveStatus::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub struct StartSync {
   // private fields
-} derive(Eq)
+}
 pub fn StartSync::account(Self) -> @source_repository.AccountId
 pub fn StartSync::document_id(Self) -> @source_repository.DocumentId
 pub fn StartSync::equal(Self, Self) -> Bool
 pub fn StartSync::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum SyncStart {
   Unavailable
   Ready(StartSync)
   Starting
-} derive(Eq)
+}
 pub fn SyncStart::equal(Self, Self) -> Bool
 pub fn SyncStart::not_equal(Self, Self) -> Bool
 

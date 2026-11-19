@@ -8,16 +8,15 @@ extenum @cmd.Extension += {
 }
 
 ///|
-async fn read_file(file : File) -> Result[Bytes, Error] {
-  Ok(file.as_blob().bytes()) catch {
-    error => Err(error)
-  }
+async fn read_file(file : File) -> Bytes raise Error {
+  file.as_blob().bytes()
 }
 
 ///|
 let op : @cmd.Op = @cmd.Op()..on_invoke((extension, _) => {
   match extension {
-    Read(file, done) => @cmd.Async(() => done(read_file(file)))
+    Read(file, done) =>
+      @cmd.Async(() => done(Ok(read_file(file)) catch { e => Err(e) }))
     Download(filename, text) => {
       @dom_boundary.download_text(filename, text) catch {
         _ => ()

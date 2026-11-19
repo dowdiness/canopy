@@ -40,6 +40,6 @@ pub const FN_BINDING_BODY_ROLE : String = "fn:body"
 /// Role key for module def `def_index`'s name token (stored on the Module node).
 /// Compatibility fallback while callers migrate to `LET_DEF_NAME_ROLE` on the
 /// first-class LetDef node.
-pub fn module_name_role(def_index : Int) -> String {
+pub fn module_name_role(def_index : Int32) -> String {
   "name:" + def_index.to_string()
 }

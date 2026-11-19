@@ -5,13 +5,15 @@ const CANVAS_RENDER_LAYER_ID : String = "canvas-render-layer"
 const CANVAS_RENDER_STATE_EVENT : String = "canopy-canvas-render-state"
 
 ///|
+#derive(Eq, FromJson)
 priv struct CanvasRenderLayerViewport {
   x : Double
   y : Double
   scale : Double
-} derive(Eq, FromJson)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasRenderLayerSnapshot {
   viewport : CanvasRenderLayerViewport
   nodes : Array[NodeJson]
@@ -22,12 +24,13 @@ priv struct CanvasRenderLayerSnapshot {
   connecting : ConnectingJson?
   input_compatibility : Array[PortCompatibilityJson]
   validation : Array[ValidationJson]
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasRenderLayerState {
   snapshot : CanvasRenderLayerSnapshot?
-} derive(Eq)
+}
 
 ///|
 priv enum CanvasRenderLayerMsg {
@@ -244,8 +247,8 @@ fn canvas_handle_view(
   node : NodeJson,
   side : String,
   port : PortDef,
-  index : Int,
-  port_count : Int,
+  index : Int32,
+  port_count : Int32,
   connecting_active : Bool,
   compatibility : Map[(String, String), Bool],
 ) -> @rabbita.Html {
@@ -440,7 +443,7 @@ priv suberror CanvasRenderLayerSubscription {
   RenderState(
     @dom.EventTarget,
     @rabbita.Emit[CanvasRenderLayerMsg],
-    (CanvasRenderLayerSnapshot) -> Unit
+    (CanvasRenderLayerSnapshot) -> Unit,
   )
 }
 
@@ -546,7 +549,7 @@ fn dispatch_canvas_render_state(target : @dom.Element, json : String) -> Unit {
 /// consumers. The custom event is only an app-private transport seam; the
 /// returned string is the same snapshot consumed by the TypeScript shell.
 #cfg(target="js")
-pub fn publish_render_state(handle : Int, target : @dom.Element) -> String {
+pub fn publish_render_state(handle : Int32, target : @dom.Element) -> String {
   let json = match canvas_backing(handle) {
     Some(backing) => backing.render_state_json()
     None => {

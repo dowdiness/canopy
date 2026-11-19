@@ -40,7 +40,7 @@ pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit raise Failure {
 pub fn[T : Eq + @loom_core.Renderable] SyncEditor::delete_node(
   self : SyncEditor[T],
   node_id : @core.NodeId,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
@@ -81,7 +81,7 @@ pub fn[T : Eq] SyncEditor::commit_edit(
   self : SyncEditor[T],
   node_id : @core.NodeId,
   new_text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
@@ -116,8 +116,8 @@ pub fn[T : Eq] SyncEditor::commit_edit(
 pub fn[T : Eq] SyncEditor::apply_text_transform(
   self : SyncEditor[T],
   node_id : @core.NodeId,
-  compute_replacement : (String, Int, Int) -> Result[String, String],
-  timestamp_ms : Int,
+  compute_replacement : (String, Int32, Int32) -> Result[String, String],
+  timestamp_ms : Int32,
 ) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
@@ -167,7 +167,7 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   source_id : @core.NodeId,
   target_id : @core.NodeId,
   position : @core.DropPosition,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Array[@core.SpanEdit], TreeEditError] raise {
   // Resolve source
   let src_range = match self.get_node_range(source_id) {

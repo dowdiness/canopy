@@ -5,7 +5,7 @@ extern "js" fn request(text : String) -> @http.Request =
 ///|
 async test "bounded text reading preserves generated Unicode and rejects one byte less" {
   let alphabet = ["文", "🌳", "a", "\n", "\u0000", "\"", "\\"]
-  let cases : Array[Array[UInt]] = @quickcheck.samples(50)
+  let cases : Array[Array[UInt32]] = @quickcheck.samples(50)
   for sample in cases {
     let text = "🌳" +
       sample.map(n => alphabet[(n % 7U).reinterpret_as_int()]).join("")

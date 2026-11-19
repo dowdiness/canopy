@@ -22,7 +22,7 @@ pub fn parse_to_proj_node(
 ///|
 pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[@jsx.JsxNode] {
   let fold = @loomcore.CstFold::new(@jsx.jsx_grammar.fold_node)
   let ast = fold.fold(node)
@@ -47,7 +47,7 @@ fn normalize_jsx_text(s : String) -> String {
 fn build_proj_tree(
   syntax_node : @seam.SyntaxNode,
   ast : @jsx.JsxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[@jsx.JsxNode] {
   match ast {
     Root(..) | Fragment(..) =>
@@ -86,7 +86,7 @@ fn build_container(
   syntax_node : @seam.SyntaxNode,
   ast : @jsx.JsxNode,
   syntax_children : Array[@seam.SyntaxNode],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[@jsx.JsxNode] {
   let ast_children = ast.children()
   let len = syntax_children.length().min(ast_children.length())
@@ -160,7 +160,7 @@ fn jsx_exact_key(node : @jsx.JsxNode) -> String {
 fn reconcile_jsx_projection(
   old : @core.ProjNode[@jsx.JsxNode],
   new : @core.ProjNode[@jsx.JsxNode],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   trace_ref : Ref[Array[@core.ReconcileTraceEvent]]?,
 ) -> @core.ProjNode[@jsx.JsxNode] {
   @core.reconcile_with_exact_key(old, new, counter, jsx_exact_key, trace_ref~)

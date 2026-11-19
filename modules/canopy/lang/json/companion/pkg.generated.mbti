@@ -9,9 +9,9 @@ import {
 }
 
 // Values
-pub fn apply_json_edit(@editor.SyncEditor[@json.JsonValue], @edits.JsonEditOp, Int) -> Result[Unit, String] raise
+pub fn apply_json_edit(@editor.SyncEditor[@json.JsonValue], @edits.JsonEditOp, Int32) -> Result[Unit, String] raise
 
-pub fn new_json_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@json.JsonValue] raise
+pub fn new_json_editor(String, capture_timeout_ms? : Int32, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@json.JsonValue] raise
 
 // Errors
 

@@ -6,7 +6,7 @@ fn test_account(value : String) -> @source_repository.AccountId {
 }
 
 ///|
-fn test_begin_lookup(state : State) -> (State, Int) {
+fn test_begin_lookup(state : State) -> (State, Int32) {
   state.begin_lookup() catch {
     _ => abort("lookup should be allowed")
   }
@@ -14,7 +14,7 @@ fn test_begin_lookup(state : State) -> (State, Int) {
 
 ///|
 fn test_document_id(
-  value? : String = "document",
+  value~ : String = "document",
 ) -> @source_repository.DocumentId {
   let mut hash = 0
   for byte in value {

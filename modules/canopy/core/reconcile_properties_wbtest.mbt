@@ -11,13 +11,14 @@ impl @quickcheck.Arbitrary for TestExpr with fn arbitrary(size, rs) {
 
 ///|
 /// No-op shrink impl (required by quick_check_fn).
-impl @qc.Shrink for TestExpr
+impl @shrink.Shrink for TestExpr
 
 ///|
+#derive(Debug)
 struct TestExprPair {
   old : TestExpr
   new : TestExpr
-} derive(Debug)
+}
 
 ///|
 impl @quickcheck.Arbitrary for TestExprPair with fn arbitrary(size, rs) {
@@ -29,11 +30,11 @@ impl @quickcheck.Arbitrary for TestExprPair with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for TestExprPair
+impl @shrink.Shrink for TestExprPair
 
 ///|
 /// Bounded-depth recursive generator for TestExpr trees.
-fn gen_test_expr(rs : @splitmix.RandomState, depth : Int) -> TestExpr {
+fn gen_test_expr(rs : @splitmix.RandomState, depth : Int32) -> TestExpr {
   if depth <= 0 {
     let tag = rs.split().next_positive_int() % 10
     Leaf("l" + tag.to_string())
@@ -57,7 +58,7 @@ fn gen_test_expr(rs : @splitmix.RandomState, depth : Int) -> TestExpr {
 ///|
 /// Convert a TestExpr into a ProjNode[TestExpr] with post-order IDs
 /// (children numbered before parent, matching assign_fresh_ids).
-fn to_proj_node(expr : TestExpr, counter : Ref[Int]) -> ProjNode[TestExpr] {
+fn to_proj_node(expr : TestExpr, counter : Ref[Int32]) -> ProjNode[TestExpr] {
   let children : Array[ProjNode[TestExpr]] = match expr {
     Leaf(_) => []
     Branch(_, cs) => cs.map(fn(c) { to_proj_node(c, counter) })
@@ -68,14 +69,14 @@ fn to_proj_node(expr : TestExpr, counter : Ref[Int]) -> ProjNode[TestExpr] {
 
 ///|
 /// Collect all node_ids from a ProjNode tree (pre-order).
-fn collect_ids(node : ProjNode[TestExpr]) -> Array[Int] {
-  let result : Array[Int] = []
+fn collect_ids(node : ProjNode[TestExpr]) -> Array[Int32] {
+  let result : Array[Int32] = []
   collect_ids_rec(node, result)
   result
 }
 
 ///|
-fn collect_ids_rec(node : ProjNode[TestExpr], acc : Array[Int]) -> Unit {
+fn collect_ids_rec(node : ProjNode[TestExpr], acc : Array[Int32]) -> Unit {
   acc.push(node.node_id)
   for child in node.children {
     collect_ids_rec(child, acc)
@@ -100,7 +101,7 @@ fn collect_kinds_rec(node : ProjNode[TestExpr], acc : Array[TestExpr]) -> Unit {
 
 ///|
 /// Insert an element at position `idx` in an array (returns new array).
-fn[T] insert_at(arr : Array[T], idx : Int, elem : T) -> Array[T] {
+fn[T] insert_at(arr : Array[T], idx : Int32, elem : T) -> Array[T] {
   let result : Array[T] = []
   for i = 0; i < arr.length(); i = i + 1 {
     if i == idx {
@@ -116,7 +117,7 @@ fn[T] insert_at(arr : Array[T], idx : Int, elem : T) -> Array[T] {
 
 ///|
 /// Remove element at position `idx` from an array (returns new array).
-fn[T] remove_at(arr : Array[T], idx : Int) -> Array[T] {
+fn[T] remove_at(arr : Array[T], idx : Int32) -> Array[T] {
   let result : Array[T] = []
   for i = 0; i < arr.length(); i = i + 1 {
     if i != idx {
@@ -128,8 +129,8 @@ fn[T] remove_at(arr : Array[T], idx : Int) -> Array[T] {
 
 ///|
 /// Check that all elements in an array are unique.
-fn all_unique(arr : Array[Int]) -> Bool {
-  let seen : Map[Int, Bool] = Map([])
+fn all_unique(arr : Array[Int32]) -> Bool {
+  let seen : Map[Int32, Bool] = Map([])
   for id in arr {
     if seen.contains(id) {
       return false
@@ -293,7 +294,7 @@ fn prop_retained_siblings_keep_ids_after_insert(expr : TestExpr) -> Bool {
   let result = reconcile(old_node, new_node, reconcile_counter)
   // The old IDs for retained children should appear in the result.
   // Build a set of old child IDs
-  let old_child_ids : Map[Int, Bool] = Map([])
+  let old_child_ids : Map[Int32, Bool] = Map([])
   for child in old_node.children {
     old_child_ids[child.node_id] = true
   }
@@ -462,7 +463,7 @@ test "reconcile: exact preference does not reduce match cardinality" {
     Ref(1000),
     exact_test_key,
   )
-  let old_ids : Map[Int, Bool] = Map([])
+  let old_ids : Map[Int32, Bool] = Map([])
   for child in old_node.children {
     old_ids[child.node_id] = true
   }
@@ -576,7 +577,7 @@ fn prop_reused_id_count_after_delete(expr : TestExpr) -> Bool {
     return false
   }
   // Collect all old child root IDs
-  let old_child_ids : Map[Int, Bool] = Map([])
+  let old_child_ids : Map[Int32, Bool] = Map([])
   for child in old_node.children {
     old_child_ids[child.node_id] = true
   }
@@ -674,7 +675,7 @@ test "property: triple reconcile is stable" {
 
 ///|
 /// Count total nodes in a ProjNode tree.
-fn count_nodes(node : ProjNode[TestExpr]) -> Int {
+fn count_nodes(node : ProjNode[TestExpr]) -> Int32 {
   let mut count = 1
   for child in node.children {
     count = count + count_nodes(child)
@@ -684,8 +685,8 @@ fn count_nodes(node : ProjNode[TestExpr]) -> Int {
 
 ///|
 /// Collect child counts at each node (pre-order) — captures tree shape.
-fn collect_child_counts(node : ProjNode[TestExpr]) -> Array[Int] {
-  let result : Array[Int] = []
+fn collect_child_counts(node : ProjNode[TestExpr]) -> Array[Int32] {
+  let result : Array[Int32] = []
   collect_child_counts_rec(node, result)
   result
 }
@@ -693,7 +694,7 @@ fn collect_child_counts(node : ProjNode[TestExpr]) -> Array[Int] {
 ///|
 fn collect_child_counts_rec(
   node : ProjNode[TestExpr],
-  acc : Array[Int],
+  acc : Array[Int32],
 ) -> Unit {
   acc.push(node.children.length())
   for child in node.children {
@@ -756,7 +757,7 @@ fn prop_different_root_kind_all_fresh(expr : TestExpr) -> Bool {
   }
   // No old IDs should appear
   let old_ids = collect_ids(old_node)
-  let old_set : Map[Int, Bool] = Map([])
+  let old_set : Map[Int32, Bool] = Map([])
   for id in old_ids {
     old_set[id] = true
   }
@@ -785,7 +786,7 @@ fn prop_fresh_ids_from_counter_range(pair : TestExprPair) -> Bool {
   let counter = Ref(counter_start)
   let result = reconcile(old_node, new_node, counter)
   // Build set of old IDs
-  let old_id_set : Map[Int, Bool] = Map([])
+  let old_id_set : Map[Int32, Bool] = Map([])
   for id in collect_ids(old_node) {
     old_id_set[id] = true
   }
@@ -834,7 +835,7 @@ fn prop_swap_siblings_preserves_most_ids(expr : TestExpr) -> Bool {
   let new_node = to_proj_node(new_expr, new_counter)
   let result = reconcile(old_node, new_node, Ref(1000))
   // Collect old child root IDs
-  let old_child_ids : Map[Int, Bool] = Map([])
+  let old_child_ids : Map[Int32, Bool] = Map([])
   for child in old_node.children {
     old_child_ids[child.node_id] = true
   }
@@ -913,8 +914,8 @@ test "property: deep leaf change preserves ancestor IDs" {
 
 ///|
 /// Collect node_ids along the leftmost path (root → leftmost leaf).
-fn collect_leftmost_path_ids(node : ProjNode[TestExpr]) -> Array[Int] {
-  let result : Array[Int] = []
+fn collect_leftmost_path_ids(node : ProjNode[TestExpr]) -> Array[Int32] {
+  let result : Array[Int32] = []
   let mut current = node
   result.push(current.node_id)
   while current.children.length() > 0 {
@@ -937,11 +938,11 @@ fn prop_no_new_tree_id_leakage(pair : TestExprPair) -> Bool {
   let counter_start = 1000
   let result = reconcile(old_node, new_node, Ref(counter_start))
   // Build sets of old and new IDs
-  let old_id_set : Map[Int, Bool] = Map([])
+  let old_id_set : Map[Int32, Bool] = Map([])
   for id in collect_ids(old_node) {
     old_id_set[id] = true
   }
-  let new_id_set : Map[Int, Bool] = Map([])
+  let new_id_set : Map[Int32, Bool] = Map([])
   for id in collect_ids(new_node) {
     new_id_set[id] = true
   }
@@ -963,8 +964,8 @@ test "property: no new-tree ID leakage" {
 
 ///|
 /// Collect all (start, end) spans from a ProjNode tree (pre-order).
-fn collect_spans(node : ProjNode[TestExpr]) -> Array[(Int, Int)] {
-  let result : Array[(Int, Int)] = []
+fn collect_spans(node : ProjNode[TestExpr]) -> Array[(Int32, Int32)] {
+  let result : Array[(Int32, Int32)] = []
   collect_spans_rec(node, result)
   result
 }
@@ -972,7 +973,7 @@ fn collect_spans(node : ProjNode[TestExpr]) -> Array[(Int, Int)] {
 ///|
 fn collect_spans_rec(
   node : ProjNode[TestExpr],
-  acc : Array[(Int, Int)],
+  acc : Array[(Int32, Int32)],
 ) -> Unit {
   acc.push((node.start, node.end))
   for child in node.children {
@@ -985,8 +986,8 @@ fn collect_spans_rec(
 /// (start=offset, end=offset+1), incrementing in pre-order.
 fn to_proj_node_with_spans(
   expr : TestExpr,
-  counter : Ref[Int],
-  span_offset : Ref[Int],
+  counter : Ref[Int32],
+  span_offset : Ref[Int32],
 ) -> ProjNode[TestExpr] {
   let my_span = span_offset.val
   span_offset.val = span_offset.val + 1
@@ -1029,7 +1030,7 @@ test "property: result uses new tree spans" {
 
 ///|
 /// Count nodes in a TestExpr tree (tree shape, not ProjNode).
-fn count_expr_nodes(expr : TestExpr) -> Int {
+fn count_expr_nodes(expr : TestExpr) -> Int32 {
   match expr {
     Leaf(_) => 1
     Branch(_, cs) =>

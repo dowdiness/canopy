@@ -88,7 +88,7 @@ pub fn[T] Model::panel_attrs(
 /// Attributes for one context-menu item.
 pub fn[T] Model::item_attrs(
   self : Model[T],
-  index : Int,
+  index : Int32,
   dispatch : (Msg) -> @rabbita.Cmd,
 ) -> @html.Attrs {
   match self.state {

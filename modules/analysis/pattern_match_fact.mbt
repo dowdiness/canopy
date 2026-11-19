@@ -1,19 +1,20 @@
 ///|
+#derive(@debug.Debug)
 pub(all) struct PatternMatchFact {
   snapshot : SourceSnapshot
-  from : Int // UTF-16 code unit offset
-  to : Int // UTF-16 code unit offset
+  from : Int32 // UTF-16 code unit offset
+  to : Int32 // UTF-16 code unit offset
   pattern_id : String
-  captures : Map[String, (Int, Int)]
-} derive(@debug.Debug)
+  captures : Map[String, (Int32, Int32)]
+}
 
 ///|
 pub fn PatternMatchFact::PatternMatchFact(
   snapshot~ : SourceSnapshot,
-  from~ : Int,
-  to~ : Int,
+  from~ : Int32,
+  to~ : Int32,
   pattern_id~ : String,
-  captures~ : Map[String, (Int, Int)],
+  captures~ : Map[String, (Int32, Int32)],
 ) -> PatternMatchFact {
   { snapshot, from, to, pattern_id, captures, }
 }

@@ -25,14 +25,15 @@ priv struct CanvasContextRequest {
 }
 
 ///|
+#derive(Eq)
 priv struct CanvasContextMenuModel {
   context_menu : @context_menu.Model[CanvasContextMenuItem]
   problem : CanvasContextProblem?
-} derive(Eq)
+}
 
 ///|
 priv struct CanvasContextMenuBinding {
-  handle : Int
+  handle : Int32
   on_change : () -> Unit
   on_source_result : (SourceGraphOperationResultJson) -> Unit
   can_mutate : () -> Bool
@@ -50,7 +51,7 @@ priv enum CanvasContextMenuMsg {
 
 ///|
 #cfg(target="js")
-let context_menu_dismissers : Map[Int, () -> Unit] = Map([])
+let context_menu_dismissers : Map[Int32, () -> Unit] = Map([])
 
 ///|
 fn context_menu_model() -> CanvasContextMenuModel {
@@ -296,7 +297,7 @@ fn parse_menu_request(
 ///|
 #cfg(target="js")
 priv suberror CanvasContextMenuSub {
-  ContextMenuEvent(@dom.Element, Int, @rabbita.Emit[CanvasContextMenuMsg])
+  ContextMenuEvent(@dom.Element, Int32, @rabbita.Emit[CanvasContextMenuMsg])
 }
 
 ///|
@@ -341,7 +342,7 @@ fn context_menu_sub_loader(
 #cfg(target="js")
 fn context_menu_subscriptions(
   root : @dom.Element,
-  handle : Int,
+  handle : Int32,
   model : CanvasContextMenuModel,
   emit : @rabbita.Emit[CanvasContextMenuMsg],
 ) -> @sub.Sub {
@@ -358,7 +359,7 @@ fn context_menu_subscriptions(
 
 ///|
 #cfg(target="js")
-fn dismiss_canvas_context_menu(handle : Int) -> Unit {
+fn dismiss_canvas_context_menu(handle : Int32) -> Unit {
   match context_menu_dismissers.get(handle) {
     Some(dismiss) => dismiss()
     None => ()
@@ -369,7 +370,7 @@ fn dismiss_canvas_context_menu(handle : Int) -> Unit {
 #cfg(target="js")
 fn mount_canvas_context_menu(
   root : @dom.Element,
-  handle : Int,
+  handle : Int32,
   on_change : () -> Unit,
   on_source_result : (SourceGraphOperationResultJson) -> Unit,
   can_mutate : () -> Bool,

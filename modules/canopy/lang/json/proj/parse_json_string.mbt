@@ -59,7 +59,7 @@ fn parse_json_string(raw : String) -> String {
               // \uXXXX — parse 4 hex digits
               if i + 5 < len {
                 let hex = inner[i + 2:i + 6].to_owned()
-                let cp = @string.parse_int(hex, base=16) catch {
+                let cp = @string.parse_int(hex, radix=16) catch {
                   _ => {
                     buf.write_char('\\')
                     i = i + 1
@@ -70,7 +70,7 @@ fn parse_json_string(raw : String) -> String {
                   // High surrogate — look for low surrogate \uXXXX
                   if i + 11 < len && inner[i + 6:i + 8].to_owned() == "\\u" {
                     let low_hex = inner[i + 8:i + 12].to_owned()
-                    let low = @string.parse_int(low_hex, base=16) catch {
+                    let low = @string.parse_int(low_hex, radix=16) catch {
                       _ => -1
                     }
                     if low >= 0xDC00 && low <= 0xDFFF {

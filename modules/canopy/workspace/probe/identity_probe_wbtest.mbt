@@ -22,7 +22,7 @@ test "A1: shared peer_id — broadcast is skipped" {
   let room = @editor.InMemoryRoom::new()
   let t_a = @editor.InMemoryTransport::new("shared_agent", room)
   let t_b = @editor.InMemoryTransport::new("shared_agent", room)
-  let received : Array[Int] = []
+  let received : Array[Int32] = []
   t_b.on_receive(fn(data) { received.push(data.length()) })
   // Send an arbitrary payload from A (5 arbitrary bytes)
   t_a.send(Bytes::make(5, b'\x00'))
@@ -47,7 +47,7 @@ test "A2: shared agent_id — conflicting RawVersion is rejected" {
     false
   } catch {
     @text.TextError::SyncFailed(
-      @sync.Failure::ConflictingIdentity(replica_id~, sequence~)
+      @sync.Failure::ConflictingIdentity(replica_id~, sequence~),
     ) => {
       inspect(replica_id, content="shared_agent")
       inspect(sequence, content="1")

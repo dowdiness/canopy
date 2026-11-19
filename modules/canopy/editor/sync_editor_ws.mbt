@@ -85,7 +85,7 @@ pub fn[T] SyncEditor::ws_broadcast_edit(self : SyncEditor[T]) -> Unit {
   let crdt_msg = self.export_all() catch { _ => return }
   let json_str = crdt_msg.to_json_string()
   let buf = Buffer()
-  buf.write_string_utf16le(json_str.view())
+  buf.write_string_utf16le(json_str[:])
   self.interaction.ws_send(@wire.encode_message(CrdtOps(buf.to_bytes())))
 }
 

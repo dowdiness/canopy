@@ -8,6 +8,7 @@ using @loomcore {type Range}
 /// Maps between AST node IDs and half-open UTF-16 code-unit source ranges.
 /// Ranges here are `@loomcore.Range`; do not pass eg-walker item-space ranges
 /// or ProseMirror tree positions to SourceMap APIs.
+#derive(Debug, Eq)
 pub struct SourceMap {
   /// NodeId → UTF-16 source range mapping
   node_to_range : Map[NodeId, Range]
@@ -18,7 +19,7 @@ pub struct SourceMap {
   /// binding name in let). Outer key = NodeId of containing node, inner key =
   /// token role name, value = Range.
   token_spans : Map[NodeId, Map[String, Range]]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Create an empty SourceMap
@@ -102,7 +103,7 @@ pub fn[T] SourceMap::patch_subtree(
 ///|
 fn SourceMap::node_to_range_at_position(
   self : SourceMap,
-  position : Int,
+  position : Int32,
 ) -> Map[NodeId, Range] {
   self.ranges.fold(init=Default::default(), fn(acc, item) {
     if item.0.contains(position) {
@@ -125,7 +126,7 @@ fn SourceMap::node_to_range_at_position(
 /// invariant satisfied by `SourceMap::from_ast`.
 pub fn SourceMap::nodes_at_position(
   self : SourceMap,
-  position : Int,
+  position : Int32,
 ) -> Array[NodeId] {
   let pairs : Array[(NodeId, Range)] = [
     for id, range in self.node_to_range_at_position(position) => (id, range)
@@ -139,7 +140,7 @@ pub fn SourceMap::nodes_at_position(
 /// Find the innermost (smallest) node containing a UTF-16 source offset.
 pub fn SourceMap::innermost_node_at(
   self : SourceMap,
-  position : Int,
+  position : Int32,
 ) -> NodeId? {
   self
   .node_to_range_at_position(position)
@@ -184,9 +185,9 @@ pub fn SourceMap::nodes_in_range(
 /// node ranges.
 fn shift_range(
   r : Range,
-  edit_start : Int,
-  old_end : Int,
-  delta : Int,
+  edit_start : Int32,
+  old_end : Int32,
+  delta : Int32,
 ) -> Range {
   if r.end <= edit_start {
     r
@@ -207,7 +208,7 @@ fn shift_range(
 /// Shifts all node ranges and token spans after the deleted range backward.
 pub fn SourceMap::apply_edit(
   self : SourceMap,
-  edit_start : Int,
+  edit_start : Int32,
   old_range : Range,
 ) -> Unit {
   let delta = old_range.length()
@@ -253,7 +254,7 @@ pub fn[T] SourceMap::rebuild(self : SourceMap, root : ProjNode[T]) -> Unit {
 
 ///|
 /// Get the number of mapped nodes
-pub fn SourceMap::node_count(self : SourceMap) -> Int {
+pub fn SourceMap::node_count(self : SourceMap) -> Int32 {
   self.node_to_range.length()
 }
 
@@ -335,9 +336,9 @@ pub impl ToJson for SourceMap with fn to_json(self) {
   let entries : Array[Json] = []
   for node_id, range in self.node_to_range {
     let entry : Map[String, Json] = Map([])
-    entry["node_id"] = node_id.0.to_json()
-    entry["start"] = range.start.to_json()
-    entry["end"] = range.end.to_json()
+    entry["node_id"] = Json(node_id.0)
+    entry["start"] = Json(range.start)
+    entry["end"] = Json(range.end)
     // Include token spans if present for this node
     match self.token_spans.get(node_id) {
       Some(roles) => {

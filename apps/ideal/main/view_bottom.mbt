@@ -18,9 +18,9 @@
 /// writer, the update loop sequences calls, and after_render writes are
 /// synchronous.
 priv struct RenderCache {
-  mut identity : Int
-  mut op_count : Int
-  mut frontier_hash : Int
+  mut identity : Int32
+  mut op_count : Int32
+  mut frontier_hash : Int32
   mut html : String
   mut valid : Bool
 }
@@ -57,9 +57,9 @@ let incr_graph_cache : RenderCache = {
 /// practice); the multiply-by-31 fold collides only on adversarial inputs
 /// that callers don't construct.
 fn render_cache_key(
-  identity : Int,
+  identity : Int32,
   snap : @history.CausalSnapshot,
-) -> (Int, Int, Int) {
+) -> (Int32, Int32, Int32) {
   let mut h = 0
   for lv in snap.frontier() {
     h = h * 31 + lv
@@ -68,7 +68,7 @@ fn render_cache_key(
 }
 
 ///|
-fn cache_hit(cache : RenderCache, key : (Int, Int, Int)) -> Bool {
+fn cache_hit(cache : RenderCache, key : (Int32, Int32, Int32)) -> Bool {
   cache.valid &&
   cache.identity == key.0 &&
   cache.op_count == key.1 &&
@@ -78,7 +78,7 @@ fn cache_hit(cache : RenderCache, key : (Int, Int, Int)) -> Bool {
 ///|
 fn cache_store(
   cache : RenderCache,
-  key : (Int, Int, Int),
+  key : (Int32, Int32, Int32),
   html : String,
 ) -> Unit {
   cache.identity = key.0
@@ -127,7 +127,7 @@ let bottom_tab_defs : Array[(BottomTab, String)] = [
 /// list is a defect, not a fallback case: aliasing it to `0` would silently give
 /// it the Problems tab's id / focus / `SelectBottomTab` target, so we abort
 /// loudly instead. Unreachable today — every variant is listed.
-fn bottom_tab_index(tab : BottomTab) -> Int {
+fn bottom_tab_index(tab : BottomTab) -> Int32 {
   match bottom_tab_defs.search_by(pair => pair.0 == tab) {
     Some(index) => index
     None => abort("BottomTab variant missing from bottom_tab_defs")

@@ -2,7 +2,7 @@
 fn caret(
   x : Double,
   y : Double,
-  scroll_top? : Double = 0.0,
+  scroll_top~ : Double = 0.0,
 ) -> @writing_focus.Caret {
   { x, y, scroll_top, }
 }

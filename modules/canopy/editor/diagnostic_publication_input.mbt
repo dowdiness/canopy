@@ -1,10 +1,11 @@
 ///|
 /// A covered source's stable parser identity paired with its CRDT causal
 /// document version. No source text or parser value crosses this boundary.
+#derive(Eq, @debug.Debug)
 pub struct DiagnosticPublicationSourceRevision {
   priv source : @loom_core.SourceId
   priv version : @text.Version
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 pub fn DiagnosticPublicationSourceRevision::DiagnosticPublicationSourceRevision(
@@ -29,11 +30,12 @@ pub fn DiagnosticPublicationSourceRevision::version(
 }
 
 ///|
+#derive(Eq, @debug.Debug)
 pub(all) suberror DiagnosticPublicationInputError {
   NoCoveredSources
   DuplicateSource(@loom_core.SourceId)
   DuplicateDependency(DiagnosticDependencyId)
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 pub impl Show for DiagnosticPublicationInputError with fn output(self, logger) {
@@ -41,13 +43,14 @@ pub impl Show for DiagnosticPublicationInputError with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, @debug.Debug)
 pub struct DiagnosticPublicationInputSnapshot {
   priv producer : DiagnosticProducerId
   priv generation : DiagnosticProducerGeneration
   priv sources : Array[DiagnosticPublicationSourceRevision]
   priv dependencies : Array[DiagnosticDependencyRevision]
   priv configuration : DiagnosticConfigurationId
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 /// Pure validation and normalization boundary. The returned value owns fresh,

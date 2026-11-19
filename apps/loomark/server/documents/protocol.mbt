@@ -1,8 +1,8 @@
 ///|
-const MAX_TEXT_BYTES : Int = 1024 * 1024
+const MAX_TEXT_BYTES : Int32 = 1024 * 1024
 
 ///|
-const MAX_REQUEST_BYTES : Int = 6 * MAX_TEXT_BYTES + 1024
+const MAX_REQUEST_BYTES : Int32 = 6 * MAX_TEXT_BYTES + 1024
 
 ///|
 fn decode_mutation(value : Json, deleting~ : Bool) -> @store.Mutation? {
@@ -30,12 +30,12 @@ fn decode_mutation(value : Json, deleting~ : Bool) -> @store.Mutation? {
 ///|
 fn metadata_json(value : @store.Metadata) -> Json {
   let fields : Map[String, Json] = {
-    "id": value.id.to_json(),
-    "revision": value.revision.to_json(),
-    "deleted": value.deleted.to_json(),
+    "id": Json(value.id),
+    "revision": Json(value.revision),
+    "deleted": Json(value.deleted),
   }
   match value.preview {
-    Some(preview) => fields["preview"] = preview.to_json()
+    Some(preview) => fields["preview"] = Json(preview)
     None => ()
   }
   Json::object(fields)
@@ -44,13 +44,13 @@ fn metadata_json(value : @store.Metadata) -> Json {
 ///|
 fn document_json(value : @store.Document) -> Json {
   let text = match value.text {
-    Some(text) => text.to_json()
+    Some(text) => Json(text)
     None => Json::null()
   }
   {
-    "id": value.metadata.id.to_json(),
-    "revision": value.metadata.revision.to_json(),
-    "deleted": value.metadata.deleted.to_json(),
+    "id": Json(value.metadata.id),
+    "revision": Json(value.metadata.revision),
+    "deleted": Json(value.metadata.deleted),
     "text": text,
   }
 }

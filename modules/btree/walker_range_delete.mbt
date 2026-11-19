@@ -1,7 +1,7 @@
 ///|
 fn[T] path_suffix_after_target(
   path : Array[PathFrame[T]],
-  target_depth : Int,
+  target_depth : Int32,
 ) -> Array[PathFrame[T]] {
   let suffix : Array[PathFrame[T]] = []
   for i in (target_depth + 1)..<path.length() {
@@ -22,7 +22,7 @@ fn[T] rebuild_boundary_chain_optional(
   for i in (path_suffix.length() - 1)>=..0 {
     let frame = path_suffix[i]
     let children : Array[BTreeNode[T]] = []
-    let counts : Array[Int] = []
+    let counts : Array[Int32] = []
     if keep_left {
       for j in 0..<frame.child_idx {
         children.push(frame.children[j])
@@ -67,7 +67,7 @@ fn[T] merge_boundary_segment(
   left_path_suffix : Array[PathFrame[T]],
   right_path_suffix : Array[PathFrame[T]],
   leaf : BTreeNode[T],
-  min_degree : Int,
+  min_degree : Int32,
 ) -> Array[BTreeNode[T]] {
   if left_path_suffix.length() != right_path_suffix.length() {
     abort("merge_boundary_segment: mismatched suffix heights")
@@ -77,7 +77,7 @@ fn[T] merge_boundary_segment(
     let left_frame = left_path_suffix[i]
     let right_frame = right_path_suffix[i]
     let children : Array[BTreeNode[T]] = []
-    let counts : Array[Int] = []
+    let counts : Array[Int32] = []
     children.append(left_frame.children[:left_frame.child_idx])
     counts.append(left_frame.counts[:left_frame.child_idx])
     children.append(segment[:])
@@ -143,7 +143,7 @@ fn[T : BTreeElem] right_boundary_subtree(
 }
 
 ///|
-fn[T] BTreeNode::leaf_count(self : BTreeNode[T]) -> Int {
+fn[T] BTreeNode::leaf_count(self : BTreeNode[T]) -> Int32 {
   match self {
     Leaf(..) => 1
     Internal(children~, ..) =>
@@ -158,10 +158,10 @@ fn[T] BTreeNode::leaf_count(self : BTreeNode[T]) -> Int {
 ///|
 fn[T : BTreeElem] compute_single_leaf_delete_range(
   leaf : LeafCursor[T],
-  start_offset : Int,
-  end_offset : Int,
-) -> Array[(T, Int)] {
-  let new_leaves : Array[(T, Int)] = []
+  start_offset : Int32,
+  end_offset : Int32,
+) -> Array[(T, Int32)] {
+  let new_leaves : Array[(T, Int32)] = []
   let left_keep : T? = if start_offset == 0 {
     None
   } else {
@@ -191,9 +191,9 @@ fn[T : BTreeElem] compute_single_leaf_delete_range(
 ///|
 fn[T] leaf_count_of_children(
   children : Array[BTreeNode[T]],
-  start_idx : Int,
-  end_idx : Int,
-) -> Int {
+  start_idx : Int32,
+  end_idx : Int32,
+) -> Int32 {
   let mut total = 0
   for i in start_idx..<end_idx {
     total = total + children[i].leaf_count()
@@ -202,7 +202,7 @@ fn[T] leaf_count_of_children(
 }
 
 ///|
-fn[T] leaf_count_of_array(children : Array[BTreeNode[T]]) -> Int {
+fn[T] leaf_count_of_array(children : Array[BTreeNode[T]]) -> Int32 {
   leaf_count_of_children(children, 0, children.length())
 }
 
@@ -229,9 +229,9 @@ fn[T : BTreeElem] absorb_leaf_level_gap_merge(
   start : LeafCursor[T],
   end_ : LeafCursor[T],
   new_children : Array[BTreeNode[T]],
-  start_idx : Int,
-  end_idx : Int,
-) -> (Array[BTreeNode[T]], Int, Int, Bool) {
+  start_idx : Int32,
+  end_idx : Int32,
+) -> (Array[BTreeNode[T]], Int32, Int32, Bool) {
   if lca.child_height != 0 {
     return (new_children, start_idx, end_idx, false)
   }
@@ -288,10 +288,10 @@ fn[T : BTreeElem] absorb_subtree_gap_merge(
   start : LeafCursor[T],
   end_ : LeafCursor[T],
   new_children : Array[BTreeNode[T]],
-  start_idx : Int,
-  end_idx : Int,
-  min_degree : Int,
-) -> (Array[BTreeNode[T]], Int, Int, Bool) {
+  start_idx : Int32,
+  end_idx : Int32,
+  min_degree : Int32,
+) -> (Array[BTreeNode[T]], Int32, Int32, Bool) {
   if !(start.offset == 0 &&
     end_.offset == end_.span &&
     new_children.length() == 0 &&
@@ -318,7 +318,7 @@ fn[T : BTreeElem] absorb_subtree_gap_merge(
 ///|
 fn[T : BTreeElem] promote_empty_child_gap_merge(
   lca : AncestorRange[T],
-  min_degree : Int,
+  min_degree : Int32,
 ) -> NodeSplice[T]? {
   if lca.prefix.length() == 0 ||
     lca.start_idx != 0 ||
@@ -366,9 +366,9 @@ fn[T : BTreeElem] promote_empty_child_gap_merge(
 /// propagating the splice and handling root lifecycle.
 fn[T : BTreeElem] plan_delete_range(
   root : BTreeNode[T],
-  start : Int,
-  end_ : Int,
-  min_degree : Int,
+  start : Int32,
+  end_ : Int32,
+  min_degree : Int32,
 ) -> NodeSplice[T]? {
   let total = root.total()
   if start < 0 || start >= end_ || start >= total {
@@ -484,9 +484,9 @@ fn[T : BTreeElem] plan_delete_range(
 /// the original root and `None` when the position is not mergeable.
 fn[T : @rle.Spanning + @rle.Mergeable] merge_boundary_once(
   root : BTreeNode[T],
-  boundary_pos : Int,
-  min_degree : Int,
-) -> (BTreeNode[T], (Int, Int)?) {
+  boundary_pos : Int32,
+  min_degree : Int32,
+) -> (BTreeNode[T], (Int32, Int32)?) {
   guard boundary_pos > 0 && boundary_pos < root.total() else {
     return (root, None)
   }
@@ -560,9 +560,9 @@ fn[T : @rle.Spanning + @rle.Mergeable] merge_boundary_once(
 /// take `O((m + 1) log n)` work for a fixed minimum degree.
 fn[T : @rle.Spanning + @rle.Mergeable] normalize_boundary_chain(
   root : BTreeNode[T],
-  boundary_pos : Int,
-  min_degree : Int,
-) -> (BTreeNode[T], Int) {
+  boundary_pos : Int32,
+  min_degree : Int32,
+) -> (BTreeNode[T], Int32) {
   let (first_root, first_interval) = merge_boundary_once(
     root, boundary_pos, min_degree,
   )

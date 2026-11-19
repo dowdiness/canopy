@@ -2,23 +2,25 @@
 /// The one pointer owner for the workflow canvas root. This is deliberately
 /// app-private: it coordinates the two existing graph hosts without becoming a
 /// reusable canvas event algebra.
+#derive(Eq)
 priv enum CanvasPointerSession {
   Idle
-  GraphGesture(pointer_id~ : Int, down_node_id~ : String, additive~ : Bool)
+  GraphGesture(pointer_id~ : Int32, down_node_id~ : String, additive~ : Bool)
   SourceConnection(
-    pointer_id~ : Int,
+    pointer_id~ : Int32,
     source_node_id~ : String,
     source_port_id~ : String,
-    cursor~ : @spatial.WorldPoint
+    cursor~ : @spatial.WorldPoint,
   )
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasPointerState {
-  handle : Int
+  handle : Int32
   is_mac_like : Bool
   session : CanvasPointerSession
-} derive(Eq)
+}
 
 ///|
 priv enum CanvasPointerHit {
@@ -46,7 +48,7 @@ priv struct CanvasPointerInput {
 ///|
 priv struct CanvasWheelInput {
   delta_y : Double
-  delta_mode : Int
+  delta_mode : Int32
   ctrl_key : Bool
   screen : ScreenPoint?
 }
@@ -205,7 +207,7 @@ fn canvas_pointer_set_panning(root : @dom.Element, active : Bool) -> Unit {
 ///|
 fn canvas_pointer_release_capture(
   root : @dom.Element,
-  pointer_id : Int,
+  pointer_id : Int32,
 ) -> Unit {
   root.release_pointer_capture(pointer_id) catch {
     @dom.DOMExceptionError(..) => ()
@@ -237,7 +239,7 @@ fn canvas_pointer_source_target(hit : CanvasPointerHit) -> (NodeId, String)? {
 }
 
 ///|
-fn canvas_select_edge(handle : Int, edge_id : EdgeId) -> Unit {
+fn canvas_select_edge(handle : Int32, edge_id : EdgeId) -> Unit {
   match canvas_backing(handle) {
     Some(backing) => backing.select_edge(edge_id)
     None => ()
@@ -245,7 +247,7 @@ fn canvas_select_edge(handle : Int, edge_id : EdgeId) -> Unit {
 }
 
 ///|
-fn canvas_clear_selected_edge(handle : Int) -> Unit {
+fn canvas_clear_selected_edge(handle : Int32) -> Unit {
   match canvas_backing(handle) {
     Some(backing) => backing.clear_selected_edge()
     None => ()
@@ -711,7 +713,7 @@ fn canvas_pointer_view(_model : CanvasPointerState) -> @rabbita.Html {
 #cfg(target="js")
 fn mount_canvas_pointer_session(
   root : @dom.Element,
-  handle : Int,
+  handle : Int32,
   on_change : () -> Unit,
 ) -> Unit {
   let document = @dom.document()

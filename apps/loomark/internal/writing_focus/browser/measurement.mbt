@@ -9,7 +9,7 @@ priv struct FocusMeasurement {
 /// only the fact that a caret was previously measured, not its old coordinates.
 priv struct WritingSnapshot {
   source : @text_lines.TextLines
-  reflow_revision : Int
+  reflow_revision : Int32
   groups : @writing_focus.WritingGroups?
   focus : FocusMeasurement?
   caret : @writing_focus.CaretHistory
@@ -85,9 +85,9 @@ fn WritingMeasurement::measure(
     selection_start,
     selection_end,
     backward=area.get_selection_direction() == "backward",
-    editable_focus=area.matches(":focus:read-write"),
+    editable_focus=@dom.IsElement::matches(area, ":focus:read-write"),
   )
-  let scroll_top = area.get_scroll_top()
+  let scroll_top = @dom.IsElement::get_scroll_top(area)
   let (snapshot, changed) = writing_snapshot(self.snapshot, measured)
   let (snapshot, focus) = if dims {
     let (snapshot, range) = snapshot.locate_focus(
@@ -114,12 +114,13 @@ fn WritingMeasurement::measure(
   self.snapshot = Some(snapshot)
   {
     metrics: measured.metrics,
-    layer_left: area.get_offset_left() + measured.metrics.padding_left,
+    layer_left: @dom.IsHtmlElement::get_offset_left(area) +
+    measured.metrics.padding_left,
     focus,
     caret,
     viewport: @writing_focus.Range(
       scroll_top,
-      scroll_top + area.get_client_height(),
+      scroll_top + @dom.IsElement::get_client_height(area),
     ),
     changed,
   }
@@ -129,8 +130,8 @@ fn WritingMeasurement::measure(
 fn WritingSnapshot::locate_focus(
   self : WritingSnapshot,
   area : @text_layout.TextArea,
-  selection_start : Int,
-  selection_end : Int,
+  selection_start : Int32,
+  selection_end : Int32,
 ) -> (WritingSnapshot, @writing_focus.Range) raise {
   let groups = match self.groups {
     Some(groups) => groups
@@ -157,7 +158,7 @@ fn WritingSnapshot::locate_caret(
   self : WritingSnapshot,
   area : @text_layout.TextArea,
   metrics : @text_layout.TextMetrics,
-  offset : Int,
+  offset : Int32,
 ) -> (WritingSnapshot, @writing_focus.MeasuredCaret, @writing_focus.CaretCause) raise {
   let cause = match @writing_focus.caret_measure(self.caret, offset) {
     Cached(measured) => return (self, measured, Navigation)

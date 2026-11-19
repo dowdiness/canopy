@@ -17,19 +17,21 @@ pub fn from_ast_grep_matches(Array[AstGrepMatch], String, @analysis.SourceSnapsh
 // Errors
 
 // Types and methods
+#derive(@debug.Debug)
 pub(all) struct AstGrepMatch {
-  byte_start : Int
-  byte_end : Int
+  byte_start : Int32
+  byte_end : Int32
   pattern_id : String
-} derive(@debug.Debug)
-pub fn AstGrepMatch::AstGrepMatch(byte_start~ : Int, byte_end~ : Int, pattern_id~ : String) -> Self
+}
+pub fn AstGrepMatch::AstGrepMatch(byte_start~ : Int32, byte_end~ : Int32, pattern_id~ : String) -> Self
 pub fn AstGrepMatch::to_repr(Self) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) struct MatchListEntry {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
   pattern_id : String
-} derive(@debug.Debug)
+}
 pub fn MatchListEntry::to_repr(Self) -> @debug.Repr
 
 // Type aliases

@@ -1,5 +1,5 @@
 ///|
-fn node_id(n : Int) -> @graph_model.NodeId {
+fn node_id(n : Int32) -> @graph_model.NodeId {
   @graph_model.NodeId(n.to_string())
 }
 
@@ -22,9 +22,9 @@ fn viewport_json_with_coordinates(
   scale : Double,
 ) -> Json {
   let fields : Map[String, Json] = Map([])
-  fields["x"] = x.to_json()
-  fields["y"] = y.to_json()
-  fields["scale"] = scale.to_json()
+  fields["x"] = Json(x)
+  fields["y"] = Json(y)
+  fields["scale"] = Json(scale)
   Json::object(fields)
 }
 
@@ -36,9 +36,9 @@ fn viewport_json(scale : Double) -> Json {
 ///|
 fn viewport_operation_json(viewport : Json) -> Json {
   let fields : Map[String, Json] = Map([])
-  let version : Int = 2
-  fields["version"] = version.to_json()
-  fields["type"] = "SetViewport".to_json()
+  let version : Int32 = 2
+  fields["version"] = Json(version)
+  fields["type"] = Json("SetViewport")
   fields["viewport"] = viewport
   Json::object(fields)
 }
@@ -213,7 +213,7 @@ test "source-backed edit actions serialize node and parameter payloads" {
     content="{\"version\":2,\"type\":\"SetNodeParam\",\"node_id\":\"1\",\"parameter\":\"freq\",\"value\":\"880\"}",
   )
   let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
-    [rename.to_json(), set_param.to_json()].to_json(),
+    Json([rename.to_json(), set_param.to_json()]),
   )
   @debug.assert_eq(decoded, [rename, set_param])
 }
@@ -260,7 +260,7 @@ test "operation log round-trips and replays into canvas graph state" {
     ),
   ]
   let decoded : Array[@graph_model.GraphOperation] = @json.from_json(
-    operations.to_json(),
+    Json(operations),
   )
   @debug.assert_eq(decoded, operations)
   let replayed = @graph_model.replay_operations(replay_base_state(), decoded)
@@ -297,14 +297,14 @@ fn viewport_error_message(json : Json) -> String raise {
 ///|
 test "viewport coordinate errors identify their fields" {
   let non_number_fields : Map[String, Json] = Map([])
-  non_number_fields["x"] = "not-a-number".to_json()
-  non_number_fields["y"] = (-10.0).to_json()
-  non_number_fields["scale"] = 1.0.to_json()
+  non_number_fields["x"] = Json("not-a-number")
+  non_number_fields["y"] = Json(-10.0)
+  non_number_fields["scale"] = Json(1.0)
   let non_number = viewport_operation_json(Json::object(non_number_fields))
   let non_finite_fields : Map[String, Json] = Map([])
-  non_finite_fields["x"] = 20.0.to_json()
+  non_finite_fields["x"] = Json(20.0)
   non_finite_fields["y"] = Json::number(0.0 / 0.0)
-  non_finite_fields["scale"] = 1.0.to_json()
+  non_finite_fields["scale"] = Json(1.0)
   let non_finite = viewport_operation_json(Json::object(non_finite_fields))
   assert_eq(
     viewport_error_message(non_number),
@@ -360,8 +360,8 @@ test "invalid node geometry JSON is rejected before replay" {
   )
   let operation_json = operation => {
     let fields : Map[String, Json] = Map([])
-    fields["version"] = (2).to_json()
-    fields["type"] = "AddNode".to_json()
+    fields["version"] = Json(2)
+    fields["type"] = Json("AddNode")
     fields["node"] = operation
     Json::object(fields)
   }
@@ -383,7 +383,7 @@ test "invalid node geometry JSON is rejected before replay" {
       match operation_fields.get("node") {
         Some(Json::Object(fields)) => {
           let negative_width = fields.copy()
-          negative_width["w"] = (-1.0).to_json()
+          negative_width["w"] = Json(-1.0)
           assert_rejects_viewport_operation(
             operation_json(Json::object(negative_width)),
           )

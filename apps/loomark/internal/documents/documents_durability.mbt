@@ -1,18 +1,20 @@
 ///|
 /// Recovery of accepted local intent, independent of remote synchronization.
+#derive(Eq)
 pub enum LocalDurability {
   AwaitingInput
   Saving
   Failed(LocalSaveFailure)
   Durable
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub enum LocalSaveFailure {
   Save(Key, @source_repository.SaveFailure)
   Delete(Key, @source_repository.DeleteFailure)
   Replica(Key, @source_repository.ReplicaFailure)
-} derive(Eq)
+}
 
 ///|
 /// Flush accepted edits and retry failed operations once. Admission failures

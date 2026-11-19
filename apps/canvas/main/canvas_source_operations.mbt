@@ -13,7 +13,7 @@ fn canvas_source_reply_cmd(
 /// Runs inside Source's existing parser Failure boundary. UI targets are already
 /// captured; use typed backing operations without serializing an FFI request.
 fn apply_canvas_source_request(
-  handle : Int,
+  handle : Int32,
   request : CanvasSourceRequest,
 ) -> (SourceNoticeOperation, SourceGraphOperationResultJson) raise Failure {
   let operation : SourceNoticeOperation = match request {

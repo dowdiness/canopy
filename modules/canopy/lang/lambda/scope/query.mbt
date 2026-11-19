@@ -149,7 +149,7 @@ pub fn binder_span(
 pub fn go_to_definition(
   g : ScopeGraph,
   source_map : @core.SourceMap,
-  position : Int,
+  position : Int32,
 ) -> @loomcore.Range? {
   guard source_map.innermost_node_at(position) is Some(ref_id) else {
     return None
@@ -203,7 +203,7 @@ pub fn enclosing_env(
 pub fn references_outside_subtree(
   g : ScopeGraph,
   subtree_node_ids : @immut/hashset.HashSet[@core.NodeId],
-  registry? : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
+  registry~ : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
 ) -> Array[Ref] {
   // Collect distinct scopes containing subtree nodes.
   let mut seen : @immut/hashset.HashSet[ScopeId] = @immut/hashset.new()

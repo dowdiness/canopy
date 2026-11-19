@@ -6,8 +6,8 @@ fn groups(text : String) -> @writing_focus.WritingGroups {
 ///|
 fn focused_lines(
   groups : @writing_focus.WritingGroups,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> @writing_focus.LineRange raise {
   groups.focus_lines(start, end)
 }

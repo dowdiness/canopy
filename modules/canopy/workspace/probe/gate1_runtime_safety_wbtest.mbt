@@ -56,7 +56,7 @@
 // recommendation update).
 
 ///|
-let next_probe_source_identity : Ref[Int] = { val: 0, }
+let next_probe_source_identity : Ref[Int32] = { val: 0, }
 
 ///|
 fn json_parser_on(
@@ -107,8 +107,8 @@ test "P0a gate #1 §A — set_on_change is single-slot; second registrar clobber
   let parser_a = json_parser_on(shared_rt, "[1]")
   let parser_b = json_parser_on(shared_rt, "[2]")
   ignore(parser_b)
-  let count_a : Ref[Int] = { val: 0, }
-  let count_b : Ref[Int] = { val: 0, }
+  let count_a : Ref[Int32] = { val: 0, }
+  let count_b : Ref[Int32] = { val: 0, }
   shared_rt.set_on_change(fn() { count_a.val = count_a.val + 1 })
   shared_rt.set_on_change(fn() { count_b.val = count_b.val + 1 })
 
@@ -131,7 +131,7 @@ test "P0a gate #1 §A — set_on_change is single-slot; second registrar clobber
 test "P0a gate #1 §A control — single registered callback fires once per bump" {
   let shared_rt = @incr.Runtime()
   let parser_a = json_parser_on(shared_rt, "[1]")
-  let count : Ref[Int] = { val: 0, }
+  let count : Ref[Int32] = { val: 0, }
   shared_rt.set_on_change(fn() { count.val = count.val + 1 })
   parser_a.set_source("[11]")
   inspect(count.val, content="1")
@@ -234,12 +234,12 @@ test "P0a gate #1 §C — rooting a cross-editor Memo transitively pins both inp
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()
   let id_b : @incr.CellId = parser_b.source().id()
-  let cross : @incr.Derived[Int] = parser_a
+  let cross : @incr.Derived[Int32] = parser_a
     .source()
     .map2(parser_b.source(), (a, b) => a.length() + b.length(), label="cross")
   // Force first computation via read_or_abort (outside-the-graph read) so
   // cross's dependency list is populated before watch/gc.
-  let initial : Int = cross.read_or_abort()
+  let initial : Int32 = cross.read_or_abort()
   inspect(initial, content="6")
   let id_cross : @incr.CellId = cross.id()
   let cross_watch = cross.watch()
@@ -266,7 +266,7 @@ test "P0a gate #1 §C control — unrooted cross-Memo + inputs all collected" {
   let parser_b = json_parser_on(shared_rt, "[2]")
   let id_a : @incr.CellId = parser_a.source().id()
   let id_b : @incr.CellId = parser_b.source().id()
-  let cross : @incr.Derived[Int] = @incr.Derived::Derived(shared_rt, fn() {
+  let cross : @incr.Derived[Int32] = @incr.Derived::Derived(shared_rt, fn() {
     parser_a.source().get_or_abort().length() +
     parser_b.source().get_or_abort().length()
   })

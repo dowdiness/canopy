@@ -12,7 +12,7 @@ priv struct LambdaContext {
 
 ///|
 priv struct Thin {
-  map : Array[Int?]
+  map : Array[Int32?]
 }
 
 ///|
@@ -29,7 +29,7 @@ priv struct ThinEGraph {
 
 ///|
 priv struct ContextSearchResult {
-  candidates : Int
+  candidates : Int32
   matches : Array[ContextualId]
 }
 
@@ -39,12 +39,12 @@ fn thin_egraph() -> ThinEGraph {
 }
 
 ///|
-fn canonical_binder_id(position : Int) -> @alpha.BinderId {
+fn canonical_binder_id(position : Int32) -> @alpha.BinderId {
   @alpha.BinderId(position)
 }
 
 ///|
-fn canonical_binder(binder : @alpha.Binder, position : Int) -> @alpha.Binder {
+fn canonical_binder(binder : @alpha.Binder, position : Int32) -> @alpha.Binder {
   {
     id: canonical_binder_id(position),
     hint: binder.hint,
@@ -66,7 +66,7 @@ fn LambdaContext::bind(
 fn LambdaContext::position(
   self : LambdaContext,
   binder : @alpha.BinderId,
-) -> Int? {
+) -> Int32? {
   for i, candidate in self.binders; found = None {
     match found {
       Some(_) => continue found
@@ -161,7 +161,7 @@ fn Thin::valid(
   target : LambdaContext,
 ) -> Bool {
   guard self.map.length() == target.binders.length() else { return false }
-  let seen : Map[Int, Unit] = Map([])
+  let seen : Map[Int32, Unit] = Map([])
   for entry in self.map {
     match entry {
       None => ()
@@ -278,7 +278,7 @@ fn ThinEGraph::search_at(
 }
 
 ///|
-fn proto_binder(id : Int, hint : String) -> @alpha.Binder {
+fn proto_binder(id : Int32, hint : String) -> @alpha.Binder {
   { id: @alpha.BinderId(id), hint, origin: @alpha.BinderOrigin::Generated(id), }
 }
 

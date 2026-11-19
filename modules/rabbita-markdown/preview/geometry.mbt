@@ -1,9 +1,10 @@
 ///|
 /// The source text one top-level Preview block renders.
+#derive(Eq)
 priv struct SourceRange {
-  start : Int
-  end : Int
-} derive(Eq)
+  start : Int32
+  end : Int32
+}
 
 ///|
 /// The Preview content records the ranges of the blocks it renders, so a
@@ -57,8 +58,8 @@ pub fn State::shows_blocks(self : State) -> Bool {
 /// before it, and how far through that block's source it lies.
 fn block_position(
   ranges : ArrayView[SourceRange],
-  offset : Int,
-) -> (Int, Double) {
+  offset : Int32,
+) -> (Int32, Double) {
   let mut index = 0
   for i, range in ranges {
     guard range.start <= offset else { break }
@@ -79,7 +80,7 @@ fn block_position(
 ///|
 /// The source offset `fraction` of the way through a block; the inverse of
 /// `block_position` within that block. A fraction below 1 stays inside it.
-fn block_offset(range : SourceRange, fraction : Double) -> Int {
+fn block_offset(range : SourceRange, fraction : Double) -> Int32 {
   range.start +
   ((range.end - range.start).to_double() * fraction.clamp(min=0.0, max=1.0))
   .floor()
@@ -110,7 +111,7 @@ pub fn PreviewGeometry::measure(root : @dom.Element) -> PreviewGeometry? {
 }
 
 ///|
-fn PreviewGeometry::block_box(self : Self, index : Int) -> (Double, Double) {
+fn PreviewGeometry::block_box(self : Self, index : Int32) -> (Double, Double) {
   let block = self.content.get_children().item(index.to_double()).unwrap()
   let rect = block.get_bounding_client_rect()
   (rect.get_top(), rect.get_height())
@@ -118,7 +119,7 @@ fn PreviewGeometry::block_box(self : Self, index : Int) -> (Double, Double) {
 
 ///|
 /// Viewport top of the place where `offset` is shown.
-pub fn PreviewGeometry::top_of(self : Self, offset : Int) -> Double {
+pub fn PreviewGeometry::top_of(self : Self, offset : Int32) -> Double {
   let (index, fraction) = block_position(self.ranges, offset)
   let (top, height) = self.block_box(index)
   top + fraction * height
@@ -126,7 +127,7 @@ pub fn PreviewGeometry::top_of(self : Self, offset : Int) -> Double {
 
 ///|
 /// The first block whose box reaches below viewport height `top`.
-fn PreviewGeometry::first_block_below(self : Self, top : Double) -> Int {
+fn PreviewGeometry::first_block_below(self : Self, top : Double) -> Int32 {
   let mut low = 0
   let mut high = self.ranges.length()
   while low < high {
@@ -144,7 +145,7 @@ fn PreviewGeometry::first_block_below(self : Self, top : Double) -> Int {
 ///|
 /// The source offset shown at viewport height `top`. A height in the gap
 /// above a block shows that block's start.
-pub fn PreviewGeometry::offset_at(self : Self, top : Double) -> Int {
+pub fn PreviewGeometry::offset_at(self : Self, top : Double) -> Int32 {
   let index = self.first_block_below(top)
   guard index < self.ranges.length() else {
     return self.ranges[self.ranges.length() - 1].end

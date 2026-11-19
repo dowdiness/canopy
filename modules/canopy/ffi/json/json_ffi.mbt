@@ -64,7 +64,7 @@ fn assemble_json_handle(agent_id : String) -> @workspace.EditorId raise {
 ///|
 /// Create a new JSON SyncEditor instance.
 /// Returns a unique handle, or `-1` when `agent_id` is invalid.
-pub fn create_json_editor(agent_id : String) -> Int raise {
+pub fn create_json_editor(agent_id : String) -> Int32 raise {
   assemble_json_handle(agent_id).0
 }
 
@@ -73,7 +73,7 @@ pub fn create_json_editor(agent_id : String) -> Int raise {
 /// refuses if workspace deps still reference the editor; in that case the
 /// FFI-side bookkeeping (registry handle entry, view-state entry) is
 /// intentionally left intact so reads of cached state remain valid.
-pub fn try_destroy_json_editor(handle : Int) -> Bool {
+pub fn try_destroy_json_editor(handle : Int32) -> Bool {
   let h = match json_registry.get(handle) {
     Some(v) => v
     None => return true
@@ -82,13 +82,13 @@ pub fn try_destroy_json_editor(handle : Int) -> Bool {
 }
 
 ///|
-pub fn destroy_json_editor(handle : Int) -> Unit {
+pub fn destroy_json_editor(handle : Int32) -> Unit {
   ignore(try_destroy_json_editor(handle))
 }
 
 ///|
 /// Get current text content of the JSON editor.
-pub fn json_get_text(handle : Int) -> String {
+pub fn json_get_text(handle : Int32) -> String {
   match json_registry.get(handle) {
     Some(h) => h.editor.get_text()
     None => ""
@@ -97,7 +97,7 @@ pub fn json_get_text(handle : Int) -> String {
 
 ///|
 /// Set text content directly (replaces entire JSON document).
-pub fn json_set_text(handle : Int, new_text : String) -> Unit raise {
+pub fn json_set_text(handle : Int32, new_text : String) -> Unit raise {
   match json_registry.get(handle) {
     Some(h) => h.editor.set_text(new_text)
     None => ()
@@ -115,7 +115,7 @@ pub fn json_set_text(handle : Int, new_text : String) -> Unit raise {
 /// `ed.get_errors()` call. Without this guard the migration would surface
 /// spurious empty-doc parser diagnostics that consumers were never
 /// previously exposed to (Codex round-2 #1).
-pub fn json_get_errors(handle : Int) -> String {
+pub fn json_get_errors(handle : Int32) -> String {
   let h = match json_registry.get(handle) {
     Some(v) => v
     None => return "[]"
@@ -124,7 +124,7 @@ pub fn json_get_errors(handle : Int) -> String {
     return "[]"
   }
   match coordinator.read_protected(h.editor_id, h.cells.parser_diagnostics) {
-    Ok(d) => d.format().to_json().stringify()
+    Ok(d) => Json(d.format()).stringify()
     Err(report) => {
       println("json_get_errors parser read: \{report}")
       "[]"
@@ -135,7 +135,7 @@ pub fn json_get_errors(handle : Int) -> String {
 ///|
 /// Get the ProjNode tree as JSON string.
 /// Returns "null" if no projection is available or the protected read fails.
-pub fn json_get_proj_node_json(handle : Int) -> String {
+pub fn json_get_proj_node_json(handle : Int32) -> String {
   match json_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.cached_proj_node) {
@@ -154,7 +154,7 @@ pub fn json_get_proj_node_json(handle : Int) -> String {
 /// Get the SourceMap as JSON string.
 /// Returns an array of {node_id, start, end} entries, or "[]" if the
 /// protected read fails.
-pub fn json_get_source_map_json(handle : Int) -> String {
+pub fn json_get_source_map_json(handle : Int32) -> String {
   match json_registry.get(handle) {
     Some(h) =>
       match coordinator.read_protected(h.editor_id, h.cells.source_map_memo) {
@@ -173,7 +173,7 @@ pub fn json_get_source_map_json(handle : Int) -> String {
 ///|
 /// Get the ViewNode tree as JSON for a JSON editor.
 /// Returns "null" if no projection is available or any protected read fails.
-pub fn json_get_view_tree_json(handle : Int) -> String raise Failure {
+pub fn json_get_view_tree_json(handle : Int32) -> String raise Failure {
   match json_registry.get(handle) {
     Some(h) => {
       let _ = match
@@ -213,7 +213,7 @@ pub fn json_get_view_tree_json(handle : Int) -> String raise Failure {
 /// Compute incremental view patches for a JSON editor.
 /// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
 /// fails.
-pub fn json_compute_view_patches_json(handle : Int) -> String raise Failure {
+pub fn json_compute_view_patches_json(handle : Int32) -> String raise Failure {
   match json_registry.get(handle) {
     Some(h) => {
       let _ = match
@@ -262,7 +262,7 @@ pub fn json_compute_view_patches_json(handle : Int) -> String raise Failure {
 
 ///|
 /// {start, end, role} objects. Read from the reactive protected cell.
-pub fn json_get_role_spans_json(handle : Int) -> String {
+pub fn json_get_role_spans_json(handle : Int32) -> String {
   guard json_registry.get(handle) is Some(h) else { return "[]" }
   match coordinator.read_protected(h.editor_id, h.cells.parser_role_spans) {
     Ok(exports) => Json::array(exports.map(s => s.to_json())).stringify()

@@ -9,21 +9,22 @@
 /// widget rather than overlaying its character cells. `data` is an opaque
 /// string the frontend may use to discriminate between decorations of the
 /// same class (e.g. a kind tag for a hover popover).
+#derive(Debug, Eq)
 pub(all) struct Decoration {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
   css_class : String
   data : String?
   widget : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Decoration::Decoration(
-  from~ : Int,
-  to~ : Int,
+  from~ : Int32,
+  to~ : Int32,
   css_class~ : String,
   data? : String,
-  widget? : Bool = false,
+  widget~ : Bool = false,
 ) -> Decoration {
   { from, to, css_class, data, widget, }
 }
@@ -31,35 +32,37 @@ pub fn Decoration::Decoration(
 ///|
 /// Severity level for a `Diagnostic`. Serialised as the lowercase strings
 /// `"error" | "warning" | "info" | "hint"` for frontend consumers.
+#derive(Debug, Eq)
 pub(all) enum Severity {
   SevError
   SevWarning
   SevInfo
   SevHint
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl ToJson for Severity with fn to_json(self) {
   match self {
-    SevError => "error".to_json()
-    SevWarning => "warning".to_json()
-    SevInfo => "info".to_json()
-    SevHint => "hint".to_json()
+    SevError => Json("error")
+    SevWarning => Json("warning")
+    SevInfo => Json("info")
+    SevHint => Json("hint")
   }
 }
 
 ///|
 /// Producer-neutral metadata for one registered diagnostic fix. The opaque
 /// integer `id` is meaningful only with its diagnostic and snapshot IDs.
+#derive(Debug, Eq)
 pub(all) struct DiagnosticFixSummary {
-  id : Int
+  id : Int32
   title : String
   applicability : String
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn DiagnosticFixSummary::DiagnosticFixSummary(
-  id~ : Int,
+  id~ : Int32,
   title~ : String,
   applicability~ : String,
 ) -> DiagnosticFixSummary {
@@ -70,27 +73,28 @@ pub fn DiagnosticFixSummary::DiagnosticFixSummary(
 /// A diagnostic message associated with a half-open UTF-16 document code-unit
 /// range `[from, to)`. Used to surface compiler/linter findings to the editor
 /// frontend.
+#derive(Debug, Eq)
 pub(all) struct Diagnostic {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
   severity : Severity
   message : String
   code : String?
-  snapshot_id : Int?
-  diagnostic_id : Int?
+  snapshot_id : Int32?
+  diagnostic_id : Int32?
   fixes : Array[DiagnosticFixSummary]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Diagnostic::Diagnostic(
-  from~ : Int,
-  to~ : Int,
+  from~ : Int32,
+  to~ : Int32,
   severity~ : Severity,
   message~ : String,
   code? : String,
-  snapshot_id? : Int,
-  diagnostic_id? : Int,
-  fixes? : Array[DiagnosticFixSummary] = [],
+  snapshot_id? : Int32,
+  diagnostic_id? : Int32,
+  fixes~ : Array[DiagnosticFixSummary] = [],
 ) -> Diagnostic {
   {
     from,
@@ -112,57 +116,62 @@ pub fn Diagnostic::Diagnostic(
 /// below and consumed by `adapters/editor` on the TypeScript side.
 /// Frontends must treat unknown variants as no-ops so the protocol can be
 /// extended without a breaking change.
+#derive(Debug, Eq)
 pub(all) enum ViewPatch {
   /// `from`/`to` are UTF-16 document code-unit offsets.
-  TextChange(from~ : Int, to~ : Int, insert~ : String)
+  TextChange(from~ : Int32, to~ : Int32, insert~ : String)
   ReplaceNode(node_id~ : @core.NodeId, node~ : ViewNode)
-  InsertChild(parent_id~ : @core.NodeId, index~ : Int, child~ : ViewNode)
-  RemoveChild(parent_id~ : @core.NodeId, index~ : Int, child_id~ : @core.NodeId)
+  InsertChild(parent_id~ : @core.NodeId, index~ : Int32, child~ : ViewNode)
+  RemoveChild(
+    parent_id~ : @core.NodeId,
+    index~ : Int32,
+    child_id~ : @core.NodeId,
+  )
   UpdateNode(
     node_id~ : @core.NodeId,
     label~ : String,
     css_class~ : String,
-    text~ : String?
+    text~ : String?,
   )
   SetDecorations(decorations~ : Array[Decoration])
   SetDiagnostics(diagnostics~ : Array[Diagnostic])
   /// `anchor`/`head` are UTF-16 document code-unit offsets.
-  SetSelection(anchor~ : Int, head~ : Int)
+  SetSelection(anchor~ : Int32, head~ : Int32)
   SelectNode(node_id~ : @core.NodeId)
   FullTree(root~ : ViewNode?)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl ToJson for Decoration with fn to_json(self) {
   let m : Map[String, Json] = Map([])
-  m["from"] = self.from.to_json()
-  m["to"] = self.to.to_json()
-  m["css_class"] = self.css_class.to_json()
+  m["from"] = Json(self.from)
+  m["to"] = Json(self.to)
+  m["css_class"] = Json(self.css_class)
   m["data"] = match self.data {
-    Some(d) => d.to_json()
+    Some(d) => Json(d)
     None => Json::null()
   }
-  m["widget"] = self.widget.to_json()
+  m["widget"] = Json(self.widget)
   Json::object(m)
 }
 
 ///|
 pub impl ToJson for Diagnostic with fn to_json(self) {
   let m : Map[String, Json] = Map([])
-  m["from"] = self.from.to_json()
-  m["to"] = self.to.to_json()
+  m["from"] = Json(self.from)
+  m["to"] = Json(self.to)
   m["severity"] = ToJson::to_json(self.severity)
-  m["message"] = self.message.to_json()
+  m["message"] = Json(self.message)
   m["code"] = match self.code {
-    Some(code) => code.to_json()
+    Some(code) => Json(code)
     None => Json::null()
   }
   m["snapshot_id"] = match self.snapshot_id {
-    Some(id) => id.to_json()
+    Some(id) => Json(id)
     None => Json::null()
   }
   m["diagnostic_id"] = match self.diagnostic_id {
-    Some(id) => id.to_json()
+    Some(id) => Json(id)
     None => Json::null()
   }
   m["fixes"] = Json::array(self.fixes.map(fix => ToJson::to_json(fix)))
@@ -172,9 +181,9 @@ pub impl ToJson for Diagnostic with fn to_json(self) {
 ///|
 pub impl ToJson for DiagnosticFixSummary with fn to_json(self) {
   let m : Map[String, Json] = Map([])
-  m["id"] = self.id.to_json()
-  m["title"] = self.title.to_json()
-  m["applicability"] = self.applicability.to_json()
+  m["id"] = Json(self.id)
+  m["title"] = Json(self.title)
+  m["applicability"] = Json(self.applicability)
   Json::object(m)
 }
 
@@ -183,61 +192,61 @@ pub impl ToJson for ViewPatch with fn to_json(self) {
   let m : Map[String, Json] = Map([])
   match self {
     TextChange(from~, to~, insert~) => {
-      m["type"] = "TextChange".to_json()
-      m["from"] = from.to_json()
-      m["to"] = to.to_json()
-      m["insert"] = insert.to_json()
+      m["type"] = Json("TextChange")
+      m["from"] = Json(from)
+      m["to"] = Json(to)
+      m["insert"] = Json(insert)
     }
     ReplaceNode(node_id~, node~) => {
-      m["type"] = "ReplaceNode".to_json()
+      m["type"] = Json("ReplaceNode")
       m["node_id"] = node_id.to_json()
       m["node"] = ToJson::to_json(node)
     }
     InsertChild(parent_id~, index~, child~) => {
-      m["type"] = "InsertChild".to_json()
+      m["type"] = Json("InsertChild")
       m["parent_id"] = parent_id.to_json()
-      m["index"] = index.to_json()
+      m["index"] = Json(index)
       m["child"] = ToJson::to_json(child)
     }
     RemoveChild(parent_id~, index~, child_id~) => {
-      m["type"] = "RemoveChild".to_json()
+      m["type"] = Json("RemoveChild")
       m["parent_id"] = parent_id.to_json()
-      m["index"] = index.to_json()
+      m["index"] = Json(index)
       m["child_id"] = child_id.to_json()
     }
     UpdateNode(node_id~, label~, css_class~, text~) => {
-      m["type"] = "UpdateNode".to_json()
+      m["type"] = Json("UpdateNode")
       m["node_id"] = node_id.to_json()
-      m["label"] = label.to_json()
-      m["css_class"] = css_class.to_json()
+      m["label"] = Json(label)
+      m["css_class"] = Json(css_class)
       m["text"] = match text {
-        Some(t) => t.to_json()
+        Some(t) => Json(t)
         None => Json::null()
       }
     }
     SetDecorations(decorations~) => {
-      m["type"] = "SetDecorations".to_json()
+      m["type"] = Json("SetDecorations")
       m["decorations"] = Json::array(
         decorations.map(fn(d) { ToJson::to_json(d) }),
       )
     }
     SetDiagnostics(diagnostics~) => {
-      m["type"] = "SetDiagnostics".to_json()
+      m["type"] = Json("SetDiagnostics")
       m["diagnostics"] = Json::array(
         diagnostics.map(fn(d) { ToJson::to_json(d) }),
       )
     }
     SetSelection(anchor~, head~) => {
-      m["type"] = "SetSelection".to_json()
-      m["anchor"] = anchor.to_json()
-      m["head"] = head.to_json()
+      m["type"] = Json("SetSelection")
+      m["anchor"] = Json(anchor)
+      m["head"] = Json(head)
     }
     SelectNode(node_id~) => {
-      m["type"] = "SelectNode".to_json()
+      m["type"] = Json("SelectNode")
       m["node_id"] = node_id.to_json()
     }
     FullTree(root~) => {
-      m["type"] = "FullTree".to_json()
+      m["type"] = Json("FullTree")
       m["root"] = match root {
         Some(r) => ToJson::to_json(r)
         None => Json::null()

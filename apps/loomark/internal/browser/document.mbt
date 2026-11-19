@@ -19,8 +19,8 @@ pub extern "js" fn document_timeline_time(
 pub extern "js" fn document_text_middle(
   document : @dom.Document,
   text : @dom.Node,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Double =
   #| (document, text, start, end) => {
   #|   const range = document.createRange();

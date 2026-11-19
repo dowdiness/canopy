@@ -18,10 +18,11 @@ pub struct Event {
   // private fields
 }
 
+#derive(Eq)
 pub struct Input {
   // private fields
-} derive(Eq)
-pub fn Input::Input(Int, String) -> Self
+}
+pub fn Input::Input(Int32, String) -> Self
 pub fn Input::equal(Self, Self) -> Bool
 pub fn Input::not_equal(Self, Self) -> Bool
 
@@ -39,14 +40,15 @@ pub struct PreviewGeometry {
   // private fields
 }
 pub fn PreviewGeometry::measure(@dom.Element) -> Self?
-pub fn PreviewGeometry::offset_at(Self, Double) -> Int
+pub fn PreviewGeometry::offset_at(Self, Double) -> Int32
 pub fn PreviewGeometry::readable(Self) -> (Double, Double)
 pub fn PreviewGeometry::scroll_by(Self, Double) -> Unit
-pub fn PreviewGeometry::top_of(Self, Int) -> Double
+pub fn PreviewGeometry::top_of(Self, Int32) -> Double
 
+#derive(Eq)
 pub struct State {
   // private fields
-} derive(Eq)
+}
 pub fn State::equal(Self, Self) -> Bool
 pub fn State::not_equal(Self, Self) -> Bool
 pub fn State::shows_blocks(Self) -> Bool

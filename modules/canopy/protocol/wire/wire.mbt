@@ -2,6 +2,7 @@
 using @byte_codec {type Reader, read_string, write_string}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)
   EphemeralUpdate(EphemeralNamespace, Bytes)
@@ -10,7 +11,7 @@ pub(all) enum SyncMessage {
   PeerJoined(String)
   PeerLeft(String)
   RelayedCrdtOps(sender~ : String, payload~ : Bytes)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for SyncMessage with fn output(self, logger) {
@@ -132,11 +133,11 @@ pub fn encode_sync_response(
 }
 
 ///|
-fn payload_bytes(data : Bytes, payload_start : Int) -> Bytes {
+fn payload_bytes(data : Bytes, payload_start : Int32) -> Bytes {
   if payload_start < data.length() {
     data.exact_view(start=payload_start, end=data.length()).to_owned()
   } else {
-    Bytes::new(0)
+    Bytes::make(0, b'\x00')
   }
 }
 
@@ -144,21 +145,19 @@ fn payload_bytes(data : Bytes, payload_start : Int) -> Bytes {
 pub fn read_string_field(
   reader : Reader,
   field : String,
-) -> Result[String, ProtocolError] {
-  Ok(read_string(reader)) catch {
-    _ => Err(ProtocolError::MissingField(field~))
+) -> String raise ProtocolError {
+  read_string(reader) catch {
+    _ => raise ProtocolError::MissingField(field~)
   }
 }
 
 ///|
-pub fn decode_message_result(
-  data : Bytes,
-) -> Result[SyncMessage, ProtocolError] {
+pub fn decode_message_checked(data : Bytes) -> SyncMessage raise ProtocolError {
   if data.length() < 3 {
-    return Err(ProtocolError::MessageTooShort(length=data.length()))
+    raise ProtocolError::MessageTooShort(length=data.length())
   }
   if data[0] != protocol_version {
-    return Err(ProtocolError::UnsupportedVersion(version=data[0]))
+    raise ProtocolError::UnsupportedVersion(version=data[0])
   }
   let msg_type = data[1]
   // data[2] = flags (reserved)
@@ -167,25 +166,25 @@ pub fn decode_message_result(
   // Constants: 0x01=CrdtOps, 0x02=Ephemeral, 0x03=SyncRequest,
   // 0x04=SyncResponse, 0x05=RoomControl, 0x06=RelayedCrdtOps
   match msg_type {
-    b'\x01' => Ok(CrdtOps(payload_bytes(data, payload_start)))
+    b'\x01' => CrdtOps(payload_bytes(data, payload_start))
     b'\x02' => {
       if payload_start >= data.length() {
-        return Err(ProtocolError::MissingNamespace)
+        raise ProtocolError::MissingNamespace
       }
       match namespace_from_byte(data[payload_start]) {
         Some(ns) => {
           let ns_payload_start = payload_start + 1
           let ns_payload = payload_bytes(data, ns_payload_start)
-          Ok(EphemeralUpdate(ns, ns_payload))
+          EphemeralUpdate(ns, ns_payload)
         }
-        None => Err(ProtocolError::InvalidNamespace(tag=data[payload_start]))
+        None => raise ProtocolError::InvalidNamespace(tag=data[payload_start])
       }
     }
-    b'\x03' => Ok(SyncRequest(payload_bytes(data, payload_start)))
-    b'\x04' => Ok(SyncResponse(payload_bytes(data, payload_start)))
+    b'\x03' => SyncRequest(payload_bytes(data, payload_start))
+    b'\x04' => SyncResponse(payload_bytes(data, payload_start))
     b'\x05' => {
       if payload_start >= data.length() {
-        return Err(ProtocolError::MissingRoomControlSubtype)
+        raise ProtocolError::MissingRoomControlSubtype
       }
       let sub_type = data[payload_start]
       match sub_type {
@@ -195,11 +194,7 @@ pub fn decode_message_result(
             .exact_view(start=payload_start + 1, end=data.length())
             .to_owned(),
           )
-          let peer_id = match read_string_field(reader, "peer_id") {
-            Ok(peer_id) => peer_id
-            Err(err) => return Err(err)
-          }
-          Ok(PeerJoined(peer_id))
+          PeerJoined(read_string_field(reader, "peer_id"))
         }
         b'\x02' => {
           let reader = Reader::new(
@@ -207,38 +202,30 @@ pub fn decode_message_result(
             .exact_view(start=payload_start + 1, end=data.length())
             .to_owned(),
           )
-          let peer_id = match read_string_field(reader, "peer_id") {
-            Ok(peer_id) => peer_id
-            Err(err) => return Err(err)
-          }
-          Ok(PeerLeft(peer_id))
+          PeerLeft(read_string_field(reader, "peer_id"))
         }
-        _ => Err(ProtocolError::InvalidRoomControlSubtype(sub_type~))
+        _ => raise ProtocolError::InvalidRoomControlSubtype(sub_type~)
       }
     }
     b'\x06' => {
       let reader = Reader::new(
         data.exact_view(start=payload_start, end=data.length()).to_owned(),
       )
-      let sender = match read_string_field(reader, "sender") {
-        Ok(sender) => sender
-        Err(err) => return Err(err)
-      }
+      let sender = read_string_field(reader, "sender")
       let remaining_pos = reader.pos
       let remaining_data = data
         .exact_view(start=payload_start + remaining_pos, end=data.length())
         .to_owned()
-      Ok(RelayedCrdtOps(sender~, payload=remaining_data))
+      RelayedCrdtOps(sender~, payload=remaining_data)
     }
-    _ => Err(ProtocolError::UnknownMessageType(msg_type~))
+    _ => raise ProtocolError::UnknownMessageType(msg_type~)
   }
 }
 
 ///|
 pub fn decode_message(data : Bytes) -> SyncMessage? {
-  match decode_message_result(data) {
-    Ok(msg) => Some(msg)
-    Err(_) => None
+  Some(decode_message_checked(data)) catch {
+    _ => None
   }
 }
 

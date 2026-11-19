@@ -25,7 +25,7 @@ pub(all) enum ActiveFade {
     FadeTiming,
     start_time_ms~ : Double,
     current_time_ms~ : Double,
-    playback_rate~ : Double
+    playback_rate~ : Double,
   )
 }
 

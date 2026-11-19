@@ -1,14 +1,16 @@
 ///|
+#derive(Eq)
 priv struct RemoteDocuments {
   account : @source_repository.AccountId?
   entries : Array[@source_repository.RemoteEntry]
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct DocumentMembership {
   keys : Array[@documents.Key]
   can_activate : Bool
-} derive(Eq)
+}
 
 ///|
 fn document_membership(page : Page) -> DocumentMembership {

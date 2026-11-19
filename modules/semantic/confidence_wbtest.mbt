@@ -24,7 +24,12 @@ test "Conflict absorbs everything" {
 test "Guessed picks higher confidence on equal values" {
   let a : Confidence[Role] = Confidence::guessed(0.3F, KeyPoints)
   let b : Confidence[Role] = Confidence::guessed(0.8F, KeyPoints)
-  inspect(a.join(b), content="Guessed(0.800000011920929, KeyPoints)")
+  inspect(
+    a.join(b),
+    content=(
+      #|Guessed(0.8, KeyPoints)
+    ),
+  )
 }
 
 ///|

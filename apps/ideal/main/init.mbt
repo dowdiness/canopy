@@ -1,11 +1,11 @@
 ///|
-const ROOT_REVISION_MAX : Int = 2147483647
+const ROOT_REVISION_MAX : Int32 = 2147483647
 
 ///|
 /// Root-only reactive wrapper. `Model` owns mutable editor/FFI state and cannot
 /// provide structural equality. A monotonically advancing generation keeps
 /// adjacent root states unequal even when multiple updates are batched.
-struct RootState(Model, Int)
+struct RootState(Model, Int32)
 
 ///|
 impl Eq for RootState with fn equal(self, other) {
@@ -13,7 +13,7 @@ impl Eq for RootState with fn equal(self, other) {
 }
 
 ///|
-fn next_root_revision(revision : Int) -> Int {
+fn next_root_revision(revision : Int32) -> Int32 {
   if revision == ROOT_REVISION_MAX {
     0
   } else {

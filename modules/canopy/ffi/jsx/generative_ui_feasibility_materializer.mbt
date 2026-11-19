@@ -24,7 +24,7 @@ fn FeasibilityDatasetRow::FeasibilityDatasetRow(
 
 ///|
 priv struct FeasibilityDataset {
-  schema_version : Int
+  schema_version : Int32
   case_id : String
   source_format : String
   binding : String
@@ -36,7 +36,7 @@ priv struct FeasibilityDataset {
 
 ///|
 fn FeasibilityDataset::FeasibilityDataset(
-  schema_version : Int,
+  schema_version : Int32,
   case_id : String,
   source_format : String,
   binding : String,
@@ -58,10 +58,10 @@ fn FeasibilityDataset::FeasibilityDataset(
 }
 
 ///|
-const GENUI_MAX_FEASIBILITY_DATASET_LENGTH : Int = 1024 * 1024
+const GENUI_MAX_FEASIBILITY_DATASET_LENGTH : Int32 = 1024 * 1024
 
 ///|
-const GENUI_MAX_FEASIBILITY_ROWS : Int = 4096
+const GENUI_MAX_FEASIBILITY_ROWS : Int32 = 4096
 
 ///|
 fn feasibility_exact_object(
@@ -296,11 +296,12 @@ fn FeasibilitySummary::FeasibilitySummary(
 }
 
 ///|
+#derive(Debug)
 priv enum FeasibilitySafeNode {
   Stack(Array[FeasibilitySafeNode])
   Panel(Array[FeasibilitySafeNode])
   Text(String)
-} derive(Debug)
+}
 
 ///|
 priv struct MaterializedFeasibilityCandidate {
@@ -419,7 +420,7 @@ fn feasibility_summary_value(
   aggregation : @cognition.GenerativeUiAggregation,
 ) -> Result[FeasibilitySummaryValue, String] {
   guard aggregation != Count else {
-    return Ok(Numeric(Double::from_int(rows.length())))
+    return Ok(Numeric(rows.length().to_double()))
   }
   let values : Array[Double] = []
   for row in rows {
@@ -432,11 +433,11 @@ fn feasibility_summary_value(
     return Ok(Empty)
   }
   let value = match aggregation {
-    Count => Double::from_int(values.length())
+    Count => values.length().to_double()
     Sum => values.fold(init=0.0, (total, value) => total + value)
     Average =>
       values.fold(init=0.0, (total, value) => total + value) /
-      Double::from_int(values.length())
+      values.length().to_double()
     Minimum =>
       values.fold(init=values[0], (left, right) => Double::min(left, right))
     Maximum =>
@@ -671,7 +672,7 @@ fn feasibility_safe_node_to_raw(
 
 ///|
 fn feasibility_safe_node_json(node : FeasibilitySafeNode) -> String {
-  let builder = StringBuilder(size_hint=128)
+  let builder = StringBuilder(capacity=128)
   match node {
     Stack(children) => {
       builder.write_string("{\"type\":\"stack\",\"children\":[")

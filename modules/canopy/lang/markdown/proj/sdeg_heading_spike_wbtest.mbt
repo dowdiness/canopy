@@ -12,13 +12,15 @@ let markdown_heading_spike_test_source : @loomcore.SourceId = @loomcore.SourceId
 /// already preserves and where it is still only position-stable.
 
 ///|
+#derive(Eq, Debug)
 enum HeadingIdentityOutcome {
   Preserved
   SemanticMatchWithDifferentNodeId
   Fresh
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct HeadingMatchEvidence {
   previous_id : @core.NodeId
   current_id : @core.NodeId
@@ -27,23 +29,25 @@ struct HeadingMatchEvidence {
   same_text : Bool
   range_overlaps : Bool
   node_id_preserved : Bool
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 enum HeadingSemanticConfidence {
   SemanticHigh
   SemanticAmbiguous
   SemanticMissing
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 struct HeadingSemanticMatch {
   previous_id : @core.NodeId
   current_id : @core.NodeId?
   confidence : HeadingSemanticConfidence
-  retained_count : Int
-  candidate_count : Int
-} derive(Eq, Debug)
+  retained_count : Int32
+  candidate_count : Int32
+}
 
 ///|
 fn source_map_for(
@@ -69,7 +73,7 @@ fn project_source(
 fn project_after_reconcile(
   old : @core.ProjNode[@markdown.Block],
   next_source : String,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> (@core.ProjNode[@markdown.Block], @core.SourceMap) raise {
   let (cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, next_source,
@@ -130,9 +134,9 @@ fn realign_headings_from_baseline(
   baseline : @loomproj.ProjectionIdentityBaseline[@core.NodeId],
   next_source : String,
   observations : Array[HeadingObservation],
-  fresh_start : Int,
+  fresh_start : Int32,
 ) -> Array[HeadingObservation] {
-  let fresh_counter : Ref[Int] = Ref(fresh_start)
+  let fresh_counter : Ref[Int32] = Ref(fresh_start)
   @loomproj.realign_projection_items_with_optional_edit(
     baseline,
     next_source,
@@ -237,7 +241,7 @@ test "sdeg phase0: heading observation is backed by SourceMap ranges" {
 
 ///|
 test "sdeg phase0: heading rename preserves session-local NodeId" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# Alpha\n",
   )
@@ -259,7 +263,7 @@ test "sdeg phase0: heading rename preserves session-local NodeId" {
 
 ///|
 test "sdeg phase0: heading reorder is currently position-stable, not semantic-stable" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# A\n# B\n",
   )
@@ -300,7 +304,7 @@ test "sdeg phase0: heading reorder is currently position-stable, not semantic-st
 
 ///|
 test "sdeg phase0: ProjectionIdentityTracker does not solve heading reorder" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let source = "# A\n# B\n"
   let next_source = "# B\n# A\n"
   let (initial_cst, _) = @markdown.parse_cst(
@@ -336,7 +340,7 @@ test "sdeg phase0: ProjectionIdentityTracker does not solve heading reorder" {
 
 ///|
 test "sdeg phase0: matching evidence detects semantic reorder mismatch" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# A\n# B\n",
   )
@@ -374,7 +378,7 @@ test "sdeg phase0: matching evidence detects semantic reorder mismatch" {
 
 ///|
 test "sdeg phase0: semantic side-table matcher follows simple heading reorder" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# A\n# B\n",
   )
@@ -457,7 +461,7 @@ test "sdeg phase0: retained duplicate headings stay ambiguous after one remains"
 
 ///|
 test "sdeg phase0: delete and restore currently cannot recover the retired heading id" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# A\n# B\n",
   )
@@ -487,7 +491,7 @@ test "sdeg phase0: delete and restore currently cannot recover the retired headi
 
 ///|
 test "sdeg phase0: ProjectionIdentityTracker does not recover after committed delete" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let initial_source = "# A\n# B\n"
   let deleted_source = "# B\n"
   let restored_source = "# A\n# B\n"
@@ -527,7 +531,7 @@ test "sdeg phase0: ProjectionIdentityTracker does not recover after committed de
 
 ///|
 test "sdeg phase0: matching evidence detects delete-restore recovery candidate" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# A\n# B\n",
   )
@@ -558,7 +562,7 @@ test "sdeg phase0: matching evidence detects delete-restore recovery candidate" 
 
 ///|
 test "sdeg phase0: semantic side-table matcher finds delete-restore candidate" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# A\n# B\n",
   )
@@ -593,7 +597,7 @@ test "sdeg phase0: semantic side-table matcher finds delete-restore candidate" {
 
 ///|
 test "sdeg phase0: inline malformed-to-recovered heading preserves heading NodeId" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let malformed_source = "# **unclosed\n"
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, malformed_source,
@@ -617,7 +621,7 @@ test "sdeg phase0: inline malformed-to-recovered heading preserves heading NodeI
 
 ///|
 test "sdeg phase0: format-like whitespace rewrite preserves heading NodeIds" {
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
   let (initial_cst, _) = @markdown.parse_cst(
     markdown_heading_spike_test_source, "# A\n\n# B\n",
   )

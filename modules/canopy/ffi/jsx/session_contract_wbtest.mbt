@@ -62,11 +62,11 @@ extern "js" fn session_test_has_own_key(value : @js.Any, key : String) -> Bool =
   #|(value, key) => Object.prototype.hasOwnProperty.call(value, key)
 
 ///|
-extern "js" fn session_test_root_child_count(root_id : String) -> Int =
+extern "js" fn session_test_root_child_count(root_id : String) -> Int32 =
   #|(rootId) => document.getElementById(rootId).children.length
 
 ///|
-extern "js" fn session_test_root_child_identity(root_id : String) -> Int =
+extern "js" fn session_test_root_child_identity(root_id : String) -> Int32 =
   #|(rootId) => document.getElementById(rootId).children[0]?.testId ?? 0
 
 ///|
@@ -74,7 +74,10 @@ extern "js" fn session_test_first_nested_tag(root_id : String) -> String =
   #|(rootId) => document.getElementById(rootId).children[0]?.children[0]?.tag ?? ""
 
 ///|
-extern "js" fn session_test_child_tag(root_id : String, index : Int) -> String =
+extern "js" fn session_test_child_tag(
+  root_id : String,
+  index : Int32,
+) -> String =
   #|(rootId, i) => document.getElementById(rootId).children[0]?.children[i]?.tag ?? ""
 
 ///|
@@ -87,7 +90,7 @@ extern "js" fn session_test_root_attribute(
 ///|
 extern "js" fn session_test_nested_attribute(
   root_id : String,
-  index : Int,
+  index : Int32,
   name : String,
 ) -> String =
   #|(rootId, index, name) => document.getElementById(rootId).children[0]?.children[index]?.attrs[name] ?? ""
@@ -104,7 +107,7 @@ extern "js" fn session_test_nested_texts(root_id : String) -> String =
   #|(rootId) => document.getElementById(rootId).children[0].children.map(child => child.children[0]?.textContent ?? child.textContent).join("|")
 
 ///|
-fn session_test_handle(result : @js.Any) -> Int {
+fn session_test_handle(result : @js.Any) -> Int32 {
   let encoded : String = result.get("handle").cast()
   @string.parse_int(encoded) catch {
     _ => abort("session result must contain a decimal handle")
@@ -493,8 +496,8 @@ fn session_test_empty_capabilities_json() -> String {
 
 ///|
 fn session_test_replay_result(
-  handle : Int,
-  base_revision : Int,
+  handle : Int32,
+  base_revision : Int32,
   candidate : String,
   capabilities : String,
 ) -> @js.Any {

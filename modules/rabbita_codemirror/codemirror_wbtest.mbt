@@ -91,3 +91,18 @@ test "listen key snapshot flag matters" {
     content="false",
   )
 }
+
+///|
+#cfg(target="js")
+extern "js" fn zz_make_changes() -> @js_value.Value =
+  #| () => [{ from: 5, to: 5, insert: "Z" }, { from: 9, to: 11, insert: "" }]
+
+///|
+#cfg(target="js")
+test "change deltas decode a JS array of ranges" {
+  let deltas = change_deltas_from_value(zz_make_changes())
+  inspect(deltas.length(), content="2")
+  inspect(deltas[0].from, content="5")
+  inspect(deltas[0].insert, content="Z")
+  inspect(deltas[1].to, content="11")
+}

@@ -3,7 +3,7 @@
 
 ///|
 /// Generate a JSON object with N members: {"k0": 0, "k1": 1, ...}
-fn json_bench_object(member_count : Int) -> String {
+fn json_bench_object(member_count : Int32) -> String {
   if member_count == 0 {
     return "{}"
   }
@@ -24,7 +24,7 @@ fn json_bench_object(member_count : Int) -> String {
 
 ///|
 /// Generate a JSON array with N elements: [0, 1, 2, ...]
-fn json_bench_array(element_count : Int) -> String {
+fn json_bench_array(element_count : Int32) -> String {
   if element_count == 0 {
     return "[]"
   }
@@ -45,7 +45,7 @@ fn json_bench_array(element_count : Int) -> String {
 /// Benchmark: incremental edit on JSON object.
 /// Inserts/deletes a character in the last member's value, then re-derives
 /// ProjNode + SourceMap.
-fn run_json_object_bench(b : @bench.T, member_count : Int) -> Unit {
+fn run_json_object_bench(b : @bench.T, member_count : Int32) -> Unit {
   let source = json_bench_object(member_count)
   let editor = try! new_json_editor("bench")
   try! editor.set_text(source)
@@ -71,7 +71,7 @@ fn run_json_object_bench(b : @bench.T, member_count : Int) -> Unit {
 
 ///|
 /// Benchmark: incremental edit on JSON array.
-fn run_json_array_bench(b : @bench.T, element_count : Int) -> Unit {
+fn run_json_array_bench(b : @bench.T, element_count : Int32) -> Unit {
   let source = json_bench_array(element_count)
   let editor = try! new_json_editor("bench")
   try! editor.set_text(source)

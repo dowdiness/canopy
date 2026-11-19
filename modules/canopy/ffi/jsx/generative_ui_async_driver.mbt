@@ -81,7 +81,7 @@ priv enum AsyncPendingStatus {
 priv struct AsyncPending {
   generation_id : @cognition.GenerativeUiGenerationId
   base_revision : @cognition.GenerativeUiRevision
-  sequence : Int
+  sequence : Int32
   kind : AsyncPendingKind
   deferred : @js.Any
   promise : @js_async.Promise[String]
@@ -93,7 +93,7 @@ priv struct AsyncPending {
 fn AsyncPending::AsyncPending(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
   kind : AsyncPendingKind,
   deferred : @js.Any,
   promise : @js_async.Promise[String],
@@ -123,10 +123,10 @@ priv enum AsyncProviderStatus {
 
 ///|
 priv struct AsyncProviderPending {
-  driver_handle : Int
+  driver_handle : Int32
   generation_id : @cognition.GenerativeUiGenerationId
   base_revision : @cognition.GenerativeUiRevision
-  sequence : Int
+  sequence : Int32
   provider : @js.Any
   promise : @js_async.Promise[String]
   provider_controller : @js_async.AbortController
@@ -135,10 +135,10 @@ priv struct AsyncProviderPending {
 
 ///|
 fn AsyncProviderPending::AsyncProviderPending(
-  driver_handle : Int,
+  driver_handle : Int32,
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
   provider : @js.Any,
   promise : @js_async.Promise[String],
   provider_controller : @js_async.AbortController,
@@ -157,32 +157,32 @@ fn AsyncProviderPending::AsyncProviderPending(
 
 ///|
 priv struct GenerativeUiAsyncDriver {
-  session_handle : Int
+  session_handle : Int32
   lifecycle : @cognition.GenerativeUiLifecycle
   mut generation_id : @cognition.GenerativeUiGenerationId
-  generation_ids : Map[Int, @cognition.GenerativeUiGenerationId]
+  generation_ids : Map[Int32, @cognition.GenerativeUiGenerationId]
   mut base_revision : @cognition.GenerativeUiRevision
-  mut next_sequence : Int
+  mut next_sequence : Int32
   pending : @queue.Queue[AsyncPending]
   mut current_pending : AsyncPending?
-  provider_handles : Array[Int]
-  mut commit_count : Int
+  provider_handles : Array[Int32]
+  mut commit_count : Int32
   mut abort_observed : Bool
   mut disposed : Bool
 }
 
 ///|
 fn GenerativeUiAsyncDriver::GenerativeUiAsyncDriver(
-  session_handle : Int,
+  session_handle : Int32,
   lifecycle : @cognition.GenerativeUiLifecycle,
   generation_id : @cognition.GenerativeUiGenerationId,
-  generation_ids : Map[Int, @cognition.GenerativeUiGenerationId],
+  generation_ids : Map[Int32, @cognition.GenerativeUiGenerationId],
   base_revision : @cognition.GenerativeUiRevision,
-  next_sequence : Int,
+  next_sequence : Int32,
   pending : @queue.Queue[AsyncPending],
   current_pending : AsyncPending?,
-  provider_handles : Array[Int],
-  commit_count : Int,
+  provider_handles : Array[Int32],
+  commit_count : Int32,
   abort_observed : Bool,
   disposed : Bool,
 ) -> GenerativeUiAsyncDriver {
@@ -203,16 +203,16 @@ fn GenerativeUiAsyncDriver::GenerativeUiAsyncDriver(
 }
 
 ///|
-let async_driver_registry : Map[Int, GenerativeUiAsyncDriver] = Map([])
+let async_driver_registry : Map[Int32, GenerativeUiAsyncDriver] = Map([])
 
 ///|
-let async_provider_registry : Map[Int, AsyncProviderPending] = Map([])
+let async_provider_registry : Map[Int32, AsyncProviderPending] = Map([])
 
 ///|
-let next_async_driver_handle : Ref[Int] = Ref(1)
+let next_async_driver_handle : Ref[Int32] = Ref(1)
 
 ///|
-let next_async_provider_handle : Ref[Int] = Ref(1)
+let next_async_provider_handle : Ref[Int32] = Ref(1)
 
 ///|
 fn async_transition_json(
@@ -336,7 +336,7 @@ fn async_ignore_code(reason : @cognition.GenerativeUiIgnoreReason) -> String {
 fn async_new_pending(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
   kind : AsyncPendingKind,
 ) -> AsyncPending {
   let controller = @js_async.AbortController::new()
@@ -360,8 +360,8 @@ fn async_current_generation(
 
 ///|
 fn async_start_driver(
-  session_handle : Int,
-  base_revision : Int,
+  session_handle : Int32,
+  base_revision : Int32,
 ) -> (GenerativeUiAsyncDriver, @cognition.GenerativeUiTransition) {
   let revision = @cognition.GenerativeUiRevision::GenerativeUiRevision(
     base_revision,
@@ -374,7 +374,7 @@ fn async_start_driver(
     @cognition.GenerativeUiTransition::Started(generation_id~) => generation_id
     _ => abort("async lifecycle did not start")
   }
-  let generation_ids : Map[Int, @cognition.GenerativeUiGenerationId] = Map([])
+  let generation_ids : Map[Int32, @cognition.GenerativeUiGenerationId] = Map([])
   generation_ids[generation_id.to_int()] = generation_id
   let driver = GenerativeUiAsyncDriver(
     session_handle,
@@ -395,8 +395,8 @@ fn async_start_driver(
 
 ///|
 pub fn __jsx_async_driver_new(
-  session_handle : Int,
-  base_revision : Int,
+  session_handle : Int32,
+  base_revision : Int32,
 ) -> String {
   let (driver, transition) = async_start_driver(session_handle, base_revision)
   let handle = next_async_driver_handle.val
@@ -415,7 +415,7 @@ pub fn __jsx_async_driver_new(
 }
 
 ///|
-pub fn __jsx_async_driver_start(handle : Int) -> String {
+pub fn __jsx_async_driver_start(handle : Int32) -> String {
   match async_driver_registry.get(handle) {
     Some(driver) =>
       Json::object({
@@ -428,10 +428,10 @@ pub fn __jsx_async_driver_start(handle : Int) -> String {
 
 ///|
 pub fn __jsx_async_driver_queue_chunk(
-  handle : Int,
-  generation_id : Int,
-  base_revision : Int,
-  sequence : Int,
+  handle : Int32,
+  generation_id : Int32,
+  base_revision : Int32,
+  sequence : Int32,
   payload : String,
 ) -> Unit {
   match async_driver_registry.get(handle) {
@@ -455,10 +455,10 @@ pub fn __jsx_async_driver_queue_chunk(
 
 ///|
 pub fn __jsx_async_driver_queue_final(
-  handle : Int,
-  generation_id : Int,
-  base_revision : Int,
-  sequence : Int,
+  handle : Int32,
+  generation_id : Int32,
+  base_revision : Int32,
+  sequence : Int32,
 ) -> Unit {
   match async_driver_registry.get(handle) {
     Some(driver) => {
@@ -477,10 +477,10 @@ pub fn __jsx_async_driver_queue_final(
 
 ///|
 pub fn __jsx_async_driver_queue_failure(
-  handle : Int,
-  generation_id : Int,
-  base_revision : Int,
-  sequence : Int,
+  handle : Int32,
+  generation_id : Int32,
+  base_revision : Int32,
+  sequence : Int32,
   code : String,
   message : String,
 ) -> Unit {
@@ -509,7 +509,7 @@ fn async_cancel_generation(
   driver : GenerativeUiAsyncDriver,
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
 ) -> Unit {
   let input = @cognition.GenerativeUiInput::cancel(
     generation_id~,
@@ -576,7 +576,9 @@ fn async_clear_current_if_same(
 }
 
 ///|
-pub fn __jsx_async_driver_wait_next(handle : Int) -> @js_async.Promise[String] {
+pub fn __jsx_async_driver_wait_next(
+  handle : Int32,
+) -> @js_async.Promise[String] {
   match async_driver_registry.get(handle) {
     None =>
       @js_async.Promise::from_async(fn() {
@@ -621,7 +623,7 @@ fn async_resolve_current(driver : GenerativeUiAsyncDriver) -> Unit {
 }
 
 ///|
-pub fn __jsx_async_driver_resolve_current(handle : Int) -> Unit {
+pub fn __jsx_async_driver_resolve_current(handle : Int32) -> Unit {
   match async_driver_registry.get(handle) {
     Some(driver) => async_resolve_current(driver)
     None => ()
@@ -630,7 +632,7 @@ pub fn __jsx_async_driver_resolve_current(handle : Int) -> Unit {
 
 ///|
 pub fn __jsx_async_driver_resolve_next(
-  handle : Int,
+  handle : Int32,
 ) -> @js_async.Promise[String] {
   match async_driver_registry.get(handle) {
     None =>
@@ -687,7 +689,7 @@ fn async_abort_current(driver : GenerativeUiAsyncDriver) -> Bool {
 }
 
 ///|
-pub fn __jsx_async_driver_cancel(handle : Int) -> String {
+pub fn __jsx_async_driver_cancel(handle : Int32) -> String {
   match async_driver_registry.get(handle) {
     None => async_invalid_driver_json("async driver handle is unavailable")
     Some(driver) => {
@@ -708,7 +710,10 @@ pub fn __jsx_async_driver_cancel(handle : Int) -> String {
 }
 
 ///|
-pub fn __jsx_async_driver_restart(handle : Int, base_revision : Int) -> String {
+pub fn __jsx_async_driver_restart(
+  handle : Int32,
+  base_revision : Int32,
+) -> String {
   match async_driver_registry.get(handle) {
     None => async_invalid_driver_json("async driver handle is unavailable")
     Some(driver) => {
@@ -739,7 +744,7 @@ pub fn __jsx_async_driver_restart(handle : Int, base_revision : Int) -> String {
 
 ///|
 pub fn __jsx_async_driver_commit(
-  handle : Int,
+  handle : Int32,
   capabilities_json : String,
 ) -> String {
   match async_driver_registry.get(handle) {
@@ -776,7 +781,7 @@ pub fn __jsx_async_driver_commit(
 }
 
 ///|
-pub fn __jsx_async_driver_stats(handle : Int) -> String {
+pub fn __jsx_async_driver_stats(handle : Int32) -> String {
   match async_driver_registry.get(handle) {
     None => async_invalid_driver_json("async driver handle is unavailable")
     Some(driver) =>
@@ -788,7 +793,7 @@ pub fn __jsx_async_driver_stats(handle : Int) -> String {
 }
 
 ///|
-pub fn __jsx_async_driver_dispose(handle : Int) -> Unit {
+pub fn __jsx_async_driver_dispose(handle : Int32) -> Unit {
   match async_driver_registry.get(handle) {
     Some(driver) => {
       driver.disposed = true
@@ -842,10 +847,10 @@ fn async_provider_outcome(
 
 ///|
 pub fn __jsx_async_driver_provider_new(
-  driver_handle : Int,
-  generation_id : Int,
-  base_revision : Int,
-  sequence : Int,
+  driver_handle : Int32,
+  generation_id : Int32,
+  base_revision : Int32,
+  sequence : Int32,
 ) -> String {
   match async_driver_registry.get(driver_handle) {
     None => async_invalid_driver_json("async driver handle is unavailable")
@@ -875,7 +880,7 @@ pub fn __jsx_async_driver_provider_new(
 
 ///|
 pub fn __jsx_async_driver_provider_wait(
-  provider_handle : Int,
+  provider_handle : Int32,
 ) -> @js_async.Promise[String] {
   match async_provider_registry.get(provider_handle) {
     None =>
@@ -920,7 +925,7 @@ pub fn __jsx_async_driver_provider_wait(
 
 ///|
 pub fn __jsx_async_driver_provider_resolve(
-  provider_handle : Int,
+  provider_handle : Int32,
   payload : String,
 ) -> Unit {
   match async_provider_registry.get(provider_handle) {
@@ -938,7 +943,7 @@ pub fn __jsx_async_driver_provider_resolve(
 
 ///|
 pub fn __jsx_async_driver_provider_reject(
-  provider_handle : Int,
+  provider_handle : Int32,
   code : String,
   message : String,
 ) -> Unit {
@@ -956,7 +961,7 @@ pub fn __jsx_async_driver_provider_reject(
 }
 
 ///|
-pub fn __jsx_async_driver_provider_abort(provider_handle : Int) -> Unit {
+pub fn __jsx_async_driver_provider_abort(provider_handle : Int32) -> Unit {
   match async_provider_registry.get(provider_handle) {
     Some(pending) =>
       match pending.status {

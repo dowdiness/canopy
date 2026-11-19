@@ -10,7 +10,7 @@ fn review_attribution() -> ReachableFailureAttribution {
 }
 
 ///|
-fn failure(name : String, start : Int) -> @lambda_scope.ReachableFailure {
+fn failure(name : String, start : Int32) -> @lambda_scope.ReachableFailure {
   {
     name,
     location: Some({ start, end: start + 1, }),

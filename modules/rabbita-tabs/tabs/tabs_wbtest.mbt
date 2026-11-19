@@ -1,5 +1,5 @@
 ///|
-fn assert_selected(model : Model, expected : Int) -> Unit raise {
+fn assert_selected(model : Model, expected : Int32) -> Unit raise {
   assert_eq(model.selected, expected)
 }
 

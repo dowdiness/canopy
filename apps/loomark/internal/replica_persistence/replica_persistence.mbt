@@ -1,8 +1,9 @@
 ///|
+#derive(Eq, Debug)
 pub struct Attempt {
-  priv id : Int
+  priv id : Int32
   priv write : @source_repository.ReplicaWrite
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Attempt::write(self : Self) -> @source_repository.ReplicaWrite {
@@ -10,63 +11,71 @@ pub fn Attempt::write(self : Self) -> @source_repository.ReplicaWrite {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct Retry {
   priv account : @source_repository.AccountId
   priv document_id : @source_repository.DocumentId
-  priv failed_attempt : Int
-} derive(Eq, Debug)
+  priv failed_attempt : Int32
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Status {
   Current
   Persisting
   Retryable(Retry, @source_repository.ReplicaFailure)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Completion {
   Current(@source_repository.ReplicaWrite)
   Superseded(@source_repository.ReplicaWrite, Attempt)
   Retryable(
     @source_repository.ReplicaWrite,
     Retry,
-    @source_repository.ReplicaFailure
+    @source_repository.ReplicaFailure,
   )
   Failed(@source_repository.ReplicaWrite, @source_repository.ReplicaFailure)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror StaleAttempt {
   StaleAttempt
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ExpiredRetry {
   ExpiredRetry
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum LaneState {
   Persisting(Attempt, @source_repository.ReplicaWrite?)
   Failed(
-    Int,
+    Int32,
     @source_repository.ReplicaWrite,
-    @source_repository.ReplicaFailure
+    @source_repository.ReplicaFailure,
   )
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv struct Lane {
   account : @source_repository.AccountId
   document_id : @source_repository.DocumentId
   state : LaneState
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct State {
   priv lanes : Array[Lane]
-  priv last_attempt_id : Int
-} derive(Eq, Debug)
+  priv last_attempt_id : Int32
+}
 
 ///|
 pub fn State::State() -> State {
@@ -78,7 +87,7 @@ fn State::find(
   self : Self,
   account : @source_repository.AccountId,
   document_id : @source_repository.DocumentId,
-) -> Int? {
+) -> Int32? {
   self.lanes
   .exact_view()
   .search_by(lane => lane.account == account && lane.document_id == document_id)
@@ -94,7 +103,7 @@ fn State::attempt(
 }
 
 ///|
-fn State::replace(self : Self, index : Int, state : LaneState) -> Self {
+fn State::replace(self : Self, index : Int32, state : LaneState) -> Self {
   {
     ..self,
     lanes: self.lanes.mapi((i, lane) => {
@@ -108,7 +117,7 @@ fn State::replace(self : Self, index : Int, state : LaneState) -> Self {
 }
 
 ///|
-fn State::remove(self : Self, index : Int) -> Self {
+fn State::remove(self : Self, index : Int32) -> Self {
   let lanes = self.lanes.copy()
   lanes.remove(index) |> ignore
   { ..self, lanes, }

@@ -253,7 +253,7 @@ fn graph_candidate_keys() -> Array[@cognition.CognitionKey] {
 }
 
 ///|
-fn graph_sequence_from_index(index : Int, length : Int) -> Array[GraphOp] {
+fn graph_sequence_from_index(index : Int32, length : Int32) -> Array[GraphOp] {
   let sequence : Array[GraphOp] = []
   let mut remaining = index
   for _ in 0..<length {
@@ -264,7 +264,7 @@ fn graph_sequence_from_index(index : Int, length : Int) -> Array[GraphOp] {
 }
 
 ///|
-fn graph_sequence_count(length : Int) -> Int {
+fn graph_sequence_count(length : Int32) -> Int32 {
   let mut count = 1
   for _ in 0..<length {
     count = count * graph_op_count()
@@ -273,12 +273,12 @@ fn graph_sequence_count(length : Int) -> Int {
 }
 
 ///|
-fn graph_op_count() -> Int {
+fn graph_op_count() -> Int32 {
   9
 }
 
 ///|
-fn graph_op_from_code(code : Int) -> GraphOp {
+fn graph_op_from_code(code : Int32) -> GraphOp {
   match code {
     0 => PutA
     1 => PutB

@@ -7,7 +7,7 @@
 
 ///|
 /// Default watchdog timeout in milliseconds.
-const DEFAULT_WATCHDOG_MS : Int = 5000
+const DEFAULT_WATCHDOG_MS : Int32 = 5000
 
 ///|
 /// Narrow IO record: the operations needed by the retry/send paths
@@ -67,11 +67,11 @@ pub fn SyncHost::SyncHost(
 /// Sync-side state previously held directly on SyncEditor.
 pub struct SyncSession {
   priv mut recovery : RecoveryContext?
-  priv mut recovery_epoch : Int
+  priv mut recovery_epoch : Int32
   priv mut status : SyncStatus
   priv mut on_status_change : ((SyncStatus) -> Unit)?
-  priv mut watchdog_scheduler : ((Int, Int) -> Unit)?
-  priv mut watchdog_timeout_ms : Int
+  priv mut watchdog_scheduler : ((Int32, Int32) -> Unit)?
+  priv mut watchdog_timeout_ms : Int32
 }
 
 ///|
@@ -111,14 +111,17 @@ pub fn SyncSession::set_on_status_change(
 /// so calling `set_watchdog_timeout` takes effect on the next send.
 pub fn SyncSession::set_watchdog_scheduler(
   self : SyncSession,
-  scheduler : ((Int, Int) -> Unit)?,
+  scheduler : ((Int32, Int32) -> Unit)?,
 ) -> Unit {
   self.watchdog_scheduler = scheduler
 }
 
 ///|
 /// Set the watchdog timeout in milliseconds. Default is 5000ms.
-pub fn SyncSession::set_watchdog_timeout(self : SyncSession, ms : Int) -> Unit {
+pub fn SyncSession::set_watchdog_timeout(
+  self : SyncSession,
+  ms : Int32,
+) -> Unit {
   self.watchdog_timeout_ms = ms
 }
 
@@ -165,7 +168,7 @@ pub fn SyncSession::on_close(self : SyncSession) -> Unit {
 /// firings (e.g. response already arrived).
 pub fn SyncSession::on_watchdog_fire(
   self : SyncSession,
-  request_id : Int,
+  request_id : Int32,
   io : SyncIo,
 ) -> Unit {
   guard self.recovery is Some(ctx) else { return }
@@ -181,7 +184,10 @@ pub fn SyncSession::on_message(
   data : Bytes,
   host : SyncHost,
 ) -> Unit {
-  guard @wire.decode_message_result(data) is Ok(msg) else { return }
+  guard (Ok(@wire.decode_message_checked(data)) catch { e => Err(e) })
+    is Ok(msg) else {
+    return
+  }
   match msg {
     CrdtOps(payload) => {
       // CrdtOps is used for backwards-compatible full-state exchange (PeerJoined).
@@ -205,7 +211,7 @@ pub fn SyncSession::on_message(
       let crdt_msg = (host.export_all)() catch { _ => return }
       let json_str = crdt_msg.to_json_string()
       let buf = Buffer()
-      buf.write_string_utf16le(json_str.view())
+      buf.write_string_utf16le(json_str[:])
       (host.io.send)(@wire.encode_message(CrdtOps(buf.to_bytes())))
     }
     PeerLeft(peer_id) => {
@@ -381,7 +387,7 @@ fn SyncSession::enter_recovery(
 fn local_version_encoding_reason(error : @text.TextError) -> SyncErrorReason {
   match error {
     @text.TextError::SyncFailed(
-      @sync.Failure::LimitExceeded(kind~, limit~, actual~)
+      @sync.Failure::LimitExceeded(kind~, limit~, actual~),
     ) => LocalVersionLimitExceeded(kind~, limit~, actual~)
     _ => LocalVersionEncodingFailed
   }
@@ -394,7 +400,7 @@ fn local_version_encoding_reason(error : @text.TextError) -> SyncErrorReason {
 fn SyncSession::send_sync_request(
   self : SyncSession,
   target : String,
-  request_id : Int,
+  request_id : Int32,
   io : SyncIo,
 ) -> Unit {
   let version_json = (io.current_version_json)() catch {

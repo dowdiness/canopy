@@ -4,14 +4,14 @@
 pub struct ScopeAnnotation {
   binder_id : @core.NodeId?
   is_definition : Bool
-  color_index : Int
+  color_index : Int32
   usage_ids : Array[@core.NodeId]
 }
 
 ///|
 /// Deterministic color index from binder name. Stable across edits.
 /// Returns a value in 0..7 (8-hue palette).
-pub fn binder_color_index(name : String) -> Int {
+pub fn binder_color_index(name : String) -> Int32 {
   let mut h = 0
   for ch in name {
     h = h * 31 + ch.to_int()

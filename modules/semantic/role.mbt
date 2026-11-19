@@ -3,13 +3,14 @@
 ///
 /// Determined by syntactic position (symbolic annotator) or
 /// semantic analysis (LLM annotator, future).
+#derive(Eq, Debug)
 pub(all) enum Role {
   Abstract
   SectionIntro
   CodeExplanation
   KeyPoints
   Unclassified
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Role with fn output(self, logger) {

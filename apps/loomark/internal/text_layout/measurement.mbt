@@ -10,7 +10,7 @@ pub struct TextArea {
 ///|
 pub fn TextArea::TextArea(element : @dom.HTMLTextAreaElement) -> TextArea {
   let ancestors : Array[@dom.Element] = []
-  for current = Some(element.as_element())
+  for current = Some(@dom.IsElement::as_element(element))
       current is Some(node)
       current = node.get_parent_element() {
     ancestors.push(node)
@@ -45,15 +45,17 @@ pub struct TextMetrics {
 pub struct MeasuredText {
   source : @text_lines.TextLines
   metrics : TextMetrics
-  reflow_revision : Int
+  reflow_revision : Int32
 }
 
 ///|
 fn prepare(area : TextArea) -> (TextMirror, MeasuredText) {
-  let document = @browser.element_document(area.element.as_element())
+  let document = @browser.element_document(
+    @dom.IsElement::as_element(area.element),
+  )
   let mirror = TextMirror::in_document(document)
   let style = @browser.document_window(document).get_computed_style(
-    area.element.as_element(),
+    @dom.IsElement::as_element(area.element),
   )
   (mirror, mirror.measure(area.element, style, area.language()))
 }
@@ -67,7 +69,7 @@ pub fn measure(area : TextArea) -> MeasuredText {
 ///|
 /// Positions are relative to the textarea's inner border edge, before scrolling.
 /// Each query synchronizes and reads the mirror before returning plain values.
-pub fn measure_line_top(area : TextArea, offset : Int) -> Double {
+pub fn measure_line_top(area : TextArea, offset : Int32) -> Double {
   let (mirror, measured) = prepare(area)
   mirror.line_top(offset, measured.metrics.line_height)
 }
@@ -75,8 +77,8 @@ pub fn measure_line_top(area : TextArea, offset : Int) -> Double {
 ///|
 pub fn measure_line_bounds(
   area : TextArea,
-  first : Int,
-  last : Int,
+  first : Int32,
+  last : Int32,
 ) -> (Double, Double) {
   let (mirror, _) = prepare(area)
   mirror.line_bounds(first, last)
@@ -85,7 +87,7 @@ pub fn measure_line_bounds(
 ///|
 /// First UTF-16 offset whose visual line starts at or below `top`, or EOF.
 /// The whole search uses one synchronization; no live query object escapes.
-pub fn measure_offset_at(area : TextArea, top : Double) -> Int {
+pub fn measure_offset_at(area : TextArea, top : Double) -> Int32 {
   let (mirror, measured) = prepare(area)
   let mut low = 0
   let mut high = measured.source.text().length()
@@ -110,7 +112,7 @@ pub suberror MeasurementError {
 /// Clipping and animation of the drawn caret belong to its presentation.
 pub fn measure_caret(
   area : TextArea,
-  offset : Int,
+  offset : Int32,
 ) -> CaretPosition raise MeasurementError {
   let (mirror, measured) = prepare(area)
   let position = measured.source.position(offset)

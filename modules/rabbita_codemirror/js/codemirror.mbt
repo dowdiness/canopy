@@ -89,7 +89,7 @@ pub fn raw_extension(value : @js_value.Value) -> Extension {
 /// startup share a single import. Rejected imports are evicted from the
 /// cache so a transient CDN failure does not poison every later call.
 pub extern "js" fn load_codemirror(
-  source? : String = "https://esm.sh",
+  source~ : String = "https://esm.sh",
 ) -> @js_value.Promise[@js_value.Value] =
   #| async (source) => {
   #|   const key = Symbol.for("dowdiness.rabbita_codemirror");
@@ -460,9 +460,9 @@ pub fn js_add_update_listener(
   on_selection : (@js_value.Value) -> Unit,
   on_focus_change : (@js_value.Value) -> Unit,
   on_changes : (@js_value.Value) -> Unit,
-  include_doc? : Bool = false,
-  include_change_doc? : Bool = false,
-  source_version? : () -> String = () => "",
+  include_doc~ : Bool = false,
+  include_change_doc~ : Bool = false,
+  source_version~ : () -> String = () => "",
 ) -> Disposable {
   Disposable(
     js_add_update_listener_raw(
@@ -485,7 +485,7 @@ extern "js" fn js_add_shortcuts_raw(
   compartment : @js_value.Value,
   keys : FixedArray[String],
   has_shift : FixedArray[Bool],
-  on_shortcut : (Int, Bool) -> Unit,
+  on_shortcut : (Int32, Bool) -> Unit,
 ) -> () -> Unit =
   #| (view, compartment, keys, hasShift, onShortcut) => {
   #|   const cm = view._cmModule;
@@ -530,7 +530,7 @@ pub fn js_add_shortcuts(
   compartment : Compartment,
   keys : Array[String],
   has_shift : Array[Bool],
-  on_shortcut : (Int, Bool) -> Unit,
+  on_shortcut : (Int32, Bool) -> Unit,
 ) -> Disposable {
   Disposable(
     js_add_shortcuts_raw(

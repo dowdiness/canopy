@@ -9,7 +9,7 @@ using @core {type ProjNode, type NodeId}
 /// Handles RootNode by unwrapping to the single child value.
 pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@json.JsonValue] {
   match @json.SyntaxKind::from_raw(node.kind()) {
     RootNode =>
@@ -66,7 +66,7 @@ pub fn syntax_to_proj_node(
 /// so that delete operations can remove the full "key: value" text.
 fn build_object_node(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@json.JsonValue] {
   let children : Array[ProjNode[@json.JsonValue]] = []
   let members : Array[(String, @json.JsonValue)] = []
@@ -100,7 +100,7 @@ fn build_object_node(
 /// Build a ProjNode for an ArrayNode.
 fn build_array_node(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@json.JsonValue] {
   let children : Array[ProjNode[@json.JsonValue]] = []
   let elements : Array[@json.JsonValue] = []
@@ -124,7 +124,7 @@ fn build_array_node(
 /// value comes from nth_child(0) (first node child).
 fn extract_member(
   member_node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> (String, ProjNode[@json.JsonValue]) {
   // Extract key from the first StringToken (direct child only)
   let mut key_text = ""

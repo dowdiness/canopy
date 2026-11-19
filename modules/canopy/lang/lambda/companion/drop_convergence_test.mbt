@@ -4,18 +4,20 @@
 
 ///|
 /// ── Model types ─────────────────────────────────────────────────────
+#derive(Debug)
 struct DropOp {
-  source_idx : Int
-  target_idx : Int
+  source_idx : Int32
+  target_idx : Int32
   position : @core.DropPosition
-} derive(Debug)
+}
 
 ///|
+#derive(Debug)
 struct ConcurrentDropScenario {
   seed_text : String
   peer1_drop : DropOp
   peer2_drop : DropOp
-} derive(Debug)
+}
 
 ///|
 /// ── Seed set ────────────────────────────────────────────────────────
@@ -24,7 +26,7 @@ struct ConcurrentDropScenario {
 // indexed child access works because both peers parse the same seed
 // deterministically.
 
-fn seed_texts() -> Array[(String, Int)] {
+fn seed_texts() -> Array[(String, Int32)] {
   [
     ("let a = 1\nlet b = 2\na", 3),
     ("let a = 1\nlet b = 2\nlet c = 3\na", 4),
@@ -54,10 +56,10 @@ fn setup_two_peers(
 fn apply_drop(
   editor : @editor.SyncEditor[@ast.Term],
   companion : @companion.LambdaCompanion,
-  source_idx : Int,
-  target_idx : Int,
+  source_idx : Int32,
+  target_idx : Int32,
   position : @core.DropPosition,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   let source_id = resolve_child_id(editor, source_idx)
   let target_id = resolve_child_id(editor, target_idx)
@@ -80,7 +82,7 @@ fn apply_drop(
 ///|
 fn resolve_child_id(
   editor : @editor.SyncEditor[@ast.Term],
-  idx : Int,
+  idx : Int32,
 ) -> @core.NodeId raise {
   guard editor.get_proj_node() is Some(proj) else { fail("expected ProjNode") }
   guard idx >= 0 && idx < proj.children.length() else {
@@ -92,8 +94,8 @@ fn resolve_child_id(
 ///|
 fn supported_drop_pair(
   editor : @editor.SyncEditor[@ast.Term],
-  source_idx : Int,
-  target_idx : Int,
+  source_idx : Int32,
+  target_idx : Int32,
 ) -> Bool raise {
   guard editor.get_proj_node() is Some(proj) else { fail("expected ProjNode") }
   guard source_idx >= 0 && source_idx < proj.children.length() else {
@@ -175,7 +177,7 @@ fn assert_no_structural_errors(
 }
 
 ///|
-fn pick_seed(size : Int) -> (String, Int) {
+fn pick_seed(size : Int32) -> (String, Int32) {
   let seeds = seed_texts()
   let n = seeds.length()
   let idx = if size <= 0 { 0 } else if size >= n * 5 { n - 1 } else { size / 5 }
@@ -183,7 +185,10 @@ fn pick_seed(size : Int) -> (String, Int) {
 }
 
 ///|
-fn pick_distinct(binding_count : Int, rs : @splitmix.RandomState) -> (Int, Int) {
+fn pick_distinct(
+  binding_count : Int32,
+  rs : @splitmix.RandomState,
+) -> (Int32, Int32) {
   // Uniform over all pairs (a, b) with b != a in [0..binding_count).
   // Only LetDef children are generated; the final module child is an expression.
   let a = rs.split().next_uint64().to_int().abs() % binding_count
@@ -280,7 +285,7 @@ fn shrink_seed(scenario : ConcurrentDropScenario) -> ConcurrentDropScenario? {
 }
 
 ///|
-impl @qc.Shrink for ConcurrentDropScenario with fn shrink(self) {
+impl @shrink.Shrink for ConcurrentDropScenario with fn shrink(self) {
   let candidates : Array[ConcurrentDropScenario] = []
   // Candidate 1: normalize positions to Before (least disruptive)
   if self.peer1_drop.position != @core.DropPosition::Before ||

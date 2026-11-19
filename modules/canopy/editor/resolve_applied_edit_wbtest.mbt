@@ -4,9 +4,9 @@ fn assert_resolved_edit_matches(
   old_source : String,
   new_source : String,
   expected : @loom_core.Edit,
-  known_start : Int,
-  known_old_len : Int,
-  known_new_len : Int,
+  known_start : Int32,
+  known_old_len : Int32,
+  known_new_len : Int32,
 ) -> Unit raise Failure {
   let resolved = try! resolve_applied_edit(
     old_source,

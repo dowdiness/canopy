@@ -104,7 +104,7 @@ fn compute_fresh_name(
 ///|
 /// Return the run of space characters starting at `pos`, used as the indentation
 /// prefix for a line that already exists at that position.
-fn leading_whitespace_at(source_text : String, pos : Int) -> String {
+fn leading_whitespace_at(source_text : String, pos : Int32) -> String {
   let suffix = source_text[pos:]
   match suffix.find_by(fn(ch) { ch != ' ' }) {
     Some(end) => suffix[:end].to_owned()

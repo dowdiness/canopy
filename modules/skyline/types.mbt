@@ -1,77 +1,82 @@
 ///|
+#derive(Eq, Debug)
 pub(all) suberror PackError {
-  InvalidBinWidth(Int)
-  InvalidMaxHeight(Int)
-  InvalidSize(Int, Int)
-  ItemTooWide(item_width~ : Int, bin_width~ : Int)
-  NoPlacement(width~ : Int, height~ : Int)
+  InvalidBinWidth(Int32)
+  InvalidMaxHeight(Int32)
+  InvalidSize(Int32, Int32)
+  ItemTooWide(item_width~ : Int32, bin_width~ : Int32)
+  NoPlacement(width~ : Int32, height~ : Int32)
   CoordinateOverflow
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct Size {
-  width : Int
-  height : Int
-} derive(Eq, Debug)
+  width : Int32
+  height : Int32
+}
 
 ///|
-pub fn Size::Size(width~ : Int, height~ : Int) -> Size raise PackError {
+pub fn Size::Size(width~ : Int32, height~ : Int32) -> Size raise PackError {
   guard width > 0 && height > 0 else { raise InvalidSize(width, height) }
   { width, height, }
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct Placement {
-  x : Int
-  y : Int
-  width : Int
-  height : Int
-} derive(Eq, Debug)
+  x : Int32
+  y : Int32
+  width : Int32
+  height : Int32
+}
 
 ///|
 fn Placement::Placement(
-  x~ : Int,
-  y~ : Int,
-  width~ : Int,
-  height~ : Int,
+  x~ : Int32,
+  y~ : Int32,
+  width~ : Int32,
+  height~ : Int32,
 ) -> Placement {
   { x, y, width, height, }
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct PackResult {
   placements : Array[Placement]
-  height : Int
-} derive(Eq, Debug)
+  height : Int32
+}
 
 ///|
 fn PackResult::PackResult(
   placements~ : Array[Placement],
-  height~ : Int,
+  height~ : Int32,
 ) -> PackResult {
   { placements, height, }
 }
 
 ///|
 /// `Node(x, y)` is the height `y` over the half-open interval `[x, next.x)`.
+#derive(Debug)
 priv struct Node {
-  x : Int
-  y : Int
-} derive(Debug)
+  x : Int32
+  y : Int32
+}
 
 ///|
-fn Node::Node(x : Int, y : Int) -> Node {
+fn Node::Node(x : Int32, y : Int32) -> Node {
   { x, y, }
 }
 
 ///|
 priv struct Candidate {
-  x : Int
-  y : Int
+  x : Int32
+  y : Int32
 }
 
 ///|
-fn Candidate::Candidate(x : Int, y : Int) -> Candidate {
+fn Candidate::Candidate(x : Int32, y : Int32) -> Candidate {
   { x, y, }
 }
 
@@ -103,7 +108,7 @@ fn push_normalized(
 }
 
 ///|
-fn checked_top(y : Int, height : Int) -> Int raise PackError {
+fn checked_top(y : Int32, height : Int32) -> Int32 raise PackError {
   guard y <= @int.MAX_VALUE - height else { raise CoordinateOverflow }
   y + height
 }

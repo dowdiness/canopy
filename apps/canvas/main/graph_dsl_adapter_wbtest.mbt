@@ -97,7 +97,7 @@ fn render_selected_nodes(json_text : String) -> Array[String] {
 
 ///|
 /// Current graph doc behind a registered handle.
-fn handle_doc(handle : Int) -> @graph_dsl.GraphDoc {
+fn handle_doc(handle : Int32) -> @graph_dsl.GraphDoc {
   match source_graph_by_handle(handle) {
     Some(graph) => ok_current_graph_doc(graph.attachment.current_result())
     None => abort("expected source graph handle")
@@ -107,12 +107,12 @@ fn handle_doc(handle : Int) -> @graph_dsl.GraphDoc {
 ///|
 /// Tracker token (`NodeId`) for a binding behind a handle. Tokens are not
 /// positionally predictable, so tests fetch them rather than hard-code them.
-fn handle_token(handle : Int, binding : String) -> NodeId {
+fn handle_token(handle : Int32, binding : String) -> NodeId {
   required_canvas_id_for_binding(handle_doc(handle), binding)
 }
 
 ///|
-fn handle_token_str(handle : Int, binding : String) -> String {
+fn handle_token_str(handle : Int32, binding : String) -> String {
   handle_token(handle, binding).to_string()
 }
 

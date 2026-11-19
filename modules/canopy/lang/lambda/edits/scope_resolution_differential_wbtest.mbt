@@ -200,7 +200,7 @@ fn free_vars_per_var_go(
 /// registry is built from the root tree.
 fn free_vars_per_var(
   root : @core.ProjNode[@ast.Term],
-  registry? : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
+  registry~ : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
 ) -> (Map[@core.NodeId, Bool], @immut/hashset.HashSet[String]) {
   let per_node : Map[@core.NodeId, Bool] = Map([])
   free_vars_per_var_go(root, @immut/hashset.new(), per_node)

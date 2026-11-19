@@ -6,31 +6,33 @@ import {
 }
 
 // Values
-pub fn byte_offset_to_utf16(String, Int) -> Int
+pub fn byte_offset_to_utf16(String, Int32) -> Int32
 
 // Errors
 
 // Types and methods
+#derive(@debug.Debug)
 pub(all) struct PatternMatchFact {
   snapshot : SourceSnapshot
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
   pattern_id : String
-  captures : Map[String, (Int, Int)]
-} derive(@debug.Debug)
-pub fn PatternMatchFact::PatternMatchFact(snapshot~ : SourceSnapshot, from~ : Int, to~ : Int, pattern_id~ : String, captures~ : Map[String, (Int, Int)]) -> Self
+  captures : Map[String, (Int32, Int32)]
+}
+pub fn PatternMatchFact::PatternMatchFact(snapshot~ : SourceSnapshot, from~ : Int32, to~ : Int32, pattern_id~ : String, captures~ : Map[String, (Int32, Int32)]) -> Self
 pub fn PatternMatchFact::is_current(Self, SourceSnapshot) -> Bool
 pub fn PatternMatchFact::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, Hash, @debug.Debug)
 pub(all) struct SourceSnapshot {
   doc_id : String
-  version : Int
-  text_hash : Int
-  utf16_len : Int
-} derive(Eq, Hash, @debug.Debug)
-pub fn SourceSnapshot::SourceSnapshot(doc_id~ : String, version~ : Int, source~ : String) -> Self
+  version : Int32
+  text_hash : Int32
+  utf16_len : Int32
+}
+pub fn SourceSnapshot::SourceSnapshot(doc_id~ : String, version~ : Int32, source~ : String) -> Self
 pub fn SourceSnapshot::equal(Self, Self) -> Bool
-pub fn SourceSnapshot::hash(Self) -> Int
+pub fn SourceSnapshot::hash(Self) -> Int32
 pub fn SourceSnapshot::hash_combine(Self, Hasher) -> Unit
 pub fn SourceSnapshot::matches(Self, Self) -> Bool
 pub fn SourceSnapshot::not_equal(Self, Self) -> Bool

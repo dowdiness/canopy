@@ -39,7 +39,7 @@ fn version_limit_io(sent : Array[Bytes]) -> SyncIo {
 /// `left` records on_peer_leave calls.
 test "local Version limit ends recovery without sending or scheduling" {
   let sent : Array[Bytes] = []
-  let scheduled : Array[(Int, Int)] = []
+  let scheduled : Array[(Int32, Int32)] = []
   let statuses : Array[SyncStatus] = []
   let session = SyncSession::SyncSession()
   session.set_on_status_change(Some(status => statuses.push(status)))
@@ -77,7 +77,7 @@ fn test_host(sent : Array[Bytes], left : Array[String]) -> SyncHost {
     export_all=() => empty_msg_or_fail(),
     export_since=_ => empty_msg_or_fail(),
     apply_ephemeral=(_, _) => (),
-    encode_ephemeral=_ => Bytes::new(0),
+    encode_ephemeral=_ => Bytes::make(0, b'\x00'),
     on_peer_leave=peer_id => left.push(peer_id),
   )
 }
@@ -164,11 +164,11 @@ test "SyncSession: projection recovery failure starts peer recovery" {
     export_all=() => empty_msg_or_fail(),
     export_since=_ => empty_msg_or_fail(),
     apply_ephemeral=(_, _) => (),
-    encode_ephemeral=_ => Bytes::new(0),
+    encode_ephemeral=_ => Bytes::make(0, b'\x00'),
     on_peer_leave=_ => (),
   )
   let payload = Buffer()
-  payload.write_string_utf16le(message.to_json_string().view())
+  payload.write_string_utf16le(message.to_json_string()[:])
   session.on_message(
     @wire.encode_relayed_crdt_ops("alice", payload.to_bytes()),
     host,
@@ -198,7 +198,7 @@ test "SyncSession: projection recovery during delta consumes retry" {
     export_all=() => empty_msg_or_fail(),
     export_since=_ => empty_msg_or_fail(),
     apply_ephemeral=(_, _) => (),
-    encode_ephemeral=_ => Bytes::new(0),
+    encode_ephemeral=_ => Bytes::make(0, b'\x00'),
     on_peer_leave=_ => (),
   )
   session.on_message(
@@ -229,7 +229,7 @@ test "SyncSession: RelayedCrdtOps buffers during recovery" {
   session.recovery = Some(RecoveryContext::new("alice", empty_msg, 1))
   // Send RelayedCrdtOps from "alice" — should be buffered, not applied
   let buf = Buffer()
-  buf.write_string_utf16le(empty_msg.to_json_string().view())
+  buf.write_string_utf16le(empty_msg.to_json_string()[:])
   let wire = @wire.encode_relayed_crdt_ops("alice", buf.to_bytes())
   session.on_message(wire, test_host([], []))
   // Message should be buffered
@@ -270,7 +270,7 @@ test "SyncSession: SyncResponse from wrong sender is ignored" {
     export_all=() => empty_msg_or_fail(),
     export_since=_ => empty_msg_or_fail(),
     apply_ephemeral=(_, _) => (),
-    encode_ephemeral=_ => Bytes::new(0),
+    encode_ephemeral=_ => Bytes::make(0, b'\x00'),
     on_peer_leave=_ => (),
   )
   // Relay delivery replaces the target with authenticated sender "bob".
@@ -537,7 +537,7 @@ test "SyncSession: watchdog exhaustion → Error(Exhausted)" {
 test "SyncSession: watchdog scheduler receives request_id and timeout on send" {
   let session = SyncSession()
   session.on_open()
-  let scheduled : Array[(Int, Int)] = []
+  let scheduled : Array[(Int32, Int32)] = []
   session.set_watchdog_scheduler(
     Some(fn(req_id, ms) { scheduled.push((req_id, ms)) }),
   )

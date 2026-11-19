@@ -1,14 +1,15 @@
 ///|
 /// Key for an input or derived cognition artifact.
+#derive(Debug, Eq, Hash, Compare)
 pub(all) enum CognitionKey {
   FileText(String)
   FileSummary(String)
   RepoSummary
   QueryContext(String)
-  PackedContext(String, Int)
-  BudgetedContext(String, Int, Int)
-  TruncatedContext(String, Int, Int)
-} derive(Debug, Eq, Hash, Compare)
+  PackedContext(String, Int32)
+  BudgetedContext(String, Int32, Int32)
+  TruncatedContext(String, Int32, Int32)
+}
 
 ///|
 /// Deterministic, synchronous provider for deriving cognition summaries.
@@ -23,72 +24,78 @@ pub(all) struct CognitionProvider {
 
 ///|
 /// Stored value for a cognition artifact.
+#derive(Debug, Eq)
 pub(all) enum CognitionValue {
   Text(String)
   Summary(String)
   ContextBundle(Array[String])
   ContextItems(Array[ContextItem])
-} derive(Debug, Eq)
+}
 
 ///|
 /// One provenance-bearing item selected for an AI context bundle.
+#derive(Debug, Eq)
 pub(all) struct ContextItem {
   source : CognitionKey
   source_revision : Revision
   payload : String
   reason : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Deterministic policy for ranking and explaining context candidates.
 pub(all) struct ContextRanker {
-  score_summary : (String, CognitionKey) -> Int
+  score_summary : (String, CognitionKey) -> Int32
   reason_summary : (String, CognitionKey) -> String
 }
 
 ///|
 /// Options for deterministic context packing.
+#derive(Debug, Eq)
 pub(all) struct ContextPackOptions {
-  max_items : Int
-  max_chars : Int?
+  max_items : Int32
+  max_chars : Int32?
   truncate_items : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 /// Deterministic telemetry for one context packing operation.
+#derive(Debug, Eq)
 pub(all) struct ContextPackStats {
-  selected_items : Int
-  skipped_items : Int
-  truncated_items : Int
-  payload_chars : Int
-} derive(Debug, Eq)
+  selected_items : Int32
+  skipped_items : Int32
+  truncated_items : Int32
+  payload_chars : Int32
+}
 
 ///|
 /// Create context packing options.
 pub fn ContextPackOptions::new(
-  max_items~ : Int,
-  max_chars? : Int,
-  truncate_items? : Bool = false,
+  max_items~ : Int32,
+  max_chars? : Int32,
+  truncate_items~ : Bool = false,
 ) -> ContextPackOptions {
   { max_items, max_chars, truncate_items, }
 }
 
 ///|
 /// Monotonic store-local revision. The first stored value receives revision 1.
-pub struct Revision(Int) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub struct Revision(Int32)
 
 ///|
-pub fn Revision::to_int(self : Revision) -> Int {
+pub fn Revision::to_int(self : Revision) -> Int32 {
   let Revision(n) = self
   n
 }
 
 ///|
 /// Directed edge from a derived artifact to one input artifact it reads.
+#derive(Debug, Eq)
 pub(all) struct Dependency {
   from : CognitionKey
   input : CognitionKey
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn CognitionKey::label(self : CognitionKey) -> String {

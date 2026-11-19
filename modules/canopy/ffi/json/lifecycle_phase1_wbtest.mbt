@@ -13,7 +13,7 @@ fn reset_json_coordinator_for_phase1_tests() -> Unit {
 }
 
 ///|
-fn drain_json_handle_after_direct_coordinator_destroy(handle : Int) -> Unit {
+fn drain_json_handle_after_direct_coordinator_destroy(handle : Int32) -> Unit {
   json_registry.remove(handle)
 }
 

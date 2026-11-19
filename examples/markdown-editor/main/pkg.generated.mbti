@@ -6,7 +6,8 @@ package "example/markdown-editor/main"
 // Errors
 
 // Types and methods
-type Model derive(Eq)
+#derive(Eq)
+type Model
 
 type Msg
 

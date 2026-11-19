@@ -66,7 +66,7 @@ test "spec §12 #6: read_protected maps Err(CycleError) to CycleDetected" {
   let synthetic_cycle = @incr.CycleError::new(cell_id, [cell_id], [
     Some("synthetic_cycle"),
   ])
-  let pcell : ProtectedCell[Int] = ProtectedCell::ProtectedCell(
+  let pcell : ProtectedCell[Int32] = ProtectedCell::ProtectedCell(
     cell_id~,
     label="synthetic_cycle",
     read=fn() { Err(@incr.ReadError::cycle(synthetic_cycle)) },
@@ -97,7 +97,7 @@ test "spec §12 #6: read_protected maps Err(Disposed) to ProtectedCellDisposed" 
   let watch = anchor.watch()
   let _ = watch.read()
   let cell_id = anchor.id()
-  let pcell : ProtectedCell[Int] = ProtectedCell::ProtectedCell(
+  let pcell : ProtectedCell[Int32] = ProtectedCell::ProtectedCell(
     cell_id~,
     label="synthetic_disposed",
     read=fn() { Err(@incr.ReadError::disposed(cell_id)) },

@@ -4,9 +4,9 @@ fn result_to_json(
 ) -> String {
   match result {
     Ok(actions) =>
-      Json::object({ "ok": true.to_json(), "actions": actions.to_json() }).stringify()
+      Json::object({ "ok": Json(true), "actions": Json(actions) }).stringify()
     Err(err) =>
-      Json::object({ "ok": false.to_json(), "error": err.to_string().to_json() }).stringify()
+      Json::object({ "ok": Json(false), "error": Json(err.to_string()) }).stringify()
   }
 }
 

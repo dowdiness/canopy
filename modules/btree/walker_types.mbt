@@ -6,8 +6,8 @@
 ///|
 priv struct PathFrame[T] {
   children : Array[BTreeNode[T]]
-  counts : Array[Int]
-  child_idx : Int
+  counts : Array[Int32]
+  child_idx : Int32
 }
 
 ///|
@@ -15,17 +15,17 @@ priv struct PathFrame[T] {
 priv struct Cursor[T] {
   path : Array[PathFrame[T]]
   leaf_elem : T
-  leaf_span : Int
-  offset : Int
-  child_idx : Int
+  leaf_span : Int32
+  offset : Int32
+  child_idx : Int32
 }
 
 ///|
 priv struct LeafCursor[T] {
   path : Array[PathFrame[T]]
   elem : T
-  span : Int
-  offset : Int
+  span : Int32
+  offset : Int32
 }
 
 ///|
@@ -34,21 +34,21 @@ priv struct LeafCursor[T] {
 priv struct AncestorRange[T] {
   prefix : Array[PathFrame[T]]
   children : Array[BTreeNode[T]]
-  counts : Array[Int]
-  start_idx : Int
-  end_idx : Int
-  child_height : Int
+  counts : Array[Int32]
+  start_idx : Int32
+  end_idx : Int32
+  child_height : Int32
 }
 
 ///|
 priv struct NodeSplice[T] {
   prefix : Array[PathFrame[T]]
   children : Array[BTreeNode[T]]
-  counts : Array[Int]
-  start_idx : Int
-  end_idx : Int
+  counts : Array[Int32]
+  start_idx : Int32
+  end_idx : Int32
   new_children : Array[BTreeNode[T]]
-  leaf_delta : Int
+  leaf_delta : Int32
 }
 
 ///|
@@ -56,37 +56,39 @@ priv struct NodeSplice[T] {
 /// leaf and optional adjacent values from the same immediate parent without
 /// exposing a live tree collection. These values are not guaranteed logical
 /// neighbors across parent boundaries. See the README's API Contracts section.
+#derive(Debug)
 pub(all) struct LeafContext[T] {
   /// Current leaf value.
   elem : T
   /// Current leaf span.
-  span : Int
+  span : Int32
   /// Span offset addressed by the mutation.
-  offset : Int
+  offset : Int32
   /// Current leaf index in its parent child array.
-  child_idx : Int
+  child_idx : Int32
   priv left_elem : T?
   priv right_elem : T?
-} derive(Debug)
+}
 
 ///|
 /// Replacement description for a current leaf parent's child array.
 /// `start_idx` and `end_idx` must satisfy
 /// `0 <= start_idx <= end_idx <= parent child count`; invalid indices are not
 /// separately validated.
+#derive(Debug)
 pub(all) struct Splice[T] {
   /// Inclusive child index where replacement begins.
-  start_idx : Int
+  start_idx : Int32
   /// Exclusive child index where replacement ends.
-  end_idx : Int
+  end_idx : Int32
   /// Replacement leaves, inserted in order. Every span must be positive.
-  new_leaves : Array[(T, Int)]
-} derive(Debug)
+  new_leaves : Array[(T, Int32)]
+}
 
 ///|
 priv struct PropagateResult[T] {
   segment : Array[BTreeNode[T]]
-  leaf_delta : Int
+  leaf_delta : Int32
 }
 
 ///|
@@ -136,9 +138,3 @@ fn[T] LeafCursor::from_cursor(cursor : Cursor[T]) -> LeafCursor[T] {
     offset: cursor.offset,
   }
 }
-
-///|
-pub extend LeafContext with @moonbitlang/core/debug.Debug::{to_repr}
-
-///|
-pub extend Splice with @moonbitlang/core/debug.Debug::{to_repr}

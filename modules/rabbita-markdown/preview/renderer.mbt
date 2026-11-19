@@ -182,7 +182,7 @@ fn render_list_item_children(
 
 ///|
 fn render_heading(
-  depth : Int,
+  depth : Int32,
   children : Array[@rabbita.Html],
 ) -> @rabbita.Html {
   match depth {
@@ -198,9 +198,9 @@ fn render_heading(
 ///|
 fn render_node(
   node : @markdown.MarkdownNode,
-  position? : RenderPosition = Flow,
-  list_parent_spread? : Bool = false,
-  unwrap_list_item_paragraph? : Bool = false,
+  position~ : RenderPosition = Flow,
+  list_parent_spread~ : Bool = false,
+  unwrap_list_item_paragraph~ : Bool = false,
 ) -> @rabbita.Html {
   let node_view = node.view()
   let children = match node_view {
@@ -405,7 +405,7 @@ fn render(root : @markdown.MarkdownNode) -> @rabbita.Html {
 /// Render top-level Markdown blocks with Loomark-owned Rabbita lazy keys.
 fn render_top_level_blocks(
   blocks : ArrayView[@markdown.MarkdownTopLevelBlock],
-  keys : ArrayView[Int],
+  keys : ArrayView[Int32],
 ) -> @rabbita.Html {
   guard blocks.length() == keys.length() else {
     abort("Markdown renderer key count mismatch")

@@ -2,14 +2,14 @@
 /// The glyph whose edge marks a caret in a line of text.
 pub enum CaretGlyph {
   EmptyLine
-  Before(start~ : Int, end~ : Int)
-  After(start~ : Int, end~ : Int)
+  Before(start~ : Int32, end~ : Int32)
+  After(start~ : Int32, end~ : Int32)
 }
 
 ///|
 /// Selection offsets are UTF-16 code units, so a glyph spans both halves of a
 /// surrogate pair.
-pub fn caret_glyph(line : String, column : Int) -> CaretGlyph {
+pub fn caret_glyph(line : String, column : Int32) -> CaretGlyph {
   let length = line.length()
   let unit = index => line.code_unit_at(index).to_int()
   if length == 0 {

@@ -5,7 +5,7 @@
 /// They are diagnostic evidence, not a startup budget or a production cache.
 
 ///|
-fn startup_phase_source(block_count : Int) -> String {
+fn startup_phase_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     let number = index.to_string()
     "## Heading " +
@@ -19,7 +19,7 @@ fn startup_phase_source(block_count : Int) -> String {
 }
 
 ///|
-fn startup_phase_history(cycles : Int) -> MarkdownDocumentHistory {
+fn startup_phase_history(cycles : Int32) -> MarkdownDocumentHistory {
   let source = startup_phase_source(100)
   let editor = try! MarkdownEditor(
     agent_id="markdown-startup-fixture",

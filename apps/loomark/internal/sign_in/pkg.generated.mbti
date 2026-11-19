@@ -11,10 +11,11 @@ import {
 // Errors
 
 // Types and methods
+#derive(Eq)
 pub enum Action {
   Begin
-  Cancel(Int)
-} derive(Eq)
+  Cancel(Int32)
+}
 pub fn Action::equal(Self, Self) -> Bool
 pub fn Action::not_equal(Self, Self) -> Bool
 
@@ -42,10 +43,11 @@ pub(all) enum Event {
   AuthenticationFailed
 }
 
+#derive(Eq)
 pub enum Failure {
   Save(@documents.LocalSaveFailure)
   Authentication
-} derive(Eq)
+}
 pub fn Failure::equal(Self, Self) -> Bool
 pub fn Failure::not_equal(Self, Self) -> Bool
 
@@ -64,21 +66,23 @@ pub(all) enum Readiness {
   AccountUnavailable
 }
 
+#derive(Eq)
 pub struct Request {
   // private fields
-} derive(Eq)
+}
 pub fn Request::equal(Self, Self) -> Bool
 pub fn Request::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub enum SignIn {
-  Idle(generation~ : Int, pending~ : Request?)
-  SavingChanges(generation~ : Int, pending~ : Request?)
-  Connecting(generation~ : Int, request~ : Request)
-  RedirectPending(generation~ : Int, destination~ : @account_http.GoogleAuthorizationUrl)
-  Leaving(generation~ : Int)
-  SaveFailed(generation~ : Int, pending~ : Request?, failure~ : @documents.LocalSaveFailure)
-  AuthenticationFailed(generation~ : Int, pending~ : Request?)
-} derive(Eq)
+  Idle(generation~ : Int32, pending~ : Request?)
+  SavingChanges(generation~ : Int32, pending~ : Request?)
+  Connecting(generation~ : Int32, request~ : Request)
+  RedirectPending(generation~ : Int32, destination~ : @account_http.GoogleAuthorizationUrl)
+  Leaving(generation~ : Int32)
+  SaveFailed(generation~ : Int32, pending~ : Request?, failure~ : @documents.LocalSaveFailure)
+  AuthenticationFailed(generation~ : Int32, pending~ : Request?)
+}
 pub fn SignIn::SignIn() -> Self
 pub fn SignIn::blocks_editing(Self) -> Bool
 pub fn SignIn::equal(Self, Self) -> Bool
@@ -92,13 +96,14 @@ pub struct Transition {
   outcome : Outcome
 }
 
+#derive(Eq)
 pub enum View {
   Available(Action)
   Unavailable
   InProgress(Action)
   Failed(Failure, retry~ : Action?)
   Leaving
-} derive(Eq)
+}
 pub fn View::equal(Self, Self) -> Bool
 pub fn View::not_equal(Self, Self) -> Bool
 

@@ -47,7 +47,7 @@ let json_lang : @lang_runtime.Language[
 /// Uses the generic 3-memo projection pipeline.
 pub fn new_json_editor(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@json.JsonValue] raise {
   let (editor, _) = json_lang.build(
@@ -65,7 +65,7 @@ pub fn new_json_editor(
 pub fn apply_json_edit(
   editor : @editor.SyncEditor[@json.JsonValue],
   op : @json_edits.JsonEditOp,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Unit, String] raise {
   match json_lang.apply_edit(editor, op, timestamp_ms) {
     Ok(_) => Ok(())

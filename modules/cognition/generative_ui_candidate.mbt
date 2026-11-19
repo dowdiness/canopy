@@ -3,35 +3,37 @@
 /// semantics. Validation consumes this value and host capabilities, then
 /// returns either a declarative candidate or replayable diagnostics. It does
 /// not read the replay cursor, lifecycle, renderer, or external services.
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiRawNode {
   Component(
     name~ : String,
     attributes~ : Array[GenerativeUiRawAttribute],
-    children~ : Array[GenerativeUiRawNode]
+    children~ : Array[GenerativeUiRawNode],
   )
   Text(value~ : String)
   RawHtml(value~ : String)
   Expression(value~ : String)
-} derive(Debug, Eq)
+}
 
 ///|
-pub const GENERATIVE_UI_MAX_DEPTH : Int = 32
+pub const GENERATIVE_UI_MAX_DEPTH : Int32 = 32
 
 ///|
-pub const GENERATIVE_UI_MAX_NODES : Int = 1024
+pub const GENERATIVE_UI_MAX_NODES : Int32 = 1024
 
 ///|
-pub const GENERATIVE_UI_MAX_ATTRIBUTES : Int = 32
+pub const GENERATIVE_UI_MAX_ATTRIBUTES : Int32 = 32
 
 ///|
-pub const GENERATIVE_UI_MAX_STRING_LENGTH : Int = 8192
+pub const GENERATIVE_UI_MAX_STRING_LENGTH : Int32 = 8192
 
 ///|
 /// Untrusted string attribute attached to a raw component.
+#derive(Debug, Eq)
 pub struct GenerativeUiRawAttribute {
   priv name : String
   priv value : String
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn GenerativeUiRawAttribute::GenerativeUiRawAttribute(
@@ -43,7 +45,8 @@ pub fn GenerativeUiRawAttribute::GenerativeUiRawAttribute(
 
 ///|
 /// Host-owned data binding referenced by a validated candidate.
-pub struct GenerativeUiDataBinding(String) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub struct GenerativeUiDataBinding(String)
 
 ///|
 pub fn GenerativeUiDataBinding::to_string(
@@ -55,7 +58,8 @@ pub fn GenerativeUiDataBinding::to_string(
 
 ///|
 /// Host-owned field referenced by a validated candidate.
-pub struct GenerativeUiField(String) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub struct GenerativeUiField(String)
 
 ///|
 pub fn GenerativeUiField::to_string(self : GenerativeUiField) -> String {
@@ -65,7 +69,8 @@ pub fn GenerativeUiField::to_string(self : GenerativeUiField) -> String {
 
 ///|
 /// Host-owned selection key referenced by a validated table.
-pub struct GenerativeUiSelectionKey(String) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub struct GenerativeUiSelectionKey(String)
 
 ///|
 pub fn GenerativeUiSelectionKey::to_string(
@@ -76,13 +81,14 @@ pub fn GenerativeUiSelectionKey::to_string(
 }
 
 ///|
+#derive(Debug, Eq, Hash, Compare)
 pub(all) enum GenerativeUiFilterOperator {
   Equal
   NotEqual
   Contains
   GreaterThan
   LessThan
-} derive(Debug, Eq, Hash, Compare)
+}
 
 ///|
 fn GenerativeUiFilterOperator::from_string(
@@ -99,13 +105,14 @@ fn GenerativeUiFilterOperator::from_string(
 }
 
 ///|
+#derive(Debug, Eq, Hash, Compare)
 pub(all) enum GenerativeUiAggregation {
   Count
   Sum
   Average
   Minimum
   Maximum
-} derive(Debug, Eq, Hash, Compare)
+}
 
 ///|
 fn GenerativeUiAggregation::from_string(
@@ -124,11 +131,12 @@ fn GenerativeUiAggregation::from_string(
 ///|
 /// Capabilities scoped to one host-owned data binding. Fields and selection
 /// keys cannot accidentally be combined with a different binding.
+#derive(Debug, Eq)
 pub struct GenerativeUiBindingCapabilities {
   priv name : String
   priv fields : Array[String]
   priv selection_keys : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn GenerativeUiBindingCapabilities::GenerativeUiBindingCapabilities(
@@ -158,11 +166,12 @@ fn GenerativeUiBindingCapabilities::has_selection_key(
 ///|
 /// Host-owned capabilities used to validate opaque references in a raw
 /// candidate. Empty allowlists intentionally mean "not available".
+#derive(Debug, Eq)
 pub struct GenerativeUiHostCapabilities {
   priv bindings : Array[GenerativeUiBindingCapabilities]
   priv filter_operators : Array[GenerativeUiFilterOperator]
   priv aggregations : Array[GenerativeUiAggregation]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn GenerativeUiHostCapabilities::GenerativeUiHostCapabilities(
@@ -188,25 +197,27 @@ fn GenerativeUiHostCapabilities::binding(
 ///|
 /// Validated declarative UI program. These variants carry no executable
 /// expressions, URLs, actions, or candidate-owned interaction state.
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiCandidateNode {
   Stack(children~ : Array[GenerativeUiCandidateNode])
   Panel(children~ : Array[GenerativeUiCandidateNode])
   Table(
     binding~ : GenerativeUiDataBinding,
     selection_key~ : GenerativeUiSelectionKey?,
-    children~ : Array[GenerativeUiCandidateNode]
+    children~ : Array[GenerativeUiCandidateNode],
   )
   Column(field~ : GenerativeUiField, label~ : String?)
   Filter(field~ : GenerativeUiField, operator~ : GenerativeUiFilterOperator)
   Text(value~ : String)
   Summary(field~ : GenerativeUiField, aggregation~ : GenerativeUiAggregation)
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Eq)
 enum GenerativeUiCandidateContext {
   Container
   Table
-} derive(Eq)
+}
 
 ///|
 /// Opaque validated candidate passed to the later renderer adapter.
@@ -231,6 +242,7 @@ pub fn GenerativeUiCandidate::root(
 }
 
 ///|
+#derive(Debug, Eq, Hash, Compare)
 pub(all) enum GenerativeUiDiagnosticKind {
   UnknownComponent
   UnknownAttribute
@@ -245,15 +257,16 @@ pub(all) enum GenerativeUiDiagnosticKind {
   InvalidChild
   UnexpectedChildren
   LimitExceeded
-} derive(Debug, Eq, Hash, Compare)
+}
 
 ///|
 /// Replayable structured diagnostic emitted by candidate validation.
+#derive(Debug, Eq)
 pub struct GenerativeUiDiagnostic {
   priv path : String
   priv kind : GenerativeUiDiagnosticKind
   priv detail : String
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn GenerativeUiDiagnostic::path(self : GenerativeUiDiagnostic) -> String {
@@ -312,9 +325,9 @@ fn validate_candidate_limits(
 fn validate_candidate_limits_node(
   node : GenerativeUiRawNode,
   path : String,
-  depth : Int,
-  nodes : Int,
-) -> Result[Int, GenerativeUiDiagnostic] {
+  depth : Int32,
+  nodes : Int32,
+) -> Result[Int32, GenerativeUiDiagnostic] {
   if depth > GENERATIVE_UI_MAX_DEPTH {
     return Err(
       diagnostic(
@@ -382,7 +395,7 @@ fn validate_candidate_limits_node(
           Err(error) => return Err(error)
         }
       }
-      let initial_state : (Int, GenerativeUiDiagnostic?) = (next_nodes, None)
+      let initial_state : (Int32, GenerativeUiDiagnostic?) = (next_nodes, None)
       let (node_count, failure) = for
         index, child in children
         state = initial_state
@@ -407,10 +420,10 @@ fn validate_candidate_limits_node(
 fn advance_candidate_limit(
   child : GenerativeUiRawNode,
   path : String,
-  depth : Int,
-  index : Int,
-  state : (Int, GenerativeUiDiagnostic?),
-) -> (Int, GenerativeUiDiagnostic?) {
+  depth : Int32,
+  index : Int32,
+  state : (Int32, GenerativeUiDiagnostic?),
+) -> (Int32, GenerativeUiDiagnostic?) {
   let (node_count, failure) = state
   match failure {
     Some(_) => state
@@ -940,7 +953,7 @@ fn attribute_value(
 }
 
 ///|
-fn child_path(path : String, index : Int) -> String {
+fn child_path(path : String, index : Int32) -> String {
   "\{path}.children[\{index}]"
 }
 

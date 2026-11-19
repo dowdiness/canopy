@@ -1,10 +1,11 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum EditAction {
-  Replace(line~ : Int, old~ : String, new~ : String)
-  Insert(line~ : Int, text~ : String)
-  Delete(line~ : Int)
+  Replace(line~ : Int32, old~ : String, new~ : String)
+  Insert(line~ : Int32, text~ : String)
+  Delete(line~ : Int32)
   FixTypos(original~ : String, fixed~ : String)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for EditAction with fn output(self, logger) {
@@ -18,34 +19,35 @@ pub impl ToJson for EditAction with fn to_json(self) -> Json {
   match self {
     FixTypos(original~, fixed~) =>
       Json::object({
-        "action": "fix_typos".to_json(),
-        "original": original.to_json(),
-        "fixed": fixed.to_json(),
+        "action": Json("fix_typos"),
+        "original": Json(original),
+        "fixed": Json(fixed),
       })
     Replace(line~, old~, new~) =>
       Json::object({
-        "action": "replace".to_json(),
-        "line": line.to_json(),
-        "old": old.to_json(),
-        "new": new.to_json(),
+        "action": Json("replace"),
+        "line": Json(line),
+        "old": Json(old),
+        "new": Json(new),
       })
     Insert(line~, text~) =>
       Json::object({
-        "action": "insert".to_json(),
-        "line": line.to_json(),
-        "text": text.to_json(),
+        "action": Json("insert"),
+        "line": Json(line),
+        "text": Json(text),
       })
     Delete(line~) =>
-      Json::object({ "action": "delete".to_json(), "line": line.to_json() })
+      Json::object({ "action": Json("delete"), "line": Json(line) })
   }
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum Role {
   System
   User
   Assistant
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for Role with fn output(self, logger) {
@@ -53,10 +55,11 @@ pub impl Show for Role with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Message {
   role : Role
   content : String
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Message::Message(role~ : Role, content~ : String) -> Message {
@@ -64,28 +67,30 @@ pub fn Message::Message(role~ : Role, content~ : String) -> Message {
 }
 
 ///|
+#derive(Debug)
 pub(all) struct GeminiConfig {
   api_key : String
   model : String
   temperature : Double
-  max_output_tokens : Int
-} derive(Debug)
+  max_output_tokens : Int32
+}
 
 ///|
 pub fn GeminiConfig::GeminiConfig(
   api_key~ : String,
-  model? : String = "gemini-2.5-flash",
-  temperature? : Double = 0.2,
-  max_output_tokens? : Int = 1024,
+  model~ : String = "gemini-2.5-flash",
+  temperature~ : Double = 0.2,
+  max_output_tokens~ : Int32 = 1024,
 ) -> GeminiConfig {
   { api_key, model, temperature, max_output_tokens, }
 }
 
 ///|
 /// Error type for LLM operations (HTTP errors, parse errors, API errors).
+#derive(Debug)
 pub suberror LlmError {
   LlmError(String)
-} derive(Debug)
+}
 
 ///|
 pub impl Show for LlmError with fn output(self, logger) {

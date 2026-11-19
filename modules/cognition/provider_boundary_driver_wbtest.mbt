@@ -18,7 +18,7 @@ priv struct ScriptedProviderDriver {
   mut responses : Array[ScriptedProviderResponse]
   started : Array[ProviderRequestId]
   cancelled : Array[ProviderRequestId]
-  mut now_ms : Int
+  mut now_ms : Int32
   mut shutdown : Bool
 }
 
@@ -58,7 +58,7 @@ fn ScriptedProviderDriver::shutdown(self : ScriptedProviderDriver) -> Unit {
 ///|
 fn ScriptedProviderDriver::set_fake_time_ms(
   self : ScriptedProviderDriver,
-  now_ms : Int,
+  now_ms : Int32,
 ) -> Unit {
   self.now_ms = now_ms
 }

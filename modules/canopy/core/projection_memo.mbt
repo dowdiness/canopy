@@ -5,23 +5,23 @@ using @loomcore {trait TreeNode, trait Renderable}
 pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
   rt : @incr.Runtime,
   syntax_tree : @incr.Derived[@seam.SyntaxNode],
-  syntax_to_proj : (@seam.SyntaxNode, Ref[Int]) -> ProjNode[T],
+  syntax_to_proj : (@seam.SyntaxNode, Ref[Int32]) -> ProjNode[T],
   populate_spans : (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit,
-  reconcile_node? : (
+  reconcile_node~ : (
     ProjNode[T],
     ProjNode[T],
-    Ref[Int],
+    Ref[Int32],
     Ref[Array[ReconcileTraceEvent]]?,
   ) -> ProjNode[T] = fn(o, n, c, tr) { reconcile(o, n, c, trace_ref=tr) },
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
-  label? : String = "generic",
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
+  label~ : String = "generic",
 ) -> (
   @incr.Derived[ProjNode[T]?],
   @incr.Derived[Map[NodeId, ProjNode[T]]],
   @incr.Derived[SourceMap],
 ) {
   let prev_proj_ref : Ref[ProjNode[T]?] = Ref(None)
-  let counter : Ref[Int] = Ref(0)
+  let counter : Ref[Int32] = Ref(0)
 
   let proj_memo : @incr.Derived[ProjNode[T]?] = @incr.Derived::Derived(
     rt,
@@ -85,18 +85,18 @@ pub fn[T : TreeNode + Renderable + Eq] build_projection_memos(
 pub fn[T : TreeNode + Renderable + Eq] build_projection_memos_with_identity_hints(
   rt : @incr.Runtime,
   syntax_tree : @incr.Derived[@seam.SyntaxNode],
-  syntax_to_proj : (@seam.SyntaxNode, Ref[Int]) -> ProjNode[T],
+  syntax_to_proj : (@seam.SyntaxNode, Ref[Int32]) -> ProjNode[T],
   populate_spans : (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit,
   reconcile_node : (
     ProjNode[T],
     ProjNode[T],
-    Ref[Int],
+    Ref[Int32],
     Array[IdentityTransform],
     Ref[Array[ReconcileTraceEvent]]?,
   ) -> ProjNode[T],
   identity_hints? : IdentityHintConsumer,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
-  label? : String = "generic",
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
+  label~ : String = "generic",
 ) -> (
   @incr.Derived[ProjNode[T]?],
   @incr.Derived[Map[NodeId, ProjNode[T]]],

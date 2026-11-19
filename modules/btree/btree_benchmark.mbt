@@ -1,6 +1,6 @@
 ///|
 priv struct BItem {
-  value : Int
+  value : Int32
 }
 
 ///|
@@ -24,14 +24,11 @@ impl @rle.Mergeable for BItem with fn merge(_self, _other) -> BItem {
 }
 
 ///|
-impl @rle.Sliceable for BItem with fn slice(self, start~ : Int, end~ : Int) -> Result[
-  BItem,
-  @rle.RleError,
-] {
+impl @rle.Sliceable for BItem with fn slice(self, start~ : Int32, end~ : Int32) -> BItem raise @rle.RleError {
   if start == 0 && end == 1 {
-    Ok({ value: self.value, })
+    { value: self.value, }
   } else {
-    Err(@rle.RleError::InvalidSlice(reason=@rle.SliceError::InvalidIndex))
+    raise @rle.RleError::InvalidSlice(reason=@rle.SliceError::InvalidIndex)
   }
 }
 
@@ -40,17 +37,17 @@ impl BTreeElem for BItem
 
 ///|
 priv struct MergeBenchItem {
-  value : Int
-  span : Int
+  value : Int32
+  span : Int32
 }
 
 ///|
-impl @rle.HasLength for MergeBenchItem with fn length(self) -> Int {
+impl @rle.HasLength for MergeBenchItem with fn length(self) -> Int32 {
   self.span
 }
 
 ///|
-impl @rle.Spanning for MergeBenchItem with fn span(self) -> Int {
+impl @rle.Spanning for MergeBenchItem with fn span(self) -> Int32 {
   self.span
 }
 
@@ -65,13 +62,13 @@ impl @rle.Mergeable for MergeBenchItem with fn merge(self, other) -> MergeBenchI
 }
 
 ///|
-fn bi(v : Int) -> BItem {
+fn bi(v : Int32) -> BItem {
   { value: v, }
 }
 
 ///|
 /// Build tree via repeated inserts (O(n log n) baseline)
-fn build_via_inserts(n : Int, min_degree : Int) -> BTree[BItem] {
+fn build_via_inserts(n : Int32, min_degree : Int32) -> BTree[BItem] {
   let t : BTree[BItem] = BTree::new(min_degree~)
   if n == 0 {
     return t
@@ -91,8 +88,8 @@ fn build_via_inserts(n : Int, min_degree : Int) -> BTree[BItem] {
 
 ///|
 /// Build tree via from_sorted (O(n) bulk)
-fn build_via_from_sorted(n : Int, min_degree : Int) -> BTree[BItem] {
-  let items : Array[(BItem, Int)] = []
+fn build_via_from_sorted(n : Int32, min_degree : Int32) -> BTree[BItem] {
+  let items : Array[(BItem, Int32)] = []
   for i in 0..<n {
     items.push((bi(i), 1))
   }
@@ -101,9 +98,9 @@ fn build_via_from_sorted(n : Int, min_degree : Int) -> BTree[BItem] {
 
 ///|
 fn build_boundary_merge_root(
-  n : Int,
-  boundary : Int,
-  variant : Int,
+  n : Int32,
+  boundary : Int32,
+  variant : Int32,
   expect_cross_parent : Bool,
 ) -> BTreeNode[MergeBenchItem] {
   let merge_value = -variant - 1
@@ -137,8 +134,8 @@ fn build_boundary_merge_root(
 ///|
 fn bench_boundary_merge(
   b : @bench.T,
-  n : Int,
-  boundary : Int,
+  n : Int32,
+  boundary : Int32,
   expect_cross_parent : Bool,
 ) -> Unit {
   let roots = Array::makei(8, variant => {

@@ -389,7 +389,7 @@ jobs:
   editor-response-benchmark:
     name: Editor Response Benchmark Gate
     needs: benchmark-gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Report benchmark not applicable
         if: needs.benchmark-gate.outputs.run_editor_response != 'true' && github.event_name != 'workflow_dispatch'
@@ -454,7 +454,7 @@ jobs:
     name: Loomark Writing Benchmark
     needs: benchmark-gate
     if: needs.benchmark-gate.outputs.run_loomark_writing == 'true' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read

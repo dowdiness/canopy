@@ -1,16 +1,18 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum RemoteResult {
   Found(@source_repository.RemoteDocument)
   AccountChanged
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum DiscoveryResult {
   Discovered(Array[@source_repository.RemoteEntry])
   AccountChanged
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
 extenum @cmd.Extension += {
@@ -18,12 +20,12 @@ extenum @cmd.Extension += {
     @source_repository.AccountId,
     @source_repository.DocumentId,
     @source_repository.PendingOperation,
-    (@replication.DeliveryResult) -> @cmd.Cmd
+    (@replication.DeliveryResult) -> @cmd.Cmd,
   )
   Get(
     @source_repository.AccountId,
     @source_repository.DocumentId,
-    (RemoteResult) -> @cmd.Cmd
+    (RemoteResult) -> @cmd.Cmd,
   )
   Discover(@source_repository.AccountId, (DiscoveryResult) -> @cmd.Cmd)
 }
@@ -35,8 +37,7 @@ fn operation_json(operation : @source_repository.PendingOperation) -> String {
     "baseRevision": operation.base_revision(),
   }
   match operation.content() {
-    @source_repository.PendingContent::Save(text) =>
-      fields["text"] = text.to_json()
+    @source_repository.PendingContent::Save(text) => fields["text"] = Json(text)
     Delete => ()
   }
   Json::object(fields).stringify()
@@ -265,14 +266,34 @@ let op : @cmd.Op = @cmd.Op()..on_invoke((extension, context) => {
   match extension {
     Deliver(account, document_id, operation, done) =>
       @cmd.Async(() => {
-        done(request(context.get_origin(), account, document_id, operation))
+        done(
+          request(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+            account,
+            document_id,
+            operation,
+          ),
+        )
       })
     Get(account, document_id, done) =>
       @cmd.Async(() => {
-        done(request_remote(context.get_origin(), account, document_id))
+        done(
+          request_remote(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+            account,
+            document_id,
+          ),
+        )
       })
     Discover(account, done) =>
-      @cmd.Async(() => done(request_discovery(context.get_origin(), account)))
+      @cmd.Async(() => {
+        done(
+          request_discovery(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+            account,
+          ),
+        )
+      })
     _ => raise @cmd.Unhandled
   }
 })

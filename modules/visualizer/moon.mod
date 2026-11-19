@@ -3,10 +3,10 @@ name = "dowdiness/visualizer"
 version = "0.1.0"
 
 import {
-  "dowdiness/incr@0.15.1",
-  "dowdiness/graphviz@0.1.0",
-  "dowdiness/svg-dsl@0.1.0",
-  "dowdiness/alga@0.3.0",
+  "dowdiness/incr@0.16.0",
+  "dowdiness/graphviz@0.2.0",
+  "dowdiness/svg-dsl@0.2.0",
+  "dowdiness/alga@0.5.0",
 }
 
 readme = "README.md"

@@ -23,7 +23,7 @@ fn mock_repo_summary(items : Array[String]) -> String {
 }
 
 ///|
-fn count_lines(text : String) -> Int {
+fn count_lines(text : String) -> Int32 {
   let mut lines = 1
   for ch in text {
     if ch == '\n' {

@@ -8,13 +8,15 @@ priv struct TextGeometry {
 ///|
 /// `None` while the textarea is hidden.
 fn TextGeometry::measure(area : @text_layout.TextArea) -> TextGeometry? {
-  guard area.element.get_client_height() > 0.0 else { return None }
+  guard @dom.IsElement::get_client_height(area.element) > 0.0 else {
+    return None
+  }
   Some({ area, layout: @text_layout.measure(area), })
 }
 
 ///|
 /// The selection endpoint the user is moving, where the caret is drawn.
-fn caret_offset(area : @dom.HTMLTextAreaElement) -> Int {
+fn caret_offset(area : @dom.HTMLTextAreaElement) -> Int32 {
   if area.get_selection_direction() == "backward" {
     area.get_selection_start()
   } else {
@@ -25,7 +27,7 @@ fn caret_offset(area : @dom.HTMLTextAreaElement) -> Int {
 ///|
 /// DOM reads belong here, not in the coordinate calculations on TextViewport.
 fn TextGeometry::viewport(self : TextGeometry) -> TextViewport {
-  let area = self.area.element.as_element()
+  let area = @dom.IsElement::as_element(self.area.element)
   {
     top: area.get_bounding_client_rect().get_top() + area.get_client_top(),
     height: area.get_client_height(),
@@ -74,6 +76,6 @@ impl ReadingGeometry for TextGeometry with fn readable(self) {
 
 ///|
 impl ReadingGeometry for TextGeometry with fn scroll_by(self, delta) {
-  let area = self.area.element.as_element()
+  let area = @dom.IsElement::as_element(self.area.element)
   area.set_scroll_top(area.get_scroll_top() + delta)
 }

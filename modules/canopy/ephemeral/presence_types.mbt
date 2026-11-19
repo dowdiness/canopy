@@ -1,7 +1,8 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct EditModeState {
   node_id : String
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for EditModeState with fn output(self, logger) {
@@ -9,17 +10,19 @@ pub impl Show for EditModeState with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum DragPosition {
   Before
   After
   Inside
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct DragState {
   source_id : String
   target : (String, DragPosition)?
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for DragState with fn output(self, logger) {
@@ -27,10 +30,11 @@ pub impl Show for DragState with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum PresenceStatus {
   Active
   Idle
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for PresenceStatus with fn output(self, logger) {
@@ -38,12 +42,13 @@ pub impl Show for PresenceStatus with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PeerPresence {
   peer_id : String
   display_name : String
   color : String
   status : PresenceStatus
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for PeerPresence with fn output(self, logger) {

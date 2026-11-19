@@ -57,7 +57,7 @@ fn js_find_by_id(scope : @js.Any, id : String) -> @js.Any? {
 fn js_find_in_children(scope : @js.Any, id : String) -> @js.Any? {
   let children = scope.get("children")
   guard !children.is_nullish() else { return None }
-  let length : Int = children.get("length").cast()
+  let length : Int32 = children.get("length").cast()
   for i in 0..<length; found = None {
     match found {
       Some(_) => continue found
@@ -275,7 +275,7 @@ fn decode_text_selection_direction(
 ///|
 fn validate_text_selection_range(
   selection : TextSelection,
-  value_length : Int,
+  value_length : Int32,
   target : DomTarget,
 ) -> Unit raise DomBoundaryError {
   guard selection.start() >= 0 &&
@@ -304,7 +304,7 @@ fn write_text_selection_target(
   guard supported else {
     raise UnsupportedAction(action=WriteTextSelection, target~)
   }
-  let value_length : Int = run_dom_operation(WriteTextSelection, target, () => {
+  let value_length : Int32 = run_dom_operation(WriteTextSelection, target, () => {
     @js.any(js_text_value_utf16_length(element))
   }).cast()
   validate_text_selection_range(selection, value_length, target)
@@ -464,7 +464,7 @@ fn decode_status(
 
 ///|
 fn decode_status_parts(
-  status : Int,
+  status : Int32,
   detail : String,
   action : DomAction,
   target : DomTarget,
@@ -553,7 +553,7 @@ fn with_detail(message : String, detail : String) -> String {
 }
 
 ///|
-extern "js" fn dom_status_code(status : DomStatus) -> Int =
+extern "js" fn dom_status_code(status : DomStatus) -> Int32 =
   #| (status) => status.status
 
 ///|
@@ -619,8 +619,8 @@ extern "js" fn js_reload() -> Bool =
 
 ///|
 extern "js" fn js_get_element_by_id(
-  status_ok : Int,
-  status_not_found : Int,
+  status_ok : Int32,
+  status_not_found : Int32,
   id : String,
 ) -> DomStatus =
   #| (statusOk, statusNotFound, id) => {
@@ -687,14 +687,14 @@ extern "js" fn js_text_selection_writable(element : DomElement) -> Bool =
   #|   typeof element.setSelectionRange === "function"
 
 ///|
-extern "js" fn js_text_value_utf16_length(element : DomElement) -> Int =
+extern "js" fn js_text_value_utf16_length(element : DomElement) -> Int32 =
   #| (element) => element.value.length
 
 ///|
 extern "js" fn js_write_text_selection(
   element : DomElement,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   direction : String,
 ) -> Unit =
   #| (element, start, end, direction) => {
@@ -702,11 +702,11 @@ extern "js" fn js_write_text_selection(
   #| }
 
 ///|
-extern "js" fn dom_text_selection_start(selection : DomTextSelection) -> Int =
+extern "js" fn dom_text_selection_start(selection : DomTextSelection) -> Int32 =
   #| (selection) => selection.start
 
 ///|
-extern "js" fn dom_text_selection_end(selection : DomTextSelection) -> Int =
+extern "js" fn dom_text_selection_end(selection : DomTextSelection) -> Int32 =
   #| (selection) => selection.end
 
 ///|

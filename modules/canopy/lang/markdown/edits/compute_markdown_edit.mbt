@@ -72,8 +72,8 @@ fn compute_commit_edit(
 /// Add the opening fence's line terminator when filling an empty code span.
 fn code_payload_for_commit(
   source : String,
-  range_start : Int,
-  range_end : Int,
+  range_start : Int32,
+  range_end : Int32,
   new_text : String,
 ) -> String {
   if range_start != range_end || new_text.is_empty() || range_start == 0 {
@@ -137,8 +137,8 @@ fn normalize_atx_heading_content(content : String) -> String {
 ///|
 fn block_replacement_terminator(
   source : String,
-  range_start : Int,
-  range_end : Int,
+  range_start : Int32,
+  range_end : Int32,
 ) -> String {
   if range_end > range_start && source[range_end - 1] == '\n' {
     if range_end - range_start > 1 && source[range_end - 2] == '\r' {
@@ -160,8 +160,8 @@ fn block_replacement_terminator(
 /// Preserve an existing block terminator without adding one at EOF.
 fn block_replacement_terminator_preserving_eof(
   source : String,
-  range_start : Int,
-  range_end : Int,
+  range_start : Int32,
+  range_end : Int32,
 ) -> String {
   if range_end == source.length() &&
     range_end > range_start &&
@@ -180,7 +180,7 @@ fn compute_change_heading_level(
   proj : ProjNode[@markdown.Block],
   source_map : SourceMap,
   node_id : NodeId,
-  level : Int,
+  level : Int32,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   ensure_change_heading_target(proj, node_id)
   ensure_editable_target(source_map, node_id)
@@ -409,7 +409,7 @@ fn compute_split_block(
   proj : ProjNode[@markdown.Block],
   source_map : SourceMap,
   node_id : NodeId,
-  offset : Int,
+  offset : Int32,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   ensure_editable_target(source_map, node_id)
   let text_range = match source_map.get_token_span(node_id, "text") {
@@ -523,15 +523,15 @@ fn next_ordered_marker(marker : String) -> String? {
   guard marker.find_by(fn(ch) { ch != ' ' && ch != '\t' }) is Some(marker_start) else {
     return None
   }
-  let marker_body = marker.view(start_offset=marker_start)
+  let marker_body = marker.exact_view(start=marker_start)
   let digit_start = if marker_body.length() > 0 && marker_body[0] == '-' {
     1
   } else {
     0
   }
   guard marker_body
-    .view(start_offset=digit_start)
-    .find_by(fn(ch) { !(ch is ('0'..='9')) })
+    .exact_view(start=digit_start)
+    .find_by(fn(ch) { !(ch is ('0'..<='9')) })
     is Some(delimiter_offset_from_digit_start) else {
     return None
   }
@@ -541,11 +541,11 @@ fn next_ordered_marker(marker : String) -> String? {
   }
   match marker_body[delimiter_offset] {
     '.' | ')' => {
-      let value = @string.parse_int(marker_body[:delimiter_offset], base=10) catch {
+      let value = @string.parse_int(marker_body[:delimiter_offset], radix=10) catch {
         _ => return None
       }
       Some(
-        marker.view(end_offset=marker_start).to_owned() +
+        marker.exact_view(end=marker_start).to_owned() +
         (value + 1).to_string() +
         marker_body[delimiter_offset:delimiter_offset + 1].to_owned() +
         marker_body[delimiter_offset + 1:].to_owned(),
@@ -657,7 +657,7 @@ fn compute_merge_with_previous(
 fn find_sibling_context(
   root : ProjNode[@markdown.Block],
   target : NodeId,
-) -> (Array[ProjNode[@markdown.Block]], Int) {
+) -> (Array[ProjNode[@markdown.Block]], Int32) {
   for i in 0..<root.children.length() {
     if root.children[i].id() == target {
       return (root.children, i)
@@ -676,7 +676,7 @@ fn find_sibling_context(
 fn find_sibling_context_and_parent(
   root : ProjNode[@markdown.Block],
   target : NodeId,
-) -> (ProjNode[@markdown.Block]?, Array[ProjNode[@markdown.Block]], Int) {
+) -> (ProjNode[@markdown.Block]?, Array[ProjNode[@markdown.Block]], Int32) {
   for i in 0..<root.children.length() {
     if root.children[i].id() == target {
       return (Some(root), root.children, i)

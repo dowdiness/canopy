@@ -37,7 +37,7 @@ fn is_space_code(code : UInt16) -> Bool {
 fn first_non_space_in_range(
   source_text : String,
   range : @loomcore.Range,
-) -> Int? {
+) -> Int32? {
   for pos = range.start; pos < range.end; pos = pos + 1 {
     if !is_space_code(source_text[pos]) {
       return Some(pos)
@@ -88,10 +88,10 @@ fn ensure_replaceable_node_range(
 /// concurrent row edits retain a line separator at the source site.
 fn binding_delete_range(
   source_text : String,
-  let_start : Int,
-  binding_end : Int,
-  prefer_leading? : Bool = false,
-) -> (Int, Int) {
+  let_start : Int32,
+  binding_end : Int32,
+  prefer_leading~ : Bool = false,
+) -> (Int32, Int32) {
   if prefer_leading && let_start > 0 && source_text[let_start - 1] == '\n' {
     (let_start - 1, binding_end - let_start + 1)
   } else if binding_end < source_text.length() &&
@@ -110,7 +110,7 @@ fn binding_delete_range(
 fn find_parent(
   registry : Map[NodeId, ProjNode[@ast.Term]],
   node_id : NodeId,
-) -> (NodeId, ProjNode[@ast.Term], Int)? {
+) -> (NodeId, ProjNode[@ast.Term], Int32)? {
   for pid, pnode in registry {
     for i, child in pnode.children {
       if child.id() == node_id {
@@ -130,7 +130,7 @@ fn get_binding_text_range(
   source_text : String,
   source_map : SourceMap,
   def : EditModuleBinding,
-) -> (Int, Int) raise EditError {
+) -> (Int32, Int32) raise EditError {
   let init_node = def.init
   guard source_map.get_range(init_node.id()) is Some(init_range) else {
     raise NodeNotInSourceMap(

@@ -8,5 +8,6 @@ import {
 import {
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/quickcheck" @qc,
 } for "wbtest"
