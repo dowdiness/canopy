@@ -335,14 +335,21 @@ fn selection_from_value(value : @js_value.Value) -> SelRange {
 /// listener's `iterChanges` walk into an ordered `Array[ChangeDelta]`.
 #cfg(target="js")
 fn change_deltas_from_value(value : @js_value.Value) -> Array[ChangeDelta] {
-  let items : Array[@js_value.Value] = value.cast()
-  items.map(fn(item) {
-    ChangeDelta::new(
-      item.get_with_string("from"),
-      item.get_with_string("to"),
-      item.get_with_string("insert"),
+  // A JS array is not a MoonBit `Array` on the JS backend; read it through
+  // `length` and indexed access instead of casting.
+  let length : Int32 = value.get_with_string("length")
+  let deltas : Array[ChangeDelta] = []
+  for i in 0..<length {
+    let item : @js_value.Value = value.get_with_index(i)
+    deltas.push(
+      ChangeDelta::new(
+        item.get_with_string("from"),
+        item.get_with_string("to"),
+        item.get_with_string("insert"),
+      ),
     )
-  })
+  }
+  deltas
 }
 
 ///|
