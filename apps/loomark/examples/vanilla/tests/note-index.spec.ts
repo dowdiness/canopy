@@ -136,9 +136,11 @@ test("clearing a search that matched nothing returns to the search field", async
 test("a font that loads after startup measures every card again", async ({ page }) => {
   const heights = async () => (await boxes(page)).map(box => Math.round(box.bottom - box.top))
   const before = await heights()
-  // A wider face under the cards' family, as a late web font would bring.
+  // A wider face at the front of the cards' family, as a late web font would
+  // bring. Until it loads, the cards draw in the faces they were measured in.
   await page.evaluate(async () => {
-    const face = new FontFace("iA Writer Quattro", "url(./fonts/IBMPlexSansJP-Regular-1.004.woff2)")
+    document.documentElement.style.setProperty("--ui", `"Late Face", system-ui, sans-serif`)
+    const face = new FontFace("Late Face", "url(./fonts/iAWriterQuattroS-Regular-2.000.woff2)")
     document.fonts.add(face)
     await face.load()
   })

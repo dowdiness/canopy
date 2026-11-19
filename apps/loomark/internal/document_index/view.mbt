@@ -394,7 +394,7 @@ fn header_view(header : Header, emit : Emit[Msg]) -> Html {
         id=SEARCH_ID,
         input_type=Search,
         value=header.query,
-        placeholder="Search notes",
+        placeholder="Search documents",
         on_input=query => emit(Searched(query)),
         attrs=@html.Attrs::build()
           .spellcheck(false)
@@ -407,14 +407,18 @@ fn header_view(header : Header, emit : Emit[Msg]) -> Html {
           }),
       ),
     ]),
-    @html.a(href=header.new_href, class="new", title="New document (N)", [
+    // The same quiet control as New document in the Editor and the sidebar.
+    @html.a(
+      href=header.new_href,
+      class="new",
+      title="New document (N)",
+      attrs=@html.Attrs::build().aria_label("New document"),
       @html.span(
-        class="new-plus",
+        class="new-icon",
         attrs=@html.Attrs::build().aria_hidden("true"),
-        "+",
+        @html.nothing,
       ),
-      @html.text("New"),
-    ]),
+    ),
   ])
 }
 
