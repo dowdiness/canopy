@@ -73,9 +73,9 @@ fn certify_reusable_name_prefix(
   let start = origin.start()
   let end = origin.end()
   guard start == 0 && end > 0 && end <= source.length() else { return None }
-  let prefix = source.view(end_offset=end).to_owned()
+  let prefix = source.exact_view(end~).to_owned()
   guard !prefix.contains("[") else { return None }
-  let terminator = source.view(start_offset=end - 1, end_offset=end)
+  let terminator = source.exact_view(start=end - 1, end~)
   if terminator.equal_to_string("\n") || terminator.equal_to_string("\r") {
     Some(end)
   } else {
@@ -104,7 +104,7 @@ fn derive_name_with_certificate(source : String) -> DerivedName {
           None
         } else {
           certify_reusable_name_prefix(source, root, diagnostics, candidate).map(end => {
-              source.view(end_offset=end).to_owned()
+              source.exact_view(end~).to_owned()
             },
           )
         },
@@ -120,7 +120,7 @@ pub fn derive_name(source : String) -> DerivedName {
 ///|
 pub fn DerivedName::update(self : Self, source : String) -> Self {
   match self.reusable_prefix {
-    Some(prefix) if source.has_prefix(prefix.view()) => self
+    Some(prefix) if source.has_prefix(prefix[:]) => self
     _ => derive_name(source)
   }
 }

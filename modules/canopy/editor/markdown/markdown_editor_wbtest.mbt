@@ -370,7 +370,7 @@ test "source replacement receipt transforms the portable before source" {
   assert_eq(before, "\n\nHello\n")
   assert_eq(snapshot.source(), "\n\nChanged\n")
   assert_eq(after, snapshot.source())
-  assert_false(transform.inserted().contains("\u200B".view()))
+  assert_false(transform.inserted().contains("\u200B"[:]))
 }
 
 ///|
@@ -908,7 +908,7 @@ test "structural receipt transform targets the portable snapshot source" {
     before[transform.start() + transform.delete_len():].to_owned()
   assert_eq(snapshot.source(), "\n\nHello\n")
   assert_eq(after, snapshot.source())
-  assert_false(transform.inserted().contains("\u200B".view()))
+  assert_false(transform.inserted().contains("\u200B"[:]))
 }
 
 ///|
@@ -1157,7 +1157,7 @@ test "portable Markdown merge removes a split-created empty previous sentinel" {
     ) {
     Ok(MarkdownCommitResult::Applied(snapshot, Some(selection))) => {
       assert_eq(snapshot.source(), "Hello\n")
-      assert_false(snapshot.source().contains("\u200B".view()))
+      assert_false(snapshot.source().contains("\u200B"[:]))
       assert_eq(editor.portable_markdown(), "Hello\n")
       let blocks = snapshot.blocks().to_array()
       assert_eq(blocks.length(), 1)

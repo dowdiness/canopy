@@ -195,7 +195,7 @@ fn parse_peer_id(key : String) -> UInt64? {
       return None
     }
   }
-  Some(@string.parse_uint64(key.view(), base=10)) catch {
+  Some(@string.parse_uint64(key[:], radix=10)) catch {
     _ => None
   }
 }
@@ -224,7 +224,7 @@ fn to_wire_peer_id(key : String) -> String {
 ///|
 fn stable_peer_hash(key : String) -> UInt64 {
   let buf = Buffer()
-  buf.write_string_utf16le(key.view())
+  buf.write_string_utf16le(key[:])
   let bytes = buf.to_bytes()
   let mut hash = 14695981039346656037UL
   for b in bytes {
@@ -247,7 +247,7 @@ fn encode_entries(entries : Array[(String, EphemeralRecord)]) -> Bytes {
     filtered.push((peer, record.clock, value))
   }
   if filtered.length() == 0 {
-    return Bytes::new(0)
+    return Bytes::make(0, b'\x00')
   }
   let buf = Buffer()
   write_uvarint(buf, filtered.length().to_uint64())

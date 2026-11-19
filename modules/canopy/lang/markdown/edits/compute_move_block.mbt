@@ -377,7 +377,7 @@ fn ordered_list_marker_parts(
         (source[content_start] == ' ' || source[content_start] == '\t') {
     content_start = content_start + 1
   }
-  let value = @string.parse_int(source[marker_start:delimiter], base=10) catch {
+  let value = @string.parse_int(source[marker_start:delimiter], radix=10) catch {
     _ => return None
   }
   Some(

@@ -78,6 +78,6 @@ test "hub: get_all_editing" {
 ///|
 test "hub: apply_all with empty bytes" {
   let hub = @ephemeral.EphemeralHub::new("alice")
-  hub.apply_all(Bytes::new(0))
+  hub.apply_all(Bytes::make(0, b'\x00'))
   inspect(hub.get_online_peers().length(), content="0")
 }

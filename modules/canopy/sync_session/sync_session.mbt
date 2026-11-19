@@ -211,7 +211,7 @@ pub fn SyncSession::on_message(
       let crdt_msg = (host.export_all)() catch { _ => return }
       let json_str = crdt_msg.to_json_string()
       let buf = Buffer()
-      buf.write_string_utf16le(json_str.view())
+      buf.write_string_utf16le(json_str[:])
       (host.io.send)(@wire.encode_message(CrdtOps(buf.to_bytes())))
     }
     PeerLeft(peer_id) => {

@@ -2084,7 +2084,7 @@ fn tight_top_level_list(
       None => return false
     }
     let payload = source[text_span.start:text_span.end]
-    if payload.contains("\n".view()) || payload.contains("\r".view()) {
+    if payload.contains("\n"[:]) || payload.contains("\r"[:]) {
       return false
     }
   }
@@ -2103,7 +2103,7 @@ fn tight_top_level_list(
     let normalized = gap
       .replace_all(old="\r\n", new="\n")
       .replace_all(old="\r", new="\n")
-    if normalized.contains("\n\n".view()) {
+    if normalized.contains("\n\n"[:]) {
       return false
     }
   }

@@ -59,7 +59,7 @@ fn bound_text(text : String, limit : Int32) -> (String, Bool) {
     (text, false)
   } else {
     let end = text.offset_of_nth_char(limit).unwrap()
-    (text.view(end_offset=end).to_owned(), true)
+    (text.exact_view(end~).to_owned(), true)
   }
 }
 
@@ -286,7 +286,7 @@ fn fallback_lead(source : String) -> DocumentLead {
       let rest = lines[index + 1:]
       match rest.search_by(line => !line.trim().is_empty()) {
         Some(start) =>
-          rest[start:].join("\n").trim_end(chars="\n".view()).to_owned()
+          rest[start:].join("\n").trim_end(chars="\n"[:]).to_owned()
         None => ""
       }
     }

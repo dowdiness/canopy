@@ -284,11 +284,11 @@ pub fn EphemeralStore::encode(self : EphemeralStore, key : String) -> Bytes {
   match self.states.get(key) {
     Some(record) =>
       if is_expired(record.updated_at, now, self.timeout_ms) {
-        Bytes::new(0)
+        Bytes::make(0, b'\x00')
       } else {
         encode_entries([(key, record)])
       }
-    None => Bytes::new(0)
+    None => Bytes::make(0, b'\x00')
   }
 }
 

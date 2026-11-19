@@ -116,7 +116,7 @@ fn Driver::host(self : Driver) -> @sync_session.SyncHost raise {
     export_all=() => msg,
     export_since=_ => msg,
     apply_ephemeral=(_, _) => (),
-    encode_ephemeral=_ => Bytes::new(0),
+    encode_ephemeral=_ => Bytes::make(0, b'\x00'),
     on_peer_leave=peer_id => self.peer_leaves.push(peer_id),
   )
 }
@@ -138,7 +138,7 @@ fn Driver::start_recovery(self : Driver, peer : String) -> Unit raise {
   let host = self.host()
   let msg = empty_message()
   let buf = Buffer()
-  buf.write_string_utf16le(msg.to_json_string().view())
+  buf.write_string_utf16le(msg.to_json_string()[:])
   self.session.on_message(
     @wire.encode_relayed_crdt_ops(peer, buf.to_bytes()),
     host,

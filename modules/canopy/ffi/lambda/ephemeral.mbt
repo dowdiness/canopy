@@ -5,7 +5,7 @@
 pub fn ephemeral_encode_all(handle : Int32) -> Bytes {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.encode_ephemeral_all()
-    None => Bytes::new(0)
+    None => Bytes::make(0, b'\x00')
   }
 }
 

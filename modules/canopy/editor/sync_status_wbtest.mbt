@@ -22,7 +22,7 @@ fn[T : Eq] force_error_exhausted(
   feeder.set_text("first-second")
   let orphan_delta = feeder.export_since(version_after_first)
   let buf = Buffer()
-  buf.write_string_utf16le(orphan_delta.to_json_string().view())
+  buf.write_string_utf16le(orphan_delta.to_json_string()[:])
   editor.ws_on_message(@wire.encode_relayed_crdt_ops("alice", buf.to_bytes()))
   // Recovery is now active on epoch 1; exhaust it.
   editor.on_watchdog_fire(1)
@@ -197,7 +197,7 @@ test "SyncStatus: watchdog scheduler receives request_id and timeout on send" {
     }
   }
   let buf = Buffer()
-  buf.write_string_utf16le(orphan_delta.to_json_string().view())
+  buf.write_string_utf16le(orphan_delta.to_json_string()[:])
   editor.ws_on_message(@wire.encode_relayed_crdt_ops("alice", buf.to_bytes()))
   // enter_recovery sent the initial SyncRequest on epoch 1 with the
   // current timeout.

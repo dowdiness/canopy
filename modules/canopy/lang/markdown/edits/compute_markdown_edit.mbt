@@ -523,14 +523,14 @@ fn next_ordered_marker(marker : String) -> String? {
   guard marker.find_by(fn(ch) { ch != ' ' && ch != '\t' }) is Some(marker_start) else {
     return None
   }
-  let marker_body = marker.view(start_offset=marker_start)
+  let marker_body = marker.exact_view(start=marker_start)
   let digit_start = if marker_body.length() > 0 && marker_body[0] == '-' {
     1
   } else {
     0
   }
   guard marker_body
-    .view(start_offset=digit_start)
+    .exact_view(start=digit_start)
     .find_by(fn(ch) { !(ch is ('0'..<='9')) })
     is Some(delimiter_offset_from_digit_start) else {
     return None
@@ -541,11 +541,11 @@ fn next_ordered_marker(marker : String) -> String? {
   }
   match marker_body[delimiter_offset] {
     '.' | ')' => {
-      let value = @string.parse_int(marker_body[:delimiter_offset], base=10) catch {
+      let value = @string.parse_int(marker_body[:delimiter_offset], radix=10) catch {
         _ => return None
       }
       Some(
-        marker.view(end_offset=marker_start).to_owned() +
+        marker.exact_view(end=marker_start).to_owned() +
         (value + 1).to_string() +
         marker_body[delimiter_offset:delimiter_offset + 1].to_owned() +
         marker_body[delimiter_offset + 1:].to_owned(),

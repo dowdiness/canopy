@@ -62,8 +62,7 @@ fn run_text_intent_dispatch_bench(
     let needle = "\"k\{idx}\": "
     let mut found = -1
     for p in 0..<(source.length() - needle.length()) {
-      if source.view(start_offset=p, end_offset=p + needle.length()) ==
-        needle.view() {
+      if source.exact_view(start=p, end=p + needle.length()) == needle[:] {
         found = p + needle.length()
         break
       }

@@ -187,7 +187,7 @@ test "peer IDs must be canonical decimal strings" {
 ///|
 test "subscribe_local_updates receives bytes and can apply to another store" {
   let store = @ephemeral.EphemeralStore::new(60000UL)
-  let received_bytes : Ref[Bytes] = Ref(Bytes::new(0))
+  let received_bytes : Ref[Bytes] = Ref(Bytes::make(0, b'\x00'))
   let _sub = store.subscribe_local_updates(fn(bytes) {
     received_bytes.val = bytes
     true
