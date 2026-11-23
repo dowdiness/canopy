@@ -1,0 +1,272 @@
+/* The Document index's own styles, shared by Loomark and the note_index
+   prototype. Its markup uses plain class names, so every rule is scoped to
+   `.loomark-index`. The host provides Loomark's tokens: --lm-foundation,
+   --lm-surface, --lm-paper, --lm-ink, --lm-muted, --lm-rule, --lm-accent,
+   --lm-danger, --lm-danger-soft, --ui, --mono, and --writing; the host also
+   shows and hides the index. Card heights and the grid width are measured
+   by @browser, so nothing here is mirrored in MoonBit. */
+.loomark-index {
+  --lm-hover: color-mix(in oklab, var(--lm-ink) 6%, transparent);
+  --lm-track: color-mix(in oklab, var(--lm-ink) 5%, var(--lm-paper));
+  --lm-edge: color-mix(in oklab, var(--lm-ink) 9%, transparent);
+  --lm-edge-strong: color-mix(in oklab, var(--lm-ink) 18%, transparent);
+  --lm-selected: color-mix(in oklab, var(--lm-accent) 9%, var(--lm-paper));
+  --lm-lift: 0 1px 2px oklch(0.2 0.01 70 / 0.05);
+  --lm-lift-hover: 0 1px 2px oklch(0.2 0.01 70 / 0.05), 0 12px 32px -6px oklch(0.2 0.01 70 / 0.14);
+  --lm-hit: color-mix(in oklab, var(--lm-accent) 16%, transparent);
+  --enter: cubic-bezier(0.23, 1, 0.32, 1);
+  --move: cubic-bezier(0.77, 0, 0.175, 1);
+  --icon-square-pen: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z'/%3E%3C/svg%3E");
+  --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 21l-4.34-4.34'/%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3C/svg%3E");
+  --icon-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 11v6m4-6v6m5-11v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3C/svg%3E");
+  --icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4m0 4h.01'/%3E%3C/svg%3E");
+  --icon-loader: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-6.219-8.56'/%3E%3C/svg%3E");
+  font: 14px/1.5 var(--ui);
+}
+@media (prefers-color-scheme: dark) {
+  .loomark-index {
+    --lm-lift: 0 1px 2px oklch(0 0 0 / 0.3);
+    --lm-lift-hover: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px -6px oklch(0 0 0 / 0.55);
+    --lm-hit: color-mix(in oklab, var(--lm-accent) 28%, transparent);
+  }
+}
+.loomark-index :focus-visible { outline: 2px solid var(--lm-accent); outline-offset: 2px; }
+.loomark-index .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.loomark-index .new-icon, .loomark-index .card-delete-icon, .loomark-index .card-unsaved, .loomark-index .card-progress::before {
+  display: block; background: currentColor;
+  mask: var(--icon) center / contain no-repeat;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+}
+
+/* The desk: sheets of paper laid on Loomark's foundation. */
+.loomark-index .index { max-width: 1400px; margin: 0 auto; padding: 0 60px 96px; }
+
+/* The Editor's top bar: no rule, only a soft fade of paper behind quiet
+   controls, so the documents stay the one primary region. */
+.loomark-index .bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 -8px 12px; padding: 12px 8px 24px;
+}
+.loomark-index .bar::before {
+  content: ""; position: absolute; inset: 0 -24px -12px; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, var(--lm-foundation) 55%, transparent);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  mask-image: linear-gradient(to bottom, black 60%, transparent);
+}
+.loomark-index .count {
+  margin-left: auto;
+  color: var(--lm-muted); font-size: 12px; font-weight: 400;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* Search sits recessed in the paper, like the Editor's mode track. */
+/* A little shorter than the controls beside it, so it keeps clear of the
+   top edge, with a wider gap before New. */
+.loomark-index .search { position: relative; flex: 0 1 260px; min-width: 0; height: 32px; margin: 0 6px 0 auto; }
+.loomark-index .count + .search { margin-left: 0; }
+.loomark-index .search::before {
+  content: ""; position: absolute; left: 11px; top: 50%; width: 14px; height: 14px;
+  translate: 0 -50%; background: var(--lm-muted); pointer-events: none;
+  mask: var(--icon-search) center / contain no-repeat;
+  -webkit-mask: var(--icon-search) center / contain no-repeat;
+}
+.loomark-index .search input {
+  width: 100%; height: 32px; padding: 0 12px 0 33px;
+  border: 0; border-radius: 10px;
+  background: var(--lm-track); color: inherit; font: 13px/1 var(--ui);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--lm-ink) 5%, transparent);
+  transition: box-shadow 150ms ease, background-color 150ms ease;
+}
+.loomark-index .search input::placeholder { color: var(--lm-muted); }
+.loomark-index .search input::-webkit-search-cancel-button { cursor: pointer; }
+/* The "/" shortcut, shown where a keyboard can use it, while the field waits. */
+@media (hover: hover) and (pointer: fine) {
+  .loomark-index .search:has(input:placeholder-shown:not(:focus))::after {
+    content: "/"; position: absolute; right: 8px; top: 50%; translate: 0 -50%;
+    display: grid; place-items: center; width: 20px; height: 20px;
+    border-radius: 5px; box-shadow: inset 0 0 0 1px var(--lm-edge-strong);
+    color: var(--lm-muted); font: 500 11px/1 var(--mono); pointer-events: none;
+  }
+  .loomark-index .search input:hover { box-shadow: inset 0 0 0 1px var(--lm-edge-strong); }
+}
+.loomark-index .search input:focus-visible {
+  outline: none; background: var(--lm-surface);
+  box-shadow: inset 0 0 0 1px var(--lm-accent), 0 0 0 3px var(--lm-hit);
+}
+
+/* New document: the Editor's quiet 36px icon control, square-pen as there. */
+.loomark-index .new {
+  display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px;
+  border-radius: 8px; color: var(--lm-muted);
+  transition: background-color 150ms ease, color 150ms ease, transform 140ms var(--enter);
+}
+.loomark-index .new-icon { --icon: var(--icon-square-pen); width: 18px; height: 18px; }
+.loomark-index .new:active { transform: scale(0.97); }
+@media (hover: hover) and (pointer: fine) {
+  .loomark-index .new:hover { background: var(--lm-hover); color: var(--lm-ink); }
+}
+
+/* Measured by the shell: the grid's width, and cards not measured yet. */
+.loomark-index .grid-width { height: 0; }
+.loomark-index .card-measure { position: absolute; top: 0; left: -100000px; visibility: hidden; }
+.loomark-index .card-measure .card { height: auto; }
+
+/* ------------------------------------------------------------ grid */
+
+.loomark-index .grid { position: relative; margin: 0 auto; padding: 0; list-style: none; }
+/* A changed card moving to the front is the one causal motion here. */
+.loomark-index .grid.cards > .slot {
+  position: absolute; top: 0; left: 0;
+  transition: transform 280ms var(--move);
+}
+@media (prefers-reduced-motion: reduce) { .loomark-index .grid.cards > .slot { transition: none; } }
+
+/* Each card is a sheet of the document's paper with a fine edge: an
+   independent object, so it earns its boundary. */
+.loomark-index .card {
+  --lh: 20px;
+  position: relative; display: block; height: 100%; overflow: hidden;
+  padding: 15px 16px 16px;
+  border-radius: 12px;
+  background: var(--lm-paper); color: inherit; text-decoration: none;
+  box-shadow: 0 0 0 1px var(--lm-edge), var(--lm-lift);
+  font: 13px/var(--lh) var(--ui);
+  line-break: strict; overflow-wrap: anywhere;
+  transition: box-shadow 150ms ease, background-color 900ms ease, transform 140ms var(--enter);
+}
+.loomark-index .card[lang="ja"] { --lh: 22px; }
+.loomark-index .card:focus-visible { outline-offset: 2px; }
+/* Just moved to the front: the sidebar's selected tint, fading back. */
+.loomark-index .card.just-moved { background: var(--lm-selected); }
+@media (hover: hover) and (pointer: fine) {
+  .loomark-index .card:hover { box-shadow: 0 0 0 1px var(--lm-edge-strong), var(--lm-lift-hover); }
+  .loomark-index .card:active { transform: scale(0.985); }
+}
+@media (prefers-reduced-motion: reduce) { .loomark-index .card:active { transform: none; } }
+
+/* The browser breaks and clamps lead text; the shell measures the result.
+   The lead reads as on its Recent documents entry, in the UI face: the
+   primary content in ink, the description muted beneath it, so a document
+   looks the same in the sidebar and here. */
+.loomark-index .lead, .loomark-index .desc {
+  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;
+  white-space: pre-line;
+}
+.loomark-index .lead {
+  -webkit-line-clamp: 3;
+  font: 500 14px/var(--lh) var(--ui); color: var(--lm-ink);
+}
+.loomark-index .card[lang="ja"] .lead { line-height: var(--lh); }
+.loomark-index .desc {
+  -webkit-line-clamp: 6;
+  margin-top: 4px; color: var(--lm-muted);
+}
+.loomark-index .lead-heading { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+/* Quotation keeps a neutral rule; accent stays with interaction. */
+.loomark-index .lead-quote {
+  padding-left: 11px; border-left: 2px solid var(--lm-rule);
+  font-weight: 400; font-style: italic;
+}
+.loomark-index .card[lang="ja"] .lead-quote { font-style: normal; }
+.loomark-index .lead-code {
+  padding: 8px 10px; border-radius: 7px;
+  background: var(--lm-track); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--lm-ink) 5%, transparent);
+  font: 400 12px/18px var(--mono);
+}
+.loomark-index .lead.lead-code { display: block; }
+.loomark-index .code-line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.loomark-index .lead-task.done { color: var(--lm-muted); text-decoration: line-through; text-decoration-color: var(--lm-edge-strong); }
+
+/* Search matches only colour the text, so measured heights still hold. */
+.loomark-index mark {
+  background: var(--lm-hit); color: var(--lm-ink); border-radius: 3px;
+  box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  box-shadow: 0 0 0 1px var(--lm-hit);
+}
+
+/* Delete document, as on a Recent documents entry: muted until its target
+   is chosen, then the destructive role. Every card keeps room for it beside
+   its first block, so cards measure the same whether or not it shows. */
+.loomark-index .card > :first-child { margin-right: 22px; }
+.loomark-index .card-delete {
+  position: absolute; top: 8px; right: 8px; z-index: 1;
+  display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--lm-muted);
+  cursor: pointer;
+  transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+.loomark-index .card-delete-icon { --icon: var(--icon-trash); width: 16px; height: 16px; }
+.loomark-index .card-delete:focus-visible { background: var(--lm-danger-soft); color: var(--lm-danger); }
+.loomark-index .card-delete[aria-disabled="true"] { cursor: default; opacity: 0.3; }
+.loomark-index .card-delete:active:not([aria-disabled="true"]) { opacity: 0.65; }
+@media (hover: hover) and (pointer: fine) {
+  .loomark-index .card-delete:hover:not([aria-disabled="true"]) { background: var(--lm-danger-soft); color: var(--lm-danger); }
+  /* With a fine pointer it appears with its card, so the grid reads as
+     content; keyboard focus and touch keep it visible. */
+  .loomark-index .slot:not(:hover, .loomark-index :focus-within) .card-delete:not([aria-disabled="true"]) { opacity: 0; }
+}
+@media (pointer: coarse) {
+  .loomark-index .card-delete { top: 4px; right: 4px; width: 44px; height: 44px; }
+}
+
+/* Notices are drawn over the card, never in its flow, for the same reason:
+   on its bottom edge, half over its padding and half over the gap below, so
+   they cover no text. */
+.loomark-index .card-notice {
+  position: absolute; left: 50%; bottom: -11px; translate: -50% 0; z-index: 1;
+  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px;
+  border-radius: 999px; background: var(--lm-surface); white-space: nowrap;
+  box-shadow: 0 0 0 1px var(--lm-edge), 0 4px 12px -6px oklch(0.2 0.01 70 / 0.2);
+  font: 500 11.5px/1 var(--ui); color: var(--lm-muted); pointer-events: none;
+}
+.loomark-index .card-progress::before {
+  --icon: var(--icon-loader); content: ""; width: 12px; height: 12px;
+  animation: card-spin 900ms linear infinite;
+}
+@keyframes card-spin { to { rotate: 1turn; } }
+@media (prefers-reduced-motion: reduce) { .loomark-index .card-progress::before { animation-duration: 2700ms; } }
+.loomark-index .card-problem {
+  background: var(--lm-danger-soft); color: var(--lm-danger);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--lm-danger) 30%, transparent);
+}
+/* Not saved: the same muted mark as a Recent documents entry. */
+.loomark-index .card-unsaved {
+  --icon: var(--icon-alert);
+  position: absolute; right: 10px; bottom: 6px; z-index: 1;
+  width: 13px; height: 13px; color: var(--lm-muted); pointer-events: none;
+}
+/* Pending deletion: still in place, visibly on its way out. */
+.loomark-index .slot.deleting .card { opacity: 0.5; cursor: default; box-shadow: 0 0 0 1px var(--lm-edge); }
+.loomark-index .slot.deleting .card:active { transform: none; }
+
+.loomark-index .empty {
+  display: grid; justify-items: center; gap: 12px;
+  margin: 14vh auto 0; max-width: 420px; text-align: center;
+}
+.loomark-index .empty-title { margin: 0; color: var(--lm-muted); font-size: 14px; }
+.loomark-index .empty-action {
+  height: 34px; padding: 0 14px; display: inline-flex; align-items: center;
+  border: 0; border-radius: 9px; background: var(--lm-surface); color: var(--lm-ink);
+  box-shadow: 0 0 0 1px var(--lm-edge-strong);
+  font: 500 13px/1 var(--ui); text-decoration: none; cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.loomark-index .empty-action:hover { background: var(--lm-hover); }
+
+/* Tailwind's `grid` utility, when the host has one, is left out. */
+.loomark-index .grid { display: block; }
+@media (max-width: 720px) {
+  .loomark-index .index { padding: 0 16px 64px; }
+  /* New sits level with the documents trigger and as far from the right
+     edge as the Editor's controls; Search lines up with the cards. */
+  .loomark-index .bar { position: static; flex-wrap: wrap; row-gap: 14px; padding: 8px 4px 16px; }
+  .loomark-index .search, .loomark-index .count + .search { margin-inline: 4px; }
+  .loomark-index .bar::before { display: none; }
+  .loomark-index .search { order: 3; flex: 1 1 100%; height: 40px; }
+  /* 16px keeps iOS from zooming into the field on focus. */
+  .loomark-index .search input { height: 40px; font-size: 16px; }
+  /* Search wraps below, so New keeps the right end on its own. */
+  .loomark-index .new { margin-left: auto; }
+  .loomark-index .count ~ .new { margin-left: 0; }
+}

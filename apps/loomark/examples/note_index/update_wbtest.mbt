@@ -34,7 +34,6 @@ fn three_notes() -> Model {
     page: Index,
     index: @document_index.DocumentIndex(
       seeds(notes, NoDeletion)[:],
-      grid_width=1232.0,
       new_href="#/new",
     ),
     deletion: NoDeletion,

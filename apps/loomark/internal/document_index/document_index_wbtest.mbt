@@ -20,7 +20,10 @@ let alpha_beta_gamma : Array[Seed] = [
 
 ///|
 fn three_cards() -> DocumentIndex {
-  DocumentIndex(alpha_beta_gamma[:], grid_width=1232.0, new_href="#/new")
+  step(
+    DocumentIndex(alpha_beta_gamma[:], new_href="#/new"),
+    GridMeasured(1232.0),
+  )
 }
 
 ///|
@@ -118,10 +121,9 @@ test "focus moves to the card in a removed card's place, or the one before" {
   assert_eq(last.focus_pending, Some("b"))
   // With no card left, focus goes to Search, which the index does not hold.
   let (none, _) = measured(
-    DocumentIndex(
-      [seed("a", "# Alpha")][:],
-      grid_width=1232.0,
-      new_href="#/new",
+    step(
+      DocumentIndex([seed("a", "# Alpha")][:], new_href="#/new"),
+      GridMeasured(1232.0),
     ),
     50,
   ).removed([][:], key="a", announcement="")

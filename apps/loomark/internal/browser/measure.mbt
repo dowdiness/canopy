@@ -93,3 +93,58 @@ pub fn[T] rendered_heights(
     },
   )
 }
+
+///|
+priv suberror RenderedWidth {
+  RenderedWidth(String, @cmd.Emit[Double])
+}
+
+///|
+/// After the next render, report the width of `#element_id`, then again
+/// whenever it changes, while the subscription is active. For an element the
+/// app draws itself, so it cannot be resolved at startup.
+pub fn rendered_width(
+  element_id : String,
+  measured : @cmd.Emit[Double],
+) -> @sub.Sub {
+  @sub.custom_sub(
+    "browser.rendered_width(\{element_id})",
+    Local,
+    RenderedWidth(element_id, measured),
+    (payload, scheduler) => {
+      guard payload is RenderedWidth(element_id, tagger) else { return None }
+      let mut tagger = tagger
+      let mut wait = Scheduled
+      let observer = @dom.ResizeObserver::new((_, _) => {
+        guard wait is Scheduled else { return }
+        guard @dom.document().get_element_by_id(element_id).to_option()
+          is Some(element) &&
+          element.to_html_element() is Some(element) else {
+          return
+        }
+        scheduler.queue_command(tagger(element.get_client_width()))
+      })
+      scheduler.queue_command(
+        after_render(() => {
+          guard wait is Scheduled else { return }
+          guard @dom.document().get_element_by_id(element_id).to_option()
+            is Some(element) else {
+            abort("#\{element_id} must be rendered while its width is observed")
+          }
+          observer.observe(element)
+        }),
+      )
+      Some({
+        unload: _ => {
+          wait = Released
+          observer.disconnect()
+        },
+        update_tagger: payload => {
+          if payload is RenderedWidth(_, next) {
+            tagger = next
+          }
+        },
+      })
+    },
+  )
+}

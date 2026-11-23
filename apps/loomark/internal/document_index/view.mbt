@@ -207,6 +207,7 @@ fn delete_view(card : Card, tab_stop : Bool, on_delete : Emit[String]) -> Html {
   }
   @html.button(
     type_="button",
+    id=card_delete_dom_id(card.key),
     class="card-delete",
     title=label,
     attrs~,
@@ -352,9 +353,10 @@ fn grid_view(
 }
 
 ///|
-/// What the header shows: the document count and the search query.
+/// What the header shows: the search query, and while searching how many
+/// documents match it.
 priv struct Header {
-  count : String
+  count : String?
   query : String
   new_href : String
 } derive(Eq)
@@ -372,9 +374,9 @@ fn header_and_documents(index : DocumentIndex) -> (Header, Documents) {
   let total = index.cards.length()
   let cursor = visible_cursor(index)
   let count = match (index.query, cursor) {
-    ("", _) => "\{total} documents"
-    (_, Some(shown)) => "\{shown.length()} of \{total}"
-    (_, None) => "0 of \{total}"
+    ("", _) => None
+    (_, Some(shown)) => Some("\{shown.length()} of \{total}")
+    (_, None) => Some("0 of \{total}")
   }
   let documents = match (cursor, total) {
     (Some(_), _) => Shown
@@ -387,7 +389,12 @@ fn header_and_documents(index : DocumentIndex) -> (Header, Documents) {
 ///|
 fn header_view(header : Header, emit : Emit[Msg]) -> Html {
   @html.header(class="bar", [
-    @html.h1([@html.text("Notes "), @html.span(class="count", header.count)]),
+    // Named for assistive technology; the cards themselves show what this is.
+    @html.h1(class="visually-hidden", "Notes"),
+    match header.count {
+      Some(count) => @html.span(class="count", count)
+      None => @html.nothing
+    },
     @html.label(class="search", [
       @html.span(class="visually-hidden", "Search documents"),
       @html.input(
@@ -457,12 +464,11 @@ fn documents_view(
 /// Delete document on a card asks the host through `on_delete` with the
 /// card's key; the host confirms and deletes, and lists the result.
 ///
-/// While `covered`, the index stays laid out but invisible, rather than
-/// `hidden`, so its cards keep their positions and slide from them when it
-/// is shown again.
+/// The host shows and hides the index. Hiding it with `visibility: hidden`
+/// keeps it laid out, so its cards keep their positions and slide from them
+/// when it is shown again, and its grid width stays measured.
 pub fn view(
   index : Val[DocumentIndex],
-  covered~ : Val[Bool],
   on_delete~ : Emit[String],
   emit : Emit[Msg],
 ) -> Val[Html] {
@@ -485,14 +491,24 @@ pub fn view(
     .view3(new_href, grid, (documents, new_href, grid) => {
       documents_view(documents, new_href, grid, emit)
     })
-  let main = header.view3(documents, covered, (header, documents, covered) => {
+  let main = header.view2(documents, (header, documents) => {
     @html.main_(
       id="index",
-      class=if covered { "index covered" } else { "index" },
-      [header, documents],
+      class="index",
+      [
+        // Laid out like the grid, so its width is the grid's.
+        @html.div(
+          id=GRID_WIDTH_ID,
+          class="grid-width",
+          attrs=@html.Attrs::build().aria_hidden("true"),
+          @html.nothing,
+        ),
+        header,
+        documents,
+      ],
     )
   })
-  // Outside the index, so cards are measured while it is covered as well.
+  // Outside the grid, so it never shifts the cards on screen.
   let measure = index
     .map(to_measure)
     .view(requests => {
@@ -511,6 +527,6 @@ pub fn view(
       )
     })
   main.view3(measure, announcement, (main, measure, said) => {
-    @html.div([main, measure, said])
+    @html.div(class="loomark-index", [main, measure, said])
   })
 }

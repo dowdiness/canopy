@@ -24,18 +24,23 @@ The code follows [Functional Core / Imperative Shell](../../../../docs/architect
   such as a highlight fading or the width holding still. This example routes
   between the index and the editor and deletes notes.
 - **Shell** (`shell.mbt` and `internal/browser`): the only code that touches
-  the DOM. At startup `shell.mbt` reads the URL, resolves `#grid-width`, and
-  mounts the app once the card fonts have loaded. After render
-  `internal/browser` resolves the off-screen `#card-measure` layer and reads
-  its cards' heights in one pass, passes the resolved `#grid-width` element
-  to a `ResizeObserver`, and moves focus. When font faces finish loading
-  after startup it reports `FontsLoaded`, and every card is measured again.
+  the DOM. At startup `shell.mbt` reads the URL and mounts the app once the
+  card fonts have loaded. After render `internal/browser` observes the grid
+  width element the index draws with a `ResizeObserver`, resolves the
+  off-screen `#card-measure` layer and reads its cards' heights in one pass,
+  and moves focus. When font faces finish loading after startup it reports
+  `FontsLoaded`, and every card is measured again.
 
 The browser breaks and clamps card text, so nothing in MoonBit predicts a
-height. Cards not measured yet are drawn off screen at the widths they may
+height or a width: no card is shown until the grid width is measured. Cards not measured yet are drawn off screen at the widths they may
 take; until all visible cards are measured, the grid keeps showing the layout
 it last packed (`ShownGrid`), so it never shows a guessed height. All listed
 notes are measured, not only visible ones, so a search never waits.
+
+The index's styles are `internal/document_index/document_index.css`, which
+Loomark imports and `public/document_index.css` links to. `public/styles.css`
+holds only this page's tokens, its editor stand-in, and how it covers the
+index under the editor.
 
 ## Run
 

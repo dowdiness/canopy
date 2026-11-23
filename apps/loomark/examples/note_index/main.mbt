@@ -365,14 +365,14 @@ fn update(model : Model, msg : Msg, _ : Emit[Msg]) -> (Model, Cmd) {
 
 ///|
 fn subscriptions(
-  page : @document_index.HostPage,
+  fonts : @dom.EventTarget,
   model : Model,
   emit : Emit[Msg],
 ) -> @sub.Sub {
   @sub.batch([
     @sub.on_url_changed(url => emit(UrlChanged(url))),
     @sub.on_url_request(request => emit(UrlRequested(request))),
-    model.index.subscriptions(page, emit.map(msg => IndexMsg(msg))),
+    model.index.subscriptions(fonts, emit.map(msg => IndexMsg(msg))),
     match model.deletion {
       Deleting(note) =>
         @timeout.after(
@@ -386,7 +386,7 @@ fn subscriptions(
 }
 
 ///|
-fn initial_state(route : Route, grid_width : Double) -> (Model, Cmd) {
+fn initial_state(route : Route) -> (Model, Cmd) {
   let notes = Vector(sample_texts.mapi((i, text) => { id: "n\{i + 1}", text, }))
   let model = {
     notes,
@@ -394,7 +394,6 @@ fn initial_state(route : Route, grid_width : Double) -> (Model, Cmd) {
     deletion: NoDeletion,
     index: @document_index.DocumentIndex(
       seeds(notes, NoDeletion)[:],
-      grid_width~,
       new_href="#/new",
     ),
     next_id: notes.length() + 1,
@@ -410,13 +409,12 @@ fn initial_state(route : Route, grid_width : Double) -> (Model, Cmd) {
 /// The app, started once the card fonts have loaded.
 fn app(
   startup_route : Route,
-  page : @document_index.HostPage,
-  grid_width : Double,
+  fonts : @dom.EventTarget,
 ) -> @rabbita.Val[@rabbita.Html] {
   let (model, emit) = @rabbita.create_state_with_init(
-    init=_ => initial_state(startup_route, grid_width),
+    init=_ => initial_state(startup_route),
     update~,
-    subscriptions=(model, emit) => subscriptions(page, model, emit),
+    subscriptions=(model, emit) => subscriptions(fonts, model, emit),
   )
   view(model, emit)
 }

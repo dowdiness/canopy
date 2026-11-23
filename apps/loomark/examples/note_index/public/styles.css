@@ -11,10 +11,9 @@
   font-display: swap;
 }
 
-/* Loomark's own tokens (apps/loomark/styles/tailwind.css), so the index reads
-   as the same instrument as the Editor and its sidebar. Card heights and the
-   grid width are measured by the shell, so nothing here is mirrored in
-   MoonBit. */
+/* Loomark's tokens (apps/loomark/styles/tailwind.css), which the Document
+   index (document_index.css, linked from internal/document_index) and this
+   page's editor stand-in share. */
 :root {
   color-scheme: light dark;
   --lm-foundation: oklch(0.972 0.004 85);
@@ -24,30 +23,15 @@
   --lm-muted: oklch(0.53 0.012 70);
   --lm-rule: oklch(0.89 0.006 80);
   --lm-accent: oklch(0.47 0.12 264);
-  --lm-accent-soft: oklch(0.94 0.024 264);
   --lm-danger: oklch(0.52 0.16 25);
   --lm-danger-soft: oklch(0.95 0.022 25);
   --lm-hover: color-mix(in oklab, var(--lm-ink) 6%, transparent);
-  --lm-track: color-mix(in oklab, var(--lm-ink) 5%, var(--lm-paper));
-  /* A sheet's edge: the same fine boundary as Loomark's menu and dialog. */
   --lm-edge: color-mix(in oklab, var(--lm-ink) 9%, transparent);
-  --lm-edge-strong: color-mix(in oklab, var(--lm-ink) 18%, transparent);
-  /* The sidebar's selected entry: a tinted ground, never a filled block. */
-  --lm-selected: color-mix(in oklab, var(--lm-accent) 9%, var(--lm-paper));
-  --lm-lift: 0 1px 2px oklch(0.2 0.01 70 / 0.05);
-  --lm-lift-hover: 0 1px 2px oklch(0.2 0.01 70 / 0.05), 0 12px 32px -6px oklch(0.2 0.01 70 / 0.14);
   --lm-hit: color-mix(in oklab, var(--lm-accent) 16%, transparent);
   --enter: cubic-bezier(0.23, 1, 0.32, 1);
-  --move: cubic-bezier(0.77, 0, 0.175, 1);
   --ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --writing: "iA Writer Quattro", "IBM Plex Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic Medium", "Meiryo", "Noto Sans JP", "Noto Sans CJK JP", ui-monospace, monospace;
-  /* Lucide icons, as Loomark draws them: masks filled with currentColor. */
-  --icon-square-pen: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z'/%3E%3C/svg%3E");
-  --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21 21l-4.34-4.34'/%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3C/svg%3E");
-  --icon-trash: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 11v6m4-6v6m5-11v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3C/svg%3E");
-  --icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 8v4m0 4h.01'/%3E%3C/svg%3E");
-  --icon-loader: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-6.219-8.56'/%3E%3C/svg%3E");
 }
 /* Dark paper keeps the same warm hue, as in the Editor. */
 @media (prefers-color-scheme: dark) {
@@ -59,11 +43,8 @@
     --lm-muted: oklch(0.67 0.01 80);
     --lm-rule: oklch(0.32 0.007 70);
     --lm-accent: oklch(0.78 0.1 264);
-    --lm-accent-soft: oklch(0.31 0.045 264);
     --lm-danger: oklch(0.74 0.13 25);
     --lm-danger-soft: oklch(0.29 0.05 25);
-    --lm-lift: 0 1px 2px oklch(0 0 0 / 0.3);
-    --lm-lift-hover: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px -6px oklch(0 0 0 / 0.55);
     --lm-hit: color-mix(in oklab, var(--lm-accent) 28%, transparent);
   }
 }
@@ -77,235 +58,10 @@ body {
 ::selection { background: var(--lm-hit); }
 /* Keyboard focus appears at once and stays visible. */
 :focus-visible { outline: 2px solid var(--lm-accent); outline-offset: 2px; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-/* A Lucide icon drawn in the current colour. */
-.new-icon, .card-delete-icon, .card-unsaved, .card-progress::before {
-  display: block; background: currentColor;
-  mask: var(--icon) center / contain no-repeat;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-}
-
-/* ------------------------------------------------------------ index */
-
-/* The desk: sheets of paper laid on Loomark's foundation. */
-.index { max-width: 1280px; margin: 0 auto; padding: 0 32px 96px; }
-
-/* The Editor's top bar: no rule, only a soft fade of paper behind quiet
-   controls, so the documents stay the one primary region. */
-.bar {
-  position: sticky; top: 0; z-index: 2;
-  display: flex; align-items: center; gap: 8px;
-  margin: 0 -8px 12px; padding: 20px 8px 18px;
-}
-.bar::before {
-  content: ""; position: absolute; inset: 0 -24px -12px; z-index: -1; pointer-events: none;
-  background: linear-gradient(to bottom, var(--lm-foundation) 55%, transparent);
-  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
-  mask-image: linear-gradient(to bottom, black 60%, transparent);
-}
-h1 {
-  margin: 0 auto 0 0; display: flex; align-items: baseline; gap: 8px;
-  font-size: 15px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap;
-}
-.count {
-  color: var(--lm-muted); font-size: 12px; font-weight: 400;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Search sits recessed in the paper, like the Editor's mode track. */
-.search { position: relative; flex: 0 1 260px; min-width: 0; }
-.search::before {
-  content: ""; position: absolute; left: 11px; top: 50%; width: 14px; height: 14px;
-  translate: 0 -50%; background: var(--lm-muted); pointer-events: none;
-  mask: var(--icon-search) center / contain no-repeat;
-  -webkit-mask: var(--icon-search) center / contain no-repeat;
-}
-.search input {
-  width: 100%; height: 36px; padding: 0 12px 0 33px;
-  border: 0; border-radius: 10px;
-  background: var(--lm-track); color: inherit; font: 13px/1 var(--ui);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--lm-ink) 5%, transparent);
-  transition: box-shadow 150ms ease, background-color 150ms ease;
-}
-.search input::placeholder { color: var(--lm-muted); }
-.search input::-webkit-search-cancel-button { cursor: pointer; }
-/* The "/" shortcut, shown where a keyboard can use it, while the field waits. */
-@media (hover: hover) and (pointer: fine) {
-  .search:has(input:placeholder-shown:not(:focus))::after {
-    content: "/"; position: absolute; right: 8px; top: 50%; translate: 0 -50%;
-    display: grid; place-items: center; width: 20px; height: 20px;
-    border-radius: 5px; box-shadow: inset 0 0 0 1px var(--lm-edge-strong);
-    color: var(--lm-muted); font: 500 11px/1 var(--mono); pointer-events: none;
-  }
-  .search input:hover { box-shadow: inset 0 0 0 1px var(--lm-edge-strong); }
-}
-.search input:focus-visible {
-  outline: none; background: var(--lm-surface);
-  box-shadow: inset 0 0 0 1px var(--lm-accent), 0 0 0 3px var(--lm-hit);
-}
-
-/* New document: the Editor's quiet 36px icon control, square-pen as there. */
-.new {
-  display: inline-grid; place-items: center; flex: none; width: 36px; height: 36px;
-  border-radius: 8px; color: var(--lm-muted);
-  transition: background-color 150ms ease, color 150ms ease, transform 140ms var(--enter);
-}
-.new-icon { --icon: var(--icon-square-pen); width: 18px; height: 18px; }
-.new:active { transform: scale(0.97); }
-@media (hover: hover) and (pointer: fine) {
-  .new:hover { background: var(--lm-hover); color: var(--lm-ink); }
-}
-
-/* Measured by the shell: the grid's width, and cards not measured yet. */
 /* The index under the editor: laid out, so cards keep their places, but
    invisible and out of the way. Hidden content is neither focusable nor read. */
-.index.covered { position: fixed; inset: 0; overflow: hidden; visibility: hidden; }
-.index.grid-width-probe { height: 0; padding-block: 0; overflow: hidden; visibility: hidden; }
-.card-measure { position: absolute; top: 0; left: -100000px; visibility: hidden; }
-.card-measure .card { height: auto; }
-
-/* ------------------------------------------------------------ grid */
-
-.grid { position: relative; margin: 0 auto; padding: 0; list-style: none; }
-/* A changed card moving to the front is the one causal motion here. */
-.grid.cards > .slot {
-  position: absolute; top: 0; left: 0;
-  transition: transform 280ms var(--move);
-}
-@media (prefers-reduced-motion: reduce) { .grid.cards > .slot { transition: none; } }
-
-/* Each card is a sheet of the document's paper with a fine edge: an
-   independent object, so it earns its boundary. */
-.card {
-  --lh: 20px;
-  position: relative; display: block; height: 100%; overflow: hidden;
-  padding: 15px 16px 16px;
-  border-radius: 12px;
-  background: var(--lm-paper); color: inherit; text-decoration: none;
-  box-shadow: 0 0 0 1px var(--lm-edge), var(--lm-lift);
-  font: 13px/var(--lh) var(--ui);
-  line-break: strict; overflow-wrap: anywhere;
-  transition: box-shadow 150ms ease, background-color 900ms ease, transform 140ms var(--enter);
-}
-.card[lang="ja"] { --lh: 22px; }
-.card:focus-visible { outline-offset: 2px; }
-/* Just moved to the front: the sidebar's selected tint, fading back. */
-.card.just-moved { background: var(--lm-selected); }
-@media (hover: hover) and (pointer: fine) {
-  .card:hover { box-shadow: 0 0 0 1px var(--lm-edge-strong), var(--lm-lift-hover); }
-  .card:active { transform: scale(0.985); }
-}
-@media (prefers-reduced-motion: reduce) { .card:active { transform: none; } }
-
-/* The browser breaks and clamps lead text; the shell measures the result.
-   The lead reads as on its Recent documents entry, in the UI face: the
-   primary content in ink, the description muted beneath it, so a document
-   looks the same in the sidebar and here. */
-.lead, .desc {
-  display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden;
-  white-space: pre-line;
-}
-.lead {
-  -webkit-line-clamp: 3;
-  font: 500 14px/var(--lh) var(--ui); color: var(--lm-ink);
-}
-.card[lang="ja"] .lead { line-height: var(--lh); }
-.desc {
-  -webkit-line-clamp: 6;
-  margin-top: 4px; color: var(--lm-muted);
-}
-.lead-heading { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
-/* Quotation keeps a neutral rule; accent stays with interaction. */
-.lead-quote {
-  padding-left: 11px; border-left: 2px solid var(--lm-rule);
-  font-weight: 400; font-style: italic;
-}
-.card[lang="ja"] .lead-quote { font-style: normal; }
-.lead-code {
-  padding: 8px 10px; border-radius: 7px;
-  background: var(--lm-track); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--lm-ink) 5%, transparent);
-  font: 400 12px/18px var(--mono);
-}
-.lead.lead-code { display: block; }
-.code-line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
-.lead-task.done { color: var(--lm-muted); text-decoration: line-through; text-decoration-color: var(--lm-edge-strong); }
-
-/* Search matches only colour the text, so measured heights still hold. */
-mark {
-  background: var(--lm-hit); color: var(--lm-ink); border-radius: 3px;
-  box-decoration-break: clone; -webkit-box-decoration-break: clone;
-  box-shadow: 0 0 0 1px var(--lm-hit);
-}
-
-/* Delete document, as on a Recent documents entry: muted until its target
-   is chosen, then the destructive role. Every card keeps room for it beside
-   its first block, so cards measure the same whether or not it shows. */
-.card > :first-child { margin-right: 22px; }
-.card-delete {
-  position: absolute; top: 8px; right: 8px; z-index: 1;
-  display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
-  border: 0; border-radius: 8px; background: transparent; color: var(--lm-muted);
-  cursor: pointer;
-  transition: opacity 150ms ease, background-color 150ms ease, color 150ms ease;
-}
-.card-delete-icon { --icon: var(--icon-trash); width: 16px; height: 16px; }
-.card-delete:focus-visible { background: var(--lm-danger-soft); color: var(--lm-danger); }
-.card-delete[aria-disabled="true"] { cursor: default; opacity: 0.3; }
-.card-delete:active:not([aria-disabled="true"]) { opacity: 0.65; }
-@media (hover: hover) and (pointer: fine) {
-  .card-delete:hover:not([aria-disabled="true"]) { background: var(--lm-danger-soft); color: var(--lm-danger); }
-  /* With a fine pointer it appears with its card, so the grid reads as
-     content; keyboard focus and touch keep it visible. */
-  .slot:not(:hover, :focus-within) .card-delete:not([aria-disabled="true"]) { opacity: 0; }
-}
-@media (pointer: coarse) {
-  .card-delete { top: 4px; right: 4px; width: 44px; height: 44px; }
-}
-
-/* Notices are drawn over the card, never in its flow, for the same reason:
-   on its bottom edge, half over its padding and half over the gap below, so
-   they cover no text. */
-.card-notice {
-  position: absolute; left: 50%; bottom: -11px; translate: -50% 0; z-index: 1;
-  display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px;
-  border-radius: 999px; background: var(--lm-surface); white-space: nowrap;
-  box-shadow: 0 0 0 1px var(--lm-edge), 0 4px 12px -6px oklch(0.2 0.01 70 / 0.2);
-  font: 500 11.5px/1 var(--ui); color: var(--lm-muted); pointer-events: none;
-}
-.card-progress::before {
-  --icon: var(--icon-loader); content: ""; width: 12px; height: 12px;
-  animation: card-spin 900ms linear infinite;
-}
-@keyframes card-spin { to { rotate: 1turn; } }
-@media (prefers-reduced-motion: reduce) { .card-progress::before { animation-duration: 2700ms; } }
-.card-problem {
-  background: var(--lm-danger-soft); color: var(--lm-danger);
-  box-shadow: 0 0 0 1px color-mix(in oklab, var(--lm-danger) 30%, transparent);
-}
-/* Not saved: the same muted mark as a Recent documents entry. */
-.card-unsaved {
-  --icon: var(--icon-alert);
-  position: absolute; right: 10px; bottom: 6px; z-index: 1;
-  width: 13px; height: 13px; color: var(--lm-muted); pointer-events: none;
-}
-/* Pending deletion: still in place, visibly on its way out. */
-.slot.deleting .card { opacity: 0.5; cursor: default; box-shadow: 0 0 0 1px var(--lm-edge); }
-.slot.deleting .card:active { transform: none; }
-
-.empty {
-  display: grid; justify-items: center; gap: 12px;
-  margin: 14vh auto 0; max-width: 420px; text-align: center;
-}
-.empty-title { margin: 0; color: var(--lm-muted); font-size: 14px; }
-.empty-action {
-  height: 34px; padding: 0 14px; display: inline-flex; align-items: center;
-  border: 0; border-radius: 9px; background: var(--lm-surface); color: var(--lm-ink);
-  box-shadow: 0 0 0 1px var(--lm-edge-strong);
-  font: 500 13px/1 var(--ui); text-decoration: none; cursor: pointer;
-  transition: background-color 150ms ease;
-}
-.empty-action:hover { background: var(--lm-hover); }
+.index-host.covered { position: fixed; inset: 0; overflow: hidden; visibility: hidden; }
 
 /* ------------------------------------------------------------ confirm */
 
@@ -343,8 +99,7 @@ mark {
   display: flex; flex-direction: column; height: 100dvh;
   background: var(--lm-paper);
 }
-.editor .bar { position: static; margin: 0; padding: 10px 16px; gap: 6px; }
-.editor .bar::before { display: none; }
+.editor .bar { display: flex; align-items: center; gap: 6px; padding: 10px 16px; }
 .back {
   display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px 0 8px;
   border-radius: 8px; color: var(--lm-muted); text-decoration: none; font-weight: 500;
@@ -367,9 +122,5 @@ mark {
 /* ------------------------------------------------------------ narrow */
 
 @media (max-width: 720px) {
-  .index { padding: 0 16px 64px; }
-  .bar { position: static; flex-wrap: wrap; row-gap: 10px; padding: 16px 8px 12px; }
-  .bar::before { display: none; }
-  .search { order: 3; flex: 1 1 100%; }
   .editor textarea { padding: 24px 20px 48px; font-size: 16px; }
 }

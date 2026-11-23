@@ -65,12 +65,19 @@ fn editor_page(editing : Val[Editor?], emit : Emit[Msg]) -> Val[Html] {
 ///|
 /// The Document index with the editor over it while a note is open.
 fn view(model : Val[Model], emit : Emit[Msg]) -> Val[Html] {
+  // Under the editor the index stays laid out but invisible, so its cards
+  // slide from where they were when it is shown again.
+  let covered = model.map(model => !(model.page is Index))
   let index = @document_index.view(
-    model.map(model => model.index),
-    covered=model.map(model => !(model.page is Index)),
-    on_delete=emit.map(id => DeleteRequested(id)),
-    emit.map(msg => IndexMsg(msg)),
-  )
+      model.map(model => model.index),
+      on_delete=emit.map(id => DeleteRequested(id)),
+      emit.map(msg => IndexMsg(msg)),
+    )
+    .map2(covered, (index, covered) => {
+      @html.div(class=if covered { "index-host covered" } else { "index-host" }, [
+        index,
+      ])
+    })
   let editing = model.map(model => {
     match model.page {
       Editing(editor) => Some(editor)

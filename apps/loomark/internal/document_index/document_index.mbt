@@ -3,6 +3,7 @@
 // such as measuring the grid width and the cards, and moving focus.
 //
 // The host keeps a `DocumentIndex` in its Model, forwards `Msg` to `update`,
+// runs `subscriptions` while the index is drawn,
 // and tells it what happened elsewhere through `returned_from`, `removed`,
 // and `return_focus`. A wait, such as a highlight fading, is a subscription
 // that exists only while its state does, so no message arrives for a state
@@ -28,6 +29,11 @@ const HIGHLIGHT_MS : Int = 1200
 const SEARCH_ID : String = "document-index-search"
 
 ///|
+/// The element ID of the empty element laid out like the grid, whose width
+/// the grid follows.
+const GRID_WIDTH_ID : String = "document-index-grid-width"
+
+///|
 /// The packed grid on screen: the last layout `packed_now` produced, kept
 /// until the next one, so for a while it may show the cards as they were.
 priv enum ShownGrid {
@@ -51,8 +57,9 @@ struct DocumentIndex {
   /// Where New leads.
   new_href : String
   query : String
-  /// Width available to the card grid, measured by the shell.
-  grid_width : Int
+  /// Width available to the card grid, once the shell has measured it.
+  /// Until then nothing is measured or packed.
+  grid_width : Int?
   resize : GridResize
   /// The card just moved to the front, highlighted for `HIGHLIGHT_MS`.
   highlight : String?
@@ -73,24 +80,6 @@ struct DocumentIndex {
 pub extend DocumentIndex with Eq::{equal, not_equal}
 
 ///|
-/// What the index observes on the host page, resolved once at startup.
-struct HostPage {
-  /// An empty element laid out like the index's content box; its width is
-  /// the grid's.
-  grid_probe : @dom.HTMLElement
-  /// The document's font faces, which report faces that finish loading.
-  fonts : @dom.EventTarget
-}
-
-///|
-pub fn HostPage::HostPage(
-  grid_probe~ : @dom.HTMLElement,
-  fonts~ : @dom.EventTarget,
-) -> HostPage {
-  { grid_probe, fonts, }
-}
-
-///|
 enum Msg {
   GridMeasured(Double)
   /// The grid width has not changed for `RESIZE_SETTLE_MS`.
@@ -109,18 +98,17 @@ enum Msg {
 }
 
 ///|
-/// An index listing `seeds`, most recently changed first, in a grid
-/// `grid_width` wide, as the shell measured the host page's grid probe.
+/// An index listing `seeds`, most recently changed first. Its cards appear
+/// once it has measured the grid it draws and the cards in it.
 pub fn DocumentIndex::DocumentIndex(
   seeds : ArrayView[Seed],
-  grid_width~ : Double,
   new_href~ : String,
 ) -> DocumentIndex {
   {
     cards: cards_of(seeds, Vector([])),
     new_href,
     query: "",
-    grid_width: grid_width_of(grid_width),
+    grid_width: None,
     resize: Steady,
     highlight: None,
     heights: @hashmap.HashMap([]),
@@ -148,8 +136,11 @@ fn visible_cursor(index : DocumentIndex) -> Cursor[Card]? {
 }
 
 ///|
-fn columns(index : DocumentIndex) -> Columns {
-  columns_for(grid_width=index.grid_width, min_column=MIN_COLUMN)
+/// The column grid, once the grid width is known.
+fn columns(index : DocumentIndex) -> Columns? {
+  index.grid_width.map(grid_width => {
+    columns_for(grid_width~, min_column=MIN_COLUMN)
+  })
 }
 
 ///|
@@ -157,7 +148,11 @@ fn columns(index : DocumentIndex) -> Columns {
 /// listed card. All of them are measured, not only the visible ones, so a
 /// search never waits for a measurement.
 fn unmeasured(index : DocumentIndex) -> Array[MeasureRequest] {
-  unmeasured_among(index.heights, measures_for(index.cards, columns(index)))
+  match columns(index) {
+    Some(columns) =>
+      unmeasured_among(index.heights, measures_for(index.cards, columns))
+    None => []
+  }
 }
 
 ///|
@@ -174,8 +169,10 @@ fn to_measure(index : DocumentIndex) -> Array[MeasureRequest] {
 /// The visible cards packed, once all of them are measured; `None` means the
 /// grid on screen stays as it is.
 fn packed_now(index : DocumentIndex) -> CardLayout? {
-  guard visible_cursor(index) is Some(visible) else { return None }
-  let columns = columns(index)
+  guard visible_cursor(index) is Some(visible) &&
+    columns(index) is Some(columns) else {
+    return None
+  }
   measured_cards(index.heights, visible, columns).map(cards => {
     pack_cards(cards, columns)
   })
@@ -199,8 +196,11 @@ fn with_heights(
 ) -> DocumentIndex {
   let columns = columns(index)
   let current = (measure : CardMeasure) => {
-    measure.width == columns.span_width(1) ||
-    measure.width == columns.span_width(2)
+    columns is Some(columns) &&
+    (
+      measure.width == columns.span_width(1) ||
+      measure.width == columns.span_width(2)
+    )
   }
   let kept = index.heights.filter((measure, _) => current(measure))
   {
@@ -214,6 +214,13 @@ fn with_heights(
 ///|
 fn card_dom_id(key : String) -> String {
   "card-\{key}"
+}
+
+///|
+/// The element ID of the trash button on the card of `key`, where focus
+/// returns when its Delete confirmation is cancelled.
+pub fn card_delete_dom_id(key : String) -> String {
+  "card-delete-\{key}"
 }
 
 ///|
@@ -353,8 +360,12 @@ fn transition(index : DocumentIndex, msg : Msg) -> (DocumentIndex, Cmd) {
   match msg {
     GridMeasured(measured) =>
       match grid_width_of(measured) {
-        width if width == index.grid_width => (index, @cmd.none)
-        grid_width => ({ ..index, grid_width, resize: Resizing, }, @cmd.none)
+        width if Some(width) == index.grid_width => (index, @cmd.none)
+        // With nothing measured, such as at first, nothing waits for a drag.
+        width if index.heights.length() == 0 =>
+          ({ ..index, grid_width: Some(width), }, @cmd.none)
+        width =>
+          ({ ..index, grid_width: Some(width), resize: Resizing, }, @cmd.none)
       }
     ResizeSettled => ({ ..index, resize: Steady, }, @cmd.none)
     CardsMeasured(measured) => (with_heights(index, measured), @cmd.none)
@@ -383,22 +394,22 @@ fn transition(index : DocumentIndex, msg : Msg) -> (DocumentIndex, Cmd) {
 }
 
 ///|
+/// What the index waits for while it is drawn. `fonts` is the document's
+/// font face set, which reports faces that finish loading.
 pub fn DocumentIndex::subscriptions(
   self : DocumentIndex,
-  page : HostPage,
+  fonts : @dom.EventTarget,
   emit : Emit[Msg],
 ) -> @sub.Sub {
   @sub.batch([
-    @browser.element_width("document-index.grid", page.grid_probe, width => {
-      emit(GridMeasured(width))
-    }),
-    @browser.fonts_loaded(page.fonts, emit(FontsLoaded)),
+    @browser.rendered_width(GRID_WIDTH_ID, width => emit(GridMeasured(width))),
+    @browser.fonts_loaded(fonts, emit(FontsLoaded)),
     match self.resize {
       Steady => @sub.none
       // Keyed by the width, so each change restarts the wait.
       Resizing =>
         @timeout.after(
-          "document-index.resize-settled(\{self.grid_width})",
+          "document-index.resize-settled(\{self.grid_width.unwrap_or(0)})",
           RESIZE_SETTLE_MS,
           emit(ResizeSettled),
         )

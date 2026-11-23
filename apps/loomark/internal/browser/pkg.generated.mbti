@@ -57,6 +57,8 @@ pub fn read(@dom.File, @cmd.Emit[Result[Bytes, Error]]) -> @cmd.Cmd
 
 pub fn[T] rendered_heights(String, String, Array[T], @cmd.Emit[Array[(T, Int)]]) -> @sub.Sub
 
+pub fn rendered_width(String, @cmd.Emit[Double]) -> @sub.Sub
+
 pub fn replace_text_data(@dom.Node, Int, Int, String) -> Unit
 
 pub fn request_idle(@dom.Window, Int, () -> Unit) -> Unit
