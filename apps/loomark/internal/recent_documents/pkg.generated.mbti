@@ -59,6 +59,7 @@ pub fn[Id : Eq] Seed::equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id : Eq] Seed::not_equal(Self[Id], Self[Id]) -> Bool
 pub fn[Id] Seed::selection(Self[Id]) -> Selection
 pub fn[Id] Seed::source(Self[Id]) -> String
+pub fn[Id] Seed::status(Self[Id]) -> RowStatus
 
 pub(all) enum Selection {
   Editing

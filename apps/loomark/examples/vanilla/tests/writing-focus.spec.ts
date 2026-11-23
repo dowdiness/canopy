@@ -1,5 +1,17 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
 
+// Startup shows the Document index; choosing its first card opens the Editor.
+async function openApp(page: Page): Promise<void> {
+  await page.goto("/")
+  const card = page.locator("#loomark-index:not(.covered) .grid.cards .card").first()
+  const editor = page.locator("#loomark-editor:not([inert]) #loomark-text")
+  await expect(card.or(editor)).toBeVisible()
+  if (await card.isVisible()) {
+    await card.press("Enter")
+    await expect(page.locator("#loomark-index")).toBeHidden()
+  }
+}
+
 const documentText = "# Heading\n\nFirst thought\n\nSecond thought\n\nThird thought"
 
 test.beforeEach(async ({ page }) => {
@@ -7,7 +19,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 async function openFocusMode(page: Page) {
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("button", { name: "Focus Mode", exact: true }).click()
   await expect(page.locator("#loomark-focus-toggle")).toHaveAttribute("aria-pressed", "true")
   // Toggling must not focus the textarea, which would summon a mobile keyboard.
@@ -45,7 +57,7 @@ async function dimmingAtLine(page: Page, line: number) {
 for (const mode of ["Text", "Preview"] as const) {
   test(`Focus Mode exit restores sidebar keyboard focus after resizing in ${mode}`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
-    await page.goto("/")
+    await openApp(page)
     await page.getByRole("textbox", { name: "Text" }).fill(documentText)
     await page.getByRole("tab", { name: mode, exact: true }).click()
     const trigger = page.getByRole("button", { name: "Toggle documents" })
@@ -64,7 +76,7 @@ for (const mode of ["Text", "Preview"] as const) {
 
 for (const mode of ["Text", "Split", "Preview"]) {
   test(`Focus Mode is opt-in and preserves ${mode} without losing selection or undo`, async ({ page }) => {
-    await page.goto("/")
+    await openApp(page)
     const text = page.locator("#loomark-text")
     const toggle = page.locator("#loomark-focus-toggle")
     await text.fill(documentText)
@@ -111,7 +123,7 @@ for (const mode of ["Text", "Split", "Preview"]) {
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`rapid Focus Mode reversals preserve keyboard editing with motion ${reducedMotion}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion })
-    await page.goto("/")
+    await openApp(page)
     const text = page.getByRole("textbox", { name: "Text" })
     const toggle = page.locator("#loomark-focus-toggle")
     await text.fill(documentText)
@@ -297,7 +309,7 @@ async function caretOffset(page: Page, line: number) {
 }
 
 test("the drawn caret replaces the native caret only while it is shown", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const caret = page.locator(".loomark-writing-caret")
   await text.fill(documentText)
@@ -541,7 +553,7 @@ test("a reader's line-height override keeps dimming on the writing group", async
 })
 
 test("Split reflow updates the unchanged writing selection after reading-position measurement", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("\n\nBefore\n\nWriting\n\nAfter\n\n")
   await page.getByRole("tab", { name: "Split" }).click()

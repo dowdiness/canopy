@@ -143,6 +143,8 @@ fn test_model(page : Page, sync : @sync.State) -> Model {
     replication: @replication.State(protocol=sync),
     sign_in: @sign_in.SignIn(),
     focus_mode: false,
+    screen: Embedded,
+    index: empty_index(),
   }
 }
 
@@ -690,6 +692,8 @@ test "intermediate Replica commit cannot discard a pending Undo" {
     ),
     sign_in: @sign_in.SignIn(),
     focus_mode: false,
+    screen: Embedded,
+    index: empty_index(),
   }
 
   let (edited, _) = test_root_update(
@@ -807,6 +811,8 @@ test "network retry waits while a newer replica write is in flight" {
     replication: @replication.State(protocol=retryable, persistence~),
     sign_in: @sign_in.SignIn(),
     focus_mode: false,
+    screen: Embedded,
+    index: empty_index(),
   }
   let (unchanged, _) = test_root_update(model, RetrySync(retry))
   assert_true(unchanged == model)
@@ -840,6 +846,8 @@ test "operation identity failure stays retryable while replica storage is busy" 
     replication: @replication.State(protocol=planning, persistence~),
     sign_in: @sign_in.SignIn(),
     focus_mode: false,
+    screen: Embedded,
+    index: empty_index(),
   }
   let (retired, _) = test_root_update(
     model,
@@ -3575,4 +3583,19 @@ fn test_edit(
   text : String,
 ) -> @source_repository.EditPlan {
   replica.edit(test_working(replica, text))
+}
+
+///|
+test "index routes name only the index, New, and documents" {
+  let route = (href : String) => index_route(@url.parse(href))
+  assert_true(route("https://loomark.test/") is Some(IndexPage))
+  assert_true(route("https://loomark.test/#/") is Some(IndexPage))
+  assert_true(route("https://loomark.test/#/new") is Some(NewFromIndex))
+  assert_true(
+    route("https://loomark.test/#/d/source/36/abc")
+    is Some(CardFromIndex("source/36/abc")),
+  )
+  // A heading anchor followed in Preview must not leave the Editor.
+  assert_true(route("https://loomark.test/#section") is None)
+  assert_true(route("https://loomark.test/#/d/") is None)
 }

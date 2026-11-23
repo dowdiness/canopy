@@ -7,6 +7,8 @@ import {
 }
 
 // Values
+pub fn arrow_left_icon(String) -> @html.Html
+
 pub fn download_icon(String) -> @html.Html
 
 pub fn failure_notice(String, String, on_action~ : @cmd.Cmd?) -> @html.Html

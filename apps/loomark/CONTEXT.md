@@ -35,9 +35,9 @@ does not show the hint.
 _Avoid_: blank record, draft
 
 **Welcome document**:
-The Welcome example that opens at startup, instead of the Document index, when
-the repository holds no Loomark documents.
-It is stored as soon as it opens, like an Example, so it appears in Recent
+The Welcome example that Loomark creates at startup when the repository holds
+no Loomark documents; the Document index then opens with it as its only card.
+It is stored as soon as it is created, like an Example, so it appears in Recent
 documents. Like every example, it opens at its beginning rather than at its
 end. Deleting the final document still leaves a New document; only a later
 startup with nothing stored opens Welcome again. Loomark embedded in another
@@ -308,10 +308,10 @@ shows no image thumbnail or change time, marks an Unsaved document with the
 document whose text is empty keeps a short card with no placeholder text and an
 accessible `Empty document` label.
 
-The header names the screen (`Notes`) with the number of documents, a Search
-field, and a New button. Search narrows the cards, case-insensitively, to
-documents whose Document text contains the query, marks the matching text, and
-counts `n of m`; a document known only from the remote catalog is matched
+The header holds a Search field and a New button; the screen is named `Notes`
+for assistive technology only, and shows no document count. Search narrows the
+cards, case-insensitively, to documents whose Document text contains the query,
+marks the matching text, and counts `n of m` while a query is entered; a document known only from the remote catalog is matched
 against its preview text. A search with no match says `No documents contain
 “query”` and offers `Clear search`, which empties the field and keeps focus in
 it. Search is never persisted.
@@ -338,9 +338,10 @@ deleting the last one leaves the Document index showing `No documents yet` with
 New. A failed deletion keeps the card and its focus, and reports the failure as
 Recent documents does.
 
-The Document index is not shown at startup when the repository holds no Loomark
-documents (Welcome opens), when Loomark is embedded in another page (a New
-document opens), or when the URL names a document (that document opens).
+The Document index is not shown at startup when Loomark is embedded in another
+page (a New document opens), or when the URL names a document (that document
+opens). An empty repository opens it too, with the Welcome document as its
+only card.
 _Avoid_: Document list, catalog, dashboard, home screen, file browser
 
 **Index navigation**:

@@ -13,6 +13,20 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     Example(@examples.welcome_source())
   }
   let font_faces = @browser.document_font_faces(@dom.document())
+  let fonts = @browser.document_fonts(@dom.document())
+  // Loomark opens on the Document index, or on the document its URL names; a
+  // page that embeds it opens the Editor.
+  let screen = if embedded {
+    Embedded
+  } else {
+    startup_screen(
+      try @url.parse(window.current_url()) catch {
+        _ => None
+      } noraise {
+        url => Some(url)
+      },
+    )
+  }
   if !embedded {
     load_writing_face(window, font_faces)
   }
@@ -29,7 +43,9 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
     class="loomark-notifications",
     build=toasts => {
       let (model, emit) = @rabbita.create_state_with_init(
-        init=emit => initial_state(emit, initial_compact, first_document),
+        init=emit => {
+          initial_state(emit, initial_compact, first_document, screen)
+        },
         update=(model, msg, emit) => {
           match msg {
             Notify(message) =>
@@ -47,7 +63,7 @@ pub fn app() -> @rabbita.Val[@rabbita.Html] {
         },
         subscriptions=(current, emit) => {
           subscriptions(
-            current, emit, window, font_faces, viewport_subscription,
+            current, emit, window, font_faces, fonts, viewport_subscription,
           )
         },
       )

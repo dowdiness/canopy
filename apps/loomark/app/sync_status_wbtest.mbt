@@ -320,6 +320,8 @@ test "unsaved visible text projects durability and relation independently" {
     replication: @replication.State(protocol=status_sync(account), persistence~),
     sign_in: @sign_in.SignIn(),
     focus_mode: false,
+    screen: Embedded,
+    index: empty_index(),
   }
   guard document_sync_view(model) is Some(status) else {
     fail("document sync view")
@@ -498,6 +500,8 @@ test "fork persistence belongs to its recovery Source until commit" {
     replication: @replication.State(protocol=@sync.State(), persistence~),
     sign_in: @sign_in.SignIn(),
     focus_mode: false,
+    screen: Embedded,
+    index: empty_index(),
   }
   assert_true(
     document_replica_persistence(model)

@@ -81,7 +81,7 @@ const WELCOME_PATTERN = /^# Welcome to Loomark\n/
 for (const width of [390, 720, 721, 1280]) {
   test(`Documents starts closed and reload resets an open sidebar at ${width} px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 })
-    await page.goto("/")
+    await openApp(page)
     const toggle = page.getByRole("button", { name: "Toggle documents" })
     const sidebar = page.locator("#loomark-document-sidebar")
     const text = page.getByRole("textbox", { name: "Text" })
@@ -104,9 +104,83 @@ for (const width of [390, 720, 721, 1280]) {
   })
 }
 
+// Seeds two stored documents and reloads onto the Document index.
+async function openIndexWithAB(page: Page): Promise<{ a: string, b: string }> {
+  await openApp(page)
+  await waitForRepositoryOpen(page)
+  const a = fixtureDocumentId("index-a"), b = fixtureDocumentId("index-b")
+  await replaceStoreRecords(page, [
+    { key: sourceKey(a), value: encodeStoredDocument({ document_id: a, text: "# A\n" }) },
+    { key: sourceKey(b), value: encodeStoredDocument({ document_id: b, text: "# B\n" }) },
+  ])
+  await page.reload()
+  await expect(page.locator("#loomark-index")).toBeVisible()
+  return { a, b }
+}
+
+test("Document index opens at startup; Notes, Back, and Forward move between it and the Editor", async ({ page }) => {
+  const { b } = await openIndexWithAB(page)
+  const index = page.locator("#loomark-index")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const cardB = index.locator(`a.card[id$="${b}"]`)
+  await expect(index.getByRole("heading", { name: "Notes" })).toBeVisible()
+  await expect(index.locator("a.card")).toHaveCount(2)
+
+  await cardB.click()
+  await expect(index).toBeHidden()
+  await expect(text).toHaveValue("# B\n")
+  await expect(text).toBeFocused()
+  await expect(page).toHaveURL(new RegExp(`#/d/.*${b}$`))
+
+  await page.getByRole("button", { name: "Notes" }).click()
+  await expect(index).toBeVisible()
+  await expect(cardB).toBeFocused()
+  await page.goForward()
+  await expect(index).toBeHidden()
+  await expect(text).toHaveValue("# B\n")
+  await page.goBack()
+  await expect(index).toBeVisible()
+  await expect(cardB).toBeFocused()
+})
+
+test("a document URL opens that document at startup, and an unknown one the Document index", async ({ page }) => {
+  const { b } = await openIndexWithAB(page)
+  const index = page.locator("#loomark-index")
+  const text = page.getByRole("textbox", { name: "Text" })
+  const href = await index.locator(`a.card[id$="${b}"]`).getAttribute("href")
+  await page.evaluate(fragment => { location.hash = fragment! }, href)
+  await page.reload()
+  await expect(index).toBeHidden()
+  await expect(text).toHaveValue("# B\n")
+  // Nothing is behind the startup document, so Notes adds the index's entry.
+  await page.getByRole("button", { name: "Notes" }).click()
+  await expect(index).toBeVisible()
+  await expect(index.locator(`a.card[id$="${b}"]`)).toBeFocused()
+
+  await page.evaluate(() => { location.hash = "#/d/source/36/00000000-0000-4000-8000-000000000000" })
+  await page.reload()
+  await expect(index).toBeVisible()
+  await expect(index.locator("a.card")).toHaveCount(2)
+})
+
+test("Documents opens over the Document index and a choice there opens the Editor", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await openIndexWithAB(page)
+  const index = page.locator("#loomark-index")
+  const documents = page.getByRole("complementary", { name: "Documents" })
+  await page.getByRole("button", { name: "Toggle documents" }).click()
+  await expect(documents.getByRole("button", { name: "B", exact: true })).toBeVisible()
+  await expect(index.getByRole("heading", { name: "Notes" })).toBeVisible()
+  await documents.getByRole("button", { name: "B", exact: true }).click()
+  await expect(index).toBeHidden()
+  await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue("# B\n")
+  await page.goBack()
+  await expect(index).toBeVisible()
+})
+
 test("an empty repository opens the Welcome document and stores it once", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 600 })
-  await page.goto("/")
+  await openApp(page)
   await waitForWelcome(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toBeFocused()
@@ -137,7 +211,7 @@ async function readingPosition(text: Locator) {
 }
 
 test("document activation lets keyboard users continue writing immediately", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# First document\n")
   await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: "# First document\n" })
@@ -161,7 +235,7 @@ test("document activation lets keyboard users continue writing immediately", asy
 })
 
 test("a reopened document has Preview's Japanese face ready before Preview opens", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   // A few Japanese words in English text still draw in Preview's Mincho.
   const content = "# 京都 notes\n\nWe drank 抹茶 at 清水寺.\n"
@@ -177,7 +251,7 @@ test("a reopened document has Preview's Japanese face ready before Preview opens
 
 test("responsive reflow preserves native text selection and undo", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(page.getByRole("button", { name: "Toggle documents" })).toHaveAttribute("aria-expanded", "false")
   await text.fill("# Writing\n\n日本語 and English\n")
@@ -202,7 +276,7 @@ test("responsive reflow preserves native text selection and undo", async ({ page
 })
 
 test("Escape from More actions returns keyboard focus to its trigger", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
   const more = page.getByRole("button", { name: "More actions", exact: true })
   await more.focus()
@@ -219,7 +293,7 @@ test("Escape from More actions returns keyboard focus to its trigger", async ({ 
 
 test("compact document activation closes navigation and Preview retains a keyboard destination", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Mobile document\n")
   await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: "# Mobile document\n" })
@@ -247,7 +321,7 @@ test("compact document activation closes navigation and Preview retains a keyboa
 
 test("compact sidebar preserves keyboard traversal and toggle recovery", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Keyboard navigation\n")
   const toggle = page.getByRole("button", { name: "Toggle documents" })
@@ -269,7 +343,7 @@ test("compact sidebar preserves keyboard traversal and toggle recovery", async (
 })
 
 test("keyboard focus remains visible on sidebar and delete confirmation controls", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("textbox", { name: "Text" }).fill("# Focus review\n")
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   await toggle.focus()
@@ -301,7 +375,7 @@ test("keyboard focus remains visible on sidebar and delete confirmation controls
 })
 
 test("deletion closes More actions and Escape returns to the deletion trigger", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("textbox", { name: "Text" }).fill("# Keep this document\n")
   await openDocuments(page)
   const more = page.getByRole("button", { name: "More actions" })
@@ -320,7 +394,7 @@ test("deletion closes More actions and Escape returns to the deletion trigger", 
 
 test("More actions remains reachable above the mode controls in short viewports", async ({ page }) => {
   await page.setViewportSize({ width: 568, height: 240 })
-  await page.goto("/")
+  await openApp(page)
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
   const more = page.getByRole("button", { name: "More actions" })
   await more.focus()
@@ -377,7 +451,7 @@ test("sign-in preparation disables creation and Import until cancelled", async (
     await new Promise<void>(resolve => { finishPreparation = resolve })
     await route.fulfill({ status: 503 })
   })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text", exact: true })
   await text.fill("# Keep writing after cancellation\n")
   const create = page.locator("header").getByRole("button", { name: "New document", exact: true })
@@ -421,7 +495,7 @@ test("the first save status preserves native typing Undo and Redo", async ({ pag
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
   const nativeUndo = await finishTyping(nativeText)
 
-  await page.goto("/")
+  await openApp(page)
   await waitForWelcome(page)
   await page.getByRole("button", { name: "New document", exact: true }).first().click()
   const text = page.getByRole("textbox", { name: "Text", exact: true })
@@ -458,7 +532,7 @@ test("save failure and recovery preserve native typing Undo and Redo", async ({ 
   await nativeText.fill("First")
   const nativeUndo = await editAcrossSaving(nativeText, nextRender, nextRender)
 
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text", exact: true })
   const status = page.locator(".loomark-save-status")
   await text.fill("First")
@@ -496,7 +570,7 @@ test("replica save retries preserve native typing history and persist the curren
     body: JSON.stringify({ id: accountId, name: "Account A" }),
   }))
   await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
-  await page.goto("/")
+  await openApp(page)
   await replaceStoreRecords(page, [{ key, value: encodeReadyReplica(accountId, document) }])
   const finishRemoteRequests: Array<() => Promise<void>> = []
   await page.unroute("**/api/documents**")
@@ -577,7 +651,7 @@ test("native Undo saves an empty document without exporting hint text", async ({
 })
 
 test("visible save caption waits for durable acknowledgement without moving the editor", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const status = page.locator(".loomark-save-status")
   await expect(text).toBeVisible()
@@ -881,13 +955,17 @@ function replicaCurrentText(value: unknown): string | null {
 }
 
 async function openStoredDocuments(page: Page, documents: StoredDocument[]): Promise<void> {
-  await page.goto("/")
+  await openApp(page)
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+  // Replace storage from a page of the same origin without Loomark running,
+  // so the app cannot write its current document back before it reloads.
+  await page.goto("/about/index.html")
   await replaceStoreRecords(page, documents.map(document => ({
     key: sourceKey(document.document_id),
     value: encodeStoredDocument(document),
   })))
-  await page.reload()
+  await page.goto("/")
+  await openFirstCard(page)
 }
 
 async function expectStoredDocument(
@@ -954,6 +1032,38 @@ function installDocumentPutFailure(target: string | { prefix: string }): void {
   state.__loomarkDocumentPutFailure = true
 }
 
+// Startup shows the Document index once the repository holds documents that
+// the URL does not name; the first card is the most recently changed one.
+async function openFirstCard(page: Page): Promise<void> {
+  // By keyboard, so later focus rings show as they would without the index.
+  const card = page.locator("#loomark-index .grid.cards .card").first()
+  await card.press("Enter")
+  await expect(page.locator("#loomark-index")).toBeHidden()
+}
+
+// Loads Loomark and continues into the Editor, from the Document index when
+// startup shows it.
+async function openApp(page: Page): Promise<void> {
+  await page.goto("/")
+  await openEditor(page)
+}
+
+// Startup opens the Document index, or the Editor when the URL names a
+// document; either way, end up in the Editor.
+async function openEditor(page: Page): Promise<void> {
+  const card = page.locator("#loomark-index:not(.covered) .grid.cards .card").first()
+  const editor = page.locator("#loomark-editor:not([inert]) #loomark-text")
+  await expect(card.or(editor)).toBeVisible()
+  if (await card.isVisible()) await openFirstCard(page)
+}
+
+// Stored documents replaced under the page are read again by a reload, which
+// opens the Document index because the URL names a document no longer stored.
+async function reloadIntoFirstCard(page: Page): Promise<void> {
+  await page.reload()
+  await openFirstCard(page)
+}
+
 async function waitForRepositoryOpen(page: Page): Promise<void> {
   await waitForWelcome(page)
   await page.getByRole("textbox", { name: "Text" }).fill("# Untitled\n")
@@ -963,7 +1073,7 @@ async function waitForRepositoryOpen(page: Page): Promise<void> {
 // Deleting the Welcome document leaves the untouched New document over an
 // empty repository, the state a first visit started from before Welcome.
 async function openEmptyNew(page: Page): Promise<void> {
-  await page.goto("/")
+  await openApp(page)
   await waitForWelcome(page)
   await openDocuments(page)
   await page.getByRole("button", { name: 'Delete "Welcome to Loomark"', exact: true }).click()
@@ -976,10 +1086,12 @@ async function openEmptyNew(page: Page): Promise<void> {
   await text.focus()
 }
 
-// An empty repository opens with the stored Welcome document.
+// An empty repository stores Welcome and opens the Document index with it as
+// the only card; choosing the card brings Welcome to the Editor.
 async function waitForWelcome(page: Page): Promise<void> {
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(WELCOME_PATTERN)
   await expect.poll(() => readStoredDocument(page)).toMatchObject({ text: expect.stringMatching(WELCOME_PATTERN) })
+  await openEditor(page)
 }
 
 function installDelayedDocumentAbort(targetKey: string): void {
@@ -1163,7 +1275,7 @@ test("save indicator distinguishes an empty new document from a stored empty doc
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue("")
   await openDocuments(page)
-  await expect(page.getByText("No documents yet")).toBeVisible()
+  await expect(page.getByRole("complementary", { name: "Documents" }).getByText("No documents yet")).toBeVisible()
 
   await text.fill("# Written here\n")
   await expect(indicator).toHaveAttribute("title", "Saving on this device")
@@ -1180,7 +1292,7 @@ test("save indicator distinguishes an empty new document from a stored empty doc
 })
 
 test("Export downloads the current Document text with its Derived name", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const source = "## Export name\n\nCurrent text\n"
   await text.fill(source)
@@ -1214,7 +1326,7 @@ async function downloadCurrentMarkdown(page: Page): Promise<{ filename: string; 
 
 for (const persistence of ["failed", "held"] as const) {
   test(`Export rescues latest selection replacement while local save is ${persistence}`, async ({ page }) => {
-    await page.goto("/")
+    await openApp(page)
     const editor = page.getByRole("textbox", { name: "Text" })
     const original = "# Rescue\n\nOriginal paragraph\n"
     await editor.fill(original)
@@ -1272,7 +1384,7 @@ for (const persistence of ["failed", "held"] as const) {
 }
 
 test("a loaded offline editor saves and exports locally before reconnecting", async ({ page, context }) => {
-  await page.goto("/")
+  await openApp(page)
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.fill("# Offline\n")
   await expect.poll(async () => (await readStoredDocument(page))?.text).toBe("# Offline\n")
@@ -1292,7 +1404,7 @@ test("a loaded offline editor saves and exports locally before reconnecting", as
 })
 
 test("Import creates a new Document without changing the existing Document", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const existingText = "# Existing document\n\nKeep this text.\n"
   const normalized = "Imported\ntext\n"
@@ -1314,7 +1426,7 @@ test("Import creates a new Document without changing the existing Document", asy
 })
 
 test("menu Import uses the same Markdown file action as the sidebar", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("button", { name: "More actions" }).click()
   await page.locator(".loomark-menu").getByLabel("Import Markdown")
     .setInputFiles("tests/fixtures/import-bom-crlf.bin")
@@ -1333,7 +1445,7 @@ test("importing the same file twice creates two Documents", async ({ page }) => 
 })
 
 test("delayed imports preserve composition and remain available after later navigation", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Document A\n")
   await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
@@ -1394,7 +1506,7 @@ test("delayed imports preserve composition and remain available after later navi
 })
 
 test("Sonner import notifications preserve the current writing surface", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.locator("#loomark-text")
   await text.fill("# Keep my writing\n")
   await text.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(2, 6, "backward"))
@@ -1433,7 +1545,7 @@ test("Sonner import notifications preserve the current writing surface", async (
 for (const colorScheme of ["light", "dark"] as const) {
   test(`Sonner respects ${colorScheme} appearance and keyboard focus`, async ({ page }) => {
     await page.emulateMedia({ colorScheme })
-    await page.goto("/")
+    await openApp(page)
     await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
     const toast = page.getByRole("alert")
     await expect(toast).toBeVisible()
@@ -1453,7 +1565,7 @@ for (const colorScheme of ["light", "dark"] as const) {
 
 test("Sonner respects reduced motion and stays out of printed Preview", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("textbox", { name: "Text" }).fill("# Printed writing\n")
   await page.getByRole("tab", { name: "Preview", exact: true }).click()
   await page.getByLabel("Import Markdown").setInputFiles("tests/fixtures/import-malformed-utf8.md")
@@ -1473,7 +1585,7 @@ test("Sonner respects reduced motion and stays out of printed Preview", async ({
 })
 
 test("a replaced Sonner notification does not inherit the previous swipe", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const input = page.getByLabel("Import Markdown")
   await input.setInputFiles("tests/fixtures/import-malformed-utf8.md")
   const toast = page.getByRole("alert")
@@ -1561,7 +1673,7 @@ test("Import rejects malformed UTF-8 without creating a Source", async ({ page }
 })
 
 test("mode changes preserve native text selection and Undo", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await page.waitForLoadState("networkidle")
   await expect(page.getByRole("textbox", { name: "Text" }))
     .toHaveAttribute("autocomplete", "off")
@@ -1615,7 +1727,7 @@ test("mode changes preserve native text selection and Undo", async ({ page }) =>
 test("forced colors keep writing controls and the selected mode distinguishable", async ({ page }) => {
   await page.emulateMedia({ forcedColors: "active" })
   await page.setViewportSize({ width: 320, height: 360 })
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("textbox", { name: "Text" }).fill("Contrast check")
   await expect(page.getByRole("status", { name: "Saved on this device", exact: true })).toBeVisible()
   const hasVisibleGraphic = async (control: Locator) => {
@@ -1665,7 +1777,7 @@ test("native zoom does not freeze editor height when the viewport grows", async 
   })
   try {
     const page = await context.newPage()
-    await page.goto("/")
+    await openApp(page)
     const root = page.locator("#loomark-root")
     await expect.poll(() => root.evaluate(element => element.getBoundingClientRect().height)).toBe(380)
     const cdp = await context.newCDPSession(page)
@@ -1690,7 +1802,7 @@ test("native zoom does not freeze editor height when the viewport grows", async 
 for (const mode of ["Text", "Split"] as const) {
   test(`visual keyboard viewport keeps the current line and native editing state in ${mode}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.goto("/")
+    await openApp(page)
     const editor = page.getByRole("textbox", { name: "Text" })
     await page.getByRole("tab", { name: mode, exact: true }).click()
     const footer = page.locator(".loomark-footer")
@@ -1810,7 +1922,7 @@ for (const mode of ["Text", "Split"] as const) {
 
 test("increased text spacing preserves readable status and native caret navigation", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 360 })
-  await page.goto("/")
+  await openApp(page)
   await page.addStyleTag({ content: "* { line-height:1.5 !important; letter-spacing:.12em !important; word-spacing:.16em !important; } p { margin-bottom:2em !important; }" })
   const editor = page.getByRole("textbox", { name: "Text" })
   const text = Array.from({ length: 100 }, (_, i) => `Line ${i}`).join("\n")
@@ -1922,7 +2034,7 @@ for (const spacing of ["default", "increased"] as const) {
     await page.emulateMedia({ colorScheme: "light" })
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.addInitScript(installScrollFractions)
-    await page.goto("/")
+    await openApp(page)
     if (spacing === "increased") await page.addStyleTag({ content: "* { line-height:1.5 !important }" })
     const area = page.getByRole("textbox", { name: "Text" })
     await area.fill(Array.from({ length: 400 }, (_, i) => `Line ${i + 1}`).join("\n"))
@@ -1944,7 +2056,7 @@ for (const spacing of ["default", "increased"] as const) {
 
 test("writing scrolls past the end until the last line reaches the first line's height in Text and Split", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
-  await page.goto("/")
+  await openApp(page)
   const area = page.getByRole("textbox", { name: "Text" })
   await area.fill(Array.from({ length: 80 }, (_, i) => `Line ${i + 1}`).join("\n"))
   const lastLineTop = () => area.evaluate(element => {
@@ -1975,7 +2087,8 @@ for (const mode of ["Text", "Split"] as const) {
       { width: 320, height: 360, failure: true, minimumSplit: true },
     ].entries()) {
       await page.setViewportSize({ width, height })
-      await page.goto("/")
+      await openApp(page)
+      await openEditor(page)
       const editor = page.getByRole("textbox", { name: "Text" })
       const toggle = page.getByRole("button", { name: "Toggle documents" })
       if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click()
@@ -2029,9 +2142,10 @@ for (const mode of ["Text", "Split"] as const) {
 }
 
 test("scrollable text extends behind both bars without a separate blank frame", async ({ page }) => {
-  for (const size of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+  for (const [visit, size] of [{ width: 1280, height: 900 }, { width: 390, height: 844 }].entries()) {
     await page.setViewportSize(size)
-    await page.goto("/")
+    await openApp(page)
+    await openEditor(page)
     const source = page.getByRole("textbox", { name: "Text" })
     const content = Array.from({ length: 90 }, (_, i) => `Line ${i + 1}`).join("\n")
     await source.fill(content)
@@ -2061,7 +2175,7 @@ test("scrollable text extends behind both bars without a separate blank frame", 
 
 test("first edit with full storage stays unsaved without a duplicate toast", async ({ page }) => {
   await page.addInitScript(installDocumentPutFailure, { prefix: SOURCE_KEY_PREFIX })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(WELCOME_PATTERN)
   expect(await readStoredDocuments(page)).toEqual([])
@@ -2077,7 +2191,7 @@ test("first edit with full storage stays unsaved without a duplicate toast", asy
 })
 
 test("opening and saving persist only authoritative Source records", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const baseline = await readStoredDocument(page)
@@ -2105,7 +2219,7 @@ test("Sync transfers the current document while preserving native selection and 
     contentType: "application/json",
     body: JSON.stringify({ id: accountId, name: "Account A" }),
   }))
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Local\n")
   await expect.poll(() => readStoredDocument(page)).not.toBeNull()
@@ -2143,7 +2257,7 @@ test("account retry remains available in the narrow layout", async ({ page }) =>
   await page.route("**/api/account", route => route.fulfill({
     status: available ? 401 : 503,
   }))
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("button", { name: "More actions" }).click()
   const retry = page.getByRole("button", { name: "Check account connection" })
   await expect(retry).toBeInViewport()
@@ -2163,7 +2277,7 @@ test("an absent account endpoint does not imply signed out or interrupt local ed
     lookups += 1
     return route.fulfill({ status: 404 })
   })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Local document\n")
   await expect(page.locator(".loomark-save-status")).toHaveAttribute("title", "Saved on this device")
@@ -2195,7 +2309,7 @@ test("failed document discovery can be retried without reloading or signing out"
       }),
     } : { status: 503 })
   })
-  await page.goto("/")
+  await openApp(page)
   await expect.poll(() => discoveries).toBe(1)
   await page.getByRole("button", { name: "More actions" }).click()
   const retry = page.locator(".loomark-menu").getByRole("button", { name: "Retry document connection" })
@@ -2223,7 +2337,7 @@ test("Google sign-in waits for committed local text before preparing the redirec
       body: JSON.stringify({ url: provider }),
     })
   })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const document = await readStoredDocument(page)
   if (!document) throw new Error("baseline Source missing")
@@ -2247,7 +2361,7 @@ historyTest("ordinary Back and Forward preserve locally saved writing across rep
   await page.route("https://loomark-history.test/**", route => route.fulfill({
     contentType: "text/html", body: "<title>Local history fixture</title><p>Another page</p>",
   }))
-  await page.goto("/")
+  await openApp(page)
   const editor = page.getByRole("textbox", { name: "Text" })
   const source = "# Return here\nKeep this writing."
   await editor.fill(source)
@@ -2298,7 +2412,7 @@ historyTest("Back from Google restores editing and refreshes the account from BF
     contentType: "application/json",
     body: JSON.stringify({ url: provider }),
   }))
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const document = await readStoredDocument(page)
   if (!document) throw new Error("baseline Source missing")
@@ -2331,7 +2445,7 @@ test("failed departure save unlocks editing and retries persistence before OAuth
     loginRequests += 1
     await route.fulfill({ status: 503 })
   })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const document = await readStoredDocument(page)
   if (!document) throw new Error("baseline Source missing")
@@ -2377,7 +2491,7 @@ test("returning a failed Replica edit to saved text cannot replay obsolete text 
     textAtPreparation = replicaCurrentText(await readStoredDocumentRaw(page, key))
     await route.fulfill({ status: 503 })
   })
-  await page.goto("/")
+  await openApp(page)
   await replaceStoreRecords(page, [
     { key, value: encodeReadyReplica(accountId, document) },
   ])
@@ -2425,7 +2539,7 @@ test("a new sign-in joins the physical OAuth request after a racing edit", async
       }),
     })
   })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const editor = page.getByRole("textbox", { name: "Text" })
   await page.getByRole("button", { name: "More actions" }).click()
@@ -2478,7 +2592,7 @@ test("account refresh holds an OAuth result until signed-out status is confirmed
     contentType: "text/html",
     body: "<title>Authorization destination</title>",
   }))
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page.getByRole("textbox", { name: "Text" })).toBeDisabled()
@@ -2514,7 +2628,7 @@ test("an old successful OAuth response cannot bypass a newer pending save", asyn
       }),
     })
   })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
@@ -2587,7 +2701,7 @@ test("canceling sign-in resumes editing while its physical request stays owned",
       }),
     })
   })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const editor = page.getByRole("textbox", { name: "Text" })
   const original = await editor.elementHandle()
@@ -2636,7 +2750,7 @@ test("canceling sign-in during saving does not cancel persistence or start OAuth
     loginRequests++
     await route.fulfill({ status: 503 })
   })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
@@ -2686,7 +2800,7 @@ test("canceling a prepared sign-in during account lookup restores editor focus",
     redirects++
     await route.fulfill({ contentType: "text/html", body: "<title>Unexpected redirect</title>" })
   })
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("button", { name: "More actions" }).click()
   await page.getByRole("button", { name: "Login with Google" }).click()
   await expect(page.getByRole("button", { name: "Cancel sign-in" })).toBeVisible()
@@ -2719,7 +2833,7 @@ test("account replica edits persist without creating a Source copy", async ({ pa
     contentType: "application/json",
     body: JSON.stringify({ id: accountId, name: "Account A" }),
   }))
-  await page.goto("/")
+  await openApp(page)
   await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
   await replaceStoreRecords(page, [{
     key,
@@ -2753,7 +2867,7 @@ test("Replica write failure clears when a later edit saves without a retry butto
     body: JSON.stringify({ id: accountId, name: "Account A" }),
   }))
   await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
-  await page.goto("/")
+  await openApp(page)
   await replaceStoreRecords(page, [{ key, value: encodeReadyReplica(accountId, document) }])
   await page.reload()
   await openDocuments(page)
@@ -2806,7 +2920,7 @@ for (const lookup of ["signed-out", "unavailable"] as const) {
       return route.fulfill({ status: 204 })
     })
     await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
-    await page.goto("/")
+    await openApp(page)
     await replaceStoreRecords(page, [{ key, value: encodeReadyReplica(accountId, document) }])
     await page.reload()
     await openDocuments(page)
@@ -2858,7 +2972,7 @@ test("duplicate leads select and delete by Document ID", async ({ page }) => {
 })
 
 test("edits reorder documents at once, and reload keeps their Change time order", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -2916,7 +3030,7 @@ test("edits reorder documents at once, and reload keeps their Change time order"
 })
 
 test("startup is read-only and restores an accepted Editing Document", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -2937,7 +3051,7 @@ test("startup is read-only and restores an accepted Editing Document", async ({ 
 })
 
 test("a non-string Editing Document is equivalent to no Editing Document", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   await replaceStoreRecords(page, [
@@ -2951,7 +3065,7 @@ test("a non-string Editing Document is equivalent to no Editing Document", async
 })
 
 test("Document Sidebar switches saved Sources A to B to A without cross-document undo", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -2960,7 +3074,7 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
   ])
 
-  await page.reload()
+  await reloadIntoFirstCard(page)
   await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const text = page.getByRole("textbox", { name: "Text" })
@@ -3001,7 +3115,7 @@ test("Document Sidebar switches saved Sources A to B to A without cross-document
 })
 
 test("Editing Document writes are last-invocation-wins", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -3032,7 +3146,7 @@ test("Editing Document writes are last-invocation-wins", async ({ page }) => {
 
 test("remember failure cannot affect editing or Source recovery", async ({ page }) => {
   await page.addInitScript(installDocumentPutFailure, EDITING_DOCUMENT_KEY)
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -3041,7 +3155,7 @@ test("remember failure cannot affect editing or Source recovery", async ({ page 
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
   ])
 
-  await page.reload()
+  await reloadIntoFirstCard(page)
   await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
   const text = page.getByRole("textbox", { name: "Text" })
@@ -3050,13 +3164,14 @@ test("remember failure cannot affect editing or Source recovery", async ({ page 
   await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
   expect(await readStoredDocumentRaw(page, EDITING_DOCUMENT_KEY)).toBeUndefined()
 
+  // The URL names B, so a reload opens it without the failed remember.
   await page.reload()
-  await expect(text).toHaveValue(documentA.text)
+  await expect(text).toHaveValue(documentB.text)
   await expect(page.getByRole("heading", { name: "Document recovery" })).toHaveCount(0)
 })
 
 test("New stays ephemeral and its first Source save is not remembered", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const before = await readStoredDocuments(page)
   expect(before).toHaveLength(1)
@@ -3128,7 +3243,7 @@ for (const storage of ["Source", "Replica"] as const) {
       contentType: "application/json", body: JSON.stringify({ id: accountId, name: "Account A" }),
     }))
     await page.route("**/api/documents**", route => route.fulfill({ status: 503 }))
-    await page.goto("/")
+    await openApp(page)
     await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
     const key = storage === "Source" ? sourceKey(b.document_id) : replicaKey(accountId, b.document_id)
     await replaceStoreRecords(page, [
@@ -3168,7 +3283,7 @@ for (const storage of ["Source", "Replica"] as const) {
 }
 
 test("Delete icon is disabled while deletion is pending", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -3213,7 +3328,7 @@ test("Delete icon is disabled while deletion is pending", async ({ page }) => {
 })
 
 test("Delete document activates and remembers the newest fallback", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -3313,7 +3428,7 @@ test("queued full-value input cannot commit a rejected range edit to Documents",
 })
 
 test("final Delete leaves an empty New with a live Split Preview", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const split = page.getByRole("tab", { name: "Split" })
   await split.click()
@@ -3333,7 +3448,7 @@ test("final Delete leaves an empty New with a live Split Preview", async ({ page
 // Playwright runtime, so the obsolete identity-retry browser case is covered by
 // the pure repository tests instead of attempting to patch the platform API.
 test("Document delete icon is directly accessible and keyboard operable", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Icon test\n")
@@ -3352,7 +3467,7 @@ test("Document delete icon is directly accessible and keyboard operable", async 
 
 test("Document controls remain accessible without horizontal overflow at 390 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   await expect(toggle)
@@ -3395,7 +3510,7 @@ test("Document controls remain accessible without horizontal overflow at 390 px"
 
 test("Document sidebar leaves desktop writing unobscured and its toggle in place", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   const sidebar = page.locator("#loomark-document-sidebar")
@@ -3435,7 +3550,7 @@ test("Document sidebar leaves desktop writing unobscured and its toggle in place
 test("Document sidebar respects reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await openDocuments(page)
   const sidebar = page.locator("#loomark-document-sidebar")
@@ -3450,7 +3565,7 @@ test("Document sidebar respects reduced motion", async ({ page }) => {
 for (const initialWidth of [390, 1280]) {
   test(`Sidebar choices survive both breakpoint directions from ${initialWidth} px`, async ({ page }) => {
     await page.setViewportSize({ width: initialWidth, height: 844 })
-    await page.goto("/")
+    await openApp(page)
     await waitForRepositoryOpen(page)
     const toggle = page.getByRole("button", { name: "Toggle documents" })
     const sidebar = page.locator("#loomark-document-sidebar")
@@ -3487,7 +3602,7 @@ for (const initialWidth of [390, 1280]) {
 }
 
 test("Document switch does not wait for the active Source to save", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -3496,7 +3611,7 @@ test("Document switch does not wait for the active Source to save", async ({ pag
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
   ])
 
-  await page.reload()
+  await reloadIntoFirstCard(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await openDocuments(page)
   const documents = page.getByRole("complementary", { name: "Documents" })
@@ -3511,7 +3626,7 @@ test("Document switch does not wait for the active Source to save", async ({ pag
 })
 
 test("active remains unknown and does not hide valid Documents", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const valid = { document_id: fixtureDocumentId("valid-document"), text: "# Valid\n" }
   const legacy = JSON.stringify({ document_id: "legacy-document", text: "# Legacy\n", change_order: 1 })
@@ -3526,7 +3641,7 @@ test("active remains unknown and does not hide valid Documents", async ({ page }
 })
 
 test("old three-field Source records remain preserved and unreadable", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const valid = { document_id: fixtureDocumentId("valid-document"), text: "# Valid\n" }
   const legacyKey = sourceKey("legacy-document")
@@ -3577,7 +3692,7 @@ test("a version 1 database is upgraded once and keeps every document", async ({ 
     open.onerror = () => reject(open.error)
   }), records)
 
-  await page.goto("/")
+  await openApp(page)
   await expect(page.getByRole("textbox", { name: "Text" })).toHaveValue(source.text)
   await openDocuments(page)
   await expect(page.getByRole("complementary", { name: "Documents" })
@@ -3597,7 +3712,7 @@ test("a version 1 database is upgraded once and keeps every document", async ({ 
 })
 
 test("unknown metadata is preserved and cannot override a Source", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const document = { document_id: fixtureDocumentId("document-a"), text: "# Current\n" }
   const metadata = JSON.stringify({
@@ -3614,7 +3729,7 @@ test("unknown metadata is preserved and cannot override a Source", async ({ page
 })
 
 test("Preview prepares after its status paints and refreshes typed Markdown", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
 
   const source = [
     "# Preview heading",
@@ -3719,7 +3834,7 @@ test("imported active-looking Markdown stays inert and exports losslessly", asyn
 })
 
 test("Preview links preserve unsaved writing when activated by keyboard", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const originalUrl = page.url(), external = "https://safe-preview.test/read"
   const source = `# Link notes\n\n[HTTPS](${external})\n\n[Section](#section)\n`
   const editor = page.getByRole("textbox", { name: "Text" })
@@ -3736,7 +3851,7 @@ test("Preview links preserve unsaved writing when activated by keyboard", async 
   // Both destinations are fulfilled locally; no external server or user data is used.
   await page.context().route(external, route => route.fulfill({ contentType: "text/html", body: "Safe link fixture" }))
   await page.context().route(originalUrl, route => route.fulfill({ contentType: "text/html", body: "Fragment fixture" }))
-  for (const [name, destination] of [["HTTPS", external], ["Section", originalUrl + "#section"]]) {
+  for (const [name, destination] of [["HTTPS", external], ["Section", new URL("#section", originalUrl).href]]) {
     const link = page.getByRole("link", { name, exact: true })
     await expect(link).toHaveAttribute("target", "_blank")
     await expect(link).toHaveAttribute("rel", "noopener noreferrer")
@@ -3756,7 +3871,7 @@ test("Preview links preserve unsaved writing when activated by keyboard", async 
 
 test("long and malformed Markdown stays contained and code remains keyboard scrollable", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 360 })
-  await page.goto("/")
+  await openApp(page)
   const source = `# Readable material\n\n[broken](\n\n<https://safe-preview.test/${"a".repeat(1024)}>\n\n\`\`\`text\n${"code_".repeat(400)}\n\`\`\`\n\nEnd of note\n`
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.fill(source)
@@ -3780,7 +3895,7 @@ test("long and malformed Markdown stays contained and code remains keyboard scro
 })
 
 test("Preview keeps incomplete Markdown literal without parser chrome", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("𐐀[unclosed\n")
   await page.getByRole("tab", { name: "Preview" }).click()
@@ -3801,7 +3916,7 @@ test("Preview keeps incomplete Markdown literal without parser chrome", async ({
 })
 
 test("Preview preserves list markers and code readability across viewport sizes", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await openDocuments(page)
   await page.getByRole("button", {
     name: "Create Markdown guide example document",
@@ -3825,7 +3940,7 @@ test("Preview preserves list markers and code readability across viewport sizes"
 })
 
 test("RUI mode tabs activate with roving keyboard focus", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
 
   const textTab = page.getByRole("tab", { name: "Text" })
   const previewTab = page.getByRole("tab", { name: "Preview" })
@@ -3860,7 +3975,7 @@ test("RUI mode tabs activate with roving keyboard focus", async ({ page }) => {
 
 test("Split resizes by keyboard and pointer without losing writing across orientation", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const content = "# Resizable writing\n"
   await text.fill(content)
@@ -3902,13 +4017,14 @@ test("Split resizes by keyboard and pointer without losing writing across orient
 
 test("Examples create and open new Documents, preserve existing Documents, and close the sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto("/")
+  await openApp(page)
 
   const text = page.getByRole("textbox", { name: "Text" })
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   const sidebar = page.locator("#loomark-document-sidebar")
   await text.fill("# Work in progress\n")
-  await expect.poll(() => readStoredDocuments(page)).toHaveLength(1)
+  await expect.poll(async () => (await readStoredDocuments(page)).map(document => document.text))
+    .toEqual(["# Work in progress\n"])
   const [existing] = await readStoredDocuments(page)
   const examples = page.getByRole("toolbar", { name: "Example documents" })
   const cases = [
@@ -3935,7 +4051,7 @@ test("Examples create and open new Documents, preserve existing Documents, and c
 test("Split catches up when Preview finishes after Text has scrolled", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.addInitScript(installScrollFractions)
-  await page.goto("/")
+  await openApp(page)
   const source = Array.from({ length: 80 }, (_, index) => (
     `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
   )).join("\n\n")
@@ -3996,7 +4112,7 @@ test("Split catches up when Preview finishes after Text has scrolled", async ({ 
 test("Split synchronizes Text and Preview scrolling in both directions", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.addInitScript(installScrollFractions)
-  await page.goto("/")
+  await openApp(page)
 
   const source = Array.from({ length: 80 }, (_, index) => (
     `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
@@ -4141,7 +4257,7 @@ test("Split synchronizes Text and Preview scrolling in both directions", async (
 test("Split preserves reading-position synchronization across document and mode changes", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
   await page.addInitScript(installScrollFractions)
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const source = Array.from({ length: 80 }, (_, index) => (
     `## Section ${index}\n\nParagraph ${index} with enough text for both panes.`
@@ -4152,7 +4268,7 @@ test("Split preserves reading-position synchronization across document and mode 
     { key: sourceKey(documentA.document_id), value: encodeStoredDocument(documentA) },
     { key: sourceKey(documentB.document_id), value: encodeStoredDocument(documentB) },
   ])
-  await page.reload()
+  await reloadIntoFirstCard(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const preview = page.getByRole("region", { name: "Markdown preview" })
   const documents = page.getByRole("complementary", { name: "Documents" })
@@ -4253,7 +4369,7 @@ for (const destination of ["Split", "Text"] as const) {
     const errors: string[] = []
     page.on("pageerror", error => errors.push(error.message))
     await page.setViewportSize({ width: 900, height: 700 })
-    await page.goto("/")
+    await openApp(page)
     const text = page.getByRole("textbox", { name: "Text" })
     await text.fill(unevenSections)
     await page.getByRole("tab", { name: "Split" }).click()
@@ -4302,7 +4418,7 @@ for (const destination of ["Split", "Text"] as const) {
 
 test("mode changes keep the paragraph being read at the same height", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill(unevenSections)
   const scrollTextTo = (marker: string, top: number) => text.evaluate((element, { marker, top }) => {
@@ -4345,7 +4461,7 @@ test("mode changes keep the paragraph being read at the same height", async ({ p
 
 test("engaging a pane releases the held reading position at once", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 700 })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill(unevenSections)
   // The caret is at the end, so the text at the top is held.
@@ -4369,7 +4485,7 @@ test("an element inserted into Preview leaves Split without measurements, not br
   const errors: Error[] = []
   page.on("pageerror", error => errors.push(error))
   await page.setViewportSize({ width: 900, height: 700 })
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill(unevenSections)
   await page.getByRole("tab", { name: "Split" }).click()
@@ -4389,9 +4505,10 @@ test("an element inserted into Preview leaves Split without measurements, not br
 })
 
 test("Split shows the text at the top of the pane being read at the same depth in the other", async ({ page }) => {
-  for (const width of [900, 640]) {
+  for (const [visit, width] of [900, 640].entries()) {
     await page.setViewportSize({ width, height: 700 })
-    await page.goto("/")
+    await openApp(page)
+    await openEditor(page)
     await page.getByRole("textbox", { name: "Text" }).fill(unevenSections)
     await page.getByRole("tab", { name: "Split" }).click()
     await expect(page.getByRole("heading", { name: "Section 59" })).toBeVisible()
@@ -4444,7 +4561,7 @@ test("Split follows wrapped text in a pane of fractional width", async ({ page }
     Array.from({ length: 20 + index % 50 }, word).join(" "),
   ].join("\n")).join("\n\n")
   await page.setViewportSize({ width: 901, height: 700 })
-  await page.goto("/")
+  await openApp(page)
   await page.getByRole("textbox", { name: "Text" }).fill(wrapped)
   await page.getByRole("tab", { name: "Split" }).click()
   await expect(page.getByRole("heading", { name: "Section 299" })).toBeVisible()
@@ -4477,7 +4594,7 @@ test("Split follows wrapped text in a pane of fractional width", async ({ page }
 })
 
 test("document names follow committed edits across reflow and IME composition", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const seed = (await readStoredDocument(page))!
   await openDocuments(page)
@@ -4517,7 +4634,7 @@ test("document names follow committed edits across reflow and IME composition", 
 
 test("quiet Autosave restores exact Saved text after reload", async ({ page }) => {
   const savedText = "# Saved locally\n\nExact text.\n"
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
 
   const text = page.getByRole("textbox", { name: "Text" })
@@ -4536,7 +4653,7 @@ test("quiet Autosave restores exact Saved text after reload", async ({ page }) =
 })
 
 test("exact acknowledged revert avoids a redundant Source write", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
@@ -4566,7 +4683,7 @@ test("exact acknowledged revert avoids a redundant Source write", async ({ page 
 })
 
 test("equal-text ABA still saves the latest exact text", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
@@ -4603,7 +4720,7 @@ test("equal-text ABA still saves the latest exact text", async ({ page }) => {
 })
 
 test("large input during an active save coalesces to the latest text", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
@@ -4692,7 +4809,7 @@ test("hidden visibility saves an inactive document while save timers are held", 
 })
 
 test("hidden visibility makes pending text eligible before quiet", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
@@ -4730,7 +4847,7 @@ test("hidden visibility makes pending text eligible before quiet", async ({ page
 })
 
 test("rapid Text input writes only the latest text", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
@@ -4765,7 +4882,7 @@ test("rapid Text input writes only the latest text", async ({ page }) => {
 })
 
 test("IME composition saves only after composition ends", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
@@ -4804,7 +4921,7 @@ test("IME composition saves only after composition ends", async ({ page }) => {
 })
 
 test("no-op IME composition keeps Saved text without redundant writes", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
@@ -4829,7 +4946,7 @@ test("no-op IME composition keeps Saved text without redundant writes", async ({
 })
 
 test("Preview keeps committed content until IME composition ends", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# Before\n")
   await page.getByRole("tab", { name: "Split" }).click()
@@ -4870,7 +4987,7 @@ test("Preview keeps committed content until IME composition ends", async ({ page
 })
 
 test("save failure keeps Text editable and the next edit saves without a retry button", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page)).toEqual({
     document_id: expect.any(String),
@@ -4914,7 +5031,7 @@ test("save failure keeps Text editable and the next edit saves without a retry b
 })
 
 test("failed attempt exact acknowledged revert restores truthful Saved", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
@@ -4946,7 +5063,7 @@ test("failed attempt exact acknowledged revert restores truthful Saved", async (
 })
 
 test("active failure after acknowledged revert restores truthful Saved", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   await expect.poll(() => readStoredDocument(page).then(document => document?.text))
     .toBe("# Untitled\n")
@@ -4975,7 +5092,7 @@ test("active failure after acknowledged revert restores truthful Saved", async (
 })
 
 test("saving one Source preserves unrelated Sources and unknown metadata", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const documentA = { document_id: fixtureDocumentId("document-a"), text: "# A\n" }
   const documentB = { document_id: fixtureDocumentId("document-b"), text: "# B\n" }
@@ -4989,7 +5106,7 @@ test("saving one Source preserves unrelated Sources and unknown metadata", async
     { key: "metadata/v2/future", value: futureMetadata },
   ])
 
-  await page.reload()
+  await reloadIntoFirstCard(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await expect(text).toHaveValue(documentA.text)
   await text.fill("# Updated A\n")
@@ -5010,7 +5127,7 @@ test("saving one Source preserves unrelated Sources and unknown metadata", async
 test("valid and corrupt Source records coexist without overwriting corruption", async ({ page }) => {
   const invalidDocument = "not-json"
   const corruptKey = sourceKey("corrupt-document")
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")
@@ -5048,7 +5165,7 @@ test("native range edits preserve exact text and Undo across Unicode input", asy
 })
 
 test("mismatched insertion facts recover from the current textarea value", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.waitFor()
 
@@ -5076,7 +5193,7 @@ test("mismatched insertion facts recover from the current textarea value", async
 })
 
 test("editing after Preview stays within 10 ms and renders the latest text", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill("# A")
   await page.getByRole("tab", { name: "Preview" }).click()
@@ -5119,7 +5236,7 @@ test("editing after Preview stays within 10 ms and renders the latest text", asy
 })
 
 test("Text input processing stays within 10 ms", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const durations = await text.evaluate(element => {
     const textarea = element as HTMLTextAreaElement
@@ -5143,7 +5260,7 @@ test("Text input processing stays within 10 ms", async ({ page }) => {
 })
 
 test("reverting a 1 MiB document before saving preserves exact text without redundant writes", async ({ page }) => {
-  await page.goto("/")
+  await openApp(page)
   await waitForRepositoryOpen(page)
   const baseline = await readStoredDocument(page)
   if (!baseline) throw new Error("baseline Source missing")

@@ -68,6 +68,11 @@ pub fn[Id] Seed::selection(self : Seed[Id]) -> Selection {
 }
 
 ///|
+pub fn[Id] Seed::status(self : Seed[Id]) -> RowStatus {
+  self.status
+}
+
+///|
 pub enum Intent[Id] {
   Create
   Select(Id)

@@ -19,6 +19,9 @@ priv struct LayoutInput {
   footer : @rabbita.Html
   dialog : @rabbita.Html
   creation_action : @rabbita.Html
+  /// The Document index, shown over the Editor while `browsing`.
+  index : @rabbita.Html
+  browsing : Bool
 } derive(Eq)
 
 ///|
@@ -76,12 +79,37 @@ fn screen_layout(
                 [input.navigation, input.tools],
               ),
               document_sidebar_trigger(sidebar, input.compact, input.focus_mode),
-              @html.div(
-                id="loomark-editor",
-                class="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
-                attrs=@html.Attrs::build().inert(editor_inert),
-                [input.toolbar, input.editor, input.footer, input.focus_toggle],
-              ),
+              // The Editor stays laid out under the index, so it keeps its
+              // document and its place while the index is in front.
+              @html.div(class="relative flex h-full min-h-0 min-w-0 flex-1", [
+                @html.div(
+                  id="loomark-editor",
+                  class="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-lm-paper",
+                  attrs=@html.Attrs::build().inert(
+                    editor_inert || input.browsing,
+                  ),
+                  [
+                    input.toolbar,
+                    input.editor,
+                    input.footer,
+                    input.focus_toggle,
+                  ],
+                ),
+                @html.div(
+                  id="loomark-index",
+                  // Covered, it stays laid out, so its cards keep their
+                  // places and its grid width stays measured.
+                  class=if input.browsing {
+                    "loomark-index-layer absolute inset-0 z-40 overflow-y-auto bg-lm-foundation"
+                  } else {
+                    "loomark-index-layer covered absolute inset-0 z-40 overflow-y-auto bg-lm-foundation"
+                  },
+                  attrs=@html.Attrs::build().inert(
+                    editor_inert || !input.browsing,
+                  ),
+                  input.index,
+                ),
+              ]),
             ],
           )
         }

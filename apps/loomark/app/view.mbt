@@ -85,6 +85,7 @@ fn view(
       ExportRequested => Msg::ExportRequested
       ExampleSelected(activation, text) =>
         Msg::ExampleSelected(activation, text)
+      NotesRequested => Msg::NotesRequested
     }
   })
   let on_mode = emit.map(mode => ModeSelected(mode))
@@ -256,11 +257,34 @@ fn view(
   let focus_controls = focus_mode.map2(focus_disabled, (focused, disabled) => {
     (focused, focus_mode_toggle(focused, disabled, emit(FocusModeToggled)))
   })
-  let controls = toolbar.map3(footer, focus_controls, (
+  // The Document index, over the Editor while it is in front. It stays drawn
+  // behind the Editor, so Back finds its scroll position unchanged; an
+  // embedded Loomark has none.
+  let browsing = model.map(model => {
+    model.screen is Browsing(_) && model.page is Editing(_)
+  })
+  let has_index = model.map(model => !(model.screen is Embedded))
+  let index = has_index.switch_by(
+    has_index => {
+      if has_index {
+        @document_index.view(
+          model.map(model => model.index),
+          on_delete=emit.map(key => IndexDeleteRequested(key)),
+          emit.map(msg => IndexMsg(msg)),
+        )
+      } else {
+        @rabbita.Val::constant(@html.nothing)
+      }
+    },
+    by=has_index => if has_index { "index" } else { "none" },
+  )
+  let front = index.map2(browsing, (index, browsing) => (index, browsing))
+  let controls = toolbar.map4(footer, focus_controls, front, (
     toolbar,
     footer,
     focus_controls,
-  ) => (toolbar, footer, focus_controls))
+    front,
+  ) => (toolbar, footer, focus_controls, front))
   let layout_input = phase.map7(
     compact,
     recent_documents_view.navigation(),
@@ -269,9 +293,12 @@ fn view(
     editor_view,
     recent_documents_view.dialog(),
     (phase, compact, navigation, tools, controls, editor, dialog) => {
-      let (toolbar, footer, focus_controls) = controls
+      let (toolbar, footer, focus_controls, front) = controls
       let (focus_mode, focus_toggle) = focus_controls
+      let (index, browsing) = front
       LayoutInput::{
+        index,
+        browsing,
         phase,
         focus_mode,
         focus_toggle,
@@ -315,5 +342,6 @@ fn toolbar_input(model : Model) -> ToolbarInput? {
     can_create: editing.can_activate() && !model.sign_in.blocks_editing(),
     menu_open: editing.menu_open,
     import_disabled: model.sign_in.blocks_editing(),
+    has_notes: !(model.screen is Embedded),
   })
 }

@@ -123,10 +123,16 @@ function captureMutationOperationIds(page: Page, operationIds: string[]): void {
   })
 }
 
-async function createSynced(page: Page, text: string): Promise<string> {
+// A fresh profile starts on the Document index; open its Welcome card.
+async function openWelcome(page: Page): Promise<void> {
   await page.goto("/")
+  await page.getByRole("link", { name: /^Welcome to Loomark/ }).click()
+  await expect(page.getByRole("textbox", { name: "Text" })).toBeVisible()
+}
+
+async function createSynced(page: Page, text: string): Promise<string> {
+  await openWelcome(page)
   const editor = page.getByRole("textbox", { name: "Text" })
-  await expect(editor).toBeVisible()
   await editor.fill(text)
   await openActions(page)
   const mutation = page.waitForRequest(request =>
@@ -177,7 +183,7 @@ test("durable operation survives a lost response, browser close, and Worker rest
   await signIn(phone, "phone")
   let page = phone.pages()[0] ?? await phone.newPage()
   captureMutationOperationIds(page, operationIds)
-  await page.goto("/")
+  await openWelcome(page)
   const editor = page.getByRole("textbox", { name: "Text" })
   await editor.fill(exact)
   await openActions(page)

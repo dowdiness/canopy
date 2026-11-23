@@ -10,9 +10,71 @@ priv enum Page {
 ///|
 priv struct Model {
   page : Page
+  /// Whether the Document index or the Editor is in front.
+  screen : Screen
+  /// The Document index, kept while the Editor is in front so Back returns
+  /// to the same search, scroll position, and card. An embedded Loomark
+  /// never draws it.
+  index : @document_index.DocumentIndex
   replication : @replication.State
   sign_in : @sign_in.SignIn
   focus_mode : Bool
+} derive(Eq)
+
+///|
+/// Which screen is in front. The Editor always holds a document, so the
+/// Document index can show over it, and choosing a card is a Document switch.
+priv enum Screen {
+  Browsing(Browsing)
+  /// The Editor is in front; `NotesReturn` is what `Notes` does to browser
+  /// history to bring the index back.
+  Writing(NotesReturn)
+  /// Back was asked during IME composition; the index returns once it ends.
+  Leaving
+  /// The startup URL named the document of this lifecycle key; it opens once
+  /// the repository has loaded, or the index shows when it does not exist.
+  Requested(String)
+  /// Loomark is embedded in another page: the Editor alone, with no index.
+  Embedded
+} derive(Eq)
+
+///|
+priv enum NotesReturn {
+  /// The Editor was opened from the index, whose history entry is behind it.
+  HistoryBack
+  /// The Editor opened at startup, with no index entry behind it.
+  IndexEntry
+} derive(Eq)
+
+///|
+priv struct Browsing {
+  /// A document chosen while browsing that has not opened yet.
+  opening : Opening?
+  /// The document whose deletion was asked for from its card, so focus
+  /// returns to the card rather than to Recent documents.
+  card_deletion : @documents.Key?
+} derive(Eq)
+
+///|
+/// A choice made while browsing: the Editor comes to the front once it
+/// activates a document newer than `generation`.
+priv struct Opening {
+  generation : Int
+  /// The card chosen, shown Loading until it opens. A New document, an
+  /// Example, or an import has none.
+  card : @documents.Key?
+  /// How the opened document's history entry comes to exist.
+  entry : Entry
+} derive(Eq)
+
+///|
+priv enum Entry {
+  /// A link, Back, or Forward already reached a URL over the index's entry.
+  Pushed
+  /// Chosen without a link: opening adds the entry over the index's.
+  ToPush
+  /// The startup URL named it, with no index entry behind.
+  Startup
 } derive(Eq)
 
 ///|
@@ -186,6 +248,14 @@ priv enum Msg {
   LogoutRequested
   LogoutCompleted(@sync.LogoutAttempt, @account_http.LogoutResult)
   Sync(SyncMsg)
+  IndexMsg(@document_index.Msg)
+  /// A card or New was followed in the Document index.
+  UrlRequested(@url.UrlRequest)
+  UrlChanged(@url.Url)
+  /// `Notes` was chosen in the Editor toolbar.
+  NotesRequested
+  /// Delete document was chosen on the card of this lifecycle key.
+  IndexDeleteRequested(String)
 }
 
 ///|

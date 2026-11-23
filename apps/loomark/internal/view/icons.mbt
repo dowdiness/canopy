@@ -14,6 +14,12 @@ pub fn panel_icon(class : String) -> Html {
 }
 
 ///|
+/// Create the decorative icon used to return to the Document index.
+pub fn arrow_left_icon(class : String) -> Html {
+  icon("i-lucide-arrow-left", class)
+}
+
+///|
 /// Create the decorative icon used for the document collection.
 pub fn folder_icon(class : String) -> Html {
   icon("i-lucide-folder", class)

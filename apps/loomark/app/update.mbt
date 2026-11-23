@@ -1309,11 +1309,14 @@ fn initial_state(
   emit : @rabbita.Emit[Msg],
   compact : Bool,
   first_document : CreationIntent,
+  screen : Screen,
 ) -> (Model, @rabbita.Cmd) {
   let (page, page_command) = initial_page(emit, compact, first_document)
   (
     {
       page,
+      screen,
+      index: empty_index(),
       replication: @replication.State(),
       sign_in: @sign_in.SignIn(),
       focus_mode: false,
@@ -1445,6 +1448,7 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | DocumentSelected(_)
     | StartSync(_)
     | AcceptRemote(_)
+    | IndexDeleteRequested(_)
     | LogoutRequested => true
     Notify(_)
     | NotificationFocusReturn
@@ -1478,6 +1482,10 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | SignIn(_)
     | LogoutCompleted(_, _)
     | AuthenticationReturned(_)
+    | IndexMsg(_)
+    | UrlRequested(_)
+    | UrlChanged(_)
+    | NotesRequested
     | Sync(_) => false
   }
 }
@@ -2020,7 +2028,10 @@ fn update(
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
   let previous = model
-  let (model, command) = reduce(model, msg, emit, editor)
+  let (model, command) = match browse(model, msg) {
+    Handled(model, command) => (model, command)
+    Forward(model, msg) => reduce(model, msg, emit, editor)
+  }
   let model = release_anchor_on_text_change(previous, model)
   let (model, command) = activate_open(model, command, emit, editor)
   let (model, sign_in_command) = update_sign_in(
@@ -2033,7 +2044,11 @@ fn update(
     Some(message) => notify(emit, message)
     None => @cmd.none
   }
-  (model, @cmd.batch([command, sign_in_command, deletion_notification]))
+  let (model, screen_command) = settle_screen(previous, model, emit)
+  (
+    model,
+    @cmd.batch([command, sign_in_command, deletion_notification, screen_command]),
+  )
 }
 
 ///|

@@ -1,4 +1,5 @@
 @import "tailwindcss" source(none);
+@import "../internal/document_index/document_index.css";
 @plugin "@tailwindcss/typography";
 @plugin "@egoist/tailwindcss-icons";
 @source "../app";
@@ -628,6 +629,13 @@
 .loomark-icon:hover:not(:disabled), .loomark-sidebar-trigger:hover { background: var(--loomark-hover); color: var(--color-lm-ink); }
 .loomark-icon[aria-expanded="true"] { background: var(--loomark-hover); color: var(--color-lm-ink); }
 .loomark-icon:disabled { opacity: 0.5; cursor: default; }
+/* Back to Notes starts the toolbar, clear of the documents trigger while
+   the sidebar is closed. */
+.loomark-viewport[data-state="collapsed"] .loomark-notes { margin-left: 28px; }
+@media (max-width: 520px) {
+  /* The trigger sits 8px from the left, so Back keeps a 4px gap after it. */
+  .loomark-viewport[data-state="collapsed"] .loomark-notes { margin-left: 36px; }
+}
 #loomark-root label:has(> input[type="file"]:disabled) { opacity: 0.5; pointer-events: none; }
 #loomark-root button:focus-visible,
 .loomark-notifications button:focus-visible {
@@ -718,8 +726,17 @@
     justify-content: center;
   }
 }
-.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 5px) !important; background: transparent; }
+.loomark-sidebar-trigger { width: 36px !important; height: 36px !important; top: calc(var(--loomark-viewport-top, 0px) + 6px) !important; background: transparent; }
 .loomark-sidebar [data-slot="sidebar-header"] { min-height: 42px; }
+@media (min-width: 721px) {
+  .loomark-viewport:has(#loomark-index:not(.covered)) .loomark-sidebar-trigger {
+    top: calc(var(--loomark-viewport-top, 0px) + 12px) !important;
+  }
+}
+@media (max-width: 520px) {
+  /* Centred on the 52px compact toolbar, level with its controls. */
+  .loomark-sidebar-trigger { top: calc(var(--loomark-viewport-top, 0px) + 8px) !important; }
+}
 .loomark-footer { position: absolute; inset: auto 0 0; z-index: 20; color: var(--color-lm-muted); padding-right: 64px; }
 .loomark-notifications {
   --rui-toast-radius: 8px;
@@ -1097,3 +1114,23 @@
   .loomark-prose :where(h1, h2, h3) { break-after: avoid; }
   .loomark-prose :where(pre, blockquote, img, table) { break-inside: avoid; }
 }
+
+/* The Document index (internal/document_index/document_index.css), shown
+   over the Editor with Loomark's tokens. Covered by the Editor, it stays
+   laid out, so its cards keep their places and its grid width stays
+   measured; hidden content is neither focusable nor read. */
+.loomark-index {
+  --lm-foundation: var(--color-lm-foundation);
+  --lm-surface: var(--color-lm-surface);
+  --lm-paper: var(--color-lm-paper);
+  --lm-ink: var(--color-lm-ink);
+  --lm-muted: var(--color-lm-muted);
+  --lm-rule: var(--color-lm-rule);
+  --lm-accent: var(--color-lm-accent);
+  --lm-danger: var(--color-lm-danger);
+  --lm-danger-soft: var(--color-lm-danger-soft);
+  --ui: var(--font-lm-ui);
+  --mono: var(--font-lm-mono);
+  --writing: var(--font-lm-writing);
+}
+#loomark-index.covered { visibility: hidden; }

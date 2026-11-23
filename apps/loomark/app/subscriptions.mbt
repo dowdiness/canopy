@@ -4,10 +4,23 @@ fn subscriptions(
   emit : @rabbita.Emit[Msg],
   window : @dom.Window,
   font_faces : @browser.FontFaceSet,
+  fonts : @dom.EventTarget,
   viewport : @sub.Sub,
 ) -> @sub.Sub {
   @sub.batch([
     viewport,
+    match (model.screen, model.page) {
+      (Embedded, _) => @sub.none
+      // Behind the Editor the index waits: redrawing it there would split the
+      // TextArea's native undo groups.
+      (Browsing(_), Editing(_)) =>
+        @sub.batch([
+          model.index.subscriptions(fonts, emit.map(msg => IndexMsg(msg))),
+          @sub.on_url_request(request => emit(UrlRequested(request))),
+          @sub.on_url_changed(url => emit(UrlChanged(url))),
+        ])
+      _ => @sub.on_url_changed(url => emit(UrlChanged(url)))
+    },
     match model.page {
       Editing(editing) if editing.mode != Preview =>
         writing_focus_subscription(

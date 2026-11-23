@@ -5,6 +5,7 @@ priv enum DocumentIntent {
   ImportFilesSelected(FixedArray[@browser.File])
   ExportRequested
   ExampleSelected(Activation, String)
+  NotesRequested
 }
 
 ///|
@@ -19,6 +20,8 @@ priv struct ToolbarInput {
   can_create : Bool
   menu_open : Bool
   import_disabled : Bool
+  /// Whether the Document index is behind the Editor for `Notes` to return to.
+  has_notes : Bool
 } derive(Eq)
 
 ///|
@@ -125,6 +128,18 @@ fn document_toolbar(
     class="loomark-topbar flex h-12 shrink-0 items-center justify-end gap-1 px-6 max-[520px]:h-[52px] max-[520px]:px-3",
     attrs=@html.Attrs::build().inert(focus_mode),
     [
+      if input.has_notes {
+        @html.button(
+          type_="button",
+          class="loomark-icon loomark-notes mr-auto",
+          title="Back to Notes",
+          attrs=@html.Attrs::build().aria_label("Back to Notes"),
+          on_click=emit(NotesRequested),
+          @view.arrow_left_icon("block size-4"),
+        )
+      } else {
+        @html.nothing
+      },
       @html.button(
         type_="button",
         class="loomark-icon",
