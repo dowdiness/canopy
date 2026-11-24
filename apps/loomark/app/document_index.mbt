@@ -62,7 +62,7 @@ fn listed_documents(
     remote_documents(model.sync()),
     document_membership(model.page),
   )
-  recent_document_seeds(editing, remote, keep_pending=true)
+  recent_document_seeds(editing, remote)
 }
 
 ///|

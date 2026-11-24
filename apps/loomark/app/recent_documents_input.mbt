@@ -73,18 +73,17 @@ fn remote_document_seeds(
 
 ///|
 /// Resolve app state into the narrow Recent documents feature input.
-/// A document being deleted keeps its entry while it is open, or always with
-/// `keep_pending`, as the Document index keeps its card.
+/// A document being deleted keeps its entry, showing its Pending deletion,
+/// until it is gone.
 fn recent_document_seeds(
   editing : EditingDocument,
   remote : Array[
     (@source_repository.IndexKey, @recent_documents.Seed[@documents.Key]),
   ],
-  keep_pending? : Bool = false,
 ) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
   let saved = editing.documents
     .recent()
-    .filter_map(item => {
+    .map(item => {
       let {
         key: id,
         source,
@@ -92,11 +91,6 @@ fn recent_document_seeds(
         delete_status: deletion_status,
         index_key,
       } = item
-      guard keep_pending ||
-        id == editing.activation.key ||
-        deletion_status != @documents.DeleteStatus::DeletePending else {
-        return None
-      }
       let selection = if id == editing.activation.key {
         @recent_documents.Selection::Editing
       } else if editing.can_select(id) {
@@ -130,16 +124,14 @@ fn recent_document_seeds(
         @documents.SaveStatus::Clean => @recent_documents.RowStatus::Saved
         _ => @recent_documents.RowStatus::Unsaved
       }
-      Some(
-        (
-          index_key,
-          @recent_documents.Seed::Seed(
-            docid=id,
-            source~,
-            selection~,
-            deletion~,
-            status~,
-          ),
+      (
+        index_key,
+        @recent_documents.Seed::Seed(
+          docid=id,
+          source~,
+          selection~,
+          deletion~,
+          status~,
         ),
       )
     })

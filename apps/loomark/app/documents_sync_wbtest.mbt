@@ -102,7 +102,7 @@ test "account switch retains optimistic text under its original owner" {
 }
 
 ///|
-test "synced deletion hides a non-active row while its intent is persisted" {
+test "synced deletion keeps a non-active row pending while its intent is persisted" {
   let account = sync_test_account("account-a")
   let documents = @documents.Model(sync_test_saved()).project_account(account)
   let token = sync_test_key(account, "shared")
@@ -118,7 +118,12 @@ test "synced deletion hides a non-active row while its intent is persisted" {
     { ..test_editing(), documents: pending, },
     [],
   ).to_array()
-  assert_false(visible.exists(seed => seed.docid() == token))
+  assert_true(
+    visible.exists(seed => {
+      seed.docid() == token &&
+      seed.deletion() is @recent_documents.DeletionAvailability::Pending
+    }),
+  )
 
   let write = edit.durable().request_deletion()
   let transition = expect_document_update(
