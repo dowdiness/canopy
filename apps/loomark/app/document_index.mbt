@@ -97,7 +97,7 @@ fn listed_key(
 ) -> @documents.Key? {
   listed_documents(model, editing)
   .iter()
-  .find_first(seed => seed.docid().lifecycle_key() == lifecycle)
+  .find_first(seed => seed.docid().to_string() == lifecycle)
   .map(seed => seed.docid())
 }
 
@@ -189,7 +189,7 @@ fn browse(model : Model, msg : Msg) -> Browse {
     // Forward again before composition ended keeps the Editor in front.
     (Leaving, UrlChanged(url)) if index_route(url)
       is Some(CardFromIndex(lifecycle)) &&
-      lifecycle == editing.activation.key.lifecycle_key() =>
+      lifecycle == editing.activation.key.to_string() =>
       Handled(
         {
           ..model,

@@ -100,32 +100,23 @@ fn Record::schedule(self : Self, window : AutosaveWindow?) -> Record {
 }
 
 ///|
-pub fn Key::lifecycle_key(self : Self) -> String {
+/// A key reads as its lifecycle key: its storage kind and the length-prefixed
+/// parts that identify it, so no other key reads the same and its text can
+/// name it where only text fits, such as an element ID or a URL.
+pub impl Show for Key with fn output(self, logger) {
   match self {
     Source(document_id) => {
       let value = document_id.value()
-      "source/" + value.length().to_string() + "/" + value
+      logger.write_string("source/\{value.length()}/\{value}")
     }
     Replica(account, document_id) => {
-      let value = account.value()
+      let account = account.value()
       let document = document_id.value()
-      "replica/" +
-      value.length().to_string() +
-      "/" +
-      value +
-      "/" +
-      document.length().to_string() +
-      "/" +
-      document
+      logger.write_string(
+        "replica/\{account.length()}/\{account}/\{document.length()}/\{document}",
+      )
     }
   }
-}
-
-///|
-/// A key reads as its lifecycle key, which no other key shares, so its text
-/// can name it where only text fits, such as an element ID.
-pub impl Show for Key with fn output(self, logger) {
-  logger.write_string(self.lifecycle_key())
 }
 
 ///|

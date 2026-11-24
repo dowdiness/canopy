@@ -155,7 +155,6 @@ fn view(
   let sidebar_state = @sidebar.SidebarProviderState::SidebarProviderState(true)
   let recent_documents_view = @recent_documents.build(
     input=recent_seeds,
-    lifecycle_key=key => key.lifecycle_key(),
     visible=sidebar_state.visible(),
     can_create=model.map(model => {
       match model.page {

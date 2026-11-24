@@ -9,7 +9,7 @@ import {
 }
 
 // Values
-pub fn[Id : Eq + Hash] build(input~ : @rabbita.Val[@vector.Vector[Seed[Id]]], visible~ : @rabbita.Val[Bool], can_create~ : @rabbita.Val[Bool], compact~ : @rabbita.Val[Bool], delete_target~ : @rabbita.Val[Id?], on_intent~ : @cmd.Emit[Intent[Id]], lifecycle_key~ : (Id) -> String, close_after_action~ : @cmd.Cmd) -> RecentDocumentsFeature
+pub fn[Id : Eq + Hash + Show] build(input~ : @rabbita.Val[@vector.Vector[Seed[Id]]], visible~ : @rabbita.Val[Bool], can_create~ : @rabbita.Val[Bool], compact~ : @rabbita.Val[Bool], delete_target~ : @rabbita.Val[Id?], on_intent~ : @cmd.Emit[Intent[Id]], close_after_action~ : @cmd.Cmd) -> RecentDocumentsFeature
 
 // Errors
 

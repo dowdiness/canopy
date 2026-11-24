@@ -917,7 +917,7 @@ fn update_page(
         DeleteConfirmation(target) =>
           (
             Editing({ ..editing, deletion: NoDeletion, }),
-            focus_after_render("loomark-delete-\{target.lifecycle_key()}"),
+            focus_after_render("loomark-delete-\{target}"),
           )
         NoDeletion => (Editing(editing), @cmd.none)
       }

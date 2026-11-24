@@ -185,9 +185,8 @@ fn status_view(
 }
 
 ///|
-fn[Id] render_row(
+fn[Id : Show] render_row(
   key : Id,
-  lifecycle_key : String,
   presented : PresentedRow[Id],
   emit : @cmd.Emit[Intent[Id]],
   close : @cmd.Cmd,
@@ -235,7 +234,7 @@ fn[Id] render_row(
       @html.div(class="min-w-0", children),
     ),
     @sidebar.sidebar_menu_action(
-      id="loomark-delete-\{lifecycle_key}",
+      id="loomark-delete-\{key}",
       disabled=match seed.deletion {
         Available(_) | Failed(_) => false
         Blocked | Pending => true
@@ -278,9 +277,8 @@ fn[Id : Eq] row_component(
 }
 
 ///|
-fn[Id : Eq] presented_row_component(
+fn[Id : Eq + Show] presented_row_component(
   key : Id,
-  lifecycle_key : String,
   row : @rabbita.Val[PresentedRow[Id]],
   compact : @rabbita.Val[Bool],
   on_intent : @cmd.Emit[Intent[Id]],
@@ -289,7 +287,6 @@ fn[Id : Eq] presented_row_component(
   row.map2(compact, (row, compact) => {
     render_row(
       key,
-      lifecycle_key,
       row,
       on_intent,
       if compact {
@@ -302,9 +299,8 @@ fn[Id : Eq] presented_row_component(
 }
 
 ///|
-fn[Id : Eq + Hash] visible_documents(
+fn[Id : Eq + Hash + Show] visible_documents(
   rows : @rabbita.Val[@vector.Vector[Row[Id]]],
-  lifecycle_key : (Id) -> String,
   compact : @rabbita.Val[Bool],
   on_intent : @cmd.Emit[Intent[Id]],
   close_after_action : @cmd.Cmd,
@@ -315,7 +311,6 @@ fn[Id : Eq + Hash] visible_documents(
     (key, row) => {
       presented_row_component(
         key,
-        lifecycle_key(key),
         row,
         compact,
         on_intent,
@@ -417,14 +412,13 @@ fn[Id : Eq] delete_dialog(
 }
 
 ///|
-pub fn[Id : Eq + Hash] build(
+pub fn[Id : Eq + Hash + Show] build(
   input~ : @rabbita.Val[@vector.Vector[Seed[Id]]],
   visible~ : @rabbita.Val[Bool],
   can_create~ : @rabbita.Val[Bool],
   compact~ : @rabbita.Val[Bool],
   delete_target~ : @rabbita.Val[Id?],
   on_intent~ : @cmd.Emit[Intent[Id]],
-  lifecycle_key~ : (Id) -> String,
   close_after_action~ : @cmd.Cmd,
 ) -> RecentDocumentsFeature {
   let rows = input.assoc_by((_, seed) => row_component(seed), by=seed => {
@@ -434,7 +428,7 @@ pub fn[Id : Eq + Hash] build(
     visible => {
       if visible {
         visible_documents(
-          rows, lifecycle_key, compact, on_intent, close_after_action,
+          rows, compact, on_intent, close_after_action,
         )
       } else {
         empty_component()
@@ -481,7 +475,7 @@ pub fn[Id : Eq + Hash] build(
     },
     by=target => {
       match target {
-        Some(id) => "confirm-\{lifecycle_key(id)}"
+        Some(id) => "confirm-\{id}"
         None => "closed"
       }
     },

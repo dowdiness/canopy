@@ -99,8 +99,8 @@ test "source and account identities cannot collide" {
   let replica_b = Key::replica(account_b, id)
   assert_true(source != replica_a)
   assert_true(replica_a != replica_b)
-  assert_true(source.lifecycle_key() != replica_a.lifecycle_key())
-  assert_true(replica_a.lifecycle_key() != replica_b.lifecycle_key())
+  assert_true(source.to_string() != replica_a.to_string())
+  assert_true(replica_a.to_string() != replica_b.to_string())
 }
 
 ///|

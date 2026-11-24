@@ -232,9 +232,8 @@ fn lead_subscriptions(model : Page, emit : @rabbita.Emit[Msg]) -> @sub.Sub {
   @sub.batch(
     pending.map(item => {
       let (key, revision) = item
-      let lifecycle_key = key.lifecycle_key()
       @timeout.after(
-        "loomark.pending-edit.\{lifecycle_key}-\{revision}",
+        "loomark.pending-edit.\{key}-\{revision}",
         LEAD_DELAY_MS,
         emit(ApplyPendingEdit(key, revision)),
       )
