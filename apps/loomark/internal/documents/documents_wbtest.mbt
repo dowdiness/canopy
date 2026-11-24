@@ -104,6 +104,30 @@ test "source and account identities cannot collide" {
 }
 
 ///|
+test "a key is parsed back from its text, and other text names no key" {
+  let id = document_id("shared")
+  // An account may hold the separator; its length says where it ends.
+  for key in [Key::source(id), Key::replica(account_id("a/b"), id)] {
+    assert_eq(Key::parse(key.to_string()), Some(key))
+  }
+  let text = Key::source(id).to_string()
+  for
+    other in [
+      "",
+      "source/",
+      "source/36/",
+      text + "x",
+      text.view(end_offset=text.length() - 1).to_owned(),
+      "source/36/not-a-document-id-not-a-document-i",
+      "sources/36/" + id.value(),
+      "replica/0//36/" + id.value(),
+      "replica/2/a/b/36/" + id.value(),
+    ] {
+    assert_eq(Key::parse(other), None)
+  }
+}
+
+///|
 test "replica completion classifies promotion independently of a newer write" {
   let replica = @source_repository.DocumentReplica(
     account_id("account"),

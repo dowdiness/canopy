@@ -123,6 +123,63 @@ pub impl Show for Key with fn output(self, logger) {
 pub extend Key with Show::{output, to_string}
 
 ///|
+/// The key whose text, as `Show` writes it, is `text`; `None` when no key
+/// reads that way.
+pub fn Key::parse(text : String) -> Key? {
+  if text.has_prefix("source/") {
+    guard length_prefixed(text.view(start_offset=7).to_owned())
+      is Some((document, "")) else {
+      return None
+    }
+    parsed_document_id(document).map(Key::source)
+  } else if text.has_prefix("replica/") {
+    guard length_prefixed(text.view(start_offset=8).to_owned())
+      is Some((account, rest)) &&
+      rest.has_prefix("/") &&
+      length_prefixed(rest.view(start_offset=1).to_owned())
+      is Some((document, "")) else {
+      return None
+    }
+    let account = @source_repository.AccountId::parse(account) catch {
+      _ => return None
+    }
+    parsed_document_id(document).map(id => Key::replica(account, id))
+  } else {
+    None
+  }
+}
+
+///|
+/// A part written as its length, a slash, and itself, with the text after it.
+fn length_prefixed(text : String) -> (String, String)? {
+  guard text.find("/") is Some(slash) &&
+    slash > 0 &&
+    slash <= 9 &&
+    text.view(end_offset=slash).iter().all(c => c is ('0'..='9')) else {
+    return None
+  }
+  let length = text
+    .view(end_offset=slash)
+    .iter()
+    .fold(init=0, (length, c) => length * 10 + (c.to_int() - '0'.to_int()))
+  let start = slash + 1
+  guard start + length <= text.length() else { return None }
+  Some(
+    (
+      text.view(start_offset=start, end_offset=start + length).to_owned(),
+      text.view(start_offset=start + length).to_owned(),
+    ),
+  )
+}
+
+///|
+fn parsed_document_id(value : String) -> @source_repository.DocumentId? {
+  Some(@source_repository.DocumentId::parse(value)) catch {
+    _ => None
+  }
+}
+
+///|
 fn replace_record(
   records : Array[Record],
   key : Key,

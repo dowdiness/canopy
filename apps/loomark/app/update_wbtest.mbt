@@ -3591,10 +3591,19 @@ test "index routes name only the index, New, and documents" {
   assert_true(route("https://loomark.test/") is Some(IndexPage))
   assert_true(route("https://loomark.test/#/") is Some(IndexPage))
   assert_true(route("https://loomark.test/#/new") is Some(NewFromIndex))
-  assert_true(
-    route("https://loomark.test/#/d/source/36/abc")
-    is Some(CardFromIndex("source/36/abc")),
+  let id = "00000000-0000-4000-8000-000000000001"
+  let key = @documents.Key::source(
+    @source_repository.DocumentId::parse(id) catch {
+      _ => abort("invalid test document id")
+    },
   )
+  assert_true(
+    route("https://loomark.test/#/d/source/36/\{id}")
+    is Some(CardFromIndex(found)) &&
+    found == key,
+  )
+  // Text no document key reads as names nothing.
+  assert_true(route("https://loomark.test/#/d/source/36/abc") is None)
   // A heading anchor followed in Preview must not leave the Editor.
   assert_true(route("https://loomark.test/#section") is None)
   assert_true(route("https://loomark.test/#/d/") is None)

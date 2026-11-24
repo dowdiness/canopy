@@ -30,9 +30,9 @@ priv enum Screen {
   Writing(Writing)
   /// Back was asked during IME composition; the index returns once it ends.
   Leaving
-  /// The startup URL named the document of this lifecycle key; it opens once
-  /// the repository has loaded, or the index shows when it does not exist.
-  Requested(String)
+  /// The startup URL named this document; it opens once the repository has
+  /// loaded, or the index shows when it does not exist.
+  Requested(@documents.Key)
   /// Loomark is embedded in another page: the Editor alone, with no index.
   Embedded
 } derive(Eq)

@@ -8,8 +8,8 @@ priv enum IndexRoute {
   /// The Document index itself: no fragment, or `#/`.
   IndexPage
   NewFromIndex
-  /// The document of this lifecycle key.
-  CardFromIndex(String)
+  /// The document whose key the fragment holds.
+  CardFromIndex(@documents.Key)
 }
 
 ///|
@@ -24,8 +24,10 @@ fn index_route(url : @url.Url) -> IndexRoute? {
     Some(IndexPage)
   } else if path == "/new" {
     Some(NewFromIndex)
-  } else if path.has_prefix("/d/") && path.length() > 3 {
-    Some(CardFromIndex(path.view(start_offset=3).to_owned()))
+  } else if path.has_prefix("/d/") {
+    @documents.Key::parse(path.view(start_offset=3).to_owned()).map(key => {
+      CardFromIndex(key)
+    })
   } else {
     None
   }
@@ -41,7 +43,7 @@ fn document_href(key : @documents.Key) -> String {
 /// the Document index.
 fn startup_screen(url : @url.Url?) -> Screen {
   match url.bind(index_route) {
-    Some(CardFromIndex(lifecycle)) => Requested(lifecycle)
+    Some(CardFromIndex(key)) => Requested(key)
     _ => Browsing({ opening: None, card_deletion: None, })
   }
 }
@@ -89,16 +91,14 @@ fn index_seeds(
 }
 
 ///|
-/// The listed document a card's lifecycle key names.
-fn listed_key(
+/// Whether the Document index lists the document of `key`, as one a URL names
+/// may have been deleted since.
+fn is_listed(
   model : Model,
   editing : EditingDocument,
-  lifecycle : String,
-) -> @documents.Key? {
-  listed_documents(model, editing)
-  .iter()
-  .find_first(seed => seed.docid().to_string() == lifecycle)
-  .map(seed => seed.docid())
+  key : @documents.Key,
+) -> Bool {
+  listed_documents(model, editing).iter().any(seed => seed.docid() == key)
 }
 
 ///|
@@ -174,22 +174,19 @@ fn browse(model : Model, msg : Msg) -> Browse {
           } else {
             Handled(return_to_index(model, editing), @cmd.none)
           }
-        Some(CardFromIndex(lifecycle)) =>
-          match listed_key(model, editing, lifecycle) {
-            Some(key) if key != editing.activation.key =>
-              Forward(model, DocumentSelected(key))
-            _ => Handled(model, @cmd.none)
-          }
-        Some(NewFromIndex) | None => Handled(model, @cmd.none)
+        Some(CardFromIndex(key)) if key != editing.activation.key &&
+          is_listed(model, editing, key) =>
+          Forward(model, DocumentSelected(key))
+        Some(CardFromIndex(_) | NewFromIndex) | None =>
+          Handled(model, @cmd.none)
       }
     (Writing({ notes: HistoryBack, .. }), NotesRequested) =>
       Handled(model, @nav.back())
     (Writing({ notes: IndexEntry, .. }), NotesRequested) =>
       Handled(model, @nav.push_url("#/"))
     // Forward again before composition ended keeps the Editor in front.
-    (Leaving, UrlChanged(url)) if index_route(url)
-      is Some(CardFromIndex(lifecycle)) &&
-      lifecycle == editing.activation.key.to_string() =>
+    (Leaving, UrlChanged(url)) if index_route(url) is Some(CardFromIndex(key)) &&
+      key == editing.activation.key =>
       Handled(
         {
           ..model,
@@ -230,13 +227,9 @@ fn browse_index(
             None,
             Pushed,
           )
-        Some(CardFromIndex(lifecycle)) =>
-          match listed_key(model, editing, lifecycle) {
-            Some(key) =>
-              select_while_browsing(model, browsing, editing, key, Pushed)
-            None => Handled(model, @cmd.none)
-          }
-        Some(IndexPage) | None => Handled(model, @cmd.none)
+        Some(CardFromIndex(key)) if is_listed(model, editing, key) =>
+          select_while_browsing(model, browsing, editing, key, Pushed)
+        Some(CardFromIndex(_) | IndexPage) | None => Handled(model, @cmd.none)
       }
     DocumentSelected(key) =>
       select_while_browsing(model, browsing, editing, key, ToPush)
@@ -299,24 +292,24 @@ fn select_while_browsing(
 /// index too, with Welcome as its first card.
 fn settle_screen(model : Model) -> Browse {
   match (model.screen, model.page) {
-    (Requested(lifecycle), Editing(editing)) => {
+    (Requested(key), Editing(editing)) => {
       // Listed first, so returning finds the cards already in place.
       let model = {
         ..model,
         index: model.index.listing(index_seeds(model, editing, None)[:]),
       }
       let browsing = { opening: None, card_deletion: None, }
-      match listed_key(model, editing, lifecycle) {
-        Some(key) =>
-          select_while_browsing(
-            with_browsing(model, browsing),
-            browsing,
-            editing,
-            key,
-            Startup,
-          )
+      if is_listed(model, editing, key) {
+        select_while_browsing(
+          with_browsing(model, browsing),
+          browsing,
+          editing,
+          key,
+          Startup,
+        )
+      } else {
         // A document that no longer exists opens the index, without a notice.
-        None => Handled(with_browsing(model, browsing), @nav.replace_url("#/"))
+        Handled(with_browsing(model, browsing), @nav.replace_url("#/"))
       }
     }
     (Browsing({ opening: Some(opening), .. }), Editing(editing)) if editing.activation.generation >

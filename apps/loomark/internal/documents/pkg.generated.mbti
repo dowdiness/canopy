@@ -107,6 +107,7 @@ pub fn Key::hash(Self) -> Int
 pub fn Key::hash_combine(Self, Hasher) -> Unit
 pub fn Key::not_equal(Self, Self) -> Bool
 pub fn Key::output(Self, &Logger) -> Unit
+pub fn Key::parse(String) -> Self?
 pub fn Key::replica(@source_repository.AccountId, @source_repository.DocumentId) -> Self
 pub fn Key::source(@source_repository.DocumentId) -> Self
 pub fn Key::to_repr(Self) -> @debug.Repr
