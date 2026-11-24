@@ -2027,8 +2027,22 @@ fn update(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
-  let previous = model
-  let (model, command) = match browse(model, msg) {
+  update_after_browse(model, msg, browse(model, msg), emit, editor)
+}
+
+///|
+/// The rest of an update once `browse` has said what the screen does with
+/// `msg`. A forwarded message goes on to `reduce` without passing `browse`
+/// again, as does the choice `settle_screen` forwards for a startup URL;
+/// passing `browse` would take it for a new choice made on the index.
+fn update_after_browse(
+  previous : Model,
+  msg : Msg,
+  browsed : Browse,
+  emit : @rabbita.Emit[Msg],
+  editor : @editor.MarkdownEditor,
+) -> (Model, @rabbita.Cmd) {
+  let (model, command) = match browsed {
     Handled(model, command) => (model, command)
     Forward(model, msg) => reduce(model, msg, emit, editor)
   }
@@ -2044,7 +2058,11 @@ fn update(
     Some(message) => notify(emit, message)
     None => @cmd.none
   }
-  let (model, screen_command) = settle_screen(previous, model, emit)
+  let (model, screen_command) = match settle_screen(model) {
+    Handled(model, command) => (model, command)
+    Forward(model, msg) =>
+      update_after_browse(model, msg, Forward(model, msg), emit, editor)
+  }
   (
     model,
     @cmd.batch([command, sign_in_command, deletion_notification, screen_command]),

@@ -144,12 +144,19 @@ test("Document index opens at startup; Notes, Back, and Forward move between it 
 })
 
 test("a document URL opens that document at startup, and an unknown one the Document index", async ({ page }) => {
-  const { b } = await openIndexWithAB(page)
+  const { a, b } = await openIndexWithAB(page)
   const index = page.locator("#loomark-index")
   const text = page.getByRole("textbox", { name: "Text" })
   const href = await index.locator(`a.card[id$="${b}"]`).getAttribute("href")
-  await page.evaluate(fragment => { location.hash = fragment! }, href)
-  await page.reload()
+  // Loomark last edited A, so the startup URL chooses B over the document
+  // the Editor opens with. Storage is written while Loomark is not running.
+  await page.goto("/about/index.html")
+  await replaceStoreRecords(page, [
+    { key: sourceKey(a), value: encodeStoredDocument({ document_id: a, text: "# A\n" }) },
+    { key: sourceKey(b), value: encodeStoredDocument({ document_id: b, text: "# B\n" }) },
+    { key: EDITING_DOCUMENT_KEY, value: a },
+  ])
+  await page.goto("/" + href)
   await expect(index).toBeHidden()
   await expect(text).toHaveValue("# B\n")
   // Nothing is behind the startup document, so Notes adds the index's entry.

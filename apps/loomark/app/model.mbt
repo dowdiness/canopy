@@ -26,9 +26,8 @@ priv struct Model {
 /// Document index can show over it, and choosing a card is a Document switch.
 priv enum Screen {
   Browsing(Browsing)
-  /// The Editor is in front; `NotesReturn` is what `Notes` does to browser
-  /// history to bring the index back.
-  Writing(NotesReturn)
+  /// The Editor is in front.
+  Writing(Writing)
   /// Back was asked during IME composition; the index returns once it ends.
   Leaving
   /// The startup URL named the document of this lifecycle key; it opens once
@@ -36,6 +35,15 @@ priv enum Screen {
   Requested(String)
   /// Loomark is embedded in another page: the Editor alone, with no index.
   Embedded
+} derive(Eq)
+
+///|
+priv struct Writing {
+  /// What `Notes` does to browser history to bring the index back.
+  notes : NotesReturn
+  /// The document the URL names. Whenever the Editor holds another one, as
+  /// after a Document switch, the URL is replaced to name it.
+  named : @documents.Key
 } derive(Eq)
 
 ///|

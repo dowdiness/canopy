@@ -122,14 +122,15 @@ fn enter_editor(
   editing : EditingDocument,
   entry : Entry,
 ) -> (Model, @rabbita.Cmd) {
-  let href = document_href(editing.activation.key)
+  let named = editing.activation.key
+  let href = document_href(named)
   let (notes, history) = match entry {
     Pushed => (HistoryBack, @nav.replace_url(href))
     ToPush => (HistoryBack, @nav.push_url(href))
     Startup => (IndexEntry, @cmd.none)
   }
   (
-    { ..model, screen: Writing(notes), },
+    { ..model, screen: Writing({ notes, named, }), },
     @cmd.batch([history, focus_editor_after_render(editing.mode)]),
   )
 }
@@ -152,10 +153,7 @@ fn open_while_browsing(
 /// The index in front again after the Editor held `editing`'s document.
 fn return_to_index(model : Model, editing : EditingDocument) -> Model {
   let seeds = index_seeds(model, editing, None)
-  let index = model.index.returned_from(
-    seeds[:],
-    key=editing.activation.key,
-  )
+  let index = model.index.returned_from(seeds[:], key=editing.activation.key)
   { ..model, index, screen: Browsing({ opening: None, card_deletion: None, }), }
 }
 
@@ -184,13 +182,21 @@ fn browse(model : Model, msg : Msg) -> Browse {
           }
         Some(NewFromIndex) | None => Handled(model, @cmd.none)
       }
-    (Writing(HistoryBack), NotesRequested) => Handled(model, @nav.back())
-    (Writing(IndexEntry), NotesRequested) => Handled(model, @nav.push_url("#/"))
+    (Writing({ notes: HistoryBack, .. }), NotesRequested) =>
+      Handled(model, @nav.back())
+    (Writing({ notes: IndexEntry, .. }), NotesRequested) =>
+      Handled(model, @nav.push_url("#/"))
     // Forward again before composition ended keeps the Editor in front.
     (Leaving, UrlChanged(url)) if index_route(url)
       is Some(CardFromIndex(lifecycle)) &&
       lifecycle == editing.activation.key.lifecycle_key() =>
-      Handled({ ..model, screen: Writing(HistoryBack), }, @cmd.none)
+      Handled(
+        {
+          ..model,
+          screen: Writing({ notes: HistoryBack, named: editing.activation.key, }),
+        },
+        @cmd.none,
+      )
     (
       _,
       UrlRequested(_)
@@ -252,9 +258,7 @@ fn browse_index(
           page: Editing({ ..editing, deletion: NoDeletion, }),
           screen: Browsing({ ..browsing, card_deletion: None, }),
         },
-        @browser.focus_after_render(
-          @document_index.card_delete_dom_id(key),
-        ),
+        @browser.focus_after_render(@document_index.card_delete_dom_id(key)),
       )
     NotesRequested => Handled(model, @cmd.none)
     _ => Forward(model, msg)
@@ -285,41 +289,41 @@ fn select_while_browsing(
 }
 
 ///|
-/// The screen in front after `previous` became `model`: the Editor once a
-/// document chosen while browsing has opened, or when the startup URL names
-/// a document; the index once Back waited for composition to end; otherwise
-/// the index, listing what the Editor holds now. An empty repository opens
-/// on the index too, with Welcome as its first card.
-fn settle_screen(
-  previous : Model,
-  model : Model,
-  emit : @rabbita.Emit[Msg],
-) -> (Model, @rabbita.Cmd) {
+/// The screen in front once `model` has changed: the Editor once a document
+/// chosen while browsing has opened; the index once Back waited for
+/// composition to end; otherwise the screen as it is, with the index listing
+/// what the Editor holds now and the URL naming the Editor's document.
+///
+/// The document a startup URL names is chosen as if from the index, so
+/// `Forward` passes on the choice it needs. An empty repository opens on the
+/// index too, with Welcome as its first card.
+fn settle_screen(model : Model) -> Browse {
   match (model.screen, model.page) {
-    (Requested(lifecycle), Editing(editing)) =>
-      match listed_key(model, editing, lifecycle) {
-        Some(key) => {
-          let model = {
-            ..model,
-            index: model.index.listing(index_seeds(model, editing, None)[:]),
-          }
-          let (model, command) = enter_editor(model, editing, Startup)
-          let select = if key == editing.activation.key {
-            @cmd.none
-          } else {
-            emit(DocumentSelected(key))
-          }
-          (model, @cmd.batch([command, select]))
-        }
-        // A document that no longer exists opens the index, without a notice.
-        None =>
-          (
-            with_browsing(model, { opening: None, card_deletion: None, }),
-            @nav.replace_url("#/"),
-          )
+    (Requested(lifecycle), Editing(editing)) => {
+      // Listed first, so returning finds the cards already in place.
+      let model = {
+        ..model,
+        index: model.index.listing(index_seeds(model, editing, None)[:]),
       }
+      let browsing = { opening: None, card_deletion: None, }
+      match listed_key(model, editing, lifecycle) {
+        Some(key) =>
+          select_while_browsing(
+            with_browsing(model, browsing),
+            browsing,
+            editing,
+            key,
+            Startup,
+          )
+        // A document that no longer exists opens the index, without a notice.
+        None => Handled(with_browsing(model, browsing), @nav.replace_url("#/"))
+      }
+    }
     (Browsing({ opening: Some(opening), .. }), Editing(editing)) if editing.activation.generation >
-      opening.generation => enter_editor(model, editing, opening.entry)
+      opening.generation => {
+      let (model, command) = enter_editor(model, editing, opening.entry)
+      Handled(model, command)
+    }
     (Browsing(browsing), Editing(editing)) => {
       let seeds = index_seeds(model, editing, browsing.opening)
       match browsing.card_deletion {
@@ -330,7 +334,7 @@ fn settle_screen(
             key~,
             announcement="Document deleted",
           )
-          (
+          Handled(
             {
               ..model,
               index,
@@ -339,21 +343,21 @@ fn settle_screen(
             command,
           )
         }
-        _ => ({ ..model, index: model.index.listing(seeds[:]), }, @cmd.none)
+        _ =>
+          Handled({ ..model, index: model.index.listing(seeds[:]), }, @cmd.none)
       }
     }
     (Leaving, Editing(editing)) if !editing.documents.is_composing(
         editing.activation.key,
-      ) => (return_to_index(model, editing), @cmd.none)
-    // The URL names whichever document the Editor holds, replacing its entry
-    // on a Document switch.
-    (Writing(_), Editing(editing)) if !(previous.screen is Writing(_) &&
-      previous.page is Editing(before) &&
-      before.activation.key == editing.activation.key) =>
-      (
-        model,
-        @nav.replace_url(document_href(editing.activation.key)),
+      ) => Handled(return_to_index(model, editing), @cmd.none)
+    (Writing(writing), Editing(editing)) if writing.named !=
+      editing.activation.key => {
+      let named = editing.activation.key
+      Handled(
+        { ..model, screen: Writing({ ..writing, named, }), },
+        @nav.replace_url(document_href(named)),
       )
-    _ => (model, @cmd.none)
+    }
+    _ => Handled(model, @cmd.none)
   }
 }
