@@ -107,9 +107,12 @@ pub fn Key::hash(Self) -> Int
 pub fn Key::hash_combine(Self, Hasher) -> Unit
 pub fn Key::lifecycle_key(Self) -> String
 pub fn Key::not_equal(Self, Self) -> Bool
+pub fn Key::output(Self, &Logger) -> Unit
 pub fn Key::replica(@source_repository.AccountId, @source_repository.DocumentId) -> Self
 pub fn Key::source(@source_repository.DocumentId) -> Self
 pub fn Key::to_repr(Self) -> @debug.Repr
+pub fn Key::to_string(Self) -> String
+pub impl Show for Key
 
 pub struct ListedDocument {
   key : Key

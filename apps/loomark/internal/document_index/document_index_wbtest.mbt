@@ -1,5 +1,5 @@
 ///|
-fn seed(key : String, text : String) -> Seed {
+fn seed(key : String, text : String) -> Seed[String] {
   {
     key,
     href: "#/n/\{key}",
@@ -12,14 +12,14 @@ fn seed(key : String, text : String) -> Seed {
 
 ///|
 /// Three documents, most recently changed first.
-let alpha_beta_gamma : Array[Seed] = [
+let alpha_beta_gamma : Array[Seed[String]] = [
   seed("a", "# Alpha"),
   seed("b", "# Beta"),
   seed("c", "# Gamma"),
 ]
 
 ///|
-fn three_cards() -> DocumentIndex {
+fn three_cards() -> DocumentIndex[String] {
   step(
     DocumentIndex(alpha_beta_gamma[:], new_href="#/new"),
     GridMeasured(1232.0),
@@ -27,13 +27,13 @@ fn three_cards() -> DocumentIndex {
 }
 
 ///|
-fn step(index : DocumentIndex, msg : Msg) -> DocumentIndex {
+fn step(index : DocumentIndex[String], msg : Msg[String]) -> DocumentIndex[String] {
   index.update(msg).0
 }
 
 ///|
 /// The shell reports every card it was asked to measure as `height` tall.
-fn measured(index : DocumentIndex, height : Int) -> DocumentIndex {
+fn measured(index : DocumentIndex[String], height : Int) -> DocumentIndex[String] {
   step(
     index,
     CardsMeasured(unmeasured(index).map(request => (request.measure, height))),
@@ -42,7 +42,7 @@ fn measured(index : DocumentIndex, height : Int) -> DocumentIndex {
 
 ///|
 /// The cards on screen in reading order, as key and text.
-fn shown(grid : ShownGrid) -> Array[(String, String)] {
+fn shown(grid : ShownGrid[String]) -> Array[(String, String)] {
   match grid {
     Packed(layout) =>
       layout.cards.to_array().map(card => (card.card.key, card.card.text))
@@ -146,7 +146,7 @@ test "unchanged documents keep their parsed leads" {
 
 ///|
 test "a card says what its document is doing, deletion first" {
-  let notice = (seed : Seed) => Card::of(seed, None).notice
+  let notice = (seed : Seed[String]) => Card::of(seed, None).notice
   let unsaved = { ..seed("a", "# Alpha"), status: Unsaved, }
   assert_true(notice(seed("a", "# Alpha")) is Quiet)
   assert_true(notice(unsaved) is NotSaved)

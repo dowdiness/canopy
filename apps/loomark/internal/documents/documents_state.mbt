@@ -122,6 +122,16 @@ pub fn Key::lifecycle_key(self : Self) -> String {
 }
 
 ///|
+/// A key reads as its lifecycle key, which no other key shares, so its text
+/// can name it where only text fits, such as an element ID.
+pub impl Show for Key with fn output(self, logger) {
+  logger.write_string(self.lifecycle_key())
+}
+
+///|
+pub extend Key with Show::{output, to_string}
+
+///|
 fn replace_record(
   records : Array[Record],
   key : Key,

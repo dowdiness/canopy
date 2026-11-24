@@ -11,36 +11,36 @@ import {
 }
 
 // Values
-pub fn card_delete_dom_id(String) -> String
+pub fn[K : Show] card_delete_dom_id(K) -> String
 
-pub fn view(@rabbita.Val[DocumentIndex], on_delete~ : @cmd.Emit[String], @cmd.Emit[Msg]) -> @rabbita.Val[@html.Html]
+pub fn[K : Eq + Hash + Show] view(@rabbita.Val[DocumentIndex[K]], on_delete~ : @cmd.Emit[K], @cmd.Emit[Msg[K]]) -> @rabbita.Val[@html.Html]
 
 // Errors
 
 // Types and methods
-type DocumentIndex derive(Eq)
-pub fn DocumentIndex::DocumentIndex(ArrayView[Seed], new_href~ : String) -> Self
-pub fn DocumentIndex::equal(Self, Self) -> Bool
-pub fn DocumentIndex::listing(Self, ArrayView[Seed]) -> Self
-pub fn DocumentIndex::not_equal(Self, Self) -> Bool
-pub fn DocumentIndex::removed(Self, ArrayView[Seed], key~ : String, announcement~ : String) -> (Self, @cmd.Cmd)
-pub fn DocumentIndex::return_focus(Self) -> Self
-pub fn DocumentIndex::returned_from(Self, ArrayView[Seed], key~ : String) -> Self
-pub fn DocumentIndex::subscriptions(Self, @dom.EventTarget, @cmd.Emit[Msg]) -> @sub.Sub
-pub fn DocumentIndex::update(Self, Msg) -> (Self, @cmd.Cmd)
+type DocumentIndex[K] derive(Eq)
+pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(ArrayView[Seed[K]], new_href~ : String) -> Self[K]
+pub fn[K : Eq] DocumentIndex::equal(Self[K], Self[K]) -> Bool
+pub fn[K : Eq + Hash] DocumentIndex::listing(Self[K], ArrayView[Seed[K]]) -> Self[K]
+pub fn[K : Eq] DocumentIndex::not_equal(Self[K], Self[K]) -> Bool
+pub fn[K : Eq + Hash] DocumentIndex::removed(Self[K], ArrayView[Seed[K]], key~ : K, announcement~ : String) -> (Self[K], @cmd.Cmd)
+pub fn[K : Eq] DocumentIndex::return_focus(Self[K]) -> Self[K]
+pub fn[K : Eq + Hash] DocumentIndex::returned_from(Self[K], ArrayView[Seed[K]], key~ : K) -> Self[K]
+pub fn[K : Eq + Show] DocumentIndex::subscriptions(Self[K], @dom.EventTarget, @cmd.Emit[Msg[K]]) -> @sub.Sub
+pub fn[K : Eq + Show] DocumentIndex::update(Self[K], Msg[K]) -> (Self[K], @cmd.Cmd)
 
-type Msg
+type Msg[K]
 
-pub(all) struct Seed {
-  key : String
+pub(all) struct Seed[K] {
+  key : K
   href : String
   text : String
   status : @recent_documents.RowStatus
   deletion : @recent_documents.DeletionAvailability
   loading : Bool
 } derive(Eq)
-pub fn Seed::equal(Self, Self) -> Bool
-pub fn Seed::not_equal(Self, Self) -> Bool
+pub fn[K : Eq] Seed::equal(Self[K], Self[K]) -> Bool
+pub fn[K : Eq] Seed::not_equal(Self[K], Self[K]) -> Bool
 
 // Type aliases
 

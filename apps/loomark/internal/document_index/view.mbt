@@ -116,7 +116,7 @@ fn lead_view(lead : @document_lead.DocumentLead, query : String) -> Array[Html] 
 
 ///|
 /// Attributes every card shares, whether shown or only measured.
-fn card_attrs(card : Card) -> @html.Attrs {
+fn[K] card_attrs(card : Card[K]) -> @html.Attrs {
   let attrs = @html.Attrs::build()
   if is_japanese(card.text) {
     ignore(attrs.lang("ja"))
@@ -125,9 +125,9 @@ fn card_attrs(card : Card) -> @html.Attrs {
 }
 
 ///|
-fn card_view(
-  emit : Emit[Msg],
-  card : Card,
+fn[K : Show] card_view(
+  emit : Emit[Msg[K]],
+  card : Card[K],
   just_arrived : Bool,
   tab_stop : Bool,
   query : String,
@@ -191,7 +191,7 @@ fn notice_view(notice : Notice) -> Html {
 /// Delete document, beside the card's link rather than inside it, so that
 /// choosing and deleting stay separate targets. It follows the card in Tab
 /// order only while the card holds the Tab stop.
-fn delete_view(card : Card, tab_stop : Bool, on_delete : Emit[String]) -> Html {
+fn[K : Show] delete_view(card : Card[K], tab_stop : Bool, on_delete : Emit[K]) -> Html {
   let label = "Delete \"\{card_label(card)}\""
   let attrs = @html.Attrs::build()
     .tabindex(if tab_stop { 0 } else { -1 })
@@ -223,7 +223,7 @@ fn delete_view(card : Card, tab_stop : Bool, on_delete : Emit[String]) -> Html {
 ///|
 /// Cards drawn off screen at the widths the shell measures, in the order of
 /// `measures`. Each holds a card exactly as the grid draws it.
-fn card_measure_view(requests : Array[MeasureRequest]) -> Html {
+fn[K] card_measure_view(requests : Array[MeasureRequest[K]]) -> Html {
   @html.div(
     id="card-measure",
     class="card-measure",
@@ -244,8 +244,8 @@ fn card_measure_view(requests : Array[MeasureRequest]) -> Html {
 /// Everything one card slot shows: its card, placed in the packed grid.
 /// Each card is its own branch of the incremental graph, so it is rebuilt
 /// only when its slot changes.
-priv struct CardSlot {
-  card : Card
+priv struct CardSlot[K] {
+  card : Card[K]
   x : Int
   y : Int
   width : Int
@@ -258,7 +258,7 @@ priv struct CardSlot {
 
 ///|
 /// The slots of the packed grid on screen, in reading order.
-fn card_slots(index : DocumentIndex) -> @vector.Vector[CardSlot] {
+fn[K : Eq] card_slots(index : DocumentIndex[K]) -> @vector.Vector[CardSlot[K]] {
   match (index.grid, visible_cursor(index)) {
     (Packed(layout), Some(_)) => {
       let tab_stop = layout.cards.current.card.key
@@ -284,10 +284,10 @@ fn card_slots(index : DocumentIndex) -> @vector.Vector[CardSlot] {
 /// whose derived hash covers everything the card shows, so the virtual DOM
 /// skips comparing a card whose slot is unchanged. `emit` and `on_delete`
 /// are the same for every render.
-fn card_slot(
-  slot : Val[CardSlot],
-  emit : Emit[Msg],
-  on_delete : Emit[String],
+fn[K : Eq + Hash + Show] card_slot(
+  slot : Val[CardSlot[K]],
+  emit : Emit[Msg[K]],
+  on_delete : Emit[K],
 ) -> Val[Html] {
   slot.view(slot => {
     @html.memo(slot, slot => card_slot_view(slot, emit, on_delete))
@@ -295,10 +295,10 @@ fn card_slot(
 }
 
 ///|
-fn card_slot_view(
-  slot : CardSlot,
-  emit : Emit[Msg],
-  on_delete : Emit[String],
+fn[K : Show] card_slot_view(
+  slot : CardSlot[K],
+  emit : Emit[Msg[K]],
+  on_delete : Emit[K],
 ) -> Html {
   let card = card_view(
     emit,
@@ -322,15 +322,15 @@ fn card_slot_view(
 
 ///|
 /// Keys pressed on a card reach the grid.
-fn grid_view(
-  emit : Emit[Msg],
-  grid : ShownGrid,
-  slots : @vector.Vector[CardSlot],
+fn[K : Show] grid_view(
+  emit : Emit[Msg[K]],
+  grid : ShownGrid[K],
+  slots : @vector.Vector[CardSlot[K]],
   rows : @vector.Vector[Html],
 ) -> Html {
   let items : Map[String, Html] = Map([])
   for pair in slots.iter().zip(rows.iter()) {
-    items[pair.0.card.key] = pair.1
+    items[pair.0.card.key.to_string()] = pair.1
   }
   let style = match grid {
     Packed(layout) => ["width:\{layout.width}px;height:\{layout.height}px"]
@@ -370,7 +370,7 @@ priv enum Documents {
 } derive(Eq)
 
 ///|
-fn header_and_documents(index : DocumentIndex) -> (Header, Documents) {
+fn[K : Eq] header_and_documents(index : DocumentIndex[K]) -> (Header, Documents) {
   let total = index.cards.length()
   let cursor = visible_cursor(index)
   let count = match (index.query, cursor) {
@@ -387,7 +387,7 @@ fn header_and_documents(index : DocumentIndex) -> (Header, Documents) {
 }
 
 ///|
-fn header_view(header : Header, emit : Emit[Msg]) -> Html {
+fn[K] header_view(header : Header, emit : Emit[Msg[K]]) -> Html {
   @html.header(class="bar", [
     // Named for assistive technology; the cards themselves show what this is.
     @html.h1(class="visually-hidden", "Notes"),
@@ -430,11 +430,11 @@ fn header_view(header : Header, emit : Emit[Msg]) -> Html {
 }
 
 ///|
-fn documents_view(
+fn[K] documents_view(
   documents : Documents,
   new_href : String,
   grid : Html,
-  emit : Emit[Msg],
+  emit : Emit[Msg[K]],
 ) -> Html {
   match documents {
     Shown => grid
@@ -467,10 +467,10 @@ fn documents_view(
 /// The host shows and hides the index. Hiding it with `visibility: hidden`
 /// keeps it laid out, so its cards keep their positions and slide from them
 /// when it is shown again, and its grid width stays measured.
-pub fn view(
-  index : Val[DocumentIndex],
-  on_delete~ : Emit[String],
-  emit : Emit[Msg],
+pub fn[K : Eq + Hash + Show] view(
+  index : Val[DocumentIndex[K]],
+  on_delete~ : Emit[K],
+  emit : Emit[Msg[K]],
 ) -> Val[Html] {
   let header_and_documents = index.map(header_and_documents)
   let header = header_and_documents

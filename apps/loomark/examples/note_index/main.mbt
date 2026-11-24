@@ -83,7 +83,7 @@ priv struct Model {
   /// Most recently changed first, without a note held by the page.
   notes : Vector[Note]
   page : Page
-  index : @document_index.DocumentIndex
+  index : @document_index.DocumentIndex[String]
   deletion : Deletion
   next_id : Int
 } derive(Eq)
@@ -92,7 +92,7 @@ priv struct Model {
 priv enum Msg {
   UrlChanged(@url.Url)
   UrlRequested(@url.UrlRequest)
-  IndexMsg(@document_index.Msg)
+  IndexMsg(@document_index.Msg[String])
   /// The text typed into `Editor`.
   Edited(Editor, String)
   EditorLeft
@@ -139,7 +139,7 @@ fn route_of_href(href : String) -> Route {
 fn seeds(
   notes : Vector[Note],
   deletion : Deletion,
-) -> Array[@document_index.Seed] {
+) -> Array[@document_index.Seed[String]] {
   notes
   .map(note => @document_index.Seed::{
     key: note.id,
@@ -159,7 +159,7 @@ fn seeds(
 
 ///|
 /// The notes listed as they are now.
-fn listed_seeds(model : Model) -> Array[@document_index.Seed] {
+fn listed_seeds(model : Model) -> Array[@document_index.Seed[String]] {
   seeds(model.notes, model.deletion)
 }
 

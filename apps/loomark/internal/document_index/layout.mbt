@@ -13,9 +13,11 @@ const FALLBACK_GAP : Int = 60
 ///|
 /// A document as the index lists it, resolved by the host with the same
 /// states its Recent documents entry shows.
-pub(all) struct Seed {
-  /// Identifies the document's card; unique among the listed documents.
-  key : String
+pub(all) struct Seed[K] {
+  /// The host's own key for the document, handed back by `on_delete` and
+  /// unique among the listed documents. Its text names the card's elements,
+  /// so no two keys may read the same.
+  key : K
   /// Where choosing the card leads.
   href : String
   text : String
@@ -49,7 +51,7 @@ priv enum Actions {
 } derive(Eq, Hash)
 
 ///|
-fn notice_of(seed : Seed) -> Notice {
+fn[K] notice_of(seed : Seed[K]) -> Notice {
   match (seed.deletion, seed.loading, seed.status) {
     (Pending, _, _) => Progress("Deleting")
     (Failed(_), _, _) => Problem("Delete failed")
@@ -70,8 +72,8 @@ fn actions_of(deletion : @recent_documents.DeletionAvailability) -> Actions {
 
 ///|
 /// A listed document with its Document lead, parsed once when its text is set.
-priv struct Card {
-  key : String
+priv struct Card[K] {
+  key : K
   href : String
   text : String
   lead : @document_lead.DocumentLead
@@ -84,7 +86,7 @@ priv struct Card {
 ///|
 /// Make a card for `seed`, reusing the lead and search text of `previous`
 /// when its text is the same, so only a changed text is parsed again.
-fn Card::of(seed : Seed, previous : Card?) -> Card {
+fn[K] Card::of(seed : Seed[K], previous : Card[K]?) -> Card[K] {
   let (lead, search_text) = match previous {
     Some(card) if card.text == seed.text => (card.lead, card.search_text)
     _ => (@document_lead.extract(seed.text), seed.text.to_lower())
@@ -102,8 +104,8 @@ fn Card::of(seed : Seed, previous : Card?) -> Card {
 
 ///|
 /// Cards for `seeds` in their order, built on the cards of `previous`.
-fn cards_of(seeds : ArrayView[Seed], previous : Vector[Card]) -> Vector[Card] {
-  let known : Map[String, Card] = Map([])
+fn[K : Eq + Hash] cards_of(seeds : ArrayView[Seed[K]], previous : Vector[Card[K]]) -> Vector[Card[K]] {
+  let known : Map[K, Card[K]] = Map([])
   for card in previous {
     known[card.key] = card
   }
@@ -113,7 +115,7 @@ fn cards_of(seeds : ArrayView[Seed], previous : Vector[Card]) -> Vector[Card] {
 ///|
 /// What a card is called where it has no room for its text: its lead, or
 /// `Empty document`.
-fn card_label(card : Card) -> String {
+fn[K] card_label(card : Card[K]) -> String {
   match card.lead.primary() {
     "" => "Empty document"
     primary => primary
@@ -164,23 +166,23 @@ priv struct CardMeasure {
 
 ///|
 /// Whether `card` may take two columns in `columns`.
-fn may_be_wide(card : Card, columns : Columns) -> Bool {
+fn[K] may_be_wide(card : Card[K], columns : Columns) -> Bool {
   columns.count >= 3 && is_wide(card.lead)
 }
 
 ///|
 /// A card to draw off screen so the shell can measure it.
-priv struct MeasureRequest {
+priv struct MeasureRequest[K] {
   measure : CardMeasure
-  card : Card
+  card : Card[K]
 } derive(Eq)
 
 ///|
 /// Every width each card's card may be drawn at.
-fn measures_for(
-  cards : Vector[Card],
+fn[K] measures_for(
+  cards : Vector[Card[K]],
   columns : Columns,
-) -> Array[MeasureRequest] {
+) -> Array[MeasureRequest[K]] {
   cards
   .iter()
   .flat_map(card => {
@@ -199,10 +201,10 @@ fn measures_for(
 
 ///|
 /// The requests among `wanted` whose measures `heights` lacks, each once.
-fn unmeasured_among(
+fn[K] unmeasured_among(
   heights : @hashmap.HashMap[CardMeasure, Int],
-  wanted : Array[MeasureRequest],
-) -> Array[MeasureRequest] {
+  wanted : Array[MeasureRequest[K]],
+) -> Array[MeasureRequest[K]] {
   let seen : Set[CardMeasure] = Set([])
   let missing = []
   for request in wanted {
@@ -215,8 +217,8 @@ fn unmeasured_among(
 
 ///|
 /// A card with its measured heights.
-priv struct MeasuredCard {
-  card : Card
+priv struct MeasuredCard[K] {
+  card : Card[K]
   narrow : Int
   /// The height at two columns, for a card that may take them.
   wide : Int?
@@ -225,11 +227,11 @@ priv struct MeasuredCard {
 ///|
 /// Parse the cards into measured ones, or `None` while any card that may be
 /// drawn is not measured yet.
-fn measured_cards(
+fn[K] measured_cards(
   heights : @hashmap.HashMap[CardMeasure, Int],
-  cards : Cursor[Card],
+  cards : Cursor[Card[K]],
   columns : Columns,
-) -> Cursor[MeasuredCard]? {
+) -> Cursor[MeasuredCard[K]]? {
   cards.map_all(card => {
     let height = (span : Int) => {
       heights.get({ width: columns.span_width(span), text: card.text, })
@@ -244,8 +246,8 @@ fn measured_cards(
 }
 
 ///|
-priv struct Placed {
-  card : Card
+priv struct Placed[K] {
+  card : Card[K]
   x : Int
   y : Int
   width : Int
@@ -253,8 +255,8 @@ priv struct Placed {
 } derive(Eq)
 
 ///|
-priv struct CardLayout {
-  cards : Cursor[Placed]
+priv struct CardLayout[K] {
+  cards : Cursor[Placed[K]]
   width : Int
   height : Int
 } derive(Eq)
@@ -267,7 +269,7 @@ priv struct CardLayout {
 /// start where it fits. A wide card whose placement would trap more than
 /// `FALLBACK_GAP` pixels of column height is placed at one column.
 /// Every card is packed one gap wider and taller than it is drawn.
-fn pack_cards(cards : Cursor[MeasuredCard], columns : Columns) -> CardLayout {
+fn[K] pack_cards(cards : Cursor[MeasuredCard[K]], columns : Columns) -> CardLayout[K] {
   let step = columns.width + GAP
   let starts = Array::makei(columns.count, i => i * step)
   let packer = try! @skyline.Packer(width=columns.count * step)
@@ -305,7 +307,7 @@ fn pack_cards(cards : Cursor[MeasuredCard], columns : Columns) -> CardLayout {
 }
 
 ///|
-fn Placed::rect(self : Placed) -> CardRect {
+fn[K] Placed::rect(self : Placed[K]) -> CardRect[K] {
   {
     id: self.card.key,
     left: self.x,

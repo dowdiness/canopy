@@ -62,8 +62,8 @@ fn grid_width_of(measured : Double) -> Int {
 
 ///|
 /// A card's box in grid pixels.
-priv struct CardRect {
-  id : String
+priv struct CardRect[K] {
+  id : K
   left : Int
   top : Int
   width : Int
@@ -71,12 +71,12 @@ priv struct CardRect {
 }
 
 ///|
-fn CardRect::right(self : CardRect) -> Int {
+fn[K] CardRect::right(self : CardRect[K]) -> Int {
   self.left + self.width
 }
 
 ///|
-fn CardRect::bottom(self : CardRect) -> Int {
+fn[K] CardRect::bottom(self : CardRect[K]) -> Int {
   self.top + self.height
 }
 
@@ -85,10 +85,10 @@ fn CardRect::bottom(self : CardRect) -> Int {
 /// that direction that shares a column (Up/Down) or a row (Left/Right). At an
 /// edge, Left and Right continue in reading order. `None` means no card lies
 /// that way, so focus stays.
-fn neighbour(cards : Cursor[CardRect], direction : Direction) -> CardRect? {
+fn[K] neighbour(cards : Cursor[CardRect[K]], direction : Direction) -> CardRect[K]? {
   let from = cards.current
   let middle = (from.top + from.bottom()) / 2
-  let mut best : (CardRect, Double)? = None
+  let mut best : (CardRect[K], Double)? = None
   for card in cards.others() {
     let shares_column = card.right().min(from.right()) -
       card.left.max(from.left) >

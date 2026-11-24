@@ -5,7 +5,7 @@
 /// a a b b c
 /// w w w w c
 ///         d
-let wide_card_under_two : Array[CardRect] = [
+let wide_card_under_two : Array[CardRect[String]] = [
   { id: "a", left: 0, top: 0, width: 100, height: 50, },
   { id: "b", left: 114, top: 0, width: 100, height: 80, },
   { id: "c", left: 228, top: 0, width: 100, height: 120, },
@@ -15,7 +15,7 @@ let wide_card_under_two : Array[CardRect] = [
 
 ///|
 /// The layout above with the focus on card `id`.
-fn focused_on(id : String) -> Cursor[CardRect] {
+fn focused_on(id : String) -> Cursor[CardRect[String]] {
   Cursor::focus_on(Vector(wide_card_under_two), card => card.id == id).unwrap()
 }
 

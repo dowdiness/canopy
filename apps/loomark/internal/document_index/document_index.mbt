@@ -36,9 +36,9 @@ const GRID_WIDTH_ID : String = "document-index-grid-width"
 ///|
 /// The packed grid on screen: the last layout `packed_now` produced, kept
 /// until the next one, so for a while it may show the cards as they were.
-priv enum ShownGrid {
+priv enum ShownGrid[K] {
   NotMeasured
-  Packed(CardLayout)
+  Packed(CardLayout[K])
 } derive(Eq)
 
 ///|
@@ -51,9 +51,9 @@ priv enum GridResize {
 } derive(Eq)
 
 ///|
-struct DocumentIndex {
+struct DocumentIndex[K] {
   /// Most recently changed first.
-  cards : Vector[Card]
+  cards : Vector[Card[K]]
   /// Where New leads.
   new_href : String
   query : String
@@ -62,17 +62,17 @@ struct DocumentIndex {
   grid_width : Int?
   resize : GridResize
   /// The card just moved to the front, highlighted for `HIGHLIGHT_MS`.
-  highlight : String?
+  highlight : K?
   /// Card heights the shell measured at the current column widths.
   heights : @hashmap.HashMap[CardMeasure, Int]
   /// The card that last held focus. A cursor built from it falls back to the
   /// first visible card, so this is a preference, not a guarantee.
-  focused : String?
+  focused : K?
   /// The grid on screen, brought up to date after every change.
-  grid : ShownGrid
+  grid : ShownGrid[K]
   /// The card to focus once the grid on screen draws it. A changed card is
   /// drawn only after its measurement, so focus waits for it here.
-  focus_pending : String?
+  focus_pending : K?
   announcement : String
 } derive(Eq)
 
@@ -80,7 +80,7 @@ struct DocumentIndex {
 pub extend DocumentIndex with Eq::{equal, not_equal}
 
 ///|
-enum Msg {
+enum Msg[K] {
   GridMeasured(Double)
   /// The grid width has not changed for `RESIZE_SETTLE_MS`.
   ResizeSettled
@@ -92,7 +92,7 @@ enum Msg {
   /// The search was cleared from the empty result; typing resumes there.
   SearchCleared
   CardKey(CardKeyAction)
-  CardFocused(String)
+  CardFocused(K)
   /// The card that moved to the front has been highlighted long enough.
   HighlightEnded
 }
@@ -100,10 +100,10 @@ enum Msg {
 ///|
 /// An index listing `seeds`, most recently changed first. Its cards appear
 /// once it has measured the grid it draws and the cards in it.
-pub fn DocumentIndex::DocumentIndex(
-  seeds : ArrayView[Seed],
+pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(
+  seeds : ArrayView[Seed[K]],
   new_href~ : String,
-) -> DocumentIndex {
+) -> DocumentIndex[K] {
   {
     cards: cards_of(seeds, Vector([])),
     new_href,
@@ -121,13 +121,13 @@ pub fn DocumentIndex::DocumentIndex(
 
 ///|
 /// The search as cards are matched against it.
-fn search_query(index : DocumentIndex) -> String {
+fn[K] search_query(index : DocumentIndex[K]) -> String {
   index.query.trim().to_owned().to_lower()
 }
 
 ///|
 /// The visible cards with the focused one, or `None` when none match.
-fn visible_cursor(index : DocumentIndex) -> Cursor[Card]? {
+fn[K : Eq] visible_cursor(index : DocumentIndex[K]) -> Cursor[Card[K]]? {
   let query = search_query(index)
   let visible = index.cards.filter(card => {
     query == "" || card.search_text.contains(query)
@@ -137,7 +137,7 @@ fn visible_cursor(index : DocumentIndex) -> Cursor[Card]? {
 
 ///|
 /// The column grid, once the grid width is known.
-fn columns(index : DocumentIndex) -> Columns? {
+fn[K] columns(index : DocumentIndex[K]) -> Columns? {
   index.grid_width.map(grid_width => {
     columns_for(grid_width~, min_column=MIN_COLUMN)
   })
@@ -147,7 +147,7 @@ fn columns(index : DocumentIndex) -> Columns? {
 /// The cards the shell still has to measure before the grid can show every
 /// listed card. All of them are measured, not only the visible ones, so a
 /// search never waits for a measurement.
-fn unmeasured(index : DocumentIndex) -> Array[MeasureRequest] {
+fn[K] unmeasured(index : DocumentIndex[K]) -> Array[MeasureRequest[K]] {
   match columns(index) {
     Some(columns) =>
       unmeasured_among(index.heights, measures_for(index.cards, columns))
@@ -158,7 +158,7 @@ fn unmeasured(index : DocumentIndex) -> Array[MeasureRequest] {
 ///|
 /// The cards the shell has to measure now. While the grid width changes,
 /// none are, so a window drag measures them once rather than per frame.
-fn to_measure(index : DocumentIndex) -> Array[MeasureRequest] {
+fn[K] to_measure(index : DocumentIndex[K]) -> Array[MeasureRequest[K]] {
   match index.resize {
     Steady => unmeasured(index)
     Resizing => []
@@ -168,7 +168,7 @@ fn to_measure(index : DocumentIndex) -> Array[MeasureRequest] {
 ///|
 /// The visible cards packed, once all of them are measured; `None` means the
 /// grid on screen stays as it is.
-fn packed_now(index : DocumentIndex) -> CardLayout? {
+fn[K : Eq] packed_now(index : DocumentIndex[K]) -> CardLayout[K]? {
   guard visible_cursor(index) is Some(visible) &&
     columns(index) is Some(columns) else {
     return None
@@ -181,7 +181,7 @@ fn packed_now(index : DocumentIndex) -> CardLayout? {
 ///|
 /// `index` with the grid on screen brought up to date: the visible cards
 /// packed once all are measured, otherwise the grid as it was.
-fn settled(index : DocumentIndex) -> DocumentIndex {
+fn[K : Eq] settled(index : DocumentIndex[K]) -> DocumentIndex[K] {
   match packed_now(index) {
     Some(layout) => { ..index, grid: Packed(layout), }
     None => index
@@ -190,10 +190,10 @@ fn settled(index : DocumentIndex) -> DocumentIndex {
 
 ///|
 /// Keep the heights measured at the current column widths, with `measured`.
-fn with_heights(
-  index : DocumentIndex,
+fn[K] with_heights(
+  index : DocumentIndex[K],
   measured : Array[(CardMeasure, Int)],
-) -> DocumentIndex {
+) -> DocumentIndex[K] {
   let columns = columns(index)
   let current = (measure : CardMeasure) => {
     columns is Some(columns) &&
@@ -212,19 +212,19 @@ fn with_heights(
 }
 
 ///|
-fn card_dom_id(key : String) -> String {
+fn[K : Show] card_dom_id(key : K) -> String {
   "card-\{key}"
 }
 
 ///|
 /// The element ID of the trash button on the card of `key`, where focus
 /// returns when its Delete confirmation is cancelled.
-pub fn card_delete_dom_id(key : String) -> String {
+pub fn[K : Show] card_delete_dom_id(key : K) -> String {
   "card-delete-\{key}"
 }
 
 ///|
-fn derived_name(card : Card) -> String {
+fn[K] derived_name(card : Card[K]) -> String {
   match @document_lead.derive_name(card.text).text() {
     "" => "Unnamed document"
     name => name
@@ -234,7 +234,7 @@ fn derived_name(card : Card) -> String {
 ///|
 /// Focus the card of `key` once it is drawn, when the search still shows it;
 /// otherwise focus stays put.
-fn focus_card(index : DocumentIndex, key : String) -> DocumentIndex {
+fn[K : Eq] focus_card(index : DocumentIndex[K], key : K) -> DocumentIndex[K] {
   match visible_cursor({ ..index, focused: Some(key), }) {
     Some(cursor) if cursor.current.key == key =>
       { ..index, focused: Some(key), focus_pending: Some(key), }
@@ -244,7 +244,7 @@ fn focus_card(index : DocumentIndex, key : String) -> DocumentIndex {
 
 ///|
 /// Whether the grid on screen holds the card of `key`.
-fn shows_card(index : DocumentIndex, key : String) -> Bool {
+fn[K : Eq] shows_card(index : DocumentIndex[K], key : K) -> Bool {
   match index.grid {
     Packed(layout) => layout.cards.to_array().any(card => card.card.key == key)
     NotMeasured => false
@@ -253,16 +253,16 @@ fn shows_card(index : DocumentIndex, key : String) -> Bool {
 
 ///|
 /// The index listing `seeds` instead, with focus left as it is.
-pub fn DocumentIndex::listing(
-  self : DocumentIndex,
-  seeds : ArrayView[Seed],
-) -> DocumentIndex {
+pub fn[K : Eq + Hash] DocumentIndex::listing(
+  self : DocumentIndex[K],
+  seeds : ArrayView[Seed[K]],
+) -> DocumentIndex[K] {
   settled({ ..self, cards: cards_of(seeds, self.cards), })
 }
 
 ///|
 /// The index shown again with focus on the card that holds the Tab stop.
-pub fn DocumentIndex::return_focus(self : DocumentIndex) -> DocumentIndex {
+pub fn[K : Eq] DocumentIndex::return_focus(self : DocumentIndex[K]) -> DocumentIndex[K] {
   match visible_cursor(self) {
     Some(cursor) => focus_card(self, cursor.current.key)
     None => self
@@ -274,11 +274,11 @@ pub fn DocumentIndex::return_focus(self : DocumentIndex) -> DocumentIndex {
 /// `seeds`. A document whose text changed, or that is new, has moved to the
 /// front: its card slides there from its old place, is highlighted, and is
 /// announced. Either way its card takes focus.
-pub fn DocumentIndex::returned_from(
-  self : DocumentIndex,
-  seeds : ArrayView[Seed],
-  key~ : String,
-) -> DocumentIndex {
+pub fn[K : Eq + Hash] DocumentIndex::returned_from(
+  self : DocumentIndex[K],
+  seeds : ArrayView[Seed[K]],
+  key~ : K,
+) -> DocumentIndex[K] {
   let before = self.cards.iter().find_first(card => card.key == key)
   let index = { ..self, cards: cards_of(seeds, self.cards), }
   match index.cards.iter().find_first(card => card.key == key) {
@@ -303,12 +303,12 @@ pub fn DocumentIndex::returned_from(
 /// The index after the document of `key` left it, now listing `seeds`. Focus
 /// moves to the card that holds its place in reading order, the previous one
 /// when it was last, or Search when no card remains.
-pub fn DocumentIndex::removed(
-  self : DocumentIndex,
-  seeds : ArrayView[Seed],
-  key~ : String,
+pub fn[K : Eq + Hash] DocumentIndex::removed(
+  self : DocumentIndex[K],
+  seeds : ArrayView[Seed[K]],
+  key~ : K,
   announcement~ : String,
-) -> (DocumentIndex, Cmd) {
+) -> (DocumentIndex[K], Cmd) {
   let mut at = 0
   for i in 0..<self.cards.length() {
     if self.cards[i].key == key {
@@ -324,10 +324,10 @@ pub fn DocumentIndex::removed(
 
 ///|
 /// Arrows follow the cards as they are shown: the packed grid on screen.
-fn move_focus(
-  index : DocumentIndex,
+fn[K : Show] move_focus(
+  index : DocumentIndex[K],
   direction : Direction,
-) -> (DocumentIndex, Cmd) {
+) -> (DocumentIndex[K], Cmd) {
   let next = match index.grid {
     Packed(layout) =>
       neighbour(layout.cards.map(card => card.rect()), direction).map(card => {
@@ -347,16 +347,16 @@ fn move_focus(
 
 ///|
 /// Every transition, then the grid on screen brought up to date.
-pub fn DocumentIndex::update(
-  self : DocumentIndex,
-  msg : Msg,
-) -> (DocumentIndex, Cmd) {
+pub fn[K : Eq + Show] DocumentIndex::update(
+  self : DocumentIndex[K],
+  msg : Msg[K],
+) -> (DocumentIndex[K], Cmd) {
   let (next, cmd) = transition(self, msg)
   (settled(next), cmd)
 }
 
 ///|
-fn transition(index : DocumentIndex, msg : Msg) -> (DocumentIndex, Cmd) {
+fn[K : Eq + Show] transition(index : DocumentIndex[K], msg : Msg[K]) -> (DocumentIndex[K], Cmd) {
   match msg {
     GridMeasured(measured) =>
       match grid_width_of(measured) {
@@ -396,10 +396,10 @@ fn transition(index : DocumentIndex, msg : Msg) -> (DocumentIndex, Cmd) {
 ///|
 /// What the index waits for while it is drawn. `fonts` is the document's
 /// font face set, which reports faces that finish loading.
-pub fn DocumentIndex::subscriptions(
-  self : DocumentIndex,
+pub fn[K : Eq + Show] DocumentIndex::subscriptions(
+  self : DocumentIndex[K],
   fonts : @dom.EventTarget,
-  emit : Emit[Msg],
+  emit : Emit[Msg[K]],
 ) -> @sub.Sub {
   @sub.batch([
     @browser.rendered_width(GRID_WIDTH_ID, width => emit(GridMeasured(width))),

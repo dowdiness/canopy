@@ -32,8 +32,8 @@ fn index_route(url : @url.Url) -> IndexRoute? {
 }
 
 ///|
-fn document_href(lifecycle : String) -> String {
-  "#/d/" + lifecycle
+fn document_href(key : @documents.Key) -> String {
+  "#/d/\{key}"
 }
 
 ///|
@@ -48,7 +48,7 @@ fn startup_screen(url : @url.Url?) -> Screen {
 
 ///|
 /// An index with nothing listed yet.
-fn empty_index() -> @document_index.DocumentIndex {
+fn empty_index() -> @document_index.DocumentIndex[@documents.Key] {
   @document_index.DocumentIndex([][:], new_href="#/new")
 }
 
@@ -72,14 +72,13 @@ fn index_seeds(
   model : Model,
   editing : EditingDocument,
   opening : Opening?,
-) -> Array[@document_index.Seed] {
+) -> Array[@document_index.Seed[@documents.Key]] {
   listed_documents(model, editing)
   .map(seed => {
     let key = seed.docid()
-    let lifecycle = key.lifecycle_key()
     @document_index.Seed::{
-      key: lifecycle,
-      href: document_href(lifecycle),
+      key,
+      href: document_href(key),
       text: seed.source(),
       status: seed.status(),
       deletion: seed.deletion(),
@@ -123,7 +122,7 @@ fn enter_editor(
   editing : EditingDocument,
   entry : Entry,
 ) -> (Model, @rabbita.Cmd) {
-  let href = document_href(editing.activation.key.lifecycle_key())
+  let href = document_href(editing.activation.key)
   let (notes, history) = match entry {
     Pushed => (HistoryBack, @nav.replace_url(href))
     ToPush => (HistoryBack, @nav.push_url(href))
@@ -155,7 +154,7 @@ fn return_to_index(model : Model, editing : EditingDocument) -> Model {
   let seeds = index_seeds(model, editing, None)
   let index = model.index.returned_from(
     seeds[:],
-    key=editing.activation.key.lifecycle_key(),
+    key=editing.activation.key,
   )
   { ..model, index, screen: Browsing({ opening: None, card_deletion: None, }), }
 }
@@ -237,15 +236,11 @@ fn browse_index(
       select_while_browsing(model, browsing, editing, key, ToPush)
     CreateRequested | ExampleSelected(_, _) | ImportFilesSelected(_) =>
       open_while_browsing(model, browsing, editing, msg, None, ToPush)
-    IndexDeleteRequested(lifecycle) =>
-      match listed_key(model, editing, lifecycle) {
-        Some(key) =>
-          Forward(
-            with_browsing(model, { ..browsing, card_deletion: Some(key), }),
-            DeleteRequested(key),
-          )
-        None => Handled(model, @cmd.none)
-      }
+    IndexDeleteRequested(key) =>
+      Forward(
+        with_browsing(model, { ..browsing, card_deletion: Some(key), }),
+        DeleteRequested(key),
+      )
     DeleteRequested(_) =>
       Forward(with_browsing(model, { ..browsing, card_deletion: None, }), msg)
     // Cancelling returns focus to the card's trash button, which asked.
@@ -258,7 +253,7 @@ fn browse_index(
           screen: Browsing({ ..browsing, card_deletion: None, }),
         },
         @browser.focus_after_render(
-          @document_index.card_delete_dom_id(key.lifecycle_key()),
+          @document_index.card_delete_dom_id(key),
         ),
       )
     NotesRequested => Handled(model, @cmd.none)
@@ -329,10 +324,10 @@ fn settle_screen(
       let seeds = index_seeds(model, editing, browsing.opening)
       match browsing.card_deletion {
         // The document deleted from its card is gone; focus takes its place.
-        Some(key) if !seeds.iter().any(seed => seed.key == key.lifecycle_key()) => {
+        Some(key) if !seeds.iter().any(seed => seed.key == key) => {
           let (index, command) = model.index.removed(
             seeds[:],
-            key=key.lifecycle_key(),
+            key~,
             announcement="Document deleted",
           )
           (
@@ -357,7 +352,7 @@ fn settle_screen(
       before.activation.key == editing.activation.key) =>
       (
         model,
-        @nav.replace_url(document_href(editing.activation.key.lifecycle_key())),
+        @nav.replace_url(document_href(editing.activation.key)),
       )
     _ => (model, @cmd.none)
   }

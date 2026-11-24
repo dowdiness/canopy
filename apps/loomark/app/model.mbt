@@ -15,7 +15,7 @@ priv struct Model {
   /// The Document index, kept while the Editor is in front so Back returns
   /// to the same search, scroll position, and card. An embedded Loomark
   /// never draws it.
-  index : @document_index.DocumentIndex
+  index : @document_index.DocumentIndex[@documents.Key]
   replication : @replication.State
   sign_in : @sign_in.SignIn
   focus_mode : Bool
@@ -248,14 +248,14 @@ priv enum Msg {
   LogoutRequested
   LogoutCompleted(@sync.LogoutAttempt, @account_http.LogoutResult)
   Sync(SyncMsg)
-  IndexMsg(@document_index.Msg)
+  IndexMsg(@document_index.Msg[@documents.Key])
   /// A card or New was followed in the Document index.
   UrlRequested(@url.UrlRequest)
   UrlChanged(@url.Url)
   /// `Notes` was chosen in the Editor toolbar.
   NotesRequested
-  /// Delete document was chosen on the card of this lifecycle key.
-  IndexDeleteRequested(String)
+  /// Delete document was chosen on this document's card.
+  IndexDeleteRequested(@documents.Key)
 }
 
 ///|
