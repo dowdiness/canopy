@@ -1316,7 +1316,12 @@ fn initial_state(
     {
       page,
       screen,
-      index: empty_index(),
+      // In front exactly while the index is the screen in front.
+      index: if screen is Browsing(_) {
+        empty_index()
+      } else {
+        empty_index().covered()
+      },
       replication: @replication.State(),
       sign_in: @sign_in.SignIn(),
       focus_mode: false,

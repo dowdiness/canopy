@@ -210,16 +210,16 @@ fn derived_name(note : Note) -> String {
 fn leave_writing(model : Model, session : Session) -> (Model, Cmd) {
   let notes = settled_notes(model)
   let listed = seeds(notes, model.deletion)
+  let shown = model.index.shown()
   let (index, cmd) = match (kept(session.note), session.origin) {
     (None, Listed(_)) =>
-      model.index.removed(
+      shown.removed(
         listed[:],
         key=session.note.id,
         announcement="Removed empty document",
       )
-    (None, Created) => (model.index.return_focus(), @cmd.none)
-    (Some(note), _) =>
-      (model.index.returned_from(listed[:], key=note.id), @cmd.none)
+    (None, Created) => (shown.return_focus(), @cmd.none)
+    (Some(note), _) => (shown.returned_from(listed[:], key=note.id), @cmd.none)
   }
   ({ ..model, notes, page: Index, index, }, cmd)
 }
@@ -242,7 +242,7 @@ fn open_note(model : Model, id : String) -> (Model, Cmd) {
           ..model,
           notes: notes.take(at).concat(notes.drop(at + 1)),
           page: Editing(Writing({ note, origin: Listed(at~, original=note), })),
-          index: model.index.listing(seeds(notes, model.deletion)[:]),
+          index: model.index.listing(seeds(notes, model.deletion)[:]).covered(),
         },
         @cmd.none,
       )
@@ -259,7 +259,10 @@ fn navigate(model : Model, route : Route) -> (Model, Cmd) {
       (model, @cmd.none)
     (Editing(Writing(session)), IndexRoute) => leave_writing(model, session)
     (Editing(Drafting), IndexRoute) =>
-      ({ ..model, page: Index, index: model.index.return_focus(), }, @cmd.none)
+      (
+        { ..model, page: Index, index: model.index.shown().return_focus(), },
+        @cmd.none,
+      )
     (_, NoteRoute(id)) => open_note(model, id)
     (_, NewRoute) => {
       let notes = settled_notes(model)
@@ -268,7 +271,7 @@ fn navigate(model : Model, route : Route) -> (Model, Cmd) {
           ..model,
           notes,
           page: Editing(Drafting),
-          index: model.index.listing(seeds(notes, model.deletion)[:]),
+          index: model.index.listing(seeds(notes, model.deletion)[:]).covered(),
         },
         @cmd.none,
       )

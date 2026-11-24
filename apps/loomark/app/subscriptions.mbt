@@ -11,12 +11,16 @@ fn subscriptions(
     viewport,
     match (model.screen, model.page) {
       (Embedded, _) => @sub.none
-      // Behind the Editor the index waits: redrawing it there would split the
-      // TextArea's native undo groups.
-      (Browsing(_), Editing(_)) =>
+      // Behind the Editor the index is covered, and decides itself what it
+      // still waits for.
+      (screen, Editing(_)) =>
         @sub.batch([
           model.index.subscriptions(fonts, emit.map(msg => IndexMsg(msg))),
-          @sub.on_url_request(request => emit(UrlRequested(request))),
+          if screen is Browsing(_) {
+            @sub.on_url_request(request => emit(UrlRequested(request)))
+          } else {
+            @sub.none
+          },
           @sub.on_url_changed(url => emit(UrlChanged(url))),
         ])
       _ => @sub.on_url_changed(url => emit(UrlChanged(url)))

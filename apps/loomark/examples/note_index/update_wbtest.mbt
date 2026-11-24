@@ -55,8 +55,9 @@ test "opening a note holds it outside the list until the editor is left" {
   assert_eq(note.id, "b")
   assert_eq(ids_of(writing.notes), ["a", "c"])
   assert_eq(ids_of(settled_notes(writing)), ["a", "b", "c"])
-  // The index keeps listing it, so the cards behind the editor stay put.
-  assert_true(writing.index == three_notes().index)
+  // The index keeps listing it, covered, so the cards behind the editor
+  // stay put.
+  assert_true(writing.index == three_notes().index.covered())
 }
 
 ///|
@@ -70,7 +71,7 @@ test "leaving an unchanged note keeps its place" {
 test "an edited note moves to the front when it is left" {
   let edited = type_text(go(three_notes(), "/n/c"), "# Gamma, revised")
   // Typing changes nothing the index draws.
-  assert_true(edited.index == three_notes().index)
+  assert_true(edited.index == three_notes().index.covered())
   let back = go(edited, "/")
   assert_true(back.page is Index)
   assert_eq(ids_of(back.notes), ["c", "a", "b"])

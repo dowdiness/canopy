@@ -3,9 +3,10 @@
 // such as measuring the grid width and the cards, and moving focus.
 //
 // The host keeps a `DocumentIndex` in its Model, forwards `Msg` to `update`,
-// runs `subscriptions` while the index is drawn,
-// and tells it what happened elsewhere through `returned_from`, `removed`,
-// and `return_focus`. A wait, such as a highlight fading, is a subscription
+// runs `subscriptions` while the index is drawn, says when another screen
+// covers it and when it is shown again with `covered` and `shown`, and tells
+// it what happened elsewhere through `returned_from`, `removed`, and
+// `return_focus`. A wait, such as a highlight fading, is a subscription
 // that exists only while its state does, so no message arrives for a state
 // that is gone.
 
@@ -51,7 +52,20 @@ priv enum GridResize {
 } derive(Eq)
 
 ///|
+/// Whether the index is in front. Covered, it stays laid out but draws
+/// nothing new. Chromium closes the open typing undo group whenever any node
+/// leaves the document, wherever it is, and measuring cards removes the cards
+/// it drew; so measuring behind the Editor would split what the reader types
+/// into separate Undo steps. Covered, the index only notes the grid width
+/// and loaded faces, and catches up once it is in front again.
+priv enum Presence {
+  InFront
+  Covered
+} derive(Eq)
+
+///|
 struct DocumentIndex[K] {
+  presence : Presence
   /// Most recently changed first.
   cards : Vector[Card[K]]
   /// Where New leads.
@@ -105,6 +119,7 @@ pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(
   new_href~ : String,
 ) -> DocumentIndex[K] {
   {
+    presence: InFront,
     cards: cards_of(seeds, Vector([])),
     new_href,
     query: "",
@@ -159,9 +174,9 @@ fn[K] unmeasured(index : DocumentIndex[K]) -> Array[MeasureRequest[K]] {
 /// The cards the shell has to measure now. While the grid width changes,
 /// none are, so a window drag measures them once rather than per frame.
 fn[K] to_measure(index : DocumentIndex[K]) -> Array[MeasureRequest[K]] {
-  match index.resize {
-    Steady => unmeasured(index)
-    Resizing => []
+  match (index.presence, index.resize) {
+    (InFront, Steady) => unmeasured(index)
+    (InFront, Resizing) | (Covered, _) => []
   }
 }
 
@@ -182,9 +197,9 @@ fn[K : Eq] packed_now(index : DocumentIndex[K]) -> CardLayout[K]? {
 /// `index` with the grid on screen brought up to date: the visible cards
 /// packed once all are measured, otherwise the grid as it was.
 fn[K : Eq] settled(index : DocumentIndex[K]) -> DocumentIndex[K] {
-  match packed_now(index) {
-    Some(layout) => { ..index, grid: Packed(layout), }
-    None => index
+  match (index.presence, packed_now(index)) {
+    (InFront, Some(layout)) => { ..index, grid: Packed(layout), }
+    (InFront, None) | (Covered, _) => index
   }
 }
 
@@ -261,8 +276,29 @@ pub fn[K : Eq + Hash] DocumentIndex::listing(
 }
 
 ///|
+/// The index covered by another screen, such as the Editor, until `shown`.
+pub fn[K] DocumentIndex::covered(self : DocumentIndex[K]) -> DocumentIndex[K] {
+  { ..self, presence: Covered, }
+}
+
+///|
+/// The index in front, catching up with what changed while it was covered. A
+/// width that changed then is no window drag, so its cards are measured now
+/// rather than after the wait for a drag to end.
+pub fn[K : Eq] DocumentIndex::shown(
+  self : DocumentIndex[K],
+) -> DocumentIndex[K] {
+  match self.presence {
+    InFront => self
+    Covered => settled({ ..self, presence: InFront, resize: Steady, })
+  }
+}
+
+///|
 /// The index shown again with focus on the card that holds the Tab stop.
-pub fn[K : Eq] DocumentIndex::return_focus(self : DocumentIndex[K]) -> DocumentIndex[K] {
+pub fn[K : Eq] DocumentIndex::return_focus(
+  self : DocumentIndex[K],
+) -> DocumentIndex[K] {
   match visible_cursor(self) {
     Some(cursor) => focus_card(self, cursor.current.key)
     None => self
@@ -356,7 +392,10 @@ pub fn[K : Eq + Show] DocumentIndex::update(
 }
 
 ///|
-fn[K : Eq + Show] transition(index : DocumentIndex[K], msg : Msg[K]) -> (DocumentIndex[K], Cmd) {
+fn[K : Eq + Show] transition(
+  index : DocumentIndex[K],
+  msg : Msg[K],
+) -> (DocumentIndex[K], Cmd) {
   match msg {
     GridMeasured(measured) =>
       match grid_width_of(measured) {
@@ -394,16 +433,21 @@ fn[K : Eq + Show] transition(index : DocumentIndex[K], msg : Msg[K]) -> (Documen
 }
 
 ///|
-/// What the index waits for while it is drawn. `fonts` is the document's
-/// font face set, which reports faces that finish loading.
+/// What the index waits for while it is drawn. Covered, it only notes the
+/// grid width and faces that finish loading. `fonts` is the document's font
+/// face set, which reports faces that finish loading.
 pub fn[K : Eq + Show] DocumentIndex::subscriptions(
   self : DocumentIndex[K],
   fonts : @dom.EventTarget,
   emit : Emit[Msg[K]],
 ) -> @sub.Sub {
-  @sub.batch([
+  let noted = @sub.batch([
     @browser.rendered_width(GRID_WIDTH_ID, width => emit(GridMeasured(width))),
     @browser.fonts_loaded(fonts, emit(FontsLoaded)),
+  ])
+  guard self.presence is InFront else { noted }
+  @sub.batch([
+    noted,
     match self.resize {
       Steady => @sub.none
       // Keyed by the width, so each change restarts the wait.

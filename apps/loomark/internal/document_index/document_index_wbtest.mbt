@@ -27,13 +27,19 @@ fn three_cards() -> DocumentIndex[String] {
 }
 
 ///|
-fn step(index : DocumentIndex[String], msg : Msg[String]) -> DocumentIndex[String] {
+fn step(
+  index : DocumentIndex[String],
+  msg : Msg[String],
+) -> DocumentIndex[String] {
   index.update(msg).0
 }
 
 ///|
 /// The shell reports every card it was asked to measure as `height` tall.
-fn measured(index : DocumentIndex[String], height : Int) -> DocumentIndex[String] {
+fn measured(
+  index : DocumentIndex[String],
+  height : Int,
+) -> DocumentIndex[String] {
   step(
     index,
     CardsMeasured(unmeasured(index).map(request => (request.measure, height))),
@@ -257,6 +263,31 @@ test "cards are measured once the width holds still, and the grid stays until th
   assert_eq(layout.width, 500)
   // The same width again is not a resize.
   assert_true(step(packed, GridMeasured(1232.0)) == packed)
+}
+
+///|
+test "a width changed while covered is measured as soon as the index returns" {
+  let packed = measured(three_cards(), 50)
+  let covered = step(packed.covered(), GridMeasured(500.0))
+  assert_true(to_measure(covered).is_empty())
+  assert_true(covered.grid == packed.grid)
+  let back = covered.shown().returned_from(alpha_beta_gamma[:], key="b")
+  assert_true(to_measure(back).length() > 0)
+  guard measured(back, 50).grid is Packed(layout) else {
+    fail("expected the grid at the new width")
+  }
+  assert_eq(layout.width, 500)
+}
+
+///|
+test "faces loaded while covered are measured only once the index is shown" {
+  let packed = measured(three_cards(), 50)
+  let covered = step(packed.covered(), FontsLoaded)
+  assert_true(to_measure(covered).is_empty())
+  assert_true(covered.grid == packed.grid)
+  let back = covered.shown()
+  assert_true(to_measure(back).length() > 0)
+  assert_true(back.grid == packed.grid)
 }
 
 ///|

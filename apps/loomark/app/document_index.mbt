@@ -110,8 +110,12 @@ priv enum Browse {
 }
 
 ///|
+/// The index as the screen in front. Every `Browsing` screen is made here,
+/// and the Editor comes to the front only through `enter_editor`, which
+/// covers the index; `Leaving` and its way back to `Writing` keep it covered.
+/// So the index is in front exactly while the screen is `Browsing`.
 fn with_browsing(model : Model, browsing : Browsing) -> Model {
-  { ..model, screen: Browsing(browsing), }
+  { ..model, index: model.index.shown(), screen: Browsing(browsing), }
 }
 
 ///|
@@ -130,7 +134,11 @@ fn enter_editor(
     Startup => (IndexEntry, @cmd.none)
   }
   (
-    { ..model, screen: Writing({ notes, named, }), },
+    {
+      ..model,
+      index: model.index.covered(),
+      screen: Writing({ notes, named, }),
+    },
     @cmd.batch([history, focus_editor_after_render(editing.mode)]),
   )
 }
@@ -152,9 +160,12 @@ fn open_while_browsing(
 ///|
 /// The index in front again after the Editor held `editing`'s document.
 fn return_to_index(model : Model, editing : EditingDocument) -> Model {
+  let model = with_browsing(model, { opening: None, card_deletion: None, })
   let seeds = index_seeds(model, editing, None)
-  let index = model.index.returned_from(seeds[:], key=editing.activation.key)
-  { ..model, index, screen: Browsing({ opening: None, card_deletion: None, }), }
+  {
+    ..model,
+    index: model.index.returned_from(seeds[:], key=editing.activation.key),
+  }
 }
 
 ///|
@@ -246,11 +257,10 @@ fn browse_index(
     DeleteCancelled if browsing.card_deletion is Some(key) &&
       editing.deletion is DeleteConfirmation(_) =>
       Handled(
-        {
-          ..model,
-          page: Editing({ ..editing, deletion: NoDeletion, }),
-          screen: Browsing({ ..browsing, card_deletion: None, }),
-        },
+        with_browsing(
+          { ..model, page: Editing({ ..editing, deletion: NoDeletion, }), },
+          { ..browsing, card_deletion: None, },
+        ),
         @browser.focus_after_render(@document_index.card_delete_dom_id(key)),
       )
     NotesRequested => Handled(model, @cmd.none)
@@ -328,11 +338,10 @@ fn settle_screen(model : Model) -> Browse {
             announcement="Document deleted",
           )
           Handled(
-            {
-              ..model,
-              index,
-              screen: Browsing({ ..browsing, card_deletion: None, }),
-            },
+            with_browsing({ ..model, index, }, {
+              ..browsing,
+              card_deletion: None,
+            }),
             command,
           )
         }
