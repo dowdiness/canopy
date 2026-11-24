@@ -15,33 +15,6 @@ fn marked(text : String, truncated : Bool) -> String {
 }
 
 ///|
-/// `text` with each occurrence of `query`, already in lower case, marked.
-/// Marks only colour the text, so a card measures the same with or without.
-fn matched(text : String, query : String) -> Array[Html] {
-  let lower = text.to_lower()
-  guard query != "" && lower.length() == text.length() else {
-    return [@html.text(text)]
-  }
-  let runs = []
-  let mut from = 0
-  while lower.view(start_offset=from).find(query) is Some(offset) {
-    let at = from + offset
-    let end = at + query.length()
-    if at > from {
-      runs.push(
-        @html.text(text.view(start_offset=from, end_offset=at).to_owned()),
-      )
-    }
-    runs.push(@html.mark(text.view(start_offset=at, end_offset=end).to_owned()))
-    from = end
-  }
-  if from < text.length() {
-    runs.push(@html.text(text.view(start_offset=from).to_owned()))
-  }
-  runs
-}
-
-///|
 /// A Markdown list or task marker drawn as the mark a reader sees.
 fn tidied(line : String) -> String {
   let markers = [
@@ -66,14 +39,13 @@ fn tidied_lines(text : String) -> String {
 }
 
 ///|
-/// A card's Document lead, with `query` marked. The browser breaks and
-/// clamps its lines.
-fn lead_view(lead : @document_lead.DocumentLead, query : String) -> Array[Html] {
+/// A card's Document lead. The browser breaks and clamps its lines.
+fn lead_view(lead : @document_lead.DocumentLead) -> Array[Html] {
   let text = marked(lead.primary(), lead.primary_truncated())
   let primary = match lead.form() {
     Empty => @html.nothing
-    Heading => @html.div(class="lead lead-heading", matched(text, query))
-    Quote => @html.div(class="lead lead-quote", matched(text, query))
+    Heading => @html.div(class="lead lead-heading", text)
+    Quote => @html.div(class="lead lead-quote", text)
     Code => {
       let lines = lead
         .primary()
@@ -88,27 +60,23 @@ fn lead_view(lead : @document_lead.DocumentLead, query : String) -> Array[Html] 
       )
       @html.div(
         class="lead lead-code",
-        shown.map(line => @html.div(class="code-line", matched(line, query))),
+        shown.map(line => @html.div(class="code-line", line)),
       )
     }
     Task(done) =>
       @html.div(
         class=if done { "lead lead-task done" } else { "lead lead-task" },
-        matched((if done { "☑ " } else { "☐ " }) + text, query),
+        (if done { "☑ " } else { "☐ " }) + text,
       )
-    List(marker) =>
-      @html.div(class="lead", matched(tidied(marker + " " + text), query))
-    Plain => @html.div(class="lead", matched(text, query))
+    List(marker) => @html.div(class="lead", tidied(marker + " " + text))
+    Plain => @html.div(class="lead", text)
   }
   let description = match (lead.form(), lead.description()) {
     (Empty, _) | (_, "") => @html.nothing
     (_, description) =>
       @html.div(
         class="desc",
-        matched(
-          tidied_lines(marked(description, lead.description_truncated())),
-          query,
-        ),
+        tidied_lines(marked(description, lead.description_truncated())),
       )
   }
   [primary, description]
@@ -130,7 +98,6 @@ fn[K : Show] card_view(
   card : Card[K],
   just_arrived : Bool,
   tab_stop : Bool,
-  query : String,
 ) -> Html {
   let key = card.key
   let attrs = card_attrs(card)
@@ -148,7 +115,7 @@ fn[K : Show] card_view(
         id=card_dom_id(key),
         class~,
         attrs~,
-        lead_view(card.lead, query),
+        lead_view(card.lead),
       )
     // A card being deleted stays in place but leads nowhere.
     Neither =>
@@ -156,7 +123,7 @@ fn[K : Show] card_view(
         id=card_dom_id(key),
         class~,
         attrs=attrs.role("link").aria_disabled("true"),
-        lead_view(card.lead, query),
+        lead_view(card.lead),
       )
   }
 }
@@ -191,7 +158,11 @@ fn notice_view(notice : Notice) -> Html {
 /// Delete document, beside the card's link rather than inside it, so that
 /// choosing and deleting stay separate targets. It follows the card in Tab
 /// order only while the card holds the Tab stop.
-fn[K : Show] delete_view(card : Card[K], tab_stop : Bool, on_delete : Emit[K]) -> Html {
+fn[K : Show] delete_view(
+  card : Card[K],
+  tab_stop : Bool,
+  on_delete : Emit[K],
+) -> Html {
   let label = "Delete \"\{card_label(card)}\""
   let attrs = @html.Attrs::build()
     .tabindex(if tab_stop { 0 } else { -1 })
@@ -233,7 +204,7 @@ fn[K] card_measure_view(requests : Array[MeasureRequest[K]]) -> Html {
         @html.div(
           class="card",
           attrs=card_attrs(request.card),
-          lead_view(request.card.lead, ""),
+          lead_view(request.card.lead),
         ),
       ])
     }),
@@ -241,42 +212,61 @@ fn[K] card_measure_view(requests : Array[MeasureRequest[K]]) -> Html {
 }
 
 ///|
-/// Everything one card slot shows: its card, placed in the packed grid.
+/// Where a card slot is on screen.
+priv enum SlotPlace {
+  /// Placed in the packed grid on screen.
+  At(x~ : Int, y~ : Int, width~ : Int, height~ : Int, tab_stop~ : Bool)
+  /// Left out of the grid on screen, such as by the search, yet still drawn,
+  /// so that typing in Search never removes a node from the document:
+  /// Chromium ends a typing Undo step whenever one leaves.
+  Hidden
+} derive(Eq, Hash)
+
+///|
+/// Everything one card slot shows: its card, and where it is on screen.
 /// Each card is its own branch of the incremental graph, so it is rebuilt
 /// only when its slot changes.
 priv struct CardSlot[K] {
   card : Card[K]
-  x : Int
-  y : Int
-  width : Int
-  height : Int
-  tab_stop : Bool
+  place : SlotPlace
   just_arrived : Bool
-  /// The search, in lower case, whose matches the card marks.
-  query : String
 } derive(Eq, Hash)
 
 ///|
-/// The slots of the packed grid on screen, in reading order.
-fn[K : Eq] card_slots(index : DocumentIndex[K]) -> @vector.Vector[CardSlot[K]] {
-  match (index.grid, visible_cursor(index)) {
-    (Packed(layout), Some(_)) => {
-      let tab_stop = layout.cards.current.card.key
-      let query = search_query(index)
-      let slots = layout.cards.map(card => {
-        card: card.card,
-        x: card.x,
-        y: card.y,
-        width: card.width,
-        height: card.height,
-        tab_stop: card.card.key == tab_stop,
-        just_arrived: index.highlight == Some(card.card.key),
-        query,
-      })
-      @vector.Vector(slots.to_array())
-    }
-    (NotMeasured, _) | (_, None) => @vector.Vector([])
+/// A slot for every listed card, most recently changed first, so the order
+/// of the drawn slots never changes with the search. A card the grid on
+/// screen places shows as it was placed.
+fn[K : Eq + Hash] card_slots(
+  index : DocumentIndex[K],
+) -> @vector.Vector[CardSlot[K]] {
+  let (placed, tab_stop) = match (index.grid, visible_cursor(index)) {
+    (Packed(layout), Some(_)) =>
+      (layout.cards.to_array(), Some(layout.cards.current.card.key))
+    (NotMeasured, _) | (_, None) => ([], None)
   }
+  let placed = @hashmap.HashMap(placed.map(card => (card.card.key, card)))
+  let slots = index.cards
+    .iter()
+    .map(card => {
+      let just_arrived = index.highlight == Some(card.key)
+      match placed.get(card.key) {
+        Some(placed) =>
+          {
+            card: placed.card,
+            place: At(
+              x=placed.x,
+              y=placed.y,
+              width=placed.width,
+              height=placed.height,
+              tab_stop=tab_stop == Some(card.key),
+            ),
+            just_arrived,
+          }
+        None => { card, place: Hidden, just_arrived, }
+      }
+    })
+    .collect()
+  @vector.Vector(slots)
 }
 
 ///|
@@ -295,27 +285,31 @@ fn[K : Eq + Hash + Show] card_slot(
 }
 
 ///|
+/// A hidden slot keeps the same children as a placed one, so placing it or
+/// hiding it again changes only attributes.
 fn[K : Show] card_slot_view(
   slot : CardSlot[K],
   emit : Emit[Msg[K]],
   on_delete : Emit[K],
 ) -> Html {
-  let card = card_view(
-    emit,
-    slot.card,
-    slot.just_arrived,
-    slot.tab_stop,
-    slot.query,
-  )
+  let (style, tab_stop) = match slot.place {
+    At(x~, y~, width~, height~, tab_stop~) =>
+      (
+        [
+          "transform:translate(\{x}px,\{y}px);width:\{width}px;height:\{height}px",
+        ],
+        tab_stop,
+      )
+    Hidden => ([], false)
+  }
   @html.li(
     class=if slot.card.actions is Neither { "slot deleting" } else { "slot" },
-    style=[
-      "transform:translate(\{slot.x}px,\{slot.y}px);width:\{slot.width}px;height:\{slot.height}px",
-    ],
+    style~,
+    attrs=@html.Attrs::build().hidden(slot.place is Hidden),
     [
-      card,
+      card_view(emit, slot.card, slot.just_arrived, tab_stop),
       notice_view(slot.card.notice),
-      delete_view(slot.card, slot.tab_stop, on_delete),
+      delete_view(slot.card, tab_stop, on_delete),
     ],
   )
 }
@@ -324,7 +318,7 @@ fn[K : Show] card_slot_view(
 /// Keys pressed on a card reach the grid.
 fn[K : Show] grid_view(
   emit : Emit[Msg[K]],
-  grid : ShownGrid[K],
+  size : (Int, Int)?,
   slots : @vector.Vector[CardSlot[K]],
   rows : @vector.Vector[Html],
 ) -> Html {
@@ -332,14 +326,16 @@ fn[K : Show] grid_view(
   for pair in slots.iter().zip(rows.iter()) {
     items[pair.0.card.key.to_string()] = pair.1
   }
-  let style = match grid {
-    Packed(layout) => ["width:\{layout.width}px;height:\{layout.height}px"]
-    NotMeasured => []
+  let style = match size {
+    Some((width, height)) => ["width:\{width}px;height:\{height}px"]
+    None => []
   }
   @html.ol(
+    id=GRID_ID,
     class="grid cards",
     style~,
     attrs=@html.Attrs::build()
+      .hidden(size is None)
       .aria_label("Documents, most recently changed first")
       .on_keydown(event => {
         let action = card_key_action(@browser.key_press(event))
@@ -362,15 +358,18 @@ priv struct Header {
 } derive(Eq)
 
 ///|
-/// What the documents area shows besides the grid.
+/// What the documents area shows besides the grid. While any document is
+/// listed, the note for a search that matches none stays drawn, hidden while
+/// cards match, so searching never removes it from the document.
 priv enum Documents {
-  Shown
   NoDocuments
-  NoMatch(String)
+  Listed(query~ : String, matched~ : Bool)
 } derive(Eq)
 
 ///|
-fn[K : Eq] header_and_documents(index : DocumentIndex[K]) -> (Header, Documents) {
+fn[K : Eq] header_and_documents(
+  index : DocumentIndex[K],
+) -> (Header, Documents) {
   let total = index.cards.length()
   let cursor = visible_cursor(index)
   let count = match (index.query, cursor) {
@@ -378,10 +377,9 @@ fn[K : Eq] header_and_documents(index : DocumentIndex[K]) -> (Header, Documents)
     (_, Some(shown)) => Some("\{shown.length()} of \{total}")
     (_, None) => Some("0 of \{total}")
   }
-  let documents = match (cursor, total) {
-    (Some(_), _) => Shown
-    (None, 0) => NoDocuments
-    (None, _) => NoMatch(index.query)
+  let documents = match total {
+    0 => NoDocuments
+    _ => Listed(query=index.query, matched=cursor is Some(_))
   }
   ({ count, query: index.query, new_href: index.new_href, }, documents)
 }
@@ -391,10 +389,16 @@ fn[K] header_view(header : Header, emit : Emit[Msg[K]]) -> Html {
   @html.header(class="bar", [
     // Named for assistive technology; the cards themselves show what this is.
     @html.h1(class="visually-hidden", "Notes"),
-    match header.count {
-      Some(count) => @html.span(class="count", count)
-      None => @html.nothing
-    },
+    // Always drawn, so typing that starts or ends a search changes only
+    // attributes and text.
+    @html.span(
+      class="count",
+      attrs=@html.Attrs::build().hidden(header.count is None),
+      match header.count {
+        Some(count) => count
+        None => ""
+      },
+    ),
     @html.label(class="search", [
       @html.span(class="visually-hidden", "Search documents"),
       @html.input(
@@ -436,15 +440,14 @@ fn[K] documents_view(
   grid : Html,
   emit : Emit[Msg[K]],
 ) -> Html {
-  match documents {
-    Shown => grid
+  let empty = match documents {
     NoDocuments =>
       @html.div(class="empty", [
         @html.p(class="empty-title", "No documents yet"),
         @html.a(href=new_href, class="empty-action", "Write the first one"),
       ])
-    NoMatch(query) =>
-      @html.div(class="empty", [
+    Listed(query~, matched~) =>
+      @html.div(class="empty", attrs=@html.Attrs::build().hidden(matched), [
         @html.p(class="empty-title", "No documents contain “\{query}”"),
         @html.button(
           type_="button",
@@ -453,6 +456,16 @@ fn[K] documents_view(
           "Clear search",
         ),
       ])
+  }
+  @html.div(class="documents", [grid, empty])
+}
+
+///|
+/// The size of the packed grid on screen while it shows any card.
+fn[K : Eq] grid_size(index : DocumentIndex[K]) -> (Int, Int)? {
+  match (index.grid, visible_cursor(index)) {
+    (Packed(layout), Some(_)) => Some((layout.width, layout.height))
+    (NotMeasured, _) | (_, None) => None
   }
 }
 
@@ -481,9 +494,9 @@ pub fn[K : Eq + Hash + Show] view(
     slot.card.key
   })
   let grid = index
-    .map(index => index.grid)
-    .view3(slots, rows, (grid, slots, rows) => {
-      grid_view(emit, grid, slots, rows)
+    .map(grid_size)
+    .view3(slots, rows, (size, slots, rows) => {
+      grid_view(emit, size, slots, rows)
     })
   let new_href = index.map(index => index.new_href)
   let documents = header_and_documents
@@ -492,21 +505,17 @@ pub fn[K : Eq + Hash + Show] view(
       documents_view(documents, new_href, grid, emit)
     })
   let main = header.view2(documents, (header, documents) => {
-    @html.main_(
-      id="index",
-      class="index",
-      [
-        // Laid out like the grid, so its width is the grid's.
-        @html.div(
-          id=GRID_WIDTH_ID,
-          class="grid-width",
-          attrs=@html.Attrs::build().aria_hidden("true"),
-          @html.nothing,
-        ),
-        header,
-        documents,
-      ],
-    )
+    @html.main_(id="index", class="index", [
+      // Laid out like the grid, so its width is the grid's.
+      @html.div(
+        id=GRID_WIDTH_ID,
+        class="grid-width",
+        attrs=@html.Attrs::build().aria_hidden("true"),
+        @html.nothing,
+      ),
+      header,
+      documents,
+    ])
   })
   // Outside the grid, so it never shifts the cards on screen.
   let measure = index

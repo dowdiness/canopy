@@ -31,6 +31,9 @@
   }
 }
 .loomark-index :focus-visible { outline: 2px solid var(--lm-accent); outline-offset: 2px; }
+/* Parts searching shows and hides stay drawn, so `hidden` must win over
+   their display. */
+.loomark-index [hidden] { display: none !important; }
 .loomark-index .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .loomark-index .new-icon, .loomark-index .card-delete-icon, .loomark-index .card-unsaved, .loomark-index .card-progress::before {
   display: block; background: currentColor;
@@ -64,7 +67,7 @@
 /* A little shorter than the controls beside it, so it keeps clear of the
    top edge, with a wider gap before New. */
 .loomark-index .search { position: relative; flex: 0 1 260px; min-width: 0; height: 32px; margin: 0 6px 0 auto; }
-.loomark-index .count + .search { margin-left: 0; }
+.loomark-index .count:not([hidden]) + .search { margin-left: 0; }
 .loomark-index .search::before {
   content: ""; position: absolute; left: 11px; top: 50%; width: 14px; height: 14px;
   translate: 0 -50%; background: var(--lm-muted); pointer-events: none;
@@ -178,12 +181,9 @@
 .loomark-index .code-line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .loomark-index .lead-task.done { color: var(--lm-muted); text-decoration: line-through; text-decoration-color: var(--lm-edge-strong); }
 
-/* Search matches only colour the text, so measured heights still hold. */
-.loomark-index mark {
-  background: var(--lm-hit); color: var(--lm-ink); border-radius: 3px;
-  box-decoration-break: clone; -webkit-box-decoration-break: clone;
-  box-shadow: 0 0 0 1px var(--lm-hit);
-}
+/* Search matches are painted, not marked up, so measured heights hold and
+   typing in Search never changes the cards' nodes. */
+.loomark-index ::highlight(document-index-match) { background-color: var(--lm-hit); color: var(--lm-ink); }
 
 /* Delete document, as on a Recent documents entry: muted until its target
    is chosen, then the destructive role. Every card keeps room for it beside
@@ -261,12 +261,12 @@
   /* New sits level with the documents trigger and as far from the right
      edge as the Editor's controls; Search lines up with the cards. */
   .loomark-index .bar { position: static; flex-wrap: wrap; row-gap: 14px; padding: 8px 4px 16px; }
-  .loomark-index .search, .loomark-index .count + .search { margin-inline: 4px; }
+  .loomark-index .search, .loomark-index .count:not([hidden]) + .search { margin-inline: 4px; }
   .loomark-index .bar::before { display: none; }
   .loomark-index .search { order: 3; flex: 1 1 100%; height: 40px; }
   /* 16px keeps iOS from zooming into the field on focus. */
   .loomark-index .search input { height: 40px; font-size: 16px; }
   /* Search wraps below, so New keeps the right end on its own. */
   .loomark-index .new { margin-left: auto; }
-  .loomark-index .count ~ .new { margin-left: 0; }
+  .loomark-index .count:not([hidden]) ~ .new { margin-left: 0; }
 }

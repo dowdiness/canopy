@@ -30,6 +30,14 @@ const HIGHLIGHT_MS : Int = 1200
 const SEARCH_ID : String = "document-index-search"
 
 ///|
+/// The element ID of the card grid, whose text search matches are painted in.
+const GRID_ID : String = "document-index-grid"
+
+///|
+/// The name of the CSS highlight that paints search matches.
+const MATCH_HIGHLIGHT : String = "document-index-match"
+
+///|
 /// The element ID of the empty element laid out like the grid, whose width
 /// the grid follows.
 const GRID_WIDTH_ID : String = "document-index-grid-width"
@@ -462,6 +470,10 @@ pub fn[K : Eq + Show] DocumentIndex::subscriptions(
       Some(key) if shows_card(self, key) =>
         @browser.focus_when_drawn(card_dom_id(key), emit(CardFocused(key)))
       _ => @sub.none
+    },
+    match search_query(self) {
+      "" => @sub.none
+      query => @browser.highlight_occurrences(MATCH_HIGHLIGHT, GRID_ID, query)
     },
     match self.highlight {
       None => @sub.none

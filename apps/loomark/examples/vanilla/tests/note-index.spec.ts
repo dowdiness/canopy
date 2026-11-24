@@ -25,13 +25,13 @@ test.afterEach(async ({ page }) => {
 
 /** Wait until the grid shows every card, all measured. */
 async function packed(page: Page) {
-  await expect(page.locator(".grid.cards > .slot").first()).toBeVisible()
+  await expect(page.locator(".grid.cards > .slot:not([hidden])").first()).toBeVisible()
   await expect(page.locator("#card-measure")).toHaveCount(0)
 }
 
 /** Every packed slot's box, in reading order. */
 function boxes(page: Page): Promise<Box[]> {
-  return page.locator(".grid.cards > .slot").evaluateAll(slots => slots.map(slot => {
+  return page.locator(".grid.cards > .slot:not([hidden])").evaluateAll(slots => slots.map(slot => {
     const rect = slot.getBoundingClientRect()
     return {
       id: slot.firstElementChild!.id,
@@ -50,7 +50,7 @@ function boxes(page: Page): Promise<Box[]> {
  */
 function layoutFaults(page: Page) {
   return page.locator(".grid.cards").evaluate(grid => {
-    const slots = [...grid.querySelectorAll<HTMLElement>(":scope > .slot")]
+    const slots = [...grid.querySelectorAll<HTMLElement>(":scope > .slot:not([hidden])")]
     const cards = slots.map(slot => slot.firstElementChild as HTMLElement)
     const overflowing = cards
       .filter(card => card.scrollHeight > card.clientHeight + 1)
@@ -115,22 +115,44 @@ test("a narrower window packs the cards again once the width holds still", async
   await expectPackedWell(page)
 })
 
-test("a search marks its matches in any case and keeps cards at their measured heights", async ({ page }) => {
+test("a search paints its matches in any case and keeps cards at their measured heights", async ({ page }) => {
   await page.locator("#document-index-search").fill("WRIT")
   await expect(page.locator(".count")).toHaveText(/^\d+ of \d+$/)
-  const marks = await page.locator(".grid mark").allTextContents()
-  expect(marks.length).toBeGreaterThan(1)
-  expect(new Set(marks.map(mark => mark.toLowerCase()))).toEqual(new Set(["writ"]))
+  await expect(page.locator(".grid mark")).toHaveCount(0)
+  const painted = await page.evaluate(() =>
+    [...(CSS.highlights.get("document-index-match") ?? [])].map(range => range.toString()))
+  expect(painted.length).toBeGreaterThan(1)
+  expect(new Set(painted.map(match => match.toLowerCase()))).toEqual(new Set(["writ"]))
   await expectPackedWell(page)
 })
 
+test("typing a search is one Undo step, even as cards and matches come and go", async ({ page }) => {
+  const search = page.locator("#document-index-search")
+  const shown = page.locator(".grid.cards > .slot:not([hidden])")
+  const all = await shown.count()
+  await search.click()
+  // Each step waits for the index to show it, so the index changes between
+  // keys: the first key starts a search and paints its matches, the next
+  // ones leave out cards, and the last ones match nothing.
+  await search.press("w")
+  await expect(page.locator(".count")).toBeVisible()
+  await search.pressSequentially("rit")
+  await expect.poll(() => shown.count()).toBeLessThan(all)
+  await search.pressSequentially("zz")
+  await expect(page.getByText("No documents contain “writzz”")).toBeVisible()
+
+  await search.press("ControlOrMeta+Z")
+  await expect(search).toHaveValue("")
+  await expect(shown).toHaveCount(all)
+})
+
 test("clearing a search that matched nothing returns to the search field", async ({ page }) => {
-  const count = await page.locator(".grid.cards > .slot").count()
+  const count = await page.locator(".grid.cards > .slot:not([hidden])").count()
   await page.locator("#document-index-search").fill("zzz")
   await page.getByRole("button", { name: "Clear search" }).click()
   await expect(page.locator("#document-index-search")).toBeFocused()
   await expect(page.locator("#document-index-search")).toHaveValue("")
-  await expect(page.locator(".grid.cards > .slot")).toHaveCount(count)
+  await expect(page.locator(".grid.cards > .slot:not([hidden])")).toHaveCount(count)
 })
 
 test("a font that loads after startup measures every card again", async ({ page }) => {
@@ -183,25 +205,25 @@ test("arrow keys move to the nearest card on screen in their direction", async (
 })
 
 test("a New document left with text becomes the first card and takes focus", async ({ page }) => {
-  const count = await page.locator(".grid.cards > .slot").count()
-  await page.locator(".grid.cards > .slot .card").first().focus()
+  const count = await page.locator(".grid.cards > .slot:not([hidden])").count()
+  await page.locator(".grid.cards > .slot:not([hidden]) .card").first().focus()
   await page.keyboard.press("n")
   const editor = page.getByRole("textbox", { name: "Document text" })
   await expect(editor).toBeFocused()
   await editor.pressSequentially("Fresh idea from the browser suite")
   await editor.press("Escape")
 
-  const firstCard = page.locator(".grid.cards > .slot .card").first()
+  const firstCard = page.locator(".grid.cards > .slot:not([hidden]) .card").first()
   // Its card is drawn only once it is measured; focus waits for it.
   await expect(firstCard).toContainText("Fresh idea from the browser suite")
   await expect(firstCard).toBeFocused()
-  await expect(page.locator(".grid.cards > .slot")).toHaveCount(count + 1)
+  await expect(page.locator(".grid.cards > .slot:not([hidden])")).toHaveCount(count + 1)
   await packed(page)
   await expectPackedWell(page)
 })
 
 test("an edited note slides to the front, highlighted, and keeps focus", async ({ page }) => {
-  const third = page.locator(".grid.cards > .slot .card").nth(2)
+  const third = page.locator(".grid.cards > .slot:not([hidden]) .card").nth(2)
   const id = await third.getAttribute("id")
   await third.click()
   const editor = page.getByRole("textbox", { name: "Document text" })
@@ -213,13 +235,13 @@ test("an edited note slides to the front, highlighted, and keeps focus", async (
   const card = page.locator(`#${id}`)
   await expect(card).toBeFocused()
   await expect(card).toHaveClass(/just-moved/)
-  await expect(page.locator(".grid.cards > .slot .card").first()).toHaveId(id!)
+  await expect(page.locator(".grid.cards > .slot:not([hidden]) .card").first()).toHaveId(id!)
   await expect(card).not.toHaveClass(/just-moved/, { timeout: 3_000 })
   await expectPackedWell(page)
 })
 
 test("a note emptied in the editor is removed and focus moves to its place", async ({ page }) => {
-  const cards = page.locator(".grid.cards > .slot .card")
+  const cards = page.locator(".grid.cards > .slot:not([hidden]) .card")
   const count = await cards.count()
   const ids = await cards.evaluateAll(each => each.map(card => card.id))
   await page.locator(`#${ids[1]}`).click()
@@ -235,7 +257,7 @@ test("a note emptied in the editor is removed and focus moves to its place", asy
 })
 
 test("a card's trash button follows it in Tab order and deletes after confirmation", async ({ page }) => {
-  const cards = page.locator(".grid.cards > .slot .card")
+  const cards = page.locator(".grid.cards > .slot:not([hidden]) .card")
   const count = await cards.count()
   const ids = await cards.evaluateAll(each => each.map(card => card.id))
   const before = await boxes(page)
