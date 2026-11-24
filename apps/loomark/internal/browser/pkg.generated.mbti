@@ -39,6 +39,8 @@ pub fn focus_when_drawn(String, @cmd.Cmd) -> @sub.Sub
 
 pub fn fonts_loaded(@dom.EventTarget, @cmd.Cmd) -> @sub.Sub
 
+pub fn highlight_occurrences(String, String, String) -> @sub.Sub
+
 pub fn idle_opacity_animation(@dom.HTMLElement, ArrayView[OpacityKeyframe], duration_ms~ : Double, iterations~ : Double) -> @dom.Animation
 
 pub fn key_press(@dom.KeyboardEvent) -> KeyPress
