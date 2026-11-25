@@ -808,26 +808,36 @@
 
 /* Hide chrome without replacing the textarea or its native undo history. */
 [data-focus-mode="true"] [data-slot="sidebar-shell"],
-[data-focus-mode="true"] .loomark-sidebar-trigger,
-[data-focus-mode="true"] .loomark-topbar,
 [data-focus-mode="true"] .loomark-bottom-actions,
 [data-focus-mode="true"] .loomark-save-status:not([title="Not saved"]) {
   display: none !important;
+}
+/* The top bar and the documents trigger lie over the writing and take no
+   room, so they hide by visibility, which every engine fades: Firefox
+   reports discrete transitions but does not transition `display`. */
+.loomark-topbar {
+  transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), visibility 180ms;
+}
+/* rui sets the trigger's transition inline, as it does its size. */
+.loomark-sidebar-trigger {
+  transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), visibility 180ms,
+    background-color 150ms ease, color 150ms ease !important;
+}
+[data-focus-mode="true"] .loomark-topbar,
+[data-focus-mode="true"] .loomark-sidebar-trigger {
+  visibility: hidden;
+  opacity: 0;
 }
 
 /* Retargetable fades, without moving text or delaying the editing state.
    Browsers without discrete transitions keep the immediate hide/show fallback. */
 @supports (transition-behavior: allow-discrete) {
-  .loomark-topbar,
-  .loomark-sidebar-trigger,
   .loomark-footer,
   .loomark-bottom-actions,
   .loomark-save-status {
     transition: opacity 180ms cubic-bezier(0.23, 1, 0.32, 1),
       display 180ms allow-discrete;
   }
-  [data-focus-mode="true"] .loomark-topbar,
-  [data-focus-mode="true"] .loomark-sidebar-trigger,
   [data-focus-mode="true"] .loomark-bottom-actions,
   [data-focus-mode="true"] .loomark-save-status:not([title="Not saved"]),
   .loomark-footer[hidden] { opacity: 0; }
@@ -840,8 +850,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .loomark-sidebar-trigger { transition: none !important; }
   .loomark-topbar,
-  .loomark-sidebar-trigger,
   .loomark-footer,
   .loomark-bottom-actions,
   .loomark-save-status,
