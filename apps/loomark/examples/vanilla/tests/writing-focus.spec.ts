@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test"
 // Startup shows the Document index; choosing its first card opens the Editor.
 async function openApp(page: Page): Promise<void> {
   await page.goto("/")
-  const card = page.locator("#loomark-index:not(.covered) .grid.cards .card").first()
+  const card = page.locator("#loomark-index:not(.covered) .grid.cards > .slot:not([hidden]) .card").first()
   const editor = page.locator("#loomark-editor:not([inert]) #loomark-text")
   await expect(card.or(editor)).toBeVisible()
   if (await card.isVisible()) {

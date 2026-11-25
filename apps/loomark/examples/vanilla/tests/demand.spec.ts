@@ -15,7 +15,7 @@ const indexLeads = docs.length
 // Startup opens the Document index, or the Editor when the URL names a
 // document; either way, continue into the Editor with the first document.
 async function openEditor(page: Page): Promise<void> {
-  const card = page.locator("#loomark-index:not(.covered) .grid.cards .card").first()
+  const card = page.locator("#loomark-index:not(.covered) .grid.cards > .slot:not([hidden]) .card").first()
   const editor = page.locator("#loomark-editor:not([inert]) #loomark-text")
   await expect(card.or(editor)).toBeVisible()
   if (await card.isVisible()) {

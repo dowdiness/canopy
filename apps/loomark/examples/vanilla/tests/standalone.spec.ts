@@ -1043,7 +1043,7 @@ function installDocumentPutFailure(target: string | { prefix: string }): void {
 // the URL does not name; the first card is the most recently changed one.
 async function openFirstCard(page: Page): Promise<void> {
   // By keyboard, so later focus rings show as they would without the index.
-  const card = page.locator("#loomark-index .grid.cards .card").first()
+  const card = page.locator("#loomark-index .grid.cards > .slot:not([hidden]) .card").first()
   await card.press("Enter")
   await expect(page.locator("#loomark-index")).toBeHidden()
 }
@@ -1058,7 +1058,7 @@ async function openApp(page: Page): Promise<void> {
 // Startup opens the Document index, or the Editor when the URL names a
 // document; either way, end up in the Editor.
 async function openEditor(page: Page): Promise<void> {
-  const card = page.locator("#loomark-index:not(.covered) .grid.cards .card").first()
+  const card = page.locator("#loomark-index:not(.covered) .grid.cards > .slot:not([hidden]) .card").first()
   const editor = page.locator("#loomark-editor:not([inert]) #loomark-text")
   await expect(card.or(editor)).toBeVisible()
   if (await card.isVisible()) await openFirstCard(page)
