@@ -2,6 +2,7 @@ import {
   "dowdiness/loomark/internal/browser",
   "dowdiness/loomark/internal/document_lead",
   "dowdiness/loomark/internal/recent_documents",
+  "dowdiness/loomark/internal/text_search",
   "dowdiness/loomark/internal/timeout",
   "dowdiness/skyline",
   "moonbitlang/core/immut/hashmap",

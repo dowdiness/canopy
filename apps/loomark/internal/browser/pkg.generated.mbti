@@ -2,6 +2,7 @@
 package "dowdiness/loomark/internal/browser"
 
 import {
+  "dowdiness/loomark/internal/text_search",
   "moonbit-community/rabbita/cmd",
   "moonbit-community/rabbita/dom",
   "moonbit-community/rabbita/js",
@@ -39,7 +40,7 @@ pub fn focus_when_drawn(String, @cmd.Cmd) -> @sub.Sub
 
 pub fn fonts_loaded(@dom.EventTarget, @cmd.Cmd) -> @sub.Sub
 
-pub fn highlight_occurrences(String, String, SearchQuery) -> @sub.Sub
+pub fn highlight_occurrences(String, String, @text_search.Query) -> @sub.Sub
 
 pub fn idle_opacity_animation(@dom.HTMLElement, ArrayView[OpacityKeyframe], duration_ms~ : Double, iterations~ : Double) -> @dom.Animation
 
@@ -112,12 +113,6 @@ pub(all) struct OpacityKeyframe {
   opacity : Double
   easing : String
 }
-
-pub struct SearchQuery {
-  // private fields
-}
-pub fn SearchQuery::found_in(Self, String) -> Bool
-pub fn SearchQuery::parse(String) -> Self?
 
 // Type aliases
 pub using @dom {type File}

@@ -145,8 +145,8 @@ pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(
 ///|
 /// The search as cards are matched against it, or `None` when it asks for
 /// nothing.
-fn[K] search_query(index : DocumentIndex[K]) -> @browser.SearchQuery? {
-  @browser.SearchQuery::parse(index.query)
+fn[K] search_query(index : DocumentIndex[K]) -> @text_search.Query? {
+  @text_search.Query::parse(index.query)
 }
 
 ///|

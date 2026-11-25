@@ -41,47 +41,8 @@ extern "js" fn delete_highlight(name : String) -> Unit =
   #| (name) => CSS.highlights.delete(name)
 
 ///|
-/// Text searched for ignoring case: trimmed, in lower case, and never empty.
-pub struct SearchQuery {
-  priv lower : String
-}
-
-///|
-/// The query `text` asks for, or `None` when it asks for nothing.
-pub fn SearchQuery::parse(text : String) -> SearchQuery? {
-  match text.trim().to_owned().to_lower() {
-    "" => None
-    lower => Some({ lower, })
-  }
-}
-
-///|
-/// Whether `text`, already in lower case, contains `self`.
-pub fn SearchQuery::found_in(self : SearchQuery, text : String) -> Bool {
-  text.contains(self.lower)
-}
-
-///|
-/// Where `query` occurs in `text` ignoring case, as code unit ranges. Text
-/// whose lower case changes its length is skipped, as its offsets would not
-/// line up.
-fn occurrences(text : String, query : SearchQuery) -> Array[(Int, Int)] {
-  let lower = text.to_lower()
-  guard lower.length() == text.length() else { return [] }
-  let needle = query.lower
-  let found = []
-  let mut from = 0
-  while lower.view(start_offset=from).find(needle) is Some(offset) {
-    let at = from + offset
-    found.push((at, at + needle.length()))
-    from = at + needle.length()
-  }
-  found
-}
-
-///|
 priv suberror HighlightOccurrences {
-  HighlightOccurrences(SearchQuery)
+  HighlightOccurrences(@text_search.Query)
 }
 
 ///|
@@ -104,7 +65,7 @@ priv enum Highlighting {
 pub fn highlight_occurrences(
   name : String,
   element_id : String,
-  query : SearchQuery,
+  query : @text_search.Query,
 ) -> @sub.Sub {
   @sub.custom_sub(
     "browser.highlight_occurrences(\{name},\{element_id})",
@@ -117,7 +78,7 @@ pub fn highlight_occurrences(
       let paint_in = (element : @dom.Element) => {
         let ranges = []
         for text in text_nodes(element) {
-          for found in occurrences(text_data(text), query) {
+          for found in query.occurrences(text_data(text)) {
             ranges.push(text_range(text, found.0, found.1))
           }
         }

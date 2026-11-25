@@ -172,7 +172,10 @@ test "unchanged documents keep their parsed leads" {
   ])
   assert_true(physical_equal(relisted.cards[0].lead, index.cards[1].lead))
   assert_false(physical_equal(relisted.cards[1].lead, index.cards[0].lead))
-  assert_eq(relisted.cards[1].search_text, "# alpha, again")
+  assert_eq(
+    relisted.cards[1].search_text,
+    @text_search.Searchable::of("# Alpha, again"),
+  )
 }
 
 ///|

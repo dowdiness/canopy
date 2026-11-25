@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/text_search"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct Query {
+  // private fields
+}
+pub fn Query::found_in(Self, Searchable) -> Bool
+pub fn Query::occurrences(Self, String) -> Array[(Int, Int)]
+pub fn Query::parse(String) -> Self?
+
+pub struct Searchable {
+  // private fields
+} derive(Eq, Hash, @debug.Debug)
+pub fn Searchable::equal(Self, Self) -> Bool
+pub fn Searchable::hash(Self) -> Int
+pub fn Searchable::hash_combine(Self, Hasher) -> Unit
+pub fn Searchable::not_equal(Self, Self) -> Bool
+pub fn Searchable::of(String) -> Self
+pub fn Searchable::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

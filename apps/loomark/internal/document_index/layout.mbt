@@ -81,8 +81,8 @@ priv struct Card[K] {
   text : String
   changed_at : Double
   lead : @document_lead.DocumentLead
-  /// `text` in lower case, which search matches against.
-  search_text : String
+  /// `text` as search matches against it.
+  search_text : @text_search.Searchable
   notice : Notice
   actions : Actions
 } derive(Eq, Hash)
@@ -93,7 +93,11 @@ priv struct Card[K] {
 fn[K] Card::of(seed : Seed[K], previous : Card[K]?) -> Card[K] {
   let (lead, search_text) = match previous {
     Some(card) if card.text == seed.text => (card.lead, card.search_text)
-    _ => (@document_lead.extract(seed.text), seed.text.to_lower())
+    _ =>
+      (
+        @document_lead.extract(seed.text),
+        @text_search.Searchable::of(seed.text),
+      )
   }
   {
     key: seed.key,
