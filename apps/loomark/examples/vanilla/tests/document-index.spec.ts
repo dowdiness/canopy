@@ -1,7 +1,27 @@
 import { expect, test, type Page } from "@playwright/test"
+import {
+  encodeStoredDocument,
+  readStoredDocumentRaw,
+  replaceStoreRecords,
+  sourceKey,
+} from "./document-store.ts"
 
 // The production index packs heights measured by the browser. Seed storage
 // before startup, then exercise the real editor, persistence and navigation.
+
+const documents = [
+  "```ts\nconst result = write_document(argument_one, argument_two, argument_three);\n```",
+  "# Reading notes\n\nKeep the useful passages close.",
+  "# A longer thought\n\n" + "Writing gives an idea room to grow. Keep the details that help the next reader. ".repeat(20),
+  "# 買い物\n\n- 玄米\n- オリーブオイル\n- 来週のお弁当の材料",
+  "# Workshop\n\n- Write the first draft\n- Share it\n- Listen",
+  "# Small idea\n\nA quiet place for a thought.",
+  "# Journal\n\n" + "今日は散歩の途中で考えたことを書き留める。".repeat(25),
+  "# Recipe\n\n1. Warm the oven\n2. Mix the ingredients\n3. Bake",
+].map((text, index) => ({
+  document_id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+  text,
+}))
 
 type Box = { id: string, left: number, top: number, right: number, bottom: number }
 
@@ -15,36 +35,13 @@ test.beforeEach(async ({ page }) => {
   // Slots slide to new places; without motion, their boxes are final at once.
   await page.emulateMedia({ reducedMotion: "reduce" })
   await page.goto("/about/index.html")
-  await page.evaluate(async () => {
-    const texts = [
-      "```ts\nconst result = write_document(argument_one, argument_two, argument_three);\n```",
-      "# Reading notes\n\nKeep the useful passages close.",
-      "# A longer thought\n\n" + "Writing gives an idea room to grow. Keep the details that help the next reader. ".repeat(20),
-      "# 買い物\n\n- 玄米\n- オリーブオイル\n- 来週のお弁当の材料",
-      "# Workshop\n\n- Write the first draft\n- Share it\n- Listen",
-      "# Small idea\n\nA quiet place for a thought.",
-      "# Journal\n\n" + "今日は散歩の途中で考えたことを書き留める。".repeat(25),
-      "# Recipe\n\n1. Warm the oven\n2. Mix the ingredients\n3. Bake",
-    ]
-    await new Promise<void>((resolve, reject) => {
-      const open = indexedDB.open("loomark", 2)
-      open.onupgradeneeded = () => open.result.createObjectStore("documents")
-      open.onerror = () => reject(open.error)
-      open.onsuccess = () => {
-        const database = open.result
-        const transaction = database.transaction("documents", "readwrite")
-        transaction.oncomplete = () => { database.close(); resolve() }
-        transaction.onerror = () => { database.close(); reject(transaction.error) }
-        const store = transaction.objectStore("documents")
-        texts.forEach((text, index) => {
-          const document_id = `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`
-          store.put(JSON.stringify({ document_id, text, changed_at: texts.length - index }), `source/v1/${document_id}`)
-        })
-      }
-    })
-  })
+  // Most recently changed first, so cards list in this order.
+  await replaceStoreRecords(page, documents.map((document, index) => ({
+    key: sourceKey(document.document_id),
+    value: encodeStoredDocument(document, documents.length - index),
+  })))
   await page.goto("/#/")
-  await expect(page.locator(".grid.cards > .slot:not([hidden])")).toHaveCount(8)
+  await expect(page.locator(".grid.cards > .slot:not([hidden])")).toHaveCount(documents.length)
   await packed(page)
 })
 
@@ -121,19 +118,10 @@ function focusedId(page: Page) {
   return page.evaluate(() => document.activeElement?.id ?? "")
 }
 
-/** Text committed by the real repository, not just the textarea's value. */
-function savedText(page: Page, cardId: string) {
-  return page.evaluate(key => new Promise<string>((resolve, reject) => {
-    const open = indexedDB.open("loomark", 2)
-    open.onerror = () => reject(open.error)
-    open.onsuccess = () => {
-      const database = open.result
-      const transaction = database.transaction("documents", "readonly")
-      const read = transaction.objectStore("documents").get(key)
-      transaction.oncomplete = () => { database.close(); resolve(JSON.parse(read.result).text) }
-      transaction.onerror = () => { database.close(); reject(transaction.error) }
-    }
-  }), cardId.replace("card-source/36/", "source/v1/"))
+/** Text the repository committed for the `index`th seeded document. */
+async function savedText(page: Page, index: number) {
+  const value = await readStoredDocumentRaw(page, sourceKey(documents[index].document_id))
+  return JSON.parse(value as string).text
 }
 
 /** Press `key` and return the card focus moves to after the next render. */
@@ -295,7 +283,7 @@ test("a saved document emptied in the editor keeps an empty card and focus", asy
   const editor = page.getByRole("textbox", { name: "Text", exact: true })
   await expect(editor).toBeFocused()
   await editor.fill("")
-  await expect.poll(() => savedText(page, ids[1])).toBe("")
+  await expect.poll(() => savedText(page, 1)).toBe("")
   await page.getByRole("button", { name: "Back to Notes", exact: true }).click()
 
   const emptied = page.locator(`[id="${ids[1]}"]`)

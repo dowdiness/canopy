@@ -1,4 +1,17 @@
 import { expect, test, type Locator, type Page } from "@playwright/test"
+import {
+  DOCUMENT_DATABASE_NAME,
+  DOCUMENT_DATABASE_VERSION,
+  DOCUMENT_STORE_NAME,
+  SOURCE_KEY_PREFIX,
+  encodeStoredDocument,
+  readStoredDocumentRaw,
+  replaceStoreRecords,
+  scanStoreRecords,
+  sourceKey,
+  type StoreRecord,
+  type StoredDocument,
+} from "./document-store.ts"
 
 test("mobile landing page keeps navigation in view and opens an editable demo on touch", async ({ browser, baseURL }) => {
   const context = await browser.newContext({
@@ -66,12 +79,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
   })
 }
 
-const DOCUMENT_DATABASE_NAME = "loomark"
-const DOCUMENT_DATABASE_VERSION = 2
-const DOCUMENT_STORE_NAME = "documents"
 const LEGACY_ACTIVE_KEY = "active"
 const EDITING_DOCUMENT_KEY = "editing-document"
-const SOURCE_KEY_PREFIX = "source/v1/"
 const REPLICA_KEY_PREFIX = "replica/"
 const CATALOG_KEY = "catalog/v1"
 const WELCOME_PATTERN = /^# Welcome to Loomark\n/
@@ -697,16 +706,6 @@ test("visible save caption waits for durable acknowledgement without moving the 
   }
 })
 
-type StoredDocument = {
-  document_id: string
-  text: string
-}
-
-type StoreRecord = {
-  key: string | number
-  value: unknown
-}
-
 async function openDocuments(page: Page): Promise<void> {
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   await expect(toggle).toBeVisible()
@@ -718,10 +717,6 @@ async function openDeleteConfirmation(page: Page, label: string): Promise<void> 
   await openDocuments(page)
   const row = page.getByRole("button", { name: label, exact: true }).locator("..")
   await row.getByRole("button", { name: `Delete "${label}"`, exact: true }).click()
-}
-
-function sourceKey(documentId: string): string {
-  return `${SOURCE_KEY_PREFIX}${documentId}`
 }
 
 function replicaKey(accountId: string, documentId: string): string {
@@ -743,52 +738,6 @@ function fixtureDocumentId(value: string): string {
   digits[16] = "8"
   const hex = digits.join("")
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
-}
-
-async function scanStoreRecords(page: Page): Promise<StoreRecord[]> {
-  return page.evaluate(({ databaseName, databaseVersion, storeName }) => (
-    new Promise<StoreRecord[]>((resolve, reject) => {
-      const open = indexedDB.open(databaseName, databaseVersion)
-      open.onupgradeneeded = () => {
-        if (!open.result.objectStoreNames.contains(storeName)) {
-          open.result.createObjectStore(storeName)
-        }
-      }
-      open.onerror = () => reject(open.error ?? new Error("document database open failed"))
-      open.onsuccess = () => {
-        const database = open.result
-        const transaction = database.transaction(storeName, "readonly")
-        const records: StoreRecord[] = []
-        const fail = (error: unknown) => {
-          database.close()
-          reject(error)
-        }
-        transaction.onerror = () => fail(transaction.error ?? new Error("document scan failed"))
-        transaction.onabort = () => fail(transaction.error ?? new Error("document scan aborted"))
-        transaction.oncomplete = () => {
-          database.close()
-          resolve(records)
-        }
-        const request = transaction.objectStore(storeName).openCursor()
-        request.onerror = () => fail(request.error ?? new Error("document cursor failed"))
-        request.onsuccess = () => {
-          const cursor = request.result
-          if (!cursor) return
-          records.push({
-            key: typeof cursor.key === "string" || typeof cursor.key === "number"
-              ? cursor.key
-              : "[unsupported-key]",
-            value: cursor.value,
-          })
-          cursor.continue()
-        }
-      }
-    })
-  ), {
-    databaseName: DOCUMENT_DATABASE_NAME,
-    databaseVersion: DOCUMENT_DATABASE_VERSION,
-    storeName: DOCUMENT_STORE_NAME,
-  })
 }
 
 /** A Source record: identity, text, and the Change time of that text. */
@@ -832,10 +781,6 @@ async function readStoredDocument(page: Page): Promise<StoredDocument | null> {
   return (await readStoredDocuments(page))[0] ?? null
 }
 
-async function readStoredDocumentRaw(page: Page, key: string | number): Promise<unknown> {
-  return (await scanStoreRecords(page)).find(record => record.key === key)?.value
-}
-
 async function writeStoredDocumentRaw(
   page: Page,
   key: string | number,
@@ -873,42 +818,6 @@ async function writeStoredDocumentRaw(
     key,
     value,
   })
-}
-
-async function replaceStoreRecords(page: Page, records: StoreRecord[]): Promise<void> {
-  await page.evaluate(({ databaseName, databaseVersion, storeName, records }) => (
-    new Promise<void>((resolve, reject) => {
-      const open = indexedDB.open(databaseName, databaseVersion)
-      open.onerror = () => reject(open.error ?? new Error("document database open failed"))
-      open.onsuccess = () => {
-        const database = open.result
-        const transaction = database.transaction(storeName, "readwrite")
-        const fail = (error: unknown) => {
-          database.close()
-          reject(error)
-        }
-        transaction.onerror = () => fail(transaction.error ?? new Error("document replace failed"))
-        transaction.onabort = () => fail(transaction.error ?? new Error("document replace aborted"))
-        transaction.oncomplete = () => {
-          database.close()
-          resolve()
-        }
-        const store = transaction.objectStore(storeName)
-        store.clear()
-        for (const record of records) store.put(record.value, record.key)
-      }
-    })
-  ), {
-    databaseName: DOCUMENT_DATABASE_NAME,
-    databaseVersion: DOCUMENT_DATABASE_VERSION,
-    storeName: DOCUMENT_STORE_NAME,
-    records,
-  })
-}
-
-/** Fixtures are changed at the epoch, so they list in Document ID order. */
-function encodeStoredDocument(document: StoredDocument): string {
-  return JSON.stringify({ ...document, changed_at: 0 })
 }
 
 function encodeReadyReplica(
@@ -3677,7 +3586,6 @@ test("old three-field Source records remain preserved and unreadable", async ({ 
   await expect(page.getByRole("button", { name: "Legacy", exact: true })).toHaveCount(0)
   expect(await readStoredDocumentRaw(page, legacyKey)).toBe(legacy)
 })
-
 
 test("a version 1 database is upgraded once and keeps every document", async ({ page }) => {
   // A static file shares the origin, so the old database exists before Loomark opens it.
