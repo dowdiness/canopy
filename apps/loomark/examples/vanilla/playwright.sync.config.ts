@@ -7,4 +7,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
+  // Bound actions and request waits so a hang names its step instead of
+  // surfacing only as the test timeout.
+  use: { actionTimeout: 15_000 },
 })

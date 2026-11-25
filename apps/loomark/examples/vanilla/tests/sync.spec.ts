@@ -41,10 +41,10 @@ async function startWorker(): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (worker.exitCode !== null) throw new Error(`wrangler dev exited early:\n${output}`)
     try {
-      const response = await fetch(`${ORIGIN}/api/account`)
+      const response = await fetch(`${ORIGIN}/api/account`, { signal: AbortSignal.timeout(1_000) })
       if (response.status === 401) return
     } catch {
-      // The socket is not ready yet.
+      // The socket is not ready yet, or a starting Worker did not answer.
     }
     await new Promise(resolve => setTimeout(resolve, 100))
   }
