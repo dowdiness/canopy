@@ -94,8 +94,5 @@ fn on_resize(element : @dom.Element, resized : () -> Unit) -> () -> Unit {
 ///|
 /// A face that arrives late rewraps the text.
 fn on_fonts_loaded(document : @dom.Document, loaded : () -> Unit) -> () -> Unit {
-  let fonts = @browser.document_fonts(document)
-  let listener : @dom.Listener = _ => loaded()
-  fonts.add_event_listener("loadingdone", listener)
-  () => fonts.remove_event_listener("loadingdone", listener)
+  @browser.on_fonts_loaded(@browser.document_fonts(document), loaded)
 }

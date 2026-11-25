@@ -4486,7 +4486,8 @@ test("engaging a pane releases the held reading position at once", async ({ page
     area.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
     await Promise.resolve()
     area.scrollTop = 0
-    document.fonts.dispatchEvent(new Event("loadingdone"))
+    document.fonts.dispatchEvent(new Event("loading"))
+    await document.fonts.ready
     return area.scrollTop
   })
   expect(kept).toBe(0)

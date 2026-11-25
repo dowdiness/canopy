@@ -46,14 +46,42 @@ pub extern "js" fn when_font_faces_ready(
   #| (faces, callback) => { faces.ready.then(() => callback()) }
 
 ///|
+/// Runs `callback` once `fonts`, the document's font face set, has no face
+/// left loading.
+extern "js" fn when_fonts_ready(
+  fonts : @dom.EventTarget,
+  callback : () -> Unit,
+) -> Unit =
+  #| (fonts, callback) => { fonts.ready.then(() => callback()) }
+
+///|
 priv suberror FontsLoaded {
   FontsLoaded(@dom.EventTarget, @cmd.Cmd)
 }
 
 ///|
-/// Send `loaded` whenever font faces finish loading, such as a late web font
-/// or a face for characters not drawn before, while the subscription is
-/// active. `fonts` is the document's `FontFaceSet`, resolved at startup.
+/// Call `loaded` whenever font faces finish loading, such as a late web font
+/// or a face for characters not drawn before, until the returned function
+/// stops it. `fonts` is the document's `FontFaceSet`. Faces are followed from
+/// `loading` to `ready`, because WebKit never sends `loadingdone`.
+pub fn on_fonts_loaded(
+  fonts : @dom.EventTarget,
+  loaded : () -> Unit,
+) -> () -> Unit {
+  let mut wait = Scheduled
+  let listener : @dom.Listener = _ => {
+    when_fonts_ready(fonts, () => if wait is Scheduled { loaded() })
+  }
+  fonts.add_event_listener("loading", listener)
+  () => {
+    wait = Released
+    fonts.remove_event_listener("loading", listener)
+  }
+}
+
+///|
+/// Send `loaded` whenever font faces finish loading, as `on_fonts_loaded`
+/// reports them, while the subscription is active.
 pub fn fonts_loaded(fonts : @dom.EventTarget, loaded : @cmd.Cmd) -> @sub.Sub {
   @sub.custom_sub("browser.fonts_loaded", Local, FontsLoaded(fonts, loaded), (
     payload,
@@ -61,10 +89,9 @@ pub fn fonts_loaded(fonts : @dom.EventTarget, loaded : @cmd.Cmd) -> @sub.Sub {
   ) => {
     guard payload is FontsLoaded(fonts, tagger) else { return None }
     let mut tagger = tagger
-    let report : @dom.Listener = _ => scheduler.queue_command(tagger)
-    fonts.add_event_listener("loadingdone", report)
+    let stop = on_fonts_loaded(fonts, () => scheduler.queue_command(tagger))
     Some({
-      unload: _ => fonts.remove_event_listener("loadingdone", report),
+      unload: _ => stop(),
       update_tagger: payload => {
         if payload is FontsLoaded(_, next) {
           tagger = next

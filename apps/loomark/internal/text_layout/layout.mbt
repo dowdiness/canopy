@@ -61,9 +61,10 @@ fn TextMirror::in_document(document : @dom.Document) -> TextMirror {
       document.add_event_listener("focusout", _ => {
         mirror.release_retired_lines()
       })
-      @browser.document_fonts(document).add_event_listener("loadingdone", _ => {
+      @browser.on_fonts_loaded(@browser.document_fonts(document), () => {
         mirror.metrics = None
       })
+      |> ignore
       document_mirror.val = Some(mirror)
       mirror
     }

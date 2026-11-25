@@ -246,7 +246,9 @@ pub fn connect(
         focus.set_intent(TabNavigation)
       }
     })
-    focus.listen(focus.fonts, "loadingdone", resized)
+    focus.cleanup.push(
+      @browser_api.on_fonts_loaded(focus.fonts, () => focus.schedule()),
+    )
     focus.listen(focus.window.as_event_target(), "resize", resized)
     focus.listen(focus.reduced_motion.as_event_target(), "change", selected)
     let resize = @dom.ResizeObserver::new((_, _) => focus.schedule())

@@ -514,11 +514,12 @@ test("font changes during whole-text focus invalidate earlier line measurements"
   await expect.poll(() => dimmingAtLines(page, [0, 2, 4])).toEqual([0.5, 0, 0.5])
   await text.press("Control+A")
   await expect.poll(() => dimmingAtLine(page, 0)).toBe(0)
-  await text.evaluate(element => {
+  await text.evaluate(async element => {
     const area = element as HTMLTextAreaElement
     area.style.fontSize = "26px"
     area.style.lineHeight = "1.5"
-    document.fonts.dispatchEvent(new Event("loadingdone"))
+    document.fonts.dispatchEvent(new Event("loading"))
+    await document.fonts.ready
   })
   await page.evaluate(() => new Promise<void>(resolve => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
@@ -591,7 +592,7 @@ test("a layout notification during measurement cannot commit geometry into the n
     mirror.getBoundingClientRect = function () {
       delete (mirror as Partial<HTMLElement>).getBoundingClientRect
       area.style.lineHeight = "60px"
-      document.fonts.dispatchEvent(new Event("loadingdone"))
+      window.dispatchEvent(new Event("resize"))
       return measure.call(mirror)
     }
     area.setSelectionRange(8, 8)
