@@ -50,16 +50,30 @@ fn build_editor_view(
                 class="flex min-h-0 min-w-0 overflow-hidden bg-lm-paper",
                 attrs=@html.Attrs::build()
                   .id("loomark-text-pane")
-                  .hidden(!text_visible)
                   .on_wheel(_ => on_event(PaneEngaged(TextPane)))
                   .on_pointerdown(_ => on_event(PaneEngaged(TextPane)))
                   .on_keydown(_ => on_event(PaneEngaged(TextPane))),
                 style=if split {
-                  ["overflow:hidden"]
+                  ["display:block;overflow:hidden"]
                 } else if text_visible {
                   ["display:block;flex:1 1 100%;overflow:hidden"]
                 } else {
-                  ["display:none;overflow:hidden"]
+                  // Unseen and taking no room, rather than `display: none`. It
+                  // collapses only across the panels, so the text keeps its
+                  // wrapping and scroll position; and its display, position,
+                  // and overflow stay the same in every mode, since Firefox
+                  // drops the text's native Undo history when any of them
+                  // changes.
+                  match orientation {
+                    @rui.Horizontal =>
+                      [
+                        "display:block;flex:0 0 100%;margin-inline-end:-100%;visibility:hidden;overflow:hidden",
+                      ]
+                    @rui.Vertical =>
+                      [
+                        "display:block;flex:0 0 0;visibility:hidden;overflow:hidden",
+                      ]
+                  }
                 },
                 text_area_view(
                   on_event,
