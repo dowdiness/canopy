@@ -389,8 +389,11 @@ test("switching accounts hides retained replicas and isolates guessed identities
   await expect(editor).toHaveValue("")
   await editor.fill("# Private B\n")
   await openActions(page)
+  // Private A's pending edit keeps retrying, so match Private B's own write.
   const mutation = page.waitForRequest(request =>
-    request.method() === "PUT" && request.url().startsWith(`${ORIGIN}/api/documents/`))
+    request.method() === "PUT" &&
+    request.url().startsWith(`${ORIGIN}/api/documents/`) &&
+    (JSON.parse(request.postData() ?? "{}") as { text?: string }).text === "# Private B\n")
   await page.locator("#loomark-more-actions-content").getByRole("button", { name: "Sync", exact: true }).click()
   const otherId = (await mutation).url().slice(`${ORIGIN}/api/documents/`.length)
   await expectSynced(page, otherId)
