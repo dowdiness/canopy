@@ -103,6 +103,14 @@ fn render_children(
 }
 
 ///|
+/// A block whose long lines scroll sideways, named and in Tab order so the
+/// keyboard can scroll it. Chromium and Firefox focus such a block on their
+/// own, but WebKit does not.
+fn scrollable_block(name : String) -> @html.Attrs {
+  @html.Attrs::build().tabindex(0).role("region").aria_label(name)
+}
+
+///|
 fn render_opaque_source(
   value : String,
   position : RenderPosition,
@@ -281,6 +289,12 @@ fn render_node(
       )
     @markdown.CodeBlock(info~, value~) =>
       @html.pre(
+        attrs=scrollable_block(
+          match info {
+            "" => "Code"
+            info => "\{info} code"
+          },
+        ),
         @html.code(
           attrs=@html.Attrs::build().data_set("loomark-code-info", info),
           value,
@@ -288,7 +302,7 @@ fn render_node(
       )
     @markdown.HtmlBlock(value~) =>
       @html.pre(
-        attrs=@html.Attrs::build().data_set("loomark-preview-html", "block"),
+        attrs=scrollable_block("HTML").data_set("loomark-preview-html", "block"),
         value,
       )
     @markdown.ThematicBreak => @html.hr()

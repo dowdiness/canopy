@@ -237,6 +237,10 @@
   font-size: 0.82em;
   line-height: 1.7;
 }
+.loomark-prose :where(pre):focus-visible {
+  outline: 2px solid var(--color-lm-accent);
+  outline-offset: 2px;
+}
 
 .loomark-prose :where(hr) {
   margin-block: 2.6em;

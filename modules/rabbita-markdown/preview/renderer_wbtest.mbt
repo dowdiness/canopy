@@ -33,6 +33,7 @@ test "Preview renderer covers headings containers and code" {
   assert_preview_contains(rendered, "<ol")
   assert_preview_contains(rendered, "start=\"3\"")
   assert_preview_contains(rendered, "data-loomark-code-info=\"moonbit\"")
+  assert_preview_contains(rendered, "aria-label=\"moonbit code\"")
   assert_preview_contains(rendered, "<hr")
 }
 
