@@ -41,37 +41,70 @@ extern "js" fn delete_highlight(name : String) -> Unit =
   #| (name) => CSS.highlights.delete(name)
 
 ///|
-/// Where `query`, already in lower case, occurs in `text` ignoring case, as
-/// code unit ranges. Text whose lower case changes its length is skipped, as
-/// its offsets would not line up.
-fn occurrences(text : String, query : String) -> Array[(Int, Int)] {
+/// Text searched for ignoring case: trimmed, in lower case, and never empty.
+pub struct SearchQuery {
+  priv lower : String
+}
+
+///|
+/// The query `text` asks for, or `None` when it asks for nothing.
+pub fn SearchQuery::parse(text : String) -> SearchQuery? {
+  match text.trim().to_owned().to_lower() {
+    "" => None
+    lower => Some({ lower, })
+  }
+}
+
+///|
+/// Whether `text`, already in lower case, contains `self`.
+pub fn SearchQuery::found_in(self : SearchQuery, text : String) -> Bool {
+  text.contains(self.lower)
+}
+
+///|
+/// Where `query` occurs in `text` ignoring case, as code unit ranges. Text
+/// whose lower case changes its length is skipped, as its offsets would not
+/// line up.
+fn occurrences(text : String, query : SearchQuery) -> Array[(Int, Int)] {
   let lower = text.to_lower()
-  guard query != "" && lower.length() == text.length() else { return [] }
+  guard lower.length() == text.length() else { return [] }
+  let needle = query.lower
   let found = []
   let mut from = 0
-  while lower.view(start_offset=from).find(query) is Some(offset) {
+  while lower.view(start_offset=from).find(needle) is Some(offset) {
     let at = from + offset
-    found.push((at, at + query.length()))
-    from = at + query.length()
+    found.push((at, at + needle.length()))
+    from = at + needle.length()
   }
   found
 }
 
 ///|
 priv suberror HighlightOccurrences {
-  HighlightOccurrences(String)
+  HighlightOccurrences(SearchQuery)
 }
 
 ///|
-/// Paint every occurrence of `query`, already in lower case, in the text of
-/// `#element_id` with the CSS highlight `name`, after each render while the
-/// subscription is active. A highlight paints without changing the DOM, so
-/// typing that changes `query` keeps its native Undo steps whole; Chromium
-/// ends a typing step whenever a node leaves the document.
+/// Where a highlight subscription stands: waiting for the first render to
+/// find its element, painting in it, or released.
+priv enum Highlighting {
+  Connecting
+  Painting(@dom.Element)
+  Stopped
+}
+
+///|
+/// Paint every occurrence of `query` in the text of `#element_id` with the
+/// CSS highlight `name`, after each render while the subscription is active.
+/// The element is found once, after the first render, and must stay in the
+/// document while the subscription is active. A highlight paints without
+/// changing the DOM, so typing that changes `query` keeps its native Undo
+/// steps whole; Chromium ends a typing step whenever a node leaves the
+/// document.
 pub fn highlight_occurrences(
   name : String,
   element_id : String,
-  query : String,
+  query : SearchQuery,
 ) -> @sub.Sub {
   @sub.custom_sub(
     "browser.highlight_occurrences(\{name},\{element_id})",
@@ -80,13 +113,8 @@ pub fn highlight_occurrences(
     (payload, scheduler) => {
       guard payload is HighlightOccurrences(query) else { return None }
       let mut query = query
-      let mut wait = Scheduled
-      let paint = () => {
-        guard wait is Scheduled else { return }
-        guard @dom.document().get_element_by_id(element_id).to_option()
-          is Some(element) else {
-          abort("#\{element_id} must be rendered while it is highlighted")
-        }
+      let mut state = Connecting
+      let paint_in = (element : @dom.Element) => {
         let ranges = []
         for text in text_nodes(element) {
           for found in occurrences(text_data(text), query) {
@@ -95,10 +123,24 @@ pub fn highlight_occurrences(
         }
         set_highlight(name, FixedArray::from_array(ranges))
       }
+      let paint = () => {
+        match state {
+          Connecting => {
+            guard @dom.document().get_element_by_id(element_id).to_option()
+              is Some(element) else {
+              abort("#\{element_id} must be rendered while it is highlighted")
+            }
+            state = Painting(element)
+            paint_in(element)
+          }
+          Painting(element) => paint_in(element)
+          Stopped => ()
+        }
+      }
       scheduler.queue_command(after_render(paint))
       Some({
         unload: _ => {
-          wait = Released
+          state = Stopped
           delete_highlight(name)
         },
         update_tagger: payload => {

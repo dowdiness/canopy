@@ -143,9 +143,10 @@ pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(
 }
 
 ///|
-/// The search as cards are matched against it.
-fn[K] search_query(index : DocumentIndex[K]) -> String {
-  index.query.trim().to_owned().to_lower()
+/// The search as cards are matched against it, or `None` when it asks for
+/// nothing.
+fn[K] search_query(index : DocumentIndex[K]) -> @browser.SearchQuery? {
+  @browser.SearchQuery::parse(index.query)
 }
 
 ///|
@@ -153,7 +154,10 @@ fn[K] search_query(index : DocumentIndex[K]) -> String {
 fn[K : Eq] visible_cursor(index : DocumentIndex[K]) -> Cursor[Card[K]]? {
   let query = search_query(index)
   let visible = index.cards.filter(card => {
-    query == "" || card.search_text.contains(query)
+    match query {
+      None => true
+      Some(query) => query.found_in(card.search_text)
+    }
   })
   Cursor::focus_on(visible, card => Some(card.key) == index.focused)
 }
@@ -472,8 +476,9 @@ pub fn[K : Eq + Show] DocumentIndex::subscriptions(
       _ => @sub.none
     },
     match search_query(self) {
-      "" => @sub.none
-      query => @browser.highlight_occurrences(MATCH_HIGHLIGHT, GRID_ID, query)
+      None => @sub.none
+      Some(query) =>
+        @browser.highlight_occurrences(MATCH_HIGHLIGHT, GRID_ID, query)
     },
     match self.highlight {
       None => @sub.none
