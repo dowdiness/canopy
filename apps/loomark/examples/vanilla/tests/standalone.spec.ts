@@ -4207,7 +4207,12 @@ for (const destination of ["Split", "Text"] as const) {
     await expect(text).toHaveValue(shortened)
     await expect(page.getByRole("heading", { name: "Section 59", exact: true })).toBeVisible()
     await text.evaluate(element => { element.scrollTop = 0 })
-    if (destination === "Text") await page.getByRole("tab", { name: "Preview", exact: true }).click()
+    if (destination === "Text") {
+      await page.getByRole("tab", { name: "Preview", exact: true }).click()
+      // Rendering waits for the next frame; scrolling before it measures the
+      // Split-width Preview that full-width Preview then reflows.
+      await expect(text).toBeHidden()
+    }
     await page.locator("#loomark-preview-scroll").evaluate(element => {
       element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
       const heading = [...element.querySelectorAll("h2")].find(node => node.textContent === "Section 40")!
