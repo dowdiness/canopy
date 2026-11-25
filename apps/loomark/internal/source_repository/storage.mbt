@@ -13,7 +13,6 @@ extern "js" fn random_uuid_available() -> Bool =
 extern "js" fn random_uuid() -> String =
   #| () => globalThis.crypto.randomUUID()
 
-
 ///|
 pub(all) enum OpenFailure {
   StorageUnavailable

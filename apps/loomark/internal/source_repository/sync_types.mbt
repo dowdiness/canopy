@@ -450,16 +450,8 @@ pub fn DocumentReplica::remote_knowledge(
 ///|
 pub fn DocumentReplica::remote_update(self : Self) -> RemoteUpdate? {
   match self.state {
-    Live(
-      {
-        phase: Available(RemoteDocument::Present(revision, content)),
-        ..
-      }
-    ) =>
-      Some({
-        replica: self,
-        content: PresentUpdate(revision, content),
-      })
+    Live({ phase: Available(RemoteDocument::Present(revision, content)), .. }) =>
+      Some({ replica: self, content: PresentUpdate(revision, content), })
     Live({ phase: Available(Deleted(revision)), .. }) =>
       Some({ replica: self, content: DeletedUpdate(revision), })
     Live(_) | Deleting(_) | Tombstone(_) => None
@@ -469,7 +461,8 @@ pub fn DocumentReplica::remote_update(self : Self) -> RemoteUpdate? {
 ///|
 pub fn RemoteUpdate::remote(self : Self) -> RemoteDocument {
   match self.content {
-    PresentUpdate(revision, content) => RemoteDocument::Present(revision, content)
+    PresentUpdate(revision, content) =>
+      RemoteDocument::Present(revision, content)
     DeletedUpdate(revision) => RemoteDocument::Deleted(revision)
   }
 }

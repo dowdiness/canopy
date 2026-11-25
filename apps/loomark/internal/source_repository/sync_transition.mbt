@@ -42,7 +42,8 @@ pub fn LiveReplica::working(
   changed_at : ChangeTime,
 ) -> Document {
   let known = []
-  if self.phase is (Available(Present(_, remote)) | Diverged(Present(_, remote))) {
+  if self.phase
+    is (Available(Present(_, remote)) | Diverged(Present(_, remote))) {
     known.push(remote)
   }
   if self.baseline is Saved(_, saved) {

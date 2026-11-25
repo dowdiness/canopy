@@ -159,7 +159,9 @@ fn discovery_page(body : String, after : String?) -> DiscoveryPage? {
         let changed_at = @source_repository.ChangeTime::parse(time) catch {
           _ => return None
         }
-        @source_repository.RemoteEntry::Present(id, revision, preview, changed_at)
+        @source_repository.RemoteEntry::Present(
+          id, revision, preview, changed_at,
+        )
       }
       (Some(Json::True), None, None, 3) =>
         @source_repository.RemoteEntry::Deleted(id, revision)

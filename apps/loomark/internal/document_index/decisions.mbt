@@ -85,7 +85,10 @@ fn[K] CardRect::bottom(self : CardRect[K]) -> Int {
 /// that direction that shares a column (Up/Down) or a row (Left/Right). At an
 /// edge, Left and Right continue in reading order. `None` means no card lies
 /// that way, so focus stays.
-fn[K] neighbour(cards : Cursor[CardRect[K]], direction : Direction) -> CardRect[K]? {
+fn[K] neighbour(
+  cards : Cursor[CardRect[K]],
+  direction : Direction,
+) -> CardRect[K]? {
   let from = cards.current
   let middle = (from.top + from.bottom()) / 2
   let mut best : (CardRect[K], Double)? = None

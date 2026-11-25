@@ -53,15 +53,18 @@ fn working_document(
   changed_at : @source_repository.ChangeTime,
 ) -> @source_repository.Document {
   match record.key() {
-    Replica(account, document_id) if saved.replica(account, document_id).bind(
-        replica => replica.live(),
-      )
+    Replica(account, document_id) if saved
+      .replica(account, document_id)
+      .bind(replica => replica.live())
       is Some(live) => live.working(text, changed_at)
     Source(document_id) =>
       record.document.working(
         text,
         changed_at,
-        known=saved.find(document_id).map(saved => [saved.content()]).unwrap_or([]),
+        known=saved
+          .find(document_id)
+          .map(saved => [saved.content()])
+          .unwrap_or([]),
       )
     Replica(_, _) => record.document.update(text, changed_at)
   }
@@ -400,7 +403,8 @@ fn refresh_replica_record(
           return {
             ..documents,
             records: replace_record(documents.records, key, record => {
-              { ..record, document, }
+              ..record,
+              document,
             }),
           }
         }

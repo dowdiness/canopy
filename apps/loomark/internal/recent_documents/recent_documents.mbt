@@ -309,13 +309,7 @@ fn[Id : Eq + Hash + Show] visible_documents(
   presented
   .assoc_by(
     (key, row) => {
-      presented_row_component(
-        key,
-        row,
-        compact,
-        on_intent,
-        close_after_action,
-      )
+      presented_row_component(key, row, compact, on_intent, close_after_action)
     },
     by=row => row.row.seed.docid,
   )
@@ -427,9 +421,7 @@ pub fn[Id : Eq + Hash + Show] build(
   let content = visible.switch_by(
     visible => {
       if visible {
-        visible_documents(
-          rows, compact, on_intent, close_after_action,
-        )
+        visible_documents(rows, compact, on_intent, close_after_action)
       } else {
         empty_component()
       }
