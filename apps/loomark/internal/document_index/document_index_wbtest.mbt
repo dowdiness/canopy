@@ -4,6 +4,7 @@ fn seed(key : String, text : String) -> Seed[String] {
     key,
     href: "#/n/\{key}",
     text,
+    changed_at: 0.0,
     status: Saved,
     deletion: Available(ThisBrowser),
     loading: false,
@@ -71,7 +72,11 @@ test "a document returned to unchanged keeps its place and announces nothing" {
 ///|
 test "a changed document moves to the front, highlighted for a moment" {
   let back = measured(three_cards(), 50).returned_from(
-    [seed("c", "# Gamma, revised"), seed("a", "# Alpha"), seed("b", "# Beta")],
+    [
+      { ..seed("c", "# Gamma, revised"), changed_at: 1.0, },
+      seed("a", "# Alpha"),
+      seed("b", "# Beta"),
+    ],
     key="c",
   )
   assert_eq(back.focus_pending, Some("c"))
@@ -81,9 +86,29 @@ test "a changed document moves to the front, highlighted for a moment" {
 }
 
 ///|
+test "a document changed back to its text still moves to the front" {
+  // Its text settles after the change, so only the Change time tells; the
+  // index orders by it, so the card moves and must be announced.
+  let back = measured(three_cards(), 50).returned_from(
+    [
+      { ..seed("c", "# Gamma"), changed_at: 1.0, },
+      seed("a", "# Alpha"),
+      seed("b", "# Beta"),
+    ],
+    key="c",
+  )
+  assert_eq(back.highlight, Some("c"))
+  assert_eq(back.announcement, "Moved to first: Gamma")
+}
+
+///|
 test "a changed document is shown as it was until its new text is measured" {
   let back = measured(three_cards(), 50).returned_from(
-    [seed("c", "# Gamma, revised"), seed("a", "# Alpha"), seed("b", "# Beta")],
+    [
+      { ..seed("c", "# Gamma, revised"), changed_at: 1.0, },
+      seed("a", "# Alpha"),
+      seed("b", "# Beta"),
+    ],
     key="c",
   )
   assert_eq(shown(back.grid)[2], ("c", "# Gamma"))

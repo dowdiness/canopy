@@ -275,7 +275,7 @@ test("an edited note slides to the front, highlighted, and keeps focus", async (
   const editor = page.getByRole("textbox", { name: "Text", exact: true })
   await expect(editor).toBeFocused()
   await editor.fill("# Reading notes, revised\n\nA new passage to keep.")
-  await expect.poll(() => savedText(page, id!)).toBe("# Reading notes, revised\n\nA new passage to keep.")
+  // Back at once, before the edit is saved or its lead settles.
   await page.getByRole("button", { name: "Back to Notes", exact: true }).click()
 
   const card = page.locator(`[id="${id}"]`)

@@ -21,6 +21,9 @@ pub(all) struct Seed[K] {
   /// Where choosing the card leads.
   href : String
   text : String
+  /// When the document last changed, as its Change time. A later one on
+  /// return means the document changed while it was open.
+  changed_at : Double
   status : @recent_documents.RowStatus
   deletion : @recent_documents.DeletionAvailability
   /// The document was chosen and is still loading.
@@ -76,6 +79,7 @@ priv struct Card[K] {
   key : K
   href : String
   text : String
+  changed_at : Double
   lead : @document_lead.DocumentLead
   /// `text` in lower case, which search matches against.
   search_text : String
@@ -95,6 +99,7 @@ fn[K] Card::of(seed : Seed[K], previous : Card[K]?) -> Card[K] {
     key: seed.key,
     href: seed.href,
     text: seed.text,
+    changed_at: seed.changed_at,
     lead,
     search_text,
     notice: notice_of(seed),
@@ -104,7 +109,10 @@ fn[K] Card::of(seed : Seed[K], previous : Card[K]?) -> Card[K] {
 
 ///|
 /// Cards for `seeds` in their order, built on the cards of `previous`.
-fn[K : Eq + Hash] cards_of(seeds : ArrayView[Seed[K]], previous : Vector[Card[K]]) -> Vector[Card[K]] {
+fn[K : Eq + Hash] cards_of(
+  seeds : ArrayView[Seed[K]],
+  previous : Vector[Card[K]],
+) -> Vector[Card[K]] {
   let known : Map[K, Card[K]] = Map([])
   for card in previous {
     known[card.key] = card
@@ -269,7 +277,10 @@ priv struct CardLayout[K] {
 /// start where it fits. A wide card whose placement would trap more than
 /// `FALLBACK_GAP` pixels of column height is placed at one column.
 /// Every card is packed one gap wider and taller than it is drawn.
-fn[K] pack_cards(cards : Cursor[MeasuredCard[K]], columns : Columns) -> CardLayout[K] {
+fn[K] pack_cards(
+  cards : Cursor[MeasuredCard[K]],
+  columns : Columns,
+) -> CardLayout[K] {
   let step = columns.width + GAP
   let starts = Array::makei(columns.count, i => i * step)
   let packer = try! @skyline.Packer(width=columns.count * step)

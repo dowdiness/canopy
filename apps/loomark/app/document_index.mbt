@@ -59,12 +59,14 @@ fn empty_index() -> @document_index.DocumentIndex[@documents.Key] {
 fn listed_documents(
   model : Model,
   editing : EditingDocument,
-) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
+) -> Array[
+  (@source_repository.IndexKey, @recent_documents.Seed[@documents.Key]),
+] {
   let remote = remote_document_seeds(
     remote_documents(model.sync()),
     document_membership(model.page),
   )
-  recent_document_seeds(editing, remote)
+  listed_rows(editing, remote)
 }
 
 ///|
@@ -75,19 +77,19 @@ fn index_seeds(
   editing : EditingDocument,
   opening : Opening?,
 ) -> Array[@document_index.Seed[@documents.Key]] {
-  listed_documents(model, editing)
-  .map(seed => {
+  listed_documents(model, editing).map(row => {
+    let (@source_repository.IndexKey(changed_at, _), seed) = row
     let key = seed.docid()
     @document_index.Seed::{
       key,
       href: document_href(key),
       text: seed.source(),
+      changed_at: changed_at.value(),
       status: seed.status(),
       deletion: seed.deletion(),
       loading: opening is Some({ card: Some(card), .. }) && card == key,
     }
   })
-  .to_array()
 }
 
 ///|
@@ -98,7 +100,7 @@ fn is_listed(
   editing : EditingDocument,
   key : @documents.Key,
 ) -> Bool {
-  listed_documents(model, editing).iter().any(seed => seed.docid() == key)
+  listed_documents(model, editing).iter().any(row => row.1.docid() == key)
 }
 
 ///|

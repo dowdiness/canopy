@@ -37,6 +37,7 @@ pub(all) struct Seed[K] {
   key : K
   href : String
   text : String
+  changed_at : Double
   status : @recent_documents.RowStatus
   deletion : @recent_documents.DeletionAvailability
   loading : Bool

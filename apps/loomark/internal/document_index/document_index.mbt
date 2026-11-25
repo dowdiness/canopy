@@ -319,8 +319,8 @@ pub fn[K : Eq] DocumentIndex::return_focus(
 
 ///|
 /// The index shown again after the document of `key` was open, now listing
-/// `seeds`. A document whose text changed, or that is new, has moved to the
-/// front: its card slides there from its old place, is highlighted, and is
+/// `seeds`. A document whose Change time moved on, or that is new, has
+/// moved to the front: its card slides there from its old place, is highlighted, and is
 /// announced. Either way its card takes focus.
 pub fn[K : Eq + Hash] DocumentIndex::returned_from(
   self : DocumentIndex[K],
@@ -331,7 +331,7 @@ pub fn[K : Eq + Hash] DocumentIndex::returned_from(
   let index = { ..self, cards: cards_of(seeds, self.cards), }
   match index.cards.iter().find_first(card => card.key == key) {
     None => settled(index.return_focus())
-    Some(card) if before is Some(old) && old.text == card.text =>
+    Some(card) if before is Some(old) && old.changed_at == card.changed_at =>
       settled(focus_card(index, key))
     Some(card) =>
       settled(

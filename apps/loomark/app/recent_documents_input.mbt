@@ -81,6 +81,19 @@ fn recent_document_seeds(
     (@source_repository.IndexKey, @recent_documents.Seed[@documents.Key]),
   ],
 ) -> @vector.Vector[@recent_documents.Seed[@documents.Key]] {
+  @vector.Vector(listed_rows(editing, remote).map(row => row.1)[:])
+}
+
+///|
+/// Every listed document with its index key, most recently changed first.
+fn listed_rows(
+  editing : EditingDocument,
+  remote : Array[
+    (@source_repository.IndexKey, @recent_documents.Seed[@documents.Key]),
+  ],
+) -> Array[
+  (@source_repository.IndexKey, @recent_documents.Seed[@documents.Key]),
+] {
   let saved = editing.documents
     .recent()
     .map(item => {
@@ -137,5 +150,5 @@ fn recent_document_seeds(
     })
   let rows = saved + remote
   rows.sort_by((left, right) => @source_repository.index_order(left.0, right.0))
-  @vector.Vector(rows.map(row => row.1)[:])
+  rows
 }
