@@ -426,7 +426,8 @@ test("More actions remains reachable above the mode controls in short viewports"
   await expect(more).toBeFocused()
 })
 
-test("large native clipboard paste preserves exact text through Undo, reload, and Export", async ({ page }) => {
+test("large native clipboard paste preserves exact text through Undo, reload, and Export", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Chromium only: grants clipboard-read")
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"])
   await openEmptyNew(page)
   const text = page.getByRole("textbox", { name: "Text", exact: true })
@@ -1781,7 +1782,8 @@ test("forced colors keep writing controls and the selected mode distinguishable"
   await expect(more).toBeFocused()
 })
 
-test("native zoom does not freeze editor height when the viewport grows", async ({ browser, baseURL }) => {
+test("native zoom does not freeze editor height when the viewport grows", async ({ browser, baseURL, browserName }) => {
+  test.skip(browserName !== "chromium", "Chromium only: zooms through CDP")
   const context = await browser.newContext({
     baseURL, viewport: { width: 390, height: 380 }, isMobile: true, hasTouch: true,
   })
@@ -2168,6 +2170,9 @@ test("scrollable text extends behind both bars without a separate blank frame", 
     await expect.poll(() => bounds("#loomark-text")).toEqual(shell)
     // A manual reading scroll must not be pulled back to the selection endpoint.
     await source.press("Control+End")
+    // Firefox may scroll to the caret a frame later; a reader scrolls after it.
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))))
     await source.evaluate(element => { element.scrollTop = 300 })
     await page.evaluate(() => new Promise(resolve =>
       requestAnimationFrame(() => requestAnimationFrame(resolve))))
@@ -2366,87 +2371,91 @@ const historyTest = test.extend({
   channel: "chromium",
   launchOptions: { ignoreDefaultArgs: ["--disable-back-forward-cache"] },
 })
+// Chromium only: launches Chromium with its back-forward cache enabled.
+historyTest.describe("back-forward cache", () => {
+  historyTest.skip(({ browserName }) => browserName !== "chromium")
 
-historyTest("ordinary Back and Forward preserve locally saved writing across repeated visits", async ({ page }) => {
-  const away = "https://loomark-history.test/away"
-  await page.route("https://loomark-history.test/**", route => route.fulfill({
-    contentType: "text/html", body: "<title>Local history fixture</title><p>Another page</p>",
-  }))
-  await openApp(page)
-  const editor = page.getByRole("textbox", { name: "Text" })
-  const source = "# Return here\nKeep this writing."
-  await editor.fill(source)
-  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source)
-  await page.goto(away)
-  for (let visit = 0; visit < 2; visit++) {
+  historyTest("ordinary Back and Forward preserve locally saved writing across repeated visits", async ({ page }) => {
+    const away = "https://loomark-history.test/away"
+    await page.route("https://loomark-history.test/**", route => route.fulfill({
+      contentType: "text/html", body: "<title>Local history fixture</title><p>Another page</p>",
+    }))
+    await openApp(page)
+    const editor = page.getByRole("textbox", { name: "Text" })
+    const source = "# Return here\nKeep this writing."
+    await editor.fill(source)
+    await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source)
+    await page.goto(away)
+    for (let visit = 0; visit < 2; visit++) {
+      await page.goBack({ waitUntil: "commit" })
+      await expect(editor).toHaveValue(source)
+      await expect(editor).toBeEditable()
+      await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Saved on this device")
+      await page.goForward({ waitUntil: "commit" })
+      await expect(page).toHaveURL(away)
+    }
     await page.goBack({ waitUntil: "commit" })
     await expect(editor).toHaveValue(source)
-    await expect(editor).toBeEditable()
-    await expect(page.locator(".loomark-save-status")).toHaveAccessibleName("Saved on this device")
-    await page.goForward({ waitUntil: "commit" })
-    await expect(page).toHaveURL(away)
-  }
-  await page.goBack({ waitUntil: "commit" })
-  await expect(editor).toHaveValue(source)
-  await editor.press("Control+End")
-  await editor.pressSequentially(" Continued.")
-  await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source + " Continued.")
-})
-
-historyTest("Back from Google restores editing and refreshes the account from BFCache", async ({ page }) => {
-  // The test server uses no-store; make this document eligible for BFCache.
-  await page.route("/", async route => {
-    const response = await route.fetch()
-    await route.fulfill({
-      response,
-      headers: { ...response.headers(), "cache-control": "no-cache" },
-    })
+    await editor.press("Control+End")
+    await editor.pressSequentially(" Continued.")
+    await expect.poll(async () => (await readStoredDocument(page))?.text).toBe(source + " Continued.")
   })
-  await page.addInitScript(() => {
-    window.addEventListener("pageshow", event => {
-      ;(globalThis as typeof globalThis & { __restoredFromBFCache?: boolean })
-        .__restoredFromBFCache = event.persisted
+
+  historyTest("Back from Google restores editing and refreshes the account from BFCache", async ({ page }) => {
+    // The test server uses no-store; make this document eligible for BFCache.
+    await page.route("/", async route => {
+      const response = await route.fetch()
+      await route.fulfill({
+        response,
+        headers: { ...response.headers(), "cache-control": "no-cache" },
+      })
     })
+    await page.addInitScript(() => {
+      window.addEventListener("pageshow", event => {
+        ;(globalThis as typeof globalThis & { __restoredFromBFCache?: boolean })
+          .__restoredFromBFCache = event.persisted
+      })
+    })
+    let signedIn = false
+    await page.route("**/api/account", route => route.fulfill({
+      status: signedIn ? 200 : 401,
+      contentType: "application/json",
+      body: signedIn ? JSON.stringify({ id: "account-a", name: "Account A" }) : "",
+    }))
+    const provider = "https://accounts.google.com/o/oauth2/v2/auth?state=history-test"
+    await page.route("https://accounts.google.com/**", route => route.fulfill({
+      contentType: "text/html",
+      body: "<title>Authorization destination</title>",
+    }))
+    await page.route("**/api/auth/sign-in/social", route => route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ url: provider }),
+    }))
+    await openApp(page)
+    await waitForRepositoryOpen(page)
+    const document = await readStoredDocument(page)
+    if (!document) throw new Error("baseline Source missing")
+    const text = page.getByRole("textbox", { name: "Text" })
+    const source = "# Keep this when returning from Google\n"
+    await text.fill(source)
+    await page.getByRole("button", { name: "More actions" }).click()
+    await page.getByRole("button", { name: "Login with Google" }).click()
+    await expect(page).toHaveURL(provider)
+    signedIn = true
+    await page.goBack({ waitUntil: "commit" })
+
+    await expect.poll(() => page.evaluate(() => (
+      globalThis as typeof globalThis & { __restoredFromBFCache?: boolean }
+    ).__restoredFromBFCache)).toBe(true)
+    await expect(text).toBeEnabled()
+    await expect(text).toHaveValue(source)
+    await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeEnabled()
+    await expectStoredDocument(page, { document_id: document.document_id, text: source })
+
+    const edited = `${source}Edited after Back\n`
+    await text.fill(edited)
+    await expectStoredDocument(page, { document_id: document.document_id, text: edited })
   })
-  let signedIn = false
-  await page.route("**/api/account", route => route.fulfill({
-    status: signedIn ? 200 : 401,
-    contentType: "application/json",
-    body: signedIn ? JSON.stringify({ id: "account-a", name: "Account A" }) : "",
-  }))
-  const provider = "https://accounts.google.com/o/oauth2/v2/auth?state=history-test"
-  await page.route("https://accounts.google.com/**", route => route.fulfill({
-    contentType: "text/html",
-    body: "<title>Authorization destination</title>",
-  }))
-  await page.route("**/api/auth/sign-in/social", route => route.fulfill({
-    contentType: "application/json",
-    body: JSON.stringify({ url: provider }),
-  }))
-  await openApp(page)
-  await waitForRepositoryOpen(page)
-  const document = await readStoredDocument(page)
-  if (!document) throw new Error("baseline Source missing")
-  const text = page.getByRole("textbox", { name: "Text" })
-  const source = "# Keep this when returning from Google\n"
-  await text.fill(source)
-  await page.getByRole("button", { name: "More actions" }).click()
-  await page.getByRole("button", { name: "Login with Google" }).click()
-  await expect(page).toHaveURL(provider)
-  signedIn = true
-  await page.goBack({ waitUntil: "commit" })
-
-  await expect.poll(() => page.evaluate(() => (
-    globalThis as typeof globalThis & { __restoredFromBFCache?: boolean }
-  ).__restoredFromBFCache)).toBe(true)
-  await expect(text).toBeEnabled()
-  await expect(text).toHaveValue(source)
-  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeEnabled()
-  await expectStoredDocument(page, { document_id: document.document_id, text: source })
-
-  const edited = `${source}Edited after Back\n`
-  await text.fill(edited)
-  await expectStoredDocument(page, { document_id: document.document_id, text: edited })
 })
 
 test("failed departure save unlocks editing and retries persistence before OAuth", async ({ page }) => {

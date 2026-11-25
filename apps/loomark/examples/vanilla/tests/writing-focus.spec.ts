@@ -308,7 +308,8 @@ async function caretOffset(page: Page, line: number) {
   }, line)
 }
 
-test("the drawn caret replaces the native caret only while it is shown", async ({ page }) => {
+test("the drawn caret replaces the native caret only while it is shown", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Chromium only: composes through CDP")
   await openApp(page)
   const text = page.getByRole("textbox", { name: "Text" })
   const caret = page.locator(".loomark-writing-caret")
@@ -603,7 +604,8 @@ test("a layout notification during measurement cannot commit geometry into the n
   expect(await text.evaluate(element => getComputedStyle(element).lineHeight)).toBe("60px")
 })
 
-test("native composition retains its text, selection and focus through reflow", async ({ page }) => {
+test("native composition retains its text, selection and focus through reflow", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Chromium only: composes through CDP")
   await openFocusMode(page)
   const text = page.getByRole("textbox", { name: "Text" })
   await text.fill(documentText)
