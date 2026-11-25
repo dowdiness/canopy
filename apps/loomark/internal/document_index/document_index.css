@@ -1,5 +1,5 @@
-/* The Document index's own styles, shared by Loomark and the note_index
-   prototype. Its markup uses plain class names, so every rule is scoped to
+/* The Document index's own styles. Its markup uses plain class names,
+   so every rule is scoped to
    `.loomark-index`. The host provides Loomark's tokens: --lm-foundation,
    --lm-surface, --lm-paper, --lm-ink, --lm-muted, --lm-rule, --lm-accent,
    --lm-danger, --lm-danger-soft, --ui, --mono, and --writing; the host also
