@@ -413,7 +413,9 @@ test("whole-document selection clears dimming and restores paragraph focus after
   await expect.poll(() => dimmingAtLine(page, 2)).toBe(0)
   await page.setViewportSize({ width: 390, height: 844 })
   await text.press("Control+End")
-  await expect.poll(() => dimmingAtLine(page, 0)).toBe(0.5)
+  // Firefox scrolls to the end of the padding past the last line, taking the
+  // first lines out of view, so the dimmed line checked is one still shown.
+  await expect.poll(() => dimmingAtLine(page, 4)).toBe(0.5)
   expect(await dimmingAtLine(page, 6)).toBe(0)
   await expect(text).toHaveValue(documentText)
 })
