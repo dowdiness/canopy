@@ -1090,6 +1090,9 @@ async function openEmptyNew(page: Page): Promise<void> {
   await expect.poll(() => readStoredDocuments(page)).toEqual([])
   const toggle = page.getByRole("button", { name: "Toggle documents" })
   if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click()
+  // The toggle reports closed only after the next render; a caller reading
+  // it before then would see the sidebar still open.
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
   await text.focus()
 }
 
@@ -2099,6 +2102,7 @@ for (const mode of ["Text", "Split"] as const) {
       const editor = page.getByRole("textbox", { name: "Text" })
       const toggle = page.getByRole("button", { name: "Toggle documents" })
       if (await toggle.getAttribute("aria-expanded") === "true") await toggle.click()
+      await expect(toggle).toHaveAttribute("aria-expanded", "false")
       await page.getByRole("tab", { name: mode, exact: true }).click()
       if (mode === "Split" && minimumSplit) {
         await page.getByRole("slider", { name: "Resize editor and preview" }).fill("25")
