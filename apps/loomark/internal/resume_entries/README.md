@@ -16,8 +16,9 @@ top-level blocks are read, so block quotes and code blocks are never entered:
 
 - `#` clears the project and kind;
 - `##` sets the project to its exact heading text and clears the kind;
-- `###` `試したこと`, `判断`, and `次にやること` set the kind; another `###`
-  title or a deeper heading clears it;
+- `###` `試したこと` or `Observations`, `判断` or `Decisions`, and `次にやること`
+  or `Next steps` set the kind, matched exactly; another `###` title or a
+  deeper heading clears it;
 - each top-level item of a list under a kind becomes one entry. Nested content
   stays inside its item. A kind without a project yields entries whose
   `project` is `None` (unclassified).

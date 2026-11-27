@@ -67,9 +67,9 @@ fn heading_text(node : @markdown.MarkdownIR, source : String) -> String? {
 ///|
 fn kind_of(title : String?) -> EntryKind? {
   match title {
-    Some("試したこと") => Some(Observation)
-    Some("判断") => Some(Decision)
-    Some("次にやること") => Some(NextStep)
+    Some("試したこと" | "Observations") => Some(Observation)
+    Some("判断" | "Decisions") => Some(Decision)
+    Some("次にやること" | "Next steps") => Some(NextStep)
     _ => None
   }
 }

@@ -129,69 +129,71 @@ test "R03: quotes and code are excluded and projects are not merged" {
 }
 
 ///|
-test "R04: free text, unknown headings, and kind-less lists are not entries" {
+/// R04 and the context rules: free text, an unknown title, and a kind-less list
+/// are not entries; a kind without a project is unclassified; a kind persists
+/// across a paragraph and ends at a deeper heading; titles are Japanese or
+/// English.
+test "R04: headings decide which lists are entries" {
   let source =
-    #|自由文だけの段落。
+    #|Free text.
     #|
     #|### 判断
-    #|- 所属のない判断。
+    #|- unclassified
     #|
-    #|## 制作
-    #|見出しの下の自由文。
+    #|## P
+    #|- no kind
+    #|### Notes
+    #|- unknown title
+    #|### Next steps
+    #|1. ordered
     #|
-    #|- 種別の見出しがない項目。
-    #|### メモ
-    #|- 対象外の小見出しの項目。
+    #|Paragraph.
     #|
-  let documents = @resume_entries.extract([("free", source)])
-  assert_eq(texts(documents), ["- 所属のない判断。"])
-  assert_eq(all_entries(documents)[0].project, None)
-}
-
-///|
-test "context rules for paragraphs, ordered lists, and deeper headings" {
-  let source = "## P\n### 判断\n1. 一\n\n段落\n\n- 二\n#### 詳細\n- 対象外\n"
+    #|- after paragraph
+    #|#### Detail
+    #|- deeper heading
+    #|### Observations
+    #|- english
+    #|
   let documents = @resume_entries.extract([("rules", source)])
-  assert_eq(texts(documents), ["1. 一", "- 二"])
-}
-
-///|
-test "R05: a duplicated key is used once" {
-  let documents = @resume_entries.extract([
-    ("resume-a", resume_a),
-    ("resume-a", resume_a),
+  let entries = all_entries(documents)
+  assert_eq(texts(documents), [
+    "- unclassified", "1. ordered", "- after paragraph", "- english",
   ])
-  assert_eq(documents.length(), 1)
+  assert_eq(entries.map(entry => entry.project), [
+    None,
+    Some("P"),
+    Some("P"),
+    Some("P"),
+  ])
+  assert_eq(entries.map(entry => entry.kind), [
+    Decision,
+    NextStep,
+    NextStep,
+    Observation,
+  ])
 }
 
 ///|
-test "R09: an empty selection yields no documents" {
-  let documents : Array[@resume_entries.ResumeDocument[String]] = @resume_entries.extract([],
-  )
-  assert_eq(documents.length(), 0)
+test "R05/R09: a duplicated key is used once and an empty selection is empty" {
+  let documents = @resume_entries.extract([("a", resume_a), ("a", resume_a)])
+  assert_eq(documents.map(document => document.key), ["a"])
+  let empty : Array[(String, String)] = []
+  assert_eq(@resume_entries.extract(empty).length(), 0)
 }
 
 ///|
 /// Offsets count UTF-16 code units: the surrogate pair, the combining mark,
-/// and the CRLF line ending each change them differently from code points.
-test "ranges are UTF-16 offsets" {
-  let header = "## 📦\r\n### 次にやること\r\n"
-  let first = "- 𠮷e\u{0301}"
-  let source = header + first + "\r\n- עברית\r\n"
+/// and the CRLF line ending each change them differently from code points. A
+/// nested list stays inside its item, which ends at its last character.
+test "ranges are UTF-16 offsets over whole top-level items" {
+  let header = "## P\r\n### Decisions\r\n"
+  let first = "- 𠮷e\u{0301}\r\n  - nested"
+  let source = header + first + "\r\n- next\r\n"
   let entries = entries_of(@resume_entries.extract([("utf16", source)])[0])
-  assert_eq(entries.map(entry => (entry.start, entry.end)), [
-    (header.length(), header.length() + first.length()),
-    (header.length() + first.length() + 2, source.length() - 2),
-  ])
-  assert_eq(header.length(), 19)
-  assert_eq(first.length(), 6)
-}
-
-///|
-test "nested list content stays inside its top-level entry" {
-  let source = "## P\n### 判断\n- 親\n  - 子\n- 次\n"
-  let documents = @resume_entries.extract([("nested", source)])
-  assert_eq(texts(documents), ["- 親\n  - 子", "- 次"])
+  assert_eq(header.length(), 21)
+  assert_eq(first.length(), 18)
+  assert_eq(entries.map(entry => (entry.start, entry.end)), [(21, 39), (41, 47)])
 }
 
 ///|
