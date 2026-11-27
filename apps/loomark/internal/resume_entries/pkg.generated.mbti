@@ -1,0 +1,43 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/resume_entries"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn[K : Eq + Hash] extract(Array[(K, String)]) -> Array[ResumeDocument[K]]
+
+// Errors
+
+// Types and methods
+pub(all) enum EntryKind {
+  Observation
+  Decision
+  NextStep
+} derive(Eq, @debug.Debug)
+pub fn EntryKind::equal(Self, Self) -> Bool
+pub fn EntryKind::not_equal(Self, Self) -> Bool
+pub fn EntryKind::to_repr(Self) -> @debug.Repr
+
+pub struct ResumeDocument[K] {
+  key : K
+  source : String
+  entries : Array[ResumeEntry]?
+}
+pub fn[K : Eq] ResumeDocument::is_current(Self[K], K, String) -> Bool
+
+pub struct ResumeEntry {
+  kind : EntryKind
+  project : String?
+  start : Int
+  end : Int
+  text : String
+} derive(Eq, @debug.Debug)
+pub fn ResumeEntry::equal(Self, Self) -> Bool
+pub fn ResumeEntry::not_equal(Self, Self) -> Bool
+pub fn ResumeEntry::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

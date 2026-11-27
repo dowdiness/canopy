@@ -1,0 +1,12 @@
+import {
+  "dowdiness/loom",
+  "dowdiness/seam",
+  "dowdiness/markdown",
+  "moonbitlang/core/debug",
+}
+
+supported_targets = "js"
+
+options(
+  targets: { "*.mbt": [ "js" ] },
+)
