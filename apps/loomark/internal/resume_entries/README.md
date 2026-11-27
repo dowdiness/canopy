@@ -35,4 +35,6 @@ re-extract when it is false.
 
 Tests use the agent kit v0.2 fixtures (`resume-a`, `resume-b`, `resume-edge`)
 copied into `resume_entries_test.mbt` for R01–R05, R09, and the R06 staleness
-check. UI integration (R07, R08) is a separate step.
+check. Range tests also cover English, Chinese, Korean, Arabic, Hebrew,
+Greek, Cyrillic, Devanagari, Thai, combining marks, and surrogate pairs. Kind
+headings are recognized only by their Japanese titles. UI integration (R07, R08) is a separate step.

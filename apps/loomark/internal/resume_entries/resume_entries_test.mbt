@@ -234,3 +234,40 @@ test "heading and list forms keep the same context rules" {
   )
   assert_sources(documents)
 }
+
+///|
+/// Body text in several scripts. Each item is checked against a UTF-16
+/// offset computed from the preceding source, independently of the parser.
+test "ranges stay exact for text in many scripts" {
+  let items = [
+    "- Compare retention mechanisms.", "- 比较保留机制。", "- 보존 방식을 비교한다.",
+    "- مقارنة آليات الحفظ.", "- להשוות מנגנוני שמירה.",
+    "- Ελέγξτε την πηγή.", "- Проверить источник.",
+    "- स्रोत की जाँच करें।", "- ตรวจสอบแหล่งที่มา",
+    "- e\u{0301}te\u{0301} cafe\u{0301}", "- 𠮷野家👩\u{200D}💻🇯🇵",
+  ]
+  let header = "## Multilingual 多言語 다국어 עברית\n### 次にやること\n"
+  let source = header + items.join("\n") + "\n"
+  let documents = @resume_entries.extract([("scripts", source)])
+  let entries = entries_of(documents[0])
+  assert_eq(entries.map(entry => entry.text), items)
+  assert_eq(
+    entries[0].project,
+    Some("Multilingual 多言語 다국어 עברית"),
+  )
+  let starts = items.fold(init=[header.length()], (starts, item) => {
+    [..starts, starts[starts.length() - 1] + item.length() + 1]
+  })
+  for index, entry in entries {
+    assert_eq(entry.start, starts[index])
+    assert_eq(entry.end, starts[index] + items[index].length())
+  }
+  assert_sources(documents)
+}
+
+///|
+test "kind headings are recognized only by their Japanese titles" {
+  let source = "## Project\n### Next steps\n- Not extracted.\n### Decision\n- Not extracted.\n"
+  let entries = all_entries(@resume_entries.extract([("english", source)]))
+  assert_eq(entries.length(), 0)
+}
