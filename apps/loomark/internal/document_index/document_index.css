@@ -110,6 +110,16 @@
   .loomark-index .new:hover { background: var(--lm-hover); color: var(--lm-ink); }
 }
 
+/* Today and Resume: quiet text links beside New. */
+.loomark-index .link {
+  flex: none; padding: 6px 8px; border-radius: 8px;
+  color: var(--lm-muted); font-size: 13px; text-decoration: none;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .loomark-index .link:hover { background: var(--lm-hover); color: var(--lm-ink); }
+}
+
 /* Measured by the shell: the grid's width, and cards not measured yet. */
 .loomark-index .grid-width { height: 0; }
 .loomark-index .card-measure { position: absolute; top: 0; left: -100000px; visibility: hidden; }
@@ -266,7 +276,7 @@
   .loomark-index .search { order: 3; flex: 1 1 100%; height: 40px; }
   /* 16px keeps iOS from zooming into the field on focus. */
   .loomark-index .search input { height: 40px; font-size: 16px; }
-  /* Search wraps below, so New keeps the right end on its own. */
-  .loomark-index .new { margin-left: auto; }
-  .loomark-index .count:not([hidden]) ~ .new { margin-left: 0; }
+  /* Search wraps below, so Today, Resume, and New keep the right end. */
+  .loomark-index .link:first-of-type { margin-left: auto; }
+  .loomark-index .count:not([hidden]) ~ .link { margin-left: 0; }
 }

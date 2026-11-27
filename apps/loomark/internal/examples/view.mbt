@@ -30,6 +30,11 @@ let examples : Array[Example] = [
     name: "Journal: Create journal example document",
     source: embedded_journal_source,
   },
+  {
+    label: "Daily template",
+    name: "Daily template: Create the template Today copies into new daily notes",
+    source: embedded_daily_template_source,
+  },
 ]
 
 ///|

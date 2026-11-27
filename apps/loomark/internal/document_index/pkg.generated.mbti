@@ -19,7 +19,7 @@ pub fn[K : Eq + Hash + Show] view(@rabbita.Val[DocumentIndex[K]], on_delete~ : @
 
 // Types and methods
 type DocumentIndex[K] derive(Eq)
-pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(ArrayView[Seed[K]], new_href~ : String) -> Self[K]
+pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(ArrayView[Seed[K]], new_href~ : String, today_href~ : String, resume_href~ : String) -> Self[K]
 pub fn[K] DocumentIndex::covered(Self[K]) -> Self[K]
 pub fn[K : Eq] DocumentIndex::equal(Self[K], Self[K]) -> Bool
 pub fn[K : Eq + Hash] DocumentIndex::listing(Self[K], ArrayView[Seed[K]]) -> Self[K]

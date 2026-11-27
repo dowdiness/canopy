@@ -1491,6 +1491,8 @@ fn is_user_mutating(msg : Msg) -> Bool {
     | UrlRequested(_)
     | UrlChanged(_)
     | NotesRequested
+    | TodayDated(_)
+    | EntryChosen(_)
     | Sync(_) => false
   }
 }
@@ -2032,7 +2034,7 @@ fn update(
   emit : @rabbita.Emit[Msg],
   editor : @editor.MarkdownEditor,
 ) -> (Model, @rabbita.Cmd) {
-  update_after_browse(model, msg, browse(model, msg), emit, editor)
+  update_after_browse(model, msg, browse(model, msg, emit), emit, editor)
 }
 
 ///|

@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/resume_view"
+
+import {
+  "moonbit-community/rabbita/cmd",
+  "moonbit-community/rabbita/html",
+}
+
+// Values
+pub fn[K : Eq + Hash + Show] view(Array[Source[K]], notes_href~ : String, @cmd.Emit[Choice[K]]) -> @html.Html
+
+// Errors
+
+// Types and methods
+pub(all) struct Choice[K] {
+  key : K
+  source : String
+  start : Int
+  end : Int
+  id : String
+} derive(Eq)
+pub fn[K : Eq] Choice::equal(Self[K], Self[K]) -> Bool
+pub fn[K : Eq] Choice::not_equal(Self[K], Self[K]) -> Bool
+
+pub(all) struct Source[K] {
+  key : K
+  name : String
+  text : String
+} derive(Eq)
+pub fn[K : Eq] Source::equal(Self[K], Self[K]) -> Bool
+pub fn[K : Eq] Source::not_equal(Self[K], Self[K]) -> Bool
+
+// Type aliases
+
+// Traits

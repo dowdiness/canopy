@@ -107,3 +107,13 @@ fn caret_at_start_after_render() -> @cmd.Cmd {
     }
   })
 }
+
+///|
+/// Selects `start..end` in the textarea once it is drawn, scrolled into view.
+fn select_after_render(start : Int, end : Int) -> @cmd.Cmd {
+  @cmd.custom_cmd(kind=AfterRender, _ => {
+    if editor_text_area() is Some(area) {
+      area.set_selection_range(start, end)
+    }
+  })
+}

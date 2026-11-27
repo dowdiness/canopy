@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/daily_note"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const TEMPLATE_HEADING : String = "# Daily template"
+
+pub fn[K] today(ArrayView[(K, String)], String) -> Today[K]
+
+// Errors
+
+// Types and methods
+pub(all) enum Today[K] {
+  Existing(K)
+  New(String)
+} derive(Eq, @debug.Debug)
+pub fn[K : Eq] Today::equal(Self[K], Self[K]) -> Bool
+pub fn[K : Eq] Today::not_equal(Self[K], Self[K]) -> Bool
+pub fn[K : @debug.Debug] Today::to_repr(Self[K]) -> @debug.Repr
+
+// Type aliases
+
+// Traits
