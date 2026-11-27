@@ -126,6 +126,9 @@ The Loomark codebase is structured into three distinct layers:
   `documents/`, and their build-time embedding.
 - `internal/recent_documents/`, `internal/sidebar/`, and `internal/view/`
   own the existing UI components.
+- `internal/resume_entries/` owns the pure, not yet integrated extraction of
+  source-linked resume entries for the
+  [#1484](https://github.com/dowdiness/canopy/issues/1484) experiment.
 
 Measurement is an action, including rectangle and computed-style reads.
 The shared layout's `geometry.mbt` receives numbers, not `DOMRect` or callbacks
