@@ -437,6 +437,11 @@ jobs:
 
       - name: Initialize opam and install Why3/Z3
         if: steps.opam-cache.outputs.cache-hit != 'true'
+        env:
+          # Why3 1.7.2's cpulimit helper predates C23, which GCC 15 uses by
+          # default. Its Makefile compiles that file with $(CC) but not
+          # $(CFLAGS), so the standard has to be part of CC.
+          CC: gcc -std=gnu17
         run: |
           opam init --disable-sandboxing --yes
           eval $(opam env)
