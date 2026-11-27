@@ -7,6 +7,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
+  // CI uploads test-results when this suite fails; keep only failures there.
+  preserveOutput: "failures-only",
   // Bound actions and request waits so a hang names its step instead of
   // surfacing only as the test timeout.
   use: { actionTimeout: 15_000 },

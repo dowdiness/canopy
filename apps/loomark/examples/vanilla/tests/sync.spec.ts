@@ -18,6 +18,11 @@ const wrangler = join(loomarkRoot, "node_modules/.bin/wrangler")
 
 let workspace = ""
 let worker: ChildProcess | undefined
+// Wrangler's output since the current test began, attached when it fails.
+let workerLog = ""
+// Profiles still open, each with the name its trace is saved under.
+const profiles = new Map<BrowserContext, string>()
+let opened = 0
 
 async function command(args: string[]): Promise<void> {
   const child = spawn(wrangler, args, { cwd: loomarkRoot, stdio: ["ignore", "pipe", "pipe"] })
@@ -36,8 +41,8 @@ async function startWorker(): Promise<void> {
     "--persist-to", join(workspace, "state"),
   ], { cwd: loomarkRoot, stdio: ["ignore", "pipe", "pipe"] })
   let output = ""
-  worker.stdout?.on("data", chunk => { output += String(chunk) })
-  worker.stderr?.on("data", chunk => { output += String(chunk) })
+  worker.stdout?.on("data", chunk => { output += String(chunk); workerLog += String(chunk) })
+  worker.stderr?.on("data", chunk => { output += String(chunk); workerLog += String(chunk) })
   for (let attempt = 0; attempt < 100; attempt += 1) {
     if (worker.exitCode !== null) throw new Error(`wrangler dev exited early:\n${output}`)
     try {
@@ -67,11 +72,24 @@ async function restartWorker(): Promise<void> {
   await startWorker()
 }
 
+// Each profile records a trace. The config keeps test output only for
+// failures, so these traces survive only when the test fails.
 async function openProfile(name: string, mobile = false): Promise<BrowserContext> {
-  return chromium.launchPersistentContext(join(workspace, name), {
+  const context = await chromium.launchPersistentContext(join(workspace, name), {
     baseURL: ORIGIN,
     viewport: mobile ? { width: 390, height: 844 } : { width: 1280, height: 800 },
   })
+  await context.tracing.start({ screenshots: true, snapshots: true })
+  opened += 1
+  profiles.set(context, `${opened}-${name}`)
+  return context
+}
+
+async function closeProfile(context: BrowserContext): Promise<void> {
+  const name = profiles.get(context)!
+  profiles.delete(context)
+  await context.tracing.stop({ path: test.info().outputPath(`${name}.trace.zip`) })
+  await context.close()
 }
 
 async function signIn(
@@ -171,6 +189,18 @@ test.beforeAll(async () => {
   await startWorker()
 })
 
+test.beforeEach(() => {
+  workerLog = ""
+  opened = 0
+})
+
+test.afterEach(async ({}, testInfo) => {
+  for (const context of [...profiles.keys()]) await closeProfile(context)
+  if (testInfo.status !== testInfo.expectedStatus) {
+    await testInfo.attach("wrangler.log", { body: workerLog, contentType: "text/plain" })
+  }
+})
+
 test.afterAll(async () => {
   await stopWorker()
   await rm(workspace, { recursive: true, force: true })
@@ -199,7 +229,7 @@ test("durable operation survives a lost response, browser close, and Worker rest
   const catalog = await committed.json() as { documents: Array<{ id: string; revision: number }> }
   expect(catalog).toMatchObject({ documents: [{ id: expect.any(String), revision: 1 }] })
   const id = catalog.documents[0].id
-  await phone.close()
+  await closeProfile(phone)
 
   await restartWorker()
 
@@ -212,7 +242,7 @@ test("durable operation survives a lost response, browser close, and Worker rest
   expect(await persisted.json()).toMatchObject({ documents: [{ revision: 1 }] })
   await openRemote(pcPage, "Restart proof", exact)
   await expectSynced(pcPage, id)
-  await pc.close()
+  await closeProfile(pc)
 
   phone = await openProfile("restart-phone", true)
   await signIn(phone, "phone")
@@ -226,7 +256,7 @@ test("durable operation survives a lost response, browser close, and Worker rest
   expect(await remote.json()).toMatchObject({ documents: [{ revision: 1 }] })
   expect(operationIds).toHaveLength(2)
   expect(operationIds[1]).toBe(operationIds[0])
-  await phone.close()
+  await closeProfile(phone)
 })
 
 test("synchronized deletion survives a lost response and restart", async () => {
@@ -257,7 +287,7 @@ test("synchronized deletion survives a lost response and restart", async () => {
     })
     return response.json()
   }).toMatchObject({ documents: [{ id, revision: 2, deleted: true }] })
-  await context.close()
+  await closeProfile(context)
 
   await restartWorker()
 
@@ -274,7 +304,7 @@ test("synchronized deletion survives a lost response and restart", async () => {
   await expect(page.getByRole("button", { name: "Delete proof", exact: true })).toHaveCount(0)
   await expect.poll(() => operationIds.length).toBe(2)
   expect(operationIds[1]).toBe(operationIds[0])
-  await context.close()
+  await closeProfile(context)
 
   const fresh = await openProfile("deletion-fresh")
   await signIn(fresh, "deletion")
@@ -283,7 +313,7 @@ test("synchronized deletion survives a lost response and restart", async () => {
   await openDocuments(freshPage)
   await expect(freshPage.getByRole("button", { name: "Delete proof", exact: true }))
     .toHaveCount(0)
-  await fresh.close()
+  await closeProfile(fresh)
 })
 
 test("divergent browser edits preserve the local branch and expose the remote branch", async () => {
@@ -354,8 +384,8 @@ test("divergent browser edits preserve the local branch and expose the remote br
   await expect(phoneEditor).toHaveValue(phoneText)
   await phonePage.getByRole("button", { name: "PC branch", exact: true }).click()
   await expect(phoneEditor).toHaveValue(pcText)
-  await phone.close()
-  await pc.close()
+  await closeProfile(phone)
+  await closeProfile(pc)
 })
 
 test("switching accounts hides retained replicas and isolates guessed identities", async () => {
@@ -412,5 +442,5 @@ test("switching accounts hides retained replicas and isolates guessed identities
     headers: { "X-Loomark-Account": ACCOUNT_A },
   })
   expect(await unchanged.json()).toMatchObject({ revision: 2, text: pendingA })
-  await context.close()
+  await closeProfile(context)
 })

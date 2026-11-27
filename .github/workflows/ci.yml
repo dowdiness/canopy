@@ -971,6 +971,15 @@ jobs:
       - name: Run Loomark account sync browser suite
         run: ./scripts/test-loomark-sync-e2e.sh
 
+      - name: Upload Loomark account sync traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: loomark-sync-e2e-traces-${{ github.run_attempt }}
+          path: apps/loomark/examples/vanilla/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
   all-checks-passed:
     name: All Checks Passed
     runs-on: ubuntu-latest
