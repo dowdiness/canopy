@@ -2,8 +2,7 @@
 let resume_source_id : @loom.SourceId = @loom.SourceId("loomark-resume-entries")
 
 ///|
-/// The kind named by an explicit `###` heading. A kind records what the text
-/// says it is; it does not mean the statement is confirmed or complete.
+/// The kind named by a `###` heading.
 pub(all) enum EntryKind {
   Observation
   Decision
@@ -11,10 +10,8 @@ pub(all) enum EntryKind {
 } derive(Eq, Debug)
 
 ///|
-/// One top-level list item under a kind heading. `start` and `end` are a
-/// half-open UTF-16 range into the source of the document it was extracted
-/// from. `project` is the exact text of the enclosing `##` heading, or `None`
-/// when no project heading applies.
+/// A top-level list item under a kind heading: a half-open UTF-16 range in
+/// its document's source, and the enclosing `##` heading text, if any.
 pub struct ResumeEntry {
   kind : EntryKind
   project : String?
@@ -23,8 +20,7 @@ pub struct ResumeEntry {
 } derive(Eq, Debug)
 
 ///|
-/// The extraction result for one selected document. `entries` is `None` when
-/// the source could not be parsed; such a document has no checkable entries.
+/// One selected document. `entries` is `None` when parsing failed.
 pub struct ResumeDocument[K] {
   key : K
   source : String
@@ -32,8 +28,7 @@ pub struct ResumeDocument[K] {
 }
 
 ///|
-/// Whether entries of this document still describe `text` for `key`. A range
-/// is only meaningful for the exact source it was extracted from.
+/// Whether the entries still apply to `text` for `key`.
 pub fn[K : Eq] ResumeDocument::is_current(
   self : ResumeDocument[K],
   key : K,
@@ -43,8 +38,7 @@ pub fn[K : Eq] ResumeDocument::is_current(
 }
 
 ///|
-/// Extract entries from each selected document in order. A key that appears
-/// more than once is used only at its first occurrence.
+/// Extract entries from each document in order; a repeated key is skipped.
 pub fn[K : Eq + Hash] extract(
   documents : Array[(K, String)],
 ) -> Array[ResumeDocument[K]] {
@@ -75,10 +69,7 @@ fn kind_of(title : String?) -> EntryKind? {
 }
 
 ///|
-/// Walk only top-level blocks, so headings and lists inside block quotes and
-/// code blocks are never read. `#` clears the project and kind, `##` sets the
-/// project and clears the kind, `###` sets the kind (or clears it for another
-/// title), and deeper headings clear the kind. Other blocks leave both as is.
+/// Read only top-level blocks, so quotes and code blocks are skipped.
 fn extract_entries(source : String) -> Array[ResumeEntry]? {
   let (cst, diagnostics) = @markdown.parse_cst(resume_source_id, source) catch {
     _ => return None
@@ -107,8 +98,7 @@ fn extract_entries(source : String) -> Array[ResumeEntry]? {
         if kind is Some(kind) {
           for item in node.children() {
             let origin = item.origin()
-            // An item with nested content can end after its final line
-            // ending; ranges end at the item's last character instead.
+            // An item with a nested list can end after a line ending.
             let text = source[origin.start():origin.end()].trim_end(
               chars="\r\n",
             )
