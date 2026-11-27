@@ -27,14 +27,14 @@ is not extracted and is left unchanged. No date, recency, completion, or
 precedence between entries is inferred; projects are grouped only by exact text.
 
 An entry's `start`/`end` is a half-open UTF-16 range, the same unit as
-`TextChange` and the textarea selection, ending at the item's last character;
-`text` is that slice. A range is meaningful only for the exact source it came
-from: `ResumeDocument::is_current(key, text)` is true only when both the key
-and the text match. There is no public per-document revision, so callers
+`TextChange` and the textarea selection, ending at the item's last character.
+The entry's text is that slice of `ResumeDocument::source`. A range is
+meaningful only for the exact source it came from:
+`ResumeDocument::is_current(key, text)` is true only when both the key and the
+text match. There is no public per-document revision, so callers
 re-extract when it is false.
 
 Tests use the agent kit v0.2 fixtures (`resume-a`, `resume-b`, `resume-edge`)
 copied into `resume_entries_test.mbt` for R01–R05, R09, and the R06 staleness
-check. Range tests also cover English, Chinese, Korean, Arabic, Hebrew,
-Greek, Cyrillic, Devanagari, Thai, combining marks, and surrogate pairs. Kind
-headings are recognized only by their Japanese titles. UI integration (R07, R08) is a separate step.
+check, plus the context rules, UTF-16 offsets, and nested items. UI
+integration (R07, R08) is a separate step.

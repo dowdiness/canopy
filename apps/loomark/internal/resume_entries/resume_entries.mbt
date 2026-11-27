@@ -12,15 +12,14 @@ pub(all) enum EntryKind {
 
 ///|
 /// One top-level list item under a kind heading. `start` and `end` are a
-/// half-open UTF-16 range into the document source it was extracted from, and
-/// `text` is that exact slice. `project` is the exact text of the enclosing
-/// `##` heading, or `None` when no project heading applies.
+/// half-open UTF-16 range into the source of the document it was extracted
+/// from. `project` is the exact text of the enclosing `##` heading, or `None`
+/// when no project heading applies.
 pub struct ResumeEntry {
   kind : EntryKind
   project : String?
   start : Int
   end : Int
-  text : String
 } derive(Eq, Debug)
 
 ///|
@@ -76,17 +75,10 @@ fn kind_of(title : String?) -> EntryKind? {
 }
 
 ///|
-priv struct Context {
-  project : String?
-  kind : EntryKind?
-  entries : Array[ResumeEntry]
-}
-
-///|
 /// Walk only top-level blocks, so headings and lists inside block quotes and
-/// code blocks are never read. `#` clears the context, `##` sets the project
-/// and clears the kind, `###` sets the kind (or clears it for another title),
-/// and deeper headings clear the kind. Other blocks leave the context as is.
+/// code blocks are never read. `#` clears the project and kind, `##` sets the
+/// project and clears the kind, `###` sets the kind (or clears it for another
+/// title), and deeper headings clear the kind. Other blocks leave both as is.
 fn extract_entries(source : String) -> Array[ResumeEntry]? {
   let (cst, diagnostics) = @markdown.parse_cst(resume_source_id, source) catch {
     _ => return None
@@ -95,51 +87,39 @@ fn extract_entries(source : String) -> Array[ResumeEntry]? {
     resume_source_id,
     @seam.SyntaxNode::from_cst(cst),
     diagnostics,
-    extensions=@markdown.MarkdownExtensions::task_list(),
   )
-  let initial = { project: None, kind: None, entries: [], }
-  let context = document
-    .children()
-    .fold(init=initial, (context, node) => {
-      match node.view() {
-        Heading(depth=1) => { ..context, project: None, kind: None, }
-        Heading(depth=2) => {
-          let project = heading_text(node, source).filter(text => {
-            !text.is_empty()
-          })
-          { ..context, project, kind: None, }
-        }
-        Heading(depth=3) =>
-          { ..context, kind: kind_of(heading_text(node, source)), }
-        Heading(..) => { ..context, kind: None, }
-        UnorderedList(..) | OrderedList(..) =>
-          match context.kind {
-            Some(kind) => {
-              let entries = node
-                .children()
-                .map(item => {
-                  let origin = item.origin()
-                  // An item with nested content can end after its final line
-                  // ending; ranges end at the item's last character instead.
-                  let text = source[origin.start():origin.end()]
-                    .trim_end(chars="\r\n")
-                    .to_owned()
-                  {
-                    kind,
-                    project: context.project,
-                    start: origin.start(),
-                    end: origin.start() + text.length(),
-                    text,
-                  }
-                })
-              { ..context, entries: [..context.entries, ..entries], }
-            }
-            None => context
-          }
-        _ => context
+  let entries = []
+  let mut project = None
+  let mut kind = None
+  for node in document.children() {
+    match node.view() {
+      Heading(depth=1) => {
+        project = None
+        kind = None
       }
-    })
-  Some(context.entries)
+      Heading(depth=2) => {
+        project = heading_text(node, source).filter(text => !text.is_empty())
+        kind = None
+      }
+      Heading(depth=3) => kind = kind_of(heading_text(node, source))
+      Heading(..) => kind = None
+      UnorderedList(..) | OrderedList(..) =>
+        if kind is Some(kind) {
+          for item in node.children() {
+            let origin = item.origin()
+            // An item with nested content can end after its final line
+            // ending; ranges end at the item's last character instead.
+            let text = source[origin.start():origin.end()].trim_end(
+              chars="\r\n",
+            )
+            let start = origin.start()
+            entries.push({ kind, project, start, end: start + text.length(), })
+          }
+        }
+      _ => ()
+    }
+  }
+  Some(entries)
 }
 
 ///|

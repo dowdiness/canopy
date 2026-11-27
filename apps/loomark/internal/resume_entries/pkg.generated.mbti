@@ -32,7 +32,6 @@ pub struct ResumeEntry {
   project : String?
   start : Int
   end : Int
-  text : String
 } derive(Eq, @debug.Debug)
 pub fn ResumeEntry::equal(Self, Self) -> Bool
 pub fn ResumeEntry::not_equal(Self, Self) -> Bool
