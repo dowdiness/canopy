@@ -281,7 +281,11 @@ def check-wiring [root: string action_doc: any justfile: string] {
   let cache_paths = (field $cache_with "path")
   require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles(format('{0}/.moonbit-toolchain', inputs.repository-root)) }}-${{ hashFiles(format('{0}/moon.work', inputs.repository-root), format('{0}/**/moon.mod', inputs.repository-root), format('{0}/**/moon.mod.json', inputs.repository-root)) }}" "registry cache key must encode the selected checkout's toolchain and dependency manifests"
   require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles(format('{0}/.moonbit-toolchain', inputs.repository-root)) }}-" "registry cache restore key must retain the selected checkout's toolchain"
-  for path in ["~/.moon/registry/index" "~/.moon/registry/cache" "~/.moon/registry/symbols"] {
+  for path in [
+    "${{ steps.moonbit-toolchain.outputs.registry-root }}/index"
+    "${{ steps.moonbit-toolchain.outputs.registry-root }}/cache"
+    "${{ steps.moonbit-toolchain.outputs.registry-root }}/symbols"
+  ] {
     require-text $cache_paths $path $"registry cache path is missing: ($path)"
   }
 

@@ -27,6 +27,7 @@ runs:
       run: |
         action_root="$(CDPATH= cd -- "$GITHUB_ACTION_PATH/../../.." && pwd)"
         "$action_root/scripts/moon-toolchain.sh" github-output >> "$GITHUB_OUTPUT"
+        printf 'registry-root=%s/.moon/registry\n' "$HOME" >> "$GITHUB_OUTPUT"
     # MoonBit toolchain and core are pinned as a compatibility pair. The core
     # CDN publishes matching versioned archives (unlike older releases).
     - name: Install MoonBit
@@ -49,9 +50,9 @@ runs:
       uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25
       with:
         path: |
-          ~/.moon/registry/index
-          ~/.moon/registry/cache
-          ~/.moon/registry/symbols
+          ${{ steps.moonbit-toolchain.outputs.registry-root }}/index
+          ${{ steps.moonbit-toolchain.outputs.registry-root }}/cache
+          ${{ steps.moonbit-toolchain.outputs.registry-root }}/symbols
         key: moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles(format('{0}/.moonbit-toolchain', inputs.repository-root)) }}-${{ hashFiles(format('{0}/moon.work', inputs.repository-root), format('{0}/**/moon.mod', inputs.repository-root), format('{0}/**/moon.mod.json', inputs.repository-root)) }}
         restore-keys: |
           moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles(format('{0}/.moonbit-toolchain', inputs.repository-root)) }}-

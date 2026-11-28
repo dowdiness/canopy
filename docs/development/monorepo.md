@@ -241,6 +241,8 @@ live pins and working-tree state. Do not copy the inventory into this guide.
   `repository-root` input selects each checkout's compiler/core, registry and
   cache identity. The writing benchmark also isolates baseline `HOME` and
   `MOON_HOME`; the candidate compiler cannot resolve every older dependency.
+  Cache paths use the explicit registry directory, not literal `~`: Actions
+  cache versions include input paths, so different homes cannot share archives.
 
 ## Debt routing
 
