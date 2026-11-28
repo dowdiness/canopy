@@ -237,6 +237,10 @@ live pins and working-tree state. Do not copy the inventory into this guide.
 - **Generated formatter manifests.** RC1 writes `moon.pkg` files under ignored
   `_build/.../format` directories. Hook module discovery uses Git source files,
   not recursive filesystem globs, so these caches are never validation targets.
+- **Cross-toolchain benchmark baselines.** The shared setup action's
+  `repository-root` input selects each checkout's compiler/core, registry and
+  cache identity. The writing benchmark also isolates baseline `HOME` and
+  `MOON_HOME`; the candidate compiler cannot resolve every older dependency.
 
 ## Debt routing
 

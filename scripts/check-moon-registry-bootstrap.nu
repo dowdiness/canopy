@@ -268,13 +268,19 @@ def check-wiring [root: string action_doc: any justfile: string] {
   require-equal (field $cache_step "uses") "actions/cache@caa296126883cff596d87d8935842f9db880ef25" "registry cache action pin changed"
   require-equal (field $bootstrap_step "if") "steps.moonbit-registry-cache.outputs.cache-hit != 'true'" "bootstrap condition changed"
   require-equal (field $bootstrap_step "run") "$GITHUB_WORKSPACE/scripts/moon-update.sh" "bootstrap command changed"
+  require-equal (field (field (field $action_doc "inputs") "repository-root") "default") "." "setup must default to the workspace checkout"
+  require-equal (field $bootstrap_step "working-directory") "${{ inputs.repository-root }}" "registry bootstrap must use the selected checkout"
+  let manifest_step = (find-step $action_steps "Read MoonBit toolchain manifest")
+  let selected_manifest = "${{ github.workspace }}/${{ inputs.repository-root }}/.moonbit-toolchain"
+  require-equal (field (field $manifest_step "env") "MOONBIT_TOOLCHAIN_MANIFEST") $selected_manifest "compiler selection must use the selected checkout"
+  require-equal (field (field $bootstrap_step "env") "MOONBIT_TOOLCHAIN_MANIFEST") $selected_manifest "registry bootstrap must retain the selected toolchain"
 
   let cache_with = (field $cache_step "with")
   let cache_key = (field $cache_with "key")
   let restore_keys = (field $cache_with "restore-keys")
   let cache_paths = (field $cache_with "path")
-  require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles('.moonbit-toolchain') }}-${{ hashFiles('moon.work', '**/moon.mod', '**/moon.mod.json') }}" "registry cache key does not encode schema, platform, manifest, and dependency manifests"
-  require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles('.moonbit-toolchain') }}-" "registry cache restore key is not scoped to schema/platform/manifest"
+  require-text $cache_key "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles(format('{0}/.moonbit-toolchain', inputs.repository-root)) }}-${{ hashFiles(format('{0}/moon.work', inputs.repository-root), format('{0}/**/moon.mod', inputs.repository-root), format('{0}/**/moon.mod.json', inputs.repository-root)) }}" "registry cache key must encode the selected checkout's toolchain and dependency manifests"
+  require-text $restore_keys "moonbit-registry-v2-${{ runner.os }}-${{ runner.arch }}-toolchain-${{ hashFiles(format('{0}/.moonbit-toolchain', inputs.repository-root)) }}-" "registry cache restore key must retain the selected checkout's toolchain"
   for path in ["~/.moon/registry/index" "~/.moon/registry/cache" "~/.moon/registry/symbols"] {
     require-text $cache_paths $path $"registry cache path is missing: ($path)"
   }

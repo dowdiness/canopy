@@ -487,9 +487,26 @@ jobs:
             apps/loomark/examples/vanilla/package-lock.json
             .benchmark-baseline/apps/loomark/package-lock.json
 
-      - name: Build both production releases
+      - name: Build candidate production release
+        run: ./scripts/build-loomark-standalone.sh
+
+      - name: Prepare baseline toolchain home
+        run: mkdir -p "$RUNNER_TEMP/loomark-writing-baseline-home"
+
+      - name: Set up baseline MoonBit
+        uses: ./.github/actions/setup-moonbit
+        with:
+          repository-root: .benchmark-baseline
+        env:
+          HOME: ${{ runner.temp }}/loomark-writing-baseline-home
+          MOON_HOME: ${{ runner.temp }}/loomark-writing-baseline-home/.moon
+
+      - name: Build baseline production release
+        env:
+          HOME: ${{ runner.temp }}/loomark-writing-baseline-home
+          MOON_HOME: ${{ runner.temp }}/loomark-writing-baseline-home/.moon
         run: |
-          ./scripts/build-loomark-standalone.sh
+          export PATH="$MOON_HOME/bin:$PATH"
           ./scripts/build-loomark-standalone.sh "$GITHUB_WORKSPACE/.benchmark-baseline"
 
       - name: Install benchmark dependencies
