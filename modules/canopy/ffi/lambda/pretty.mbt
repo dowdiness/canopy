@@ -1,12 +1,12 @@
 // Pretty-printer FFI — ViewNode tree and ViewPatch streams for formatted display
 
 ///|
-let pretty_view_states : Map[Int, @editor.ViewUpdateState] = Default::default()
+let pretty_view_states : Map[Int32, @editor.ViewUpdateState] = Default::default()
 
 ///|
 /// Get the pretty-printed ViewNode tree as JSON for a lambda editor.
 /// Returns "null" if any protected read fails.
-pub fn get_pretty_view_json(handle : Int) -> String raise Failure {
+pub fn get_pretty_view_json(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match
@@ -35,7 +35,7 @@ pub fn get_pretty_view_json(handle : Int) -> String raise Failure {
 /// Compute incremental pretty-view patches for a lambda editor.
 /// Returns a JSON array of ViewPatch objects, or "[]" if any protected read
 /// fails.
-pub fn compute_pretty_patches_json(handle : Int) -> String raise Failure {
+pub fn compute_pretty_patches_json(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => {
       let _ = match

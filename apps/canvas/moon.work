@@ -20,4 +20,6 @@ members = [
   "../../deps/loom/text-change",
   "../../deps/loom/moji",
   "../../deps/graphviz",
+  "../../deps/alga",
+  "../../deps/svg-dsl",
 ]

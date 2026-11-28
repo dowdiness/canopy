@@ -2,7 +2,7 @@
 // Source: TinySegmenter by Taku Kudo (BSD 3-Clause)
 
 ///|
-let weights : Map[String, Int] = {
+let weights : Map[String, Int32] = {
   "BIAS": -332,
   "BC1:HH": 6,
   "BC1:II": 2461,

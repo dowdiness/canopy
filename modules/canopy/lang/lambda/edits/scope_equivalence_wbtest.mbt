@@ -1,7 +1,7 @@
 ///|
 /// Normalize a scope-graph Decl to (tag, node_id, def_index); def_index = -1
 /// for lambda params.
-fn norm_decl(decl : @scope.Decl) -> (String, NodeId, Int) {
+fn norm_decl(decl : @scope.Decl) -> (String, NodeId, Int32) {
   match decl.kind {
     DeclKind::LamParam(lam_id~) => ("lam", lam_id, -1)
     DeclKind::ModuleDef(def_index~) => ("module", decl.node_id, def_index)

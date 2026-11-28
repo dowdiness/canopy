@@ -76,7 +76,7 @@ pub fn unified_diff_to_intents(
 pub fn[T : Eq] apply_intent_exact(
   se : @editor.SyncEditor[T],
   intent : @protocol.UserIntent,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise {
   guard intent is @protocol.UserIntent::TextEdit(from~, to~, insert~) else {
     fail("codex lowering prototype: only TextEdit is supported")
@@ -89,7 +89,7 @@ pub fn[T : Eq] apply_intent_exact(
 /// the document has fewer than `line_1based` lines. The absent case must stay
 /// distinct from an empty line that genuinely exists at EOF — otherwise a
 /// missing target line collapses to EOF and a `""` old-text check passes.
-fn line_start_offset(doc : String, line_1based : Int) -> Int? {
+fn line_start_offset(doc : String, line_1based : Int32) -> Int32? {
   if line_1based <= 1 {
     return Some(0)
   }
@@ -109,7 +109,7 @@ fn line_start_offset(doc : String, line_1based : Int) -> Int? {
 ///|
 /// UTF-16 offset of the end of the line that starts at `start` — the next
 /// `\n`, or the end of the document.
-fn line_end_offset(doc : String, start : Int) -> Int {
+fn line_end_offset(doc : String, start : Int32) -> Int32 {
   for i in start..<doc.length() {
     if doc[i] is '\n' {
       break i
@@ -132,10 +132,10 @@ fn line_end_offset(doc : String, start : Int) -> Int {
 /// (`+`) lines do not. Out-of-scope inputs — more than one hunk, more than one
 /// changed pair, or a `\ No newline at end of file` marker — fail rather than
 /// being silently dropped or mis-applied.
-fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
-  let mut cur_old : Int? = None // None until the first `@@`; else next old line
+fn parse_single_line_update(diff : String) -> (Int32, String, String) raise {
+  let mut cur_old : Int32? = None // None until the first `@@`; else next old line
   let mut hunks = 0
-  let mut old_at : (Int, String)? = None // (old line number, content) of `-`
+  let mut old_at : (Int32, String)? = None // (old line number, content) of `-`
   let mut old_count = 0
   let mut new_text : String? = None
   let mut new_count = 0
@@ -189,7 +189,7 @@ fn parse_single_line_update(diff : String) -> (Int, String, String) raise {
 
 ///|
 /// Extract the old start line `A` from a hunk header `@@ -A[,B] +C[,D] @@`.
-fn parse_hunk_old_start(header : String) -> Int raise {
+fn parse_hunk_old_start(header : String) -> Int32 raise {
   guard header.split(" ").find_first(tok => tok.has_prefix("-")) is Some(tok) else {
     fail("codex lowering: malformed hunk header")
   }

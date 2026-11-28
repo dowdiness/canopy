@@ -3,7 +3,8 @@
 ///|
 /// Unique identifier for AST nodes (persistent across edits).
 /// Construct via `NodeId::from_int(n)`.
-pub struct NodeId(Int) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub struct NodeId(Int32)
 
 ///|
 pub impl Show for NodeId with fn output(self, logger) {
@@ -11,7 +12,7 @@ pub impl Show for NodeId with fn output(self, logger) {
 }
 
 ///|
-pub fn NodeId::from_int(n : Int) -> NodeId {
+pub fn NodeId::from_int(n : Int32) -> NodeId {
   NodeId(n)
 }
 
@@ -29,7 +30,7 @@ fn NodeId::short(self : NodeId) -> String {
 ///|
 pub impl ToJson for NodeId with fn to_json(self) {
   let NodeId(n) = self
-  n.to_json()
+  Json(n)
 }
 
 ///|
@@ -37,11 +38,12 @@ pub impl ToJson for NodeId with fn to_json(self) {
 /// `start` and `delete_len` are UTF-16 code-unit offsets/lengths in the
 /// source document coordinate space. Multi-edit arrays are applied in reverse
 /// document order so each edit can use the original source coordinates.
+#derive(Debug, Eq)
 pub(all) struct SpanEdit {
-  start : Int
-  delete_len : Int
+  start : Int32
+  delete_len : Int32
   inserted : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Compact patch label for the Patch panel and debug traces:
@@ -99,10 +101,11 @@ fn escape_for_show(s : String) -> String {
 ///|
 /// Hint for where to place the cursor after a structural edit.
 /// MoveCursor(position~) uses post-edit UTF-16 code-unit coordinates.
+#derive(Debug, Eq)
 pub(all) enum FocusHint {
   RestoreCursor
-  MoveCursor(position~ : Int)
-} derive(Debug, Eq)
+  MoveCursor(position~ : Int32)
+}
 
 ///|
 pub impl Show for FocusHint with fn output(self, logger) {
@@ -111,6 +114,7 @@ pub impl Show for FocusHint with fn output(self, logger) {
 
 ///|
 /// Drop position for drag-and-drop and move operations.
+#derive(Debug, Eq)
 pub(all) enum DropPosition {
   /// Insert before the target
   Before
@@ -118,11 +122,12 @@ pub(all) enum DropPosition {
   After
   /// Insert as a child of the target
   Inside
-} derive(Debug, Eq)
+}
 
 ///|
 /// UI-level tree operations that projection/TreeEditorState understands.
 /// Language packages map their domain-specific ops to this type via to_generic().
+#derive(Debug)
 pub(all) enum GenericTreeOp {
   // Selection
   Select(node_id~ : NodeId)
@@ -137,7 +142,7 @@ pub(all) enum GenericTreeOp {
   Delete(node_id~ : NodeId)
   StructuralEdit(node_id~ : NodeId)
   StructuralEditKeepSelected(node_id~ : NodeId)
-  InsertChild(parent~ : NodeId, index~ : Int)
+  InsertChild(parent~ : NodeId, index~ : Int32)
 
   // Drag and drop
   StartDrag(node_id~ : NodeId)
@@ -147,7 +152,7 @@ pub(all) enum GenericTreeOp {
   // Navigation
   Collapse(node_id~ : NodeId)
   Expand(node_id~ : NodeId)
-} derive(Debug)
+}
 
 ///|
 /// Verb-first label for the Intent panel and debug traces, e.g.

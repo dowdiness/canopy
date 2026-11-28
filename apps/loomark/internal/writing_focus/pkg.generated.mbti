@@ -10,13 +10,13 @@ pub fn calculate_dimming_ranges(Range, ArrayView[(Range, OpacitySample)], Double
 
 pub fn calculate_shade_placement(Range, Range) -> ShadePlacement?
 
-pub fn caret_measure(CaretHistory, Int) -> CaretMeasure
+pub fn caret_measure(CaretHistory, Int32) -> CaretMeasure
 
 pub fn caret_move(Caret, Caret, CaretCause) -> CaretMove
 
 pub fn drawn_caret_x(Double, layer_width~ : Double, half_width~ : Double) -> Double
 
-pub fn selection_end(Int, Int, backward~ : Bool, editable_focus~ : Bool) -> SelectionEnd
+pub fn selection_end(Int32, Int32, backward~ : Bool, editable_focus~ : Bool) -> SelectionEnd
 
 // Errors
 pub suberror InvalidRange {
@@ -81,12 +81,12 @@ pub(all) struct FadeTiming {
 }
 
 pub struct LineRange {
-  first : Int
-  last : Int
+  first : Int32
+  last : Int32
 }
 
 pub(all) struct MeasuredCaret {
-  offset : Int
+  offset : Int32
   x : Double
   y : Double
 }
@@ -110,8 +110,8 @@ pub struct Range {
 pub fn Range::Range(Double, Double) -> Self raise InvalidRange
 
 pub enum SelectionEnd {
-  Collapsed(Int)
-  Endpoint(Int)
+  Collapsed(Int32)
+  Endpoint(Int32)
 }
 
 pub struct ShadePlacement {
@@ -124,7 +124,7 @@ pub struct WritingGroups {
   // private fields
 }
 pub fn WritingGroups::WritingGroups(@text_lines.TextLines) -> Self
-pub fn WritingGroups::focus_lines(Self, Int, Int) -> LineRange raise @text_lines.InvalidSelection
+pub fn WritingGroups::focus_lines(Self, Int32, Int32) -> LineRange raise @text_lines.InvalidSelection
 pub fn WritingGroups::focus_range(Self, LineRange, top~ : Double, bottom~ : Double) -> Range raise InvalidRange
 
 pub(all) enum WritingIntent {

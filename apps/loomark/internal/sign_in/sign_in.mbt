@@ -16,15 +16,17 @@ pub(all) enum Readiness {
 }
 
 ///|
+#derive(Eq)
 pub enum Action {
   Begin
-  Cancel(Int)
-} derive(Eq)
+  Cancel(Int32)
+}
 
 ///|
+#derive(Eq)
 pub struct Request {
-  priv serial : Int
-} derive(Eq)
+  priv serial : Int32
+}
 
 ///|
 pub(all) enum Event {
@@ -46,19 +48,21 @@ pub enum Effect {
 }
 
 ///|
+#derive(Eq)
 pub enum Failure {
   Save(@documents.LocalSaveFailure)
   Authentication
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub enum View {
   Available(Action)
   Unavailable
   InProgress(Action)
   Failed(Failure, retry~ : Action?)
   Leaving
-} derive(Eq)
+}
 
 ///|
 pub enum Outcome {
@@ -69,22 +73,23 @@ pub enum Outcome {
 }
 
 ///|
+#derive(Eq)
 pub enum SignIn {
-  Idle(generation~ : Int, pending~ : Request?)
-  SavingChanges(generation~ : Int, pending~ : Request?)
-  Connecting(generation~ : Int, request~ : Request)
+  Idle(generation~ : Int32, pending~ : Request?)
+  SavingChanges(generation~ : Int32, pending~ : Request?)
+  Connecting(generation~ : Int32, request~ : Request)
   RedirectPending(
-    generation~ : Int,
-    destination~ : @account_http.GoogleAuthorizationUrl
+    generation~ : Int32,
+    destination~ : @account_http.GoogleAuthorizationUrl,
   )
-  Leaving(generation~ : Int)
+  Leaving(generation~ : Int32)
   SaveFailed(
-    generation~ : Int,
+    generation~ : Int32,
     pending~ : Request?,
-    failure~ : @documents.LocalSaveFailure
+    failure~ : @documents.LocalSaveFailure,
   )
-  AuthenticationFailed(generation~ : Int, pending~ : Request?)
-} derive(Eq)
+  AuthenticationFailed(generation~ : Int32, pending~ : Request?)
+}
 
 ///|
 pub struct Transition {
@@ -99,7 +104,7 @@ pub fn SignIn::SignIn() -> SignIn {
 }
 
 ///|
-fn SignIn::generation(self : Self) -> Int {
+fn SignIn::generation(self : Self) -> Int32 {
   match self {
     Idle(generation~, ..)
     | SavingChanges(generation~, ..)
@@ -126,8 +131,8 @@ fn SignIn::pending(self : Self) -> Request? {
 ///|
 fn SignIn::transition(
   self : Self,
-  outcome? : Outcome = Applied,
-  effects? : Array[Effect] = [],
+  outcome~ : Outcome = Applied,
+  effects~ : Array[Effect] = [],
 ) -> Transition {
   { state: self, effects, outcome, }
 }

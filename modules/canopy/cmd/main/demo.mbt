@@ -12,7 +12,10 @@ fn print_separator() -> Unit {
 
 ///|
 /// Show editor state with agent name
-fn show_editor(agent_name : String, editor : @editor.Editor) -> Unit {
+fn show_editor(
+  agent_name : String,
+  editor : @editor.Editor,
+) -> Unit raise @text.TextError {
   let text = editor.get_text()
   let cursor = editor.get_cursor()
   println("[\{agent_name}] Text: \"\{text}\" (cursor: \{cursor})")

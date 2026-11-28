@@ -6,7 +6,7 @@ fn contract_runtime_operations(
 }
 
 ///|
-fn contract_source_graph(handle : Int) -> SourceBackedGraph {
+fn contract_source_graph(handle : Int32) -> SourceBackedGraph {
   match source_graph_by_handle(handle) {
     Some(graph) => graph
     None => abort("expected source graph handle")

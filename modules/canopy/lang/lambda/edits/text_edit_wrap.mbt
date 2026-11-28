@@ -101,7 +101,7 @@ fn compute_wrap_bop(
 fn compute_insert_child(
   ctx : EditContext[@ast.Term],
   parent : NodeId,
-  index : Int,
+  index : Int32,
   kind : @ast.Term,
 ) -> EditResult raise EditError {
   if index < 0 {

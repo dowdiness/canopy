@@ -77,7 +77,7 @@ test "diagnostic input snapshot keeps A0 A1 A0 causally distinct" {
   let middle = snapshot_handle.read().unwrap()
   editor_handle.editor.set_text("A0")
   let restored = snapshot_handle.read().unwrap()
-  assert_eq(editor_handle.editor.get_text(), "A0")
+  assert_eq(try! editor_handle.editor.get_text(), "A0")
   assert_true(first.sources()[0].version() != middle.sources()[0].version())
   assert_true(first.sources()[0].version() != restored.sources()[0].version())
   assert_true(middle.sources()[0].version() != restored.sources()[0].version())

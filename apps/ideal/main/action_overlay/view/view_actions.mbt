@@ -17,7 +17,7 @@ fn group_label(group : @lambda_edits.ActionGroup) -> String {
 fn view_action_item(
   emit : @rabbita.Emit[OverlayMsg],
   menu : @menu.Model,
-  index : Int,
+  index : Int32,
   action : @lambda_edits.Action,
 ) -> @rabbita.Html {
   let is_danger = action.id == "delete" || action.id == "binding_delete"

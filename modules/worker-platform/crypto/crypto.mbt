@@ -1,7 +1,8 @@
 ///|
+#derive(Debug, Eq)
 pub(all) suberror CryptoError {
   DigestFailed
-} derive(Debug, Eq)
+}
 
 ///|
 /// Hashes UTF-8 text with Web Crypto, returning lowercase hexadecimal.

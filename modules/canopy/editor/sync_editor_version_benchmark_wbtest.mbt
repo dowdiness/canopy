@@ -1,5 +1,5 @@
 ///|
-fn version_benchmark_source(block_count : Int) -> String {
+fn version_benchmark_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     "## Heading " +
     index.to_string() +

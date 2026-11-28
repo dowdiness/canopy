@@ -1,130 +1,147 @@
 ///|
+#derive(Eq, Hash, Debug)
 pub enum Key {
   Source(@source_repository.DocumentId)
   Replica(@source_repository.AccountId, @source_repository.DocumentId)
-} derive(Eq, Hash, Debug)
+}
 
 ///|
+#derive(Eq)
 priv enum LocalDocumentOrigin {
   EphemeralNew
   ImportedNew
   Existing
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum DocumentPersistence {
   Source(LocalDocumentOrigin, SourceLifecycle)
   StartingSync(
     @source_repository.AccountId,
     @source_repository.Document,
-    Autosave
+    Autosave,
   )
   Replica(@source_repository.AccountId, ReplicaDeletePhase, Autosave)
   Forking(ForkOwnership, Autosave)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum ReplicaDeletePhase {
   ReplicaAvailable
   ReplicaPending
   ReplicaFailed(@source_repository.ReplicaFailure)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct ForkOwnership {
   account : @source_repository.AccountId
   original : @source_repository.DocumentId
   recovery : @source_repository.Document
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct DeletionFailure {
   operation : DeleteOperation
   cause : @source_repository.DeleteFailure
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum SourceLifecycle {
   Writable(SourceSave, DeletionFailure?)
   WaitingToDelete(SaveOperation, DeleteOperation, AutosaveWindow?)
   Deleting(DeleteOperation, Autosave)
-} derive(Eq)
+}
 
 ///|
 /// Only a writable Source can start a write. WaitingToDelete owns an already
 /// running write; Deleting can retain autosave work but never a running write.
+#derive(Eq)
 priv enum SourceSave {
   Idle
   Waiting(AutosaveWindow)
   Saving(SaveOperation, AutosaveWindow?)
   Failed(@source_repository.SaveFailure)
-} derive(Eq)
+}
 
 ///|
 /// Autosave scheduling without a Source write. Idle means no scheduled work,
 /// not a durability acknowledgment; Replica durability belongs to its lane.
+#derive(Eq)
 priv enum Autosave {
   Idle
   Waiting(AutosaveWindow)
   Failed(@source_repository.SaveFailure)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum AutosaveEligibility {
   Deferred
   Eligible
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct AutosaveWindow {
-  maximum_id : Int
+  maximum_id : Int32
   maximum_armed : Bool
   eligibility : AutosaveEligibility
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum LeadSource {
   Unlisted
   Available(String)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum Editing {
   Idle
-  Waiting(Int)
+  Waiting(Int32)
   ComposingIdle
-  ComposingWaiting(Int)
+  ComposingWaiting(Int32)
   ComposingReady
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct Record {
   persistence : DocumentPersistence
   document : @source_repository.Document
-  version : Int
+  version : Int32
   edit : Editing
   lead_source : LeadSource
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub struct SaveOperation {
   key : Key
   document : @source_repository.Document
-  priv request_id : Int
-} derive(Eq)
+  priv request_id : Int32
+}
 
 ///|
+#derive(Eq)
 pub struct DeleteOperation {
   key : Key
   document_id : @source_repository.DocumentId
-  request_id : Int
-} derive(Eq)
+  request_id : Int32
+}
 
 ///|
+#derive(Eq)
 pub struct ReplicaEdit {
   priv durable : @source_repository.DocumentReplica
   priv document : @source_repository.Document
-} derive(Eq)
+}
 
 ///|
 pub enum Edit {
@@ -160,9 +177,9 @@ pub(all) enum Msg {
   RetrySave(Key)
   VisibilityFlush(Key)
   VisibilityFlushAll
-  ApplyPendingEdit(Key, Int)
+  ApplyPendingEdit(Key, Int32)
   DismissDeleteFailure(Key)
-  MaximumElapsed(Int)
+  MaximumElapsed(Int32)
   Saved(SaveOperation, @source_repository.Document)
   SaveFailed(SaveOperation, @source_repository.SaveFailure)
   Deleted(DeleteOperation, @source_repository.DocumentId)
@@ -171,12 +188,12 @@ pub(all) enum Msg {
   ReplicaSettled(@source_repository.ReplicaWrite, Key?)
   ReplicaDeletionFailed(
     @source_repository.ReplicaWrite,
-    @source_repository.ReplicaFailure
+    @source_repository.ReplicaFailure,
   )
   Promoted(@source_repository.ReplicaWrite)
   PromotionFailed(
     @source_repository.ReplicaWrite,
-    @source_repository.ReplicaFailure
+    @source_repository.ReplicaFailure,
   )
 }
 
@@ -218,7 +235,7 @@ pub fn Msg::from_replica_completion(
 
 ///|
 pub(all) enum Action {
-  ArmMaximum(Int)
+  ArmMaximum(Int32)
   PersistSource(SaveOperation)
   StoreReplica(@source_repository.ReplicaWrite)
   SaveReplica(ReplicaEdit)
@@ -228,24 +245,28 @@ pub(all) enum Action {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror CreateError {
   DocumentAlreadyExists(Key)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror EditError {
   DocumentMissing(Key)
   PendingDeletion(Key)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror DeleteError {
   DocumentMissing(Key)
   OwnershipTransferInProgress(Key)
   ReplicaMissing(Key)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror UpdateError {
   DocumentMissing(Key)
   PendingDeletion(Key)
@@ -253,7 +274,7 @@ pub(all) suberror UpdateError {
   DocumentMismatch(Key)
   DocumentAlreadyExists(Key)
   InvalidAcknowledgment(Key)
-} derive(Eq, Debug)
+}
 
 ///|
 /// A document listed in the Document index.
@@ -267,43 +288,49 @@ pub struct ListedDocument {
 }
 
 ///|
+#derive(Eq)
 pub(all) enum SaveStatus {
   Clean
   Unsaved
   SaveFailed(@source_repository.SaveFailure)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub(all) enum DeleteStatus {
   NotDeletable
   Deletable
   DeletePending
   DeleteFailed(@source_repository.DeleteFailure)
   DeletePersistenceFailed(@source_repository.ReplicaFailure)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub(all) enum SyncStart {
   Unavailable
   Ready(StartSync)
   Starting
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub struct StartSync {
   priv key : Key
   priv account : @source_repository.AccountId
   priv document : @source_repository.Document
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub struct AcceptRemote {
   priv key : Key
-  priv version : Int
+  priv version : Int32
   priv update : @source_repository.RemoteUpdate
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub(all) enum RemoteState {
   Current
   LocalAhead
@@ -314,7 +341,7 @@ pub(all) enum RemoteState {
   UpdateAvailable(AcceptRemote)
   DeletionAvailable(AcceptRemote)
   Unavailable
-} derive(Eq)
+}
 
 ///|
 pub(all) enum RemoteAcceptance {
@@ -336,19 +363,21 @@ pub(all) enum RemoteOpen {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ActionError {
   ExpiredAction
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq)
 pub struct Model {
   priv saved : @source_repository.SavedDocuments
   priv records : Array[Record]
   priv visible_account : @source_repository.AccountId?
-  priv last_autosave_id : Int
-  priv last_working_copy_version : Int
-  priv last_delete_request : Int
-} derive(Eq)
+  priv last_autosave_id : Int32
+  priv last_working_copy_version : Int32
+  priv last_delete_request : Int32
+}
 
 ///|
 pub extend AcceptRemote with Eq::{equal, not_equal}

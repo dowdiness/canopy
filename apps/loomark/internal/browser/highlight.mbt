@@ -19,8 +19,8 @@ extern "js" fn text_data(text : @dom.Node) -> String =
 ///|
 extern "js" fn text_range(
   text : @dom.Node,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> TextRange =
   #| (text, start, end) => {
   #|   const range = text.ownerDocument.createRange();

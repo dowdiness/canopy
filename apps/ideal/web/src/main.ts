@@ -383,12 +383,19 @@ function doMount(el: CanopyEditor, crdt: CrdtModule) {
         if (result === 'ok') {
           restoredState = true;
         } else {
-          console.warn('Failed to restore from localStorage, removing corrupted entry:', result);
-          try { localStorage.removeItem(STORAGE_KEY_PREFIX + roomId); } catch { /* storage unavailable */ }
+          const outcome = JSON.parse(result) as {
+            history_advanced: boolean;
+            projection_available: boolean;
+          };
+          restoredState = outcome.history_advanced && outcome.projection_available;
+          console.warn('Failed to restore all history from localStorage:', result);
+          if (!outcome.history_advanced && outcome.projection_available) {
+            try { localStorage.removeItem(STORAGE_KEY_PREFIX + roomId); } catch { /* storage unavailable */ }
+          }
         }
       } catch (e) {
-        console.warn('Failed to restore from localStorage, removing corrupted entry:', e);
-        try { localStorage.removeItem(STORAGE_KEY_PREFIX + roomId); } catch { /* storage unavailable */ }
+        // A host/runtime failure does not prove that no history was accepted.
+        console.warn('Failed to restore from localStorage; preserving recovery data:', e);
       }
     }
   } catch (e) {

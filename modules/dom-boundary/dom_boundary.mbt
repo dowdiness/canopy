@@ -1,11 +1,13 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum DomTarget {
   Id(String)
   Selector(String)
   EventSubscription
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum DomAction {
   Focus
   Click
@@ -20,46 +22,52 @@ pub(all) enum DomAction {
   Reload
   ListenCustomEvent
   RemoveCustomEventListener
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum TextSelectionDirection {
   NoDirection
   Forward
   Backward
-} derive(Debug, Eq)
+}
 
 ///|
 /// An immutable half-open text selection measured in UTF-16 code units.
+#derive(Debug, Eq)
 pub struct TextSelection {
-  priv start : Int
-  priv end : Int
+  priv start : Int32
+  priv end : Int32
   priv direction : TextSelectionDirection
-} derive(Debug, Eq)
+}
 
 ///|
 /// A detached element measurement in CSS pixels.
+#derive(Debug, Eq)
 pub struct ElementMeasurement {
   priv offset_width : Double
   priv offset_height : Double
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ScrollBehavior {
   Auto
   Instant
   Smooth
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ScrollBlock {
   Start
   Center
   End
   Nearest
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror DomBoundaryError {
   DocumentUnavailable
   InvalidSelector(selector~ : String, detail~ : String)
@@ -67,17 +75,17 @@ pub(all) suberror DomBoundaryError {
   UnsupportedAction(action~ : DomAction, target~ : DomTarget)
   InvalidTextSelection(
     selection~ : TextSelection,
-    value_length~ : Int,
-    target~ : DomTarget
+    value_length~ : Int32,
+    target~ : DomTarget,
   )
   ActionFailed(action~ : DomAction, target~ : DomTarget, detail~ : String)
   UnknownStatus(
-    status~ : Int,
+    status~ : Int32,
     action~ : DomAction,
     target~ : DomTarget,
-    detail~ : String
+    detail~ : String,
   )
-} derive(Debug, Eq)
+}
 
 ///|
 #external
@@ -98,20 +106,20 @@ pub struct CustomEventSubscription {
 
 ///|
 pub fn TextSelection::TextSelection(
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   direction : TextSelectionDirection,
 ) -> TextSelection {
   { start, end, direction, }
 }
 
 ///|
-pub fn TextSelection::start(self : TextSelection) -> Int {
+pub fn TextSelection::start(self : TextSelection) -> Int32 {
   self.start
 }
 
 ///|
-pub fn TextSelection::end(self : TextSelection) -> Int {
+pub fn TextSelection::end(self : TextSelection) -> Int32 {
   self.end
 }
 
@@ -190,8 +198,8 @@ pub fn click_selector(selector : String) -> Unit raise DomBoundaryError {
 ///|
 pub fn scroll_id(
   id : String,
-  behavior? : ScrollBehavior = Smooth,
-  block? : ScrollBlock = Nearest,
+  behavior~ : ScrollBehavior = Smooth,
+  block~ : ScrollBlock = Nearest,
 ) -> Unit raise DomBoundaryError {
   scroll_target(LOOKUP_ID, id, Id(id), behavior, block)
 }
@@ -199,8 +207,8 @@ pub fn scroll_id(
 ///|
 pub fn scroll_selector(
   selector : String,
-  behavior? : ScrollBehavior = Smooth,
-  block? : ScrollBlock = Nearest,
+  behavior~ : ScrollBehavior = Smooth,
+  block~ : ScrollBlock = Nearest,
 ) -> Unit raise DomBoundaryError {
   scroll_target(LOOKUP_SELECTOR, selector, Selector(selector), behavior, block)
 }
@@ -307,9 +315,9 @@ pub fn reload() -> Unit raise DomBoundaryError {
 pub fn dispatch_custom_event_id(
   id : String,
   event_type : String,
-  detail? : String = "",
-  bubbles? : Bool = true,
-  composed? : Bool = true,
+  detail~ : String = "",
+  bubbles~ : Bool = true,
+  composed~ : Bool = true,
 ) -> Unit raise DomBoundaryError {
   dispatch_custom_event_target(
     LOOKUP_ID,
@@ -326,9 +334,9 @@ pub fn dispatch_custom_event_id(
 pub fn dispatch_custom_event_selector(
   selector : String,
   event_type : String,
-  detail? : String = "",
-  bubbles? : Bool = true,
-  composed? : Bool = true,
+  detail~ : String = "",
+  bubbles~ : Bool = true,
+  composed~ : Bool = true,
 ) -> Unit raise DomBoundaryError {
   dispatch_custom_event_target(
     LOOKUP_SELECTOR,

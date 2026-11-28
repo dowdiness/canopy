@@ -4,7 +4,7 @@
 
 ///|
 /// Bounded-depth recursive generator for RoseNode[Int] trees.
-fn gen_rose_node(rs : @splitmix.RandomState, depth : Int) -> RoseNode[Int] {
+fn gen_rose_node(rs : @splitmix.RandomState, depth : Int32) -> RoseNode[Int32] {
   if depth <= 0 {
     RoseNode(data=rs.split().next_positive_int() % 100)
   } else {
@@ -13,7 +13,7 @@ fn gen_rose_node(rs : @splitmix.RandomState, depth : Int) -> RoseNode[Int] {
       RoseNode(data=rs.split().next_positive_int() % 100)
     } else {
       let child_count = rs.split().next_positive_int() % 4
-      let children : Array[RoseNode[Int]] = []
+      let children : Array[RoseNode[Int32]] = []
       for _ in 0..<child_count {
         children.push(gen_rose_node(rs.split(), depth - 1))
       }
@@ -23,16 +23,16 @@ fn gen_rose_node(rs : @splitmix.RandomState, depth : Int) -> RoseNode[Int] {
 }
 
 ///|
-impl @quickcheck.Arbitrary for RoseNode[Int] with fn arbitrary(size, rs) {
+impl @quickcheck.Arbitrary for RoseNode[Int32] with fn arbitrary(size, rs) {
   gen_rose_node(rs, if size < 1 { 1 } else if size > 4 { 4 } else { size })
 }
 
 ///|
 /// No-op shrink impl (required by quick_check_fn).
-impl @qc.Shrink for RoseNode[Int]
+impl @shrink.Shrink for RoseNode[Int32]
 
 ///|
-fn prop_go_down_go_up_round_trip(tree : RoseNode[Int]) -> Bool {
+fn prop_go_down_go_up_round_trip(tree : RoseNode[Int32]) -> Bool {
   let z = RoseZipper::from_root(tree)
   if z.num_children() > 0 {
     let z2 = z.go_down().unwrap().go_up().unwrap()
@@ -48,11 +48,11 @@ test "property: go_down then go_up round-trip preserves focus" {
 }
 
 ///|
-fn prop_to_path_focus_at_inverse(tree : RoseNode[Int]) -> Bool {
+fn prop_to_path_focus_at_inverse(tree : RoseNode[Int32]) -> Bool {
   let z = RoseZipper::from_root(tree)
   // Root case: empty path round-trips
   let root_path = z.to_path()
-  if root_path != ([] : Array[Int]) {
+  if root_path != ([] : Array[Int32]) {
     return false
   }
   match RoseZipper::focus_at(tree, root_path) {

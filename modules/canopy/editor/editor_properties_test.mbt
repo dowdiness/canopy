@@ -70,7 +70,7 @@ test "property: cursor advances after insert" {
 ///|
 /// Property: Sequential operations maintain consistency
 test "property: sequential operations maintain invariants" {
-  let ops_arrays : Array[Array[Int]] = @quickcheck.samples(10)
+  let ops_arrays : Array[Array[Int32]] = @quickcheck.samples(10)
   for ops in ops_arrays {
     let editor = try! @editor.Editor::new("test-agent")
     for op in ops {

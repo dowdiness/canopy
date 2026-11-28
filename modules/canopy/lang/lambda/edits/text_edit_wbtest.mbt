@@ -1175,7 +1175,7 @@ test "compute_text_edit: MoveBindingUp swaps fn bindings" {
 /// text reparses to the intended block shape), not just by string match — a
 /// botched swap can string-match an expectation while reparsing to a different
 /// structure (see the #649/#650 reparse-gate lesson).
-fn nested_block_def_names(def_index : Int, text : String) -> String raise {
+fn nested_block_def_names(def_index : Int32, text : String) -> String raise {
   let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   match proj.children[def_index].children[0].kind {
     @ast.Term::Module(defs, _) => defs.map(fn(d) { d.0 }).join(",")
@@ -1208,7 +1208,7 @@ fn root_def_names(text : String) -> String raise {
 /// initializer. Keeps block-local edit tests focused on the operation under test.
 fn block_local_edit_ctx(
   text : String,
-  def_index : Int,
+  def_index : Int32,
 ) -> (EditContext[@ast.Term], ProjNode[@ast.Term]) raise {
   let (proj, _) = parse_to_proj_node(lambda_text_edit_test_source, text)
   let source_map = SourceMap::from_ast(proj)
@@ -1222,7 +1222,7 @@ fn block_local_edit_ctx(
 /// rewrite binding text.
 fn block_local_edit_ctx_with_token_spans(
   text : String,
-  def_index : Int,
+  def_index : Int32,
 ) -> (EditContext[@ast.Term], ProjNode[@ast.Term]) raise {
   let (proj, source_map, registry) = parse_with_token_spans(text)
   let block = proj.children[def_index].children[0]

@@ -1,6 +1,6 @@
 ///|
 pub(all) suberror ProtocolError {
-  MessageTooShort(length~ : Int)
+  MessageTooShort(length~ : Int32)
   UnsupportedVersion(version~ : Byte)
   UnknownMessageType(msg_type~ : Byte)
   MissingNamespace

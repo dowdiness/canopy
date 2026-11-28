@@ -14,19 +14,20 @@ pub(all) suberror MarkdownArchiveError {
   InvalidAgentId
   WriterCreationFailed(detail~ : String)
   ExportFailed(detail~ : String)
-  LimitExceeded(dimension~ : MarkdownArchiveLimitDimension, maximum~ : Int, actual~ : Int)
+  LimitExceeded(dimension~ : MarkdownArchiveLimitDimension, maximum~ : Int32, actual~ : Int32)
   HistoryAdmissionFailed(detail~ : String)
   IncompleteHistory
 }
 
 pub(all) suberror MarkdownArchiveOpenLimitsError {
-  InvalidLimit(dimension~ : MarkdownArchiveLimitDimension, value~ : Int)
+  InvalidLimit(dimension~ : MarkdownArchiveLimitDimension, value~ : Int32)
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror MarkdownDocumentUtf16SelectionError {
-  OutOfBounds(anchor~ : Int, head~ : Int, source_length~ : Int)
-  MidGraphemeBoundary(offset~ : Int)
-} derive(Eq, @debug.Debug)
+  OutOfBounds(anchor~ : Int32, head~ : Int32, source_length~ : Int32)
+  MidGraphemeBoundary(offset~ : Int32)
+}
 pub fn MarkdownDocumentUtf16SelectionError::equal(Self, Self) -> Bool
 pub fn MarkdownDocumentUtf16SelectionError::not_equal(Self, Self) -> Bool
 pub fn MarkdownDocumentUtf16SelectionError::to_repr(Self) -> @debug.Repr
@@ -35,7 +36,7 @@ pub(all) suberror MarkdownEditorError {
   InvalidAgentId
   InitializationFailed(detail~ : String)
   ProjectionUnavailable
-  InvalidTextRange(start~ : Int, delete_len~ : Int, source_length~ : Int)
+  InvalidTextRange(start~ : Int32, delete_len~ : Int32, source_length~ : Int32)
   EditFailed(detail~ : String)
   Committed(evidence~ : MarkdownCommittedEvidence, issue~ : MarkdownPostCommitIssue)
 }
@@ -45,20 +46,22 @@ pub(all) suberror MarkdownHistoryCodecError {
 }
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownAdmitReport {
   Complete
-  Withheld(applied~ : Int, withheld~ : Int)
-} derive(Eq, @debug.Debug)
+  Withheld(applied~ : Int32, withheld~ : Int32)
+}
 pub fn MarkdownAdmitReport::equal(Self, Self) -> Bool
 pub fn MarkdownAdmitReport::not_equal(Self, Self) -> Bool
 pub fn MarkdownAdmitReport::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownArchiveLimitDimension {
   EncodedBytes
   DecodedOperations
   PendingOperations
   ParentsPerOperation
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownArchiveLimitDimension::equal(Self, Self) -> Bool
 pub fn MarkdownArchiveLimitDimension::not_equal(Self, Self) -> Bool
 pub fn MarkdownArchiveLimitDimension::to_repr(Self) -> @debug.Repr
@@ -66,47 +69,51 @@ pub fn MarkdownArchiveLimitDimension::to_repr(Self) -> @debug.Repr
 pub struct MarkdownArchiveOpenLimits {
   // private fields
 }
-pub fn MarkdownArchiveOpenLimits::MarkdownArchiveOpenLimits(max_encoded_bytes~ : Int, max_decoded_operations~ : Int, max_pending_operations~ : Int, max_parents_per_operation~ : Int) -> Self raise MarkdownArchiveOpenLimitsError
+pub fn MarkdownArchiveOpenLimits::MarkdownArchiveOpenLimits(max_encoded_bytes~ : Int32, max_decoded_operations~ : Int32, max_pending_operations~ : Int32, max_parents_per_operation~ : Int32) -> Self raise MarkdownArchiveOpenLimitsError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownBlockKind {
   Paragraph
-  Heading(level~ : Int)
+  Heading(level~ : Int32)
   UnorderedListItem
-  OrderedListItem(start~ : Int, delimiter~ : String)
+  OrderedListItem(start~ : Int32, delimiter~ : String)
   CodeBlock(info~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownBlockKind::equal(Self, Self) -> Bool
 pub fn MarkdownBlockKind::not_equal(Self, Self) -> Bool
 pub fn MarkdownBlockKind::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownBlockSelection {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownBlockSelection::equal(Self, Self) -> Bool
 pub fn MarkdownBlockSelection::node_id(Self) -> MarkdownNodeId
 pub fn MarkdownBlockSelection::not_equal(Self, Self) -> Bool
-pub fn MarkdownBlockSelection::offset(Self) -> Int
+pub fn MarkdownBlockSelection::offset(Self) -> Int32
 pub fn MarkdownBlockSelection::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownBlockSnapshot {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownBlockSnapshot::equal(Self, Self) -> Bool
-pub fn MarkdownBlockSnapshot::fence_close_range(Self) -> (Int, Int)?
-pub fn MarkdownBlockSnapshot::fence_open_range(Self) -> (Int, Int)?
+pub fn MarkdownBlockSnapshot::fence_close_range(Self) -> (Int32, Int32)?
+pub fn MarkdownBlockSnapshot::fence_open_range(Self) -> (Int32, Int32)?
 pub fn MarkdownBlockSnapshot::key(Self) -> String
 pub fn MarkdownBlockSnapshot::kind(Self) -> MarkdownBlockKind
-pub fn MarkdownBlockSnapshot::marker_range(Self) -> (Int, Int)?
+pub fn MarkdownBlockSnapshot::marker_range(Self) -> (Int32, Int32)?
 pub fn MarkdownBlockSnapshot::node_id(Self) -> MarkdownNodeId
 pub fn MarkdownBlockSnapshot::not_equal(Self, Self) -> Bool
-pub fn MarkdownBlockSnapshot::source_range(Self) -> (Int, Int)
+pub fn MarkdownBlockSnapshot::source_range(Self) -> (Int32, Int32)
 pub fn MarkdownBlockSnapshot::text(Self) -> String
-pub fn MarkdownBlockSnapshot::text_range(Self) -> (Int, Int)
+pub fn MarkdownBlockSnapshot::text_range(Self) -> (Int32, Int32)
 pub fn MarkdownBlockSnapshot::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownCommitOrigin {
   Local
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownCommitOrigin::equal(Self, Self) -> Bool
 pub fn MarkdownCommitOrigin::not_equal(Self, Self) -> Bool
 pub fn MarkdownCommitOrigin::to_repr(Self) -> @debug.Repr
@@ -121,17 +128,19 @@ pub fn MarkdownCommitReceipt::origin(Self) -> MarkdownCommitOrigin
 pub fn MarkdownCommitReceipt::result(Self) -> MarkdownCommitResult
 pub fn MarkdownCommitReceipt::transforms(Self) -> @vector.Vector[MarkdownTextTransform]
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownCommitResult {
   Applied(MarkdownDocumentSnapshot, MarkdownBlockSelection?)
   Unchanged(MarkdownDocumentSnapshot)
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownCommitResult::equal(Self, Self) -> Bool
 pub fn MarkdownCommitResult::not_equal(Self, Self) -> Bool
 pub fn MarkdownCommitResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownCommittedEvidence {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownCommittedEvidence::after(Self) -> String?
 pub fn MarkdownCommittedEvidence::before(Self) -> String
 pub fn MarkdownCommittedEvidence::equal(Self, Self) -> Bool
@@ -147,9 +156,10 @@ pub fn MarkdownDocumentHistory::not_equal(Self, Self) -> Bool
 pub fn MarkdownDocumentHistory::to_json_string(Self) -> String
 pub impl Eq for MarkdownDocumentHistory
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownDocumentSnapshot {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownDocumentSnapshot::blocks(Self) -> @vector.Vector[MarkdownBlockSnapshot]
 pub fn MarkdownDocumentSnapshot::equal(Self, Self) -> Bool
 pub fn MarkdownDocumentSnapshot::not_equal(Self, Self) -> Bool
@@ -157,39 +167,42 @@ pub fn MarkdownDocumentSnapshot::projection(Self) -> MarkdownProjectionSnapshot
 pub fn MarkdownDocumentSnapshot::source(Self) -> String
 pub fn MarkdownDocumentSnapshot::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownDocumentUtf16Selection {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(MarkdownDocumentSnapshot, anchor~ : Int, head~ : Int) -> Self raise MarkdownDocumentUtf16SelectionError
-pub fn MarkdownDocumentUtf16Selection::anchor(Self) -> Int
+}
+pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(MarkdownDocumentSnapshot, anchor~ : Int32, head~ : Int32) -> Self raise MarkdownDocumentUtf16SelectionError
+pub fn MarkdownDocumentUtf16Selection::anchor(Self) -> Int32
 pub fn MarkdownDocumentUtf16Selection::equal(Self, Self) -> Bool
-pub fn MarkdownDocumentUtf16Selection::head(Self) -> Int
+pub fn MarkdownDocumentUtf16Selection::head(Self) -> Int32
 pub fn MarkdownDocumentUtf16Selection::is_backward(Self) -> Bool
 pub fn MarkdownDocumentUtf16Selection::is_collapsed(Self) -> Bool
 pub fn MarkdownDocumentUtf16Selection::not_equal(Self, Self) -> Bool
-pub fn MarkdownDocumentUtf16Selection::range_end(Self) -> Int
-pub fn MarkdownDocumentUtf16Selection::range_start(Self) -> Int
+pub fn MarkdownDocumentUtf16Selection::range_end(Self) -> Int32
+pub fn MarkdownDocumentUtf16Selection::range_start(Self) -> Int32
 pub fn MarkdownDocumentUtf16Selection::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownDocumentVersion {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownDocumentVersion::equal(Self, Self) -> Bool
 pub fn MarkdownDocumentVersion::not_equal(Self, Self) -> Bool
 pub fn MarkdownDocumentVersion::to_json_string(Self) -> String raise @text.TextError
 pub fn MarkdownDocumentVersion::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownEditRequest {
   ReplaceSource(String)
-  ReplaceText(start~ : Int, delete_len~ : Int, inserted~ : String)
+  ReplaceText(start~ : Int32, delete_len~ : Int32, inserted~ : String)
   CommitEdit(node_id~ : MarkdownNodeId, new_text~ : String)
   CommitTextControlEdit(node_id~ : MarkdownNodeId, new_text~ : String)
-  SplitBlock(node_id~ : MarkdownNodeId, offset~ : Int)
-  ChangeHeadingLevel(node_id~ : MarkdownNodeId, level~ : Int)
+  SplitBlock(node_id~ : MarkdownNodeId, offset~ : Int32)
+  ChangeHeadingLevel(node_id~ : MarkdownNodeId, level~ : Int32)
   ToggleListItem(node_id~ : MarkdownNodeId)
   Delete(node_id~ : MarkdownNodeId)
   MergeWithPrevious(node_id~ : MarkdownNodeId)
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownEditRequest::equal(Self, Self) -> Bool
 pub fn MarkdownEditRequest::not_equal(Self, Self) -> Bool
 pub fn MarkdownEditRequest::to_repr(Self) -> @debug.Repr
@@ -205,55 +218,60 @@ pub fn MarkdownEditor::commit_with_receipt_observing(Self, MarkdownEditRequest, 
 pub fn MarkdownEditor::history_since(Self, version? : MarkdownDocumentVersion) -> MarkdownDocumentHistory raise MarkdownArchiveError
 pub fn MarkdownEditor::open(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> Self raise
 pub fn MarkdownEditor::open_with_semantic_attachment(agent_id~ : String, history~ : MarkdownDocumentHistory, open_limits~ : MarkdownArchiveOpenLimits) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise
-pub fn MarkdownEditor::portable_markdown(Self) -> String
+pub fn MarkdownEditor::portable_markdown(Self) -> String raise Failure
 pub fn MarkdownEditor::snapshot(Self) -> MarkdownDocumentSnapshot raise Failure
 pub fn MarkdownEditor::version(Self) -> MarkdownDocumentVersion
 pub fn MarkdownEditor::with_semantic_attachment(agent_id~ : String, source~ : String) -> (Self, @dowdiness/markdown.MarkdownSemanticAttachment) raise
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownNodeId {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownNodeId::equal(Self, Self) -> Bool
 pub fn MarkdownNodeId::key(Self) -> String
 pub fn MarkdownNodeId::not_equal(Self, Self) -> Bool
 pub fn MarkdownNodeId::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum MarkdownPostCommitIssue {
   RuntimeFailure(detail~ : String)
   ProjectionUnavailable
   ProjectionFailed
-  UnexpectedTransformCount(count~ : Int)
-} derive(Eq, @debug.Debug)
+  UnexpectedTransformCount(count~ : Int32)
+}
 pub fn MarkdownPostCommitIssue::equal(Self, Self) -> Bool
 pub fn MarkdownPostCommitIssue::not_equal(Self, Self) -> Bool
 pub fn MarkdownPostCommitIssue::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub enum MarkdownProjectionObservationPhase {
   AuthorityAccepted
   ProjectionMirrorSynchronized
   CausalEvidenceAvailable
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownProjectionObservationPhase::equal(Self, Self) -> Bool
 pub fn MarkdownProjectionObservationPhase::not_equal(Self, Self) -> Bool
 pub fn MarkdownProjectionObservationPhase::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownProjectionSnapshot {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn MarkdownProjectionSnapshot::equal(Self, Self) -> Bool
 pub fn MarkdownProjectionSnapshot::node_ids(Self) -> @vector.Vector[MarkdownNodeId]
 pub fn MarkdownProjectionSnapshot::not_equal(Self, Self) -> Bool
 pub fn MarkdownProjectionSnapshot::root_id(Self) -> MarkdownNodeId?
 pub fn MarkdownProjectionSnapshot::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct MarkdownTextTransform {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn MarkdownTextTransform::delete_len(Self) -> Int
+}
+pub fn MarkdownTextTransform::delete_len(Self) -> Int32
 pub fn MarkdownTextTransform::equal(Self, Self) -> Bool
 pub fn MarkdownTextTransform::inserted(Self) -> String
 pub fn MarkdownTextTransform::not_equal(Self, Self) -> Bool
-pub fn MarkdownTextTransform::start(Self) -> Int
+pub fn MarkdownTextTransform::start(Self) -> Int32
 pub fn MarkdownTextTransform::to_repr(Self) -> @debug.Repr
 
 // Type aliases

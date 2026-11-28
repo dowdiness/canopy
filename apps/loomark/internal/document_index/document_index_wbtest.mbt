@@ -39,7 +39,7 @@ fn step(
 /// The shell reports every card it was asked to measure as `height` tall.
 fn measured(
   index : DocumentIndex[String],
-  height : Int,
+  height : Int32,
 ) -> DocumentIndex[String] {
   step(
     index,

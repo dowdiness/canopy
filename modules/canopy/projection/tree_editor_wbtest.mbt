@@ -56,7 +56,7 @@ fn tree_editor_test_loaded_children(
 ///|
 fn tree_editor_test_elided_descendant_count(
   node : InteractiveTreeNode[@ast.Term],
-) -> Int raise {
+) -> Int32 raise {
   match node.children {
     Elided(descendant_count) => descendant_count
     Loaded(_) => fail("expected elided children")
@@ -89,8 +89,8 @@ test "refresh_node_minimal skips unchanged subtrees" {
   let reconciled = @core.reconcile(old_root, new_root, Ref(1000))
   let source_map = SourceMap::from_ast(reconciled)
   let ui_state : TreeUIState = {
-    collapsed_nodes: @immut/hashset.new(),
-    selection: @immut/hashset.new(),
+    collapsed_nodes: @immut/hashset.empty(),
+    selection: @immut/hashset.empty(),
     editing_node: None,
     drop_target: None,
   }
@@ -459,7 +459,7 @@ test "refresh prunes stale ids from UI state" {
     dragging: Some(stale_id),
     drop_target: Some(stale_id),
     drop_position: Some(After),
-    collapsed_nodes: state.collapsed_nodes.add(ids[0]).add(stale_id),
+    collapsed_nodes: state.collapsed_nodes.insert(ids[0]).insert(stale_id),
   }
   let refreshed = stale_state.refresh(Some(root), source_map)
   inspect(refreshed.selection.length(), content="1")
@@ -549,8 +549,8 @@ test "refresh builder reuses unchanged sibling subtree after unrelated leaf chan
   let reconciled = @core.reconcile(old_root, new_root, Ref(1000))
   let source_map = SourceMap::from_ast(reconciled)
   let ui_state : TreeUIState = {
-    collapsed_nodes: @immut/hashset.new(),
-    selection: @immut/hashset.new(),
+    collapsed_nodes: @immut/hashset.empty(),
+    selection: @immut/hashset.empty(),
     editing_node: None,
     drop_target: None,
   }

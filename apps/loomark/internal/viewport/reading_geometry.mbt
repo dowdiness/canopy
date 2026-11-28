@@ -4,9 +4,9 @@
 /// numeric policy belongs in policy.mbt, never in callbacks over this trait.
 priv trait ReadingGeometry {
   /// Top of the line showing `offset`.
-  fn top_of(Self, Int) -> Double
+  fn top_of(Self, Int32) -> Double
   /// The source offset shown at height `top`.
-  fn offset_at(Self, Double) -> Int
+  fn offset_at(Self, Double) -> Int32
   /// Zero where offsets sit at points rather than on lines.
   fn line_height(Self) -> Double
   /// Top and bottom of the area clear of overlaid controls.
@@ -32,7 +32,10 @@ fn[G : ReadingGeometry] is_readable(geometry : G, top : Double) -> Bool {
 }
 
 ///|
-fn[G : ReadingGeometry] anchor_at(geometry : G, offset : Int) -> ReadingAnchor {
+fn[G : ReadingGeometry] anchor_at(
+  geometry : G,
+  offset : Int32,
+) -> ReadingAnchor {
   { offset, top: geometry.top_of(offset), }
 }
 
@@ -54,7 +57,7 @@ fn[G : ReadingGeometry] align(geometry : G, anchor : ReadingAnchor) -> Unit {
 }
 
 ///|
-fn[G : ReadingGeometry] reveal(geometry : G, offset : Int) -> Unit {
+fn[G : ReadingGeometry] reveal(geometry : G, offset : Int32) -> Unit {
   align(geometry, anchor_at(geometry, offset))
 }
 

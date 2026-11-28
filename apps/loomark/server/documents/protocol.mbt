@@ -1,8 +1,8 @@
 ///|
-const MAX_TEXT_BYTES : Int = 1024 * 1024
+const MAX_TEXT_BYTES : Int32 = 1024 * 1024
 
 ///|
-const MAX_REQUEST_BYTES : Int = 6 * MAX_TEXT_BYTES + 1024
+const MAX_REQUEST_BYTES : Int32 = 6 * MAX_TEXT_BYTES + 1024
 
 ///|
 fn decode_mutation(value : Json, deleting~ : Bool) -> @store.Mutation? {
@@ -37,16 +37,16 @@ fn metadata_json(value : @store.Metadata) -> Json {
   match value.summary {
     Some({ preview, changed_at, }) =>
       {
-        "id": value.id.to_json(),
-        "revision": value.revision.to_json(),
+        "id": Json(value.id),
+        "revision": Json(value.revision),
         "deleted": false,
-        "preview": preview.to_json(),
-        "changedAt": changed_at.to_json(),
+        "preview": Json(preview),
+        "changedAt": Json(changed_at),
       }
     None =>
       {
-        "id": value.id.to_json(),
-        "revision": value.revision.to_json(),
+        "id": Json(value.id),
+        "revision": Json(value.revision),
         "deleted": true,
       }
   }
@@ -57,16 +57,16 @@ fn document_json(value : @store.Document) -> Json {
   match value.content {
     Some({ text, changed_at, }) =>
       {
-        "id": value.id.to_json(),
-        "revision": value.revision.to_json(),
+        "id": Json(value.id),
+        "revision": Json(value.revision),
         "deleted": false,
-        "text": text.to_json(),
-        "changedAt": changed_at.to_json(),
+        "text": Json(text),
+        "changedAt": Json(changed_at),
       }
     None =>
       {
-        "id": value.id.to_json(),
-        "revision": value.revision.to_json(),
+        "id": Json(value.id),
+        "revision": Json(value.revision),
         "deleted": true,
         "text": Json::null(),
       }

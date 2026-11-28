@@ -10,13 +10,13 @@ import {
   "dowdiness/canvas-layout@0.1.0",
   "dowdiness/loom@0.1.0",
   "dowdiness/rabbita_codemirror@0.0.1",
-  "dowdiness/incr@0.15.1",
+  "dowdiness/incr@0.16.0",
   "dowdiness/dom_boundary@0.1.0",
   "dowdiness/js_ffi@0.1.0",
   "dowdiness/rabbita-menu@0.1.0",
   "dowdiness/rabbita-context-menu@0.1.0",
   "dowdiness/rabbita-status@0.1.0",
-  "moonbit-community/rabbita@0.16.3",
+  "moonbit-community/rabbita@0.17.2",
   "moonbitlang/async@0.21.0",
 }
 

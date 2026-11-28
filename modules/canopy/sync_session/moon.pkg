@@ -5,7 +5,3 @@ import {
   "dowdiness/byte_codec",
   "moonbitlang/core/debug",
 }
-
-options(
-  is_main: false,
-)

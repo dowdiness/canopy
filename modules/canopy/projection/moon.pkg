@@ -22,7 +22,3 @@ import {
 } for "wbtest"
 
 warnings = "-2-6-29"
-
-options(
-  is_main: false,
-)

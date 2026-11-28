@@ -91,7 +91,7 @@ fn find_var_in_body(
 /// def inits are the Module's leading children (before the body).
 fn find_var_in_def_init(
   root : @core.ProjNode[@ast.Term],
-  idx : Int,
+  idx : Int32,
   name : String,
 ) -> @core.NodeId {
   match root.kind {

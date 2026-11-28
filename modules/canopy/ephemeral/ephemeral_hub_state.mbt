@@ -3,8 +3,8 @@
 ///|
 pub fn EphemeralHub::set_cursor(
   self : EphemeralHub,
-  position : Int,
-  selection? : (Int, Int)? = None,
+  position : Int32,
+  selection~ : (Int32, Int32)? = None,
 ) -> Unit {
   let map : Map[String, EphemeralValue] = Map([])
   map["position"] = EphemeralValue::I64(position.to_int64())
@@ -41,7 +41,7 @@ pub fn EphemeralHub::clear_edit_mode(self : EphemeralHub) -> Unit {
 pub fn EphemeralHub::set_drag(
   self : EphemeralHub,
   source_id : String,
-  target? : (String, DragPosition)? = None,
+  target~ : (String, DragPosition)? = None,
 ) -> Unit {
   let state : DragState = { source_id, target, }
   self.stores[Drag].set(self.wire_peer_id, state.to_ephemeral()) catch {

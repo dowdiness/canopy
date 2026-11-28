@@ -1,6 +1,2 @@
 import {
 } for "wbtest"
-
-options(
-  is_main: false,
-)

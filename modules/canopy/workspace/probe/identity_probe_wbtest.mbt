@@ -22,7 +22,7 @@ test "A1: shared peer_id — broadcast is skipped" {
   let room = @editor.InMemoryRoom::new()
   let t_a = @editor.InMemoryTransport::new("shared_agent", room)
   let t_b = @editor.InMemoryTransport::new("shared_agent", room)
-  let received : Array[Int] = []
+  let received : Array[Int32] = []
   t_b.on_receive(fn(data) { received.push(data.length()) })
   // Send an arbitrary payload from A (5 arbitrary bytes)
   t_a.send(Bytes::make(5, b'\x00'))
@@ -47,7 +47,7 @@ test "A2: shared agent_id — conflicting RawVersion is rejected" {
     false
   } catch {
     @text.TextError::SyncFailed(
-      @sync.Failure::ConflictingIdentity(replica_id~, sequence~)
+      @sync.Failure::ConflictingIdentity(replica_id~, sequence~),
     ) => {
       inspect(replica_id, content="shared_agent")
       inspect(sequence, content="1")
@@ -57,7 +57,7 @@ test "A2: shared agent_id — conflicting RawVersion is rejected" {
   }
   inspect(conflict_detected, content="true")
   // The rejected message does not alter B's three local character operations.
-  let snap = editor_b.causal_snapshot()
+  let snap = editor_b.causal_view()
   inspect(snap.op_count(), content="3")
   let entry = snap.entry(0).unwrap()
   inspect(entry.agent(), content="shared_agent")
@@ -140,7 +140,7 @@ test "B1: distinct agent_ids + sync — NodeIds are identical post-sync" {
   // Build a lookup set from B's ids
   let ids_b_set : Set[@core.NodeId] = Set([])
   for id in ids_b {
-    ids_b_set.add(id)
+    ids_b_set.insert(id)
   }
   for id in ids_a {
     inspect(ids_b_set.contains(id), content="true")
@@ -205,7 +205,7 @@ test "B1': same-variant divergence — NodeId→kind mapping is stable" {
   inspect(ids_a.length() == ids_b.length(), content="true")
   let ids_b_set : Set[@core.NodeId] = Set([])
   for id in ids_b {
-    ids_b_set.add(id)
+    ids_b_set.insert(id)
   }
   for id in ids_a {
     inspect(ids_b_set.contains(id), content="true")

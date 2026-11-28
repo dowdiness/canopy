@@ -1,10 +1,11 @@
 ///|
 // A single entry for a match list UI widget — from/to for jump, pattern_id for label.
+#derive(@debug.Debug)
 pub(all) struct MatchListEntry {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
   pattern_id : String
-} derive(@debug.Debug)
+}
 
 ///|
 pub fn facts_to_match_list(

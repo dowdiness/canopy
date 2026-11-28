@@ -11,8 +11,8 @@ pub fn document_request(
 }
 
 ///|
-fn error_response(code : String, status : Int) -> @http.Response raise {
-  @http.Response::json({ "error": code.to_json() }, status~)
+fn error_response(code : String, status : Int32) -> @http.Response raise {
+  @http.Response::json({ "error": Json(code) }, status~)
 }
 
 ///|
@@ -34,11 +34,11 @@ async fn handle_request(
     }
     let page = @store.list(db, owner, after)
     let next = match page.next {
-      Some(id) => id.to_json()
+      Some(id) => Json(id)
       None => Json::null()
     }
     return @http.Response::json({
-      "documents": page.documents.map(metadata_json).to_json(),
+      "documents": Json(page.documents.map(metadata_json)),
       "next": next,
     })
   }
@@ -81,9 +81,9 @@ async fn handle_request(
   match @store.commit(db, owner, id, mutation) {
     Saved(revision~) =>
       @http.Response::json({
-        "id": id.to_json(),
-        "operationId": mutation.operation_id.to_json(),
-        "revision": revision.to_json(),
+        "id": Json(id),
+        "operationId": Json(mutation.operation_id),
+        "revision": Json(revision),
       })
     Conflict => error_response("revision_conflict", 409)
     OperationReused => error_response("operation_id_reused", 422)

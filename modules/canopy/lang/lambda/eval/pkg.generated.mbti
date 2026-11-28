@@ -28,11 +28,12 @@ pub fn split_at_hardlines(@pretty.Layout[@pretty.SyntaxCategory]) -> Array[@pret
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum EvalResult {
   Value(String)
   Stuck(String)
   Suppressed
-} derive(Eq, @debug.Debug)
+}
 pub fn EvalResult::equal(Self, Self) -> Bool
 pub fn EvalResult::not_equal(Self, Self) -> Bool
 pub fn EvalResult::output(Self, &Logger) -> Unit

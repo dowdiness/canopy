@@ -5,14 +5,15 @@ using @spatial {type ScreenPoint, type WorldPoint, type Viewport}
 // v2: NodeId/EdgeId wire encoding is a JSON string (the projection token), not
 // the v1 positional integer. The decode gate below rejects v1 payloads, so the
 // bump keeps "version" an honest, single-meaning format marker.
-const GRAPH_OPERATION_VERSION : Int = 2
+const GRAPH_OPERATION_VERSION : Int32 = 2
 
 ///|
 /// Stable identity for graph nodes in the canvas model. For source-backed
 /// graphs this is the Loom `ProjectionIdentityTracker` token (`GraphNode::id()`,
 /// e.g. `"node#0:osc"`); for the hand-built canvas it is a minted string
 /// (`"7"`, `"8"`, ...). It is the only cross-frame node identity.
-pub(all) struct NodeId(String) derive(Debug, Eq)
+#derive(Debug, Eq)
+pub(all) struct NodeId(String)
 
 ///|
 pub fn NodeId::to_string(self : NodeId) -> String {
@@ -27,7 +28,7 @@ pub impl Show for NodeId with fn output(self, logger) {
 
 ///|
 pub impl ToJson for NodeId with fn to_json(self) {
-  self.to_string().to_json()
+  Json(self.to_string())
 }
 
 ///|
@@ -43,7 +44,8 @@ pub impl @json.FromJson for NodeId with fn from_json(json, path) {
 /// endpoints — `(source, source_port, target, target_port)` — so no allocator
 /// or registry is needed. `source_port` is included so two edges from distinct
 /// output ports of one source to the same target port do not collide.
-pub(all) struct EdgeId(String) derive(Debug, Eq)
+#derive(Debug, Eq)
+pub(all) struct EdgeId(String)
 
 ///|
 pub fn EdgeId::from_edge(
@@ -76,7 +78,7 @@ pub impl Show for EdgeId with fn output(self, logger) {
 
 ///|
 pub impl ToJson for EdgeId with fn to_json(self) {
-  self.to_string().to_json()
+  Json(self.to_string())
 }
 
 ///|
@@ -90,6 +92,7 @@ pub impl @json.FromJson for EdgeId with fn from_json(json, path) {
 ///|
 /// Logical data carried by workflow ports. `Any` is reserved for custom nodes
 /// and future adapters; built-in workflow nodes use concrete types.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) enum PortType {
   Flow
   Text
@@ -97,7 +100,7 @@ pub(all) enum PortType {
   Boolean
   Json
   Any
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 pub impl Show for PortType with fn output(self, logger) {
@@ -107,6 +110,7 @@ pub impl Show for PortType with fn output(self, logger) {
 ///|
 /// Port metadata shared by render DTOs and graph operations. Prefer the
 /// `port` constructor so new optional capabilities receive their defaults.
+#derive(Debug, Eq)
 pub struct PortDef {
   id : String
   label : String
@@ -115,7 +119,7 @@ pub struct PortDef {
   /// Output ports carry the field for one shared port shape, but validation
   /// only consults it on target input ports.
   allows_fan_in : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for PortDef with fn output(self, logger) {
@@ -125,11 +129,11 @@ pub impl Show for PortDef with fn output(self, logger) {
 ///|
 pub impl ToJson for PortDef with fn to_json(self) {
   let fields : Map[String, Json] = Map([])
-  fields["id"] = self.id.to_json()
-  fields["label"] = self.label.to_json()
+  fields["id"] = Json(self.id)
+  fields["label"] = Json(self.label)
   fields["port_type"] = ToJson::to_json(self.port_type)
   if self.allows_fan_in {
-    fields["allows_fan_in"] = true.to_json()
+    fields["allows_fan_in"] = Json(true)
   }
   Json::object(fields)
 }
@@ -167,6 +171,7 @@ pub impl @json.FromJson for PortDef with fn from_json(json, path) {
 ///|
 /// Built-in workflow templates. `Custom` keeps the canvas extensible without
 /// hard-coding application-specific integrations into the visual layer.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) enum WorkflowNodeKind {
   TimerTrigger
   HttpRequest
@@ -175,7 +180,7 @@ pub(all) enum WorkflowNodeKind {
   Loop
   Parallel
   Custom(String)
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 pub impl Show for WorkflowNodeKind with fn output(self, logger) {
@@ -185,10 +190,11 @@ pub impl Show for WorkflowNodeKind with fn output(self, logger) {
 ///|
 /// Visual kind of a node. The canvas stays generic by representing application
 /// behavior through workflow metadata rather than embedding executor logic here.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) enum NodeKind {
   /// Workflow step rendered with typed ports and validation state.
   Workflow(WorkflowNodeKind)
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 pub impl Show for NodeKind with fn output(self, logger) {
@@ -198,6 +204,7 @@ pub impl Show for NodeKind with fn output(self, logger) {
 ///|
 /// Node dimensions are finite and non-negative. Zero dimensions are valid for
 /// collapsed or not-yet-measured layout.
+#derive(Eq, Debug)
 pub(all) suberror NodeSizeError {
   /// The width is NaN or positive/negative infinity.
   NonFiniteWidth
@@ -207,13 +214,14 @@ pub(all) suberror NodeSizeError {
   NegativeWidth
   /// The height is negative.
   NegativeHeight
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Debug, Eq)
 pub struct NodeSize {
   priv width : Double
   priv height : Double
-} derive(Debug, Eq)
+}
 
 ///|
 /// Construct graph-specific node dimensions.
@@ -251,6 +259,7 @@ pub type NodePosition = @spatial.ItemPosition[NodeId]
 /// A single node on the canvas. Coordinates are in world space. The visual
 /// editor owns layout and display state; executable behavior lives in a future
 /// compiler/execution layer keyed by `kind` and ports.
+#derive(Debug, Eq)
 pub(all) struct CanvasNode {
   id : NodeId
   priv position : WorldPoint
@@ -261,7 +270,7 @@ pub(all) struct CanvasNode {
   inputs : Array[PortDef]
   outputs : Array[PortDef]
   configured : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn CanvasNode::from_parts(
@@ -304,6 +313,7 @@ pub impl Show for CanvasNode with fn output(self, logger) {
 ///|
 /// Serializable user actions. UI event handlers translate pointer/menu events
 /// into these values before committing graph or session-state changes.
+#derive(Debug, Eq)
 pub(all) enum WorkflowAction {
   AddNode(CanvasNode)
   MoveNodes(Array[NodePosition])
@@ -314,7 +324,7 @@ pub(all) enum WorkflowAction {
   SetNodeParam(NodeId, String, String)
   SelectNodes(Array[NodeId])
   SetViewport(Viewport)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for WorkflowAction with fn output(self, logger) {
@@ -325,10 +335,11 @@ pub impl Show for WorkflowAction with fn output(self, logger) {
 /// Versioned graph operation wrapper. `WorkflowAction` remains the canvas
 /// action payload for this first extraction; this envelope is the
 /// replay/serialization boundary.
+#derive(Debug, Eq)
 pub struct GraphOperation {
-  priv version : Int
+  priv version : Int32
   priv action : WorkflowAction
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for GraphOperation with fn output(self, logger) {
@@ -343,7 +354,7 @@ pub fn GraphOperation::GraphOperation(
 }
 
 ///|
-pub fn GraphOperation::version(self : GraphOperation) -> Int {
+pub fn GraphOperation::version(self : GraphOperation) -> Int32 {
   self.version
 }
 
@@ -374,7 +385,7 @@ fn json_number_field(
   path : @json.JsonPath,
   key : String,
   owner : String,
-) -> Int raise @json.JsonDecodeError {
+) -> Int32 raise @json.JsonDecodeError {
   match require_json_field(fields, path, key, owner) {
     Json::Number(n, ..) => n.to_int()
     _ =>
@@ -403,51 +414,51 @@ fn json_string_field(
 ///|
 pub impl ToJson for GraphOperation with fn to_json(self) {
   let fields : Map[String, Json] = Map([])
-  fields["version"] = self.version.to_json()
+  fields["version"] = Json(self.version)
   match self.action {
     AddNode(node) => {
-      fields["type"] = "AddNode".to_json()
+      fields["type"] = Json("AddNode")
       fields["node"] = ToJson::to_json(canvas_node_to_wire(node))
     }
     MoveNodes(positions) => {
-      fields["type"] = "MoveNodes".to_json()
-      fields["positions"] = positions.map(node_position_to_wire).to_json()
+      fields["type"] = Json("MoveNodes")
+      fields["positions"] = Json(positions.map(node_position_to_wire))
     }
     ConnectPorts(source, source_port, target, target_port) => {
-      fields["type"] = "ConnectPorts".to_json()
+      fields["type"] = Json("ConnectPorts")
       fields["source"] = ToJson::to_json(source)
-      fields["source_port"] = source_port.to_json()
+      fields["source_port"] = Json(source_port)
       fields["target"] = ToJson::to_json(target)
-      fields["target_port"] = target_port.to_json()
+      fields["target_port"] = Json(target_port)
     }
     DisconnectPorts(source, source_port, target, target_port) => {
-      fields["type"] = "DisconnectPorts".to_json()
+      fields["type"] = Json("DisconnectPorts")
       fields["source"] = ToJson::to_json(source)
-      fields["source_port"] = source_port.to_json()
+      fields["source_port"] = Json(source_port)
       fields["target"] = ToJson::to_json(target)
-      fields["target_port"] = target_port.to_json()
+      fields["target_port"] = Json(target_port)
     }
     DeleteNodes(nodes) => {
-      fields["type"] = "DeleteNodes".to_json()
-      fields["nodes"] = nodes.to_json()
+      fields["type"] = Json("DeleteNodes")
+      fields["nodes"] = Json(nodes)
     }
     RenameNode(node_id, name) => {
-      fields["type"] = "RenameNode".to_json()
+      fields["type"] = Json("RenameNode")
       fields["node_id"] = ToJson::to_json(node_id)
-      fields["name"] = name.to_json()
+      fields["name"] = Json(name)
     }
     SetNodeParam(node_id, parameter, value) => {
-      fields["type"] = "SetNodeParam".to_json()
+      fields["type"] = Json("SetNodeParam")
       fields["node_id"] = ToJson::to_json(node_id)
-      fields["parameter"] = parameter.to_json()
-      fields["value"] = value.to_json()
+      fields["parameter"] = Json(parameter)
+      fields["value"] = Json(value)
     }
     SelectNodes(nodes) => {
-      fields["type"] = "SelectNodes".to_json()
-      fields["nodes"] = nodes.to_json()
+      fields["type"] = Json("SelectNodes")
+      fields["nodes"] = Json(nodes)
     }
     SetViewport(viewport) => {
-      fields["type"] = "SetViewport".to_json()
+      fields["type"] = Json("SetViewport")
       fields["viewport"] = viewport_to_json(viewport)
     }
   }
@@ -574,13 +585,14 @@ pub impl @json.FromJson for GraphOperation with fn from_json(json, path) {
 
 ///|
 /// A typed connection between two workflow ports.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Edge {
   id : EdgeId
   source : NodeId
   source_port : String
   target : NodeId
   target_port : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 pub impl Show for Edge with fn output(self, logger) {
@@ -590,11 +602,12 @@ pub impl Show for Edge with fn output(self, logger) {
 ///|
 /// In-flight connection started from a node's output handle.
 /// The cursor is a validated world-space point.
+#derive(Debug, Eq)
 pub(all) struct ConnectState {
   from_node : NodeId
   from_port : String
   priv cursor : WorldPoint
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ConnectState::from_parts(
@@ -616,6 +629,7 @@ pub impl Show for ConnectState with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct InteractionState {
   dragging : @spatial.Drag[NodeId]?
   panning : @spatial.Pan?
@@ -626,7 +640,7 @@ pub(all) struct InteractionState {
   pointer_down : Bool
   /// True once pointermove fires during the current pointer session.
   did_move : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for InteractionState with fn output(self, logger) {
@@ -634,6 +648,7 @@ pub impl Show for InteractionState with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug)
 pub(all) struct CanvasState {
   viewport : Viewport
   nodes : Array[CanvasNode]
@@ -641,10 +656,10 @@ pub(all) struct CanvasState {
   /// Monotonic counter used by the hand-built (non-source) canvas to mint fresh
   /// node ids (`NodeId(next_node_id.to_string())`). Source-backed graphs ignore
   /// it — their identity is the Loom tracker token.
-  next_node_id : Int
+  next_node_id : Int32
   interaction : InteractionState
   action_log : Array[GraphOperation]
-} derive(Debug)
+}
 
 ///|
 pub impl Show for CanvasState with fn output(self, logger) {
@@ -656,7 +671,7 @@ pub fn port(
   id : String,
   label : String,
   port_type : PortType,
-  allows_fan_in? : Bool = false,
+  allows_fan_in~ : Bool = false,
 ) -> PortDef {
   { id, label, port_type, allows_fan_in, }
 }

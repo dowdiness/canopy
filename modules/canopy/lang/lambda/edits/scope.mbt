@@ -25,7 +25,7 @@ fn module_def_decl_for_binding(
 fn sibling_module_def_decl(
   g : @scope.ScopeGraph,
   scope : @scope.ScopeId,
-  target_index : Int,
+  target_index : Int32,
 ) -> @scope.Decl? {
   let @scope.ScopeId(si) = scope
   g.scopes[si].decl_ids

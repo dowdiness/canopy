@@ -1,5 +1,5 @@
 ///|
-fn node_id(n : Int) -> @graph_model.NodeId {
+fn node_id(n : Int32) -> @graph_model.NodeId {
   @graph_model.NodeId(n.to_string())
 }
 
@@ -10,7 +10,7 @@ fn world(x : Double, y : Double) -> @spatial.WorldPoint {
 
 ///|
 fn sized_node(
-  id : Int,
+  id : Int32,
   x : Double,
   y : Double,
   width~ : Double,

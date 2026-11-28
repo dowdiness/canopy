@@ -53,15 +53,16 @@ pub fn write_text_value_id(String, String) -> Unit raise DomBoundaryError
 pub fn write_text_value_selector(String, String) -> Unit raise DomBoundaryError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror DomBoundaryError {
   DocumentUnavailable
   InvalidSelector(selector~ : String, detail~ : String)
   ElementNotFound(target~ : DomTarget)
   UnsupportedAction(action~ : DomAction, target~ : DomTarget)
-  InvalidTextSelection(selection~ : TextSelection, value_length~ : Int, target~ : DomTarget)
+  InvalidTextSelection(selection~ : TextSelection, value_length~ : Int32, target~ : DomTarget)
   ActionFailed(action~ : DomAction, target~ : DomTarget, detail~ : String)
-  UnknownStatus(status~ : Int, action~ : DomAction, target~ : DomTarget, detail~ : String)
-} derive(Eq, @debug.Debug)
+  UnknownStatus(status~ : Int32, action~ : DomAction, target~ : DomTarget, detail~ : String)
+}
 pub fn DomBoundaryError::equal(Self, Self) -> Bool
 pub fn DomBoundaryError::message(Self) -> String
 pub fn DomBoundaryError::not_equal(Self, Self) -> Bool
@@ -76,6 +77,7 @@ pub struct CustomEventSubscription {
 }
 pub fn CustomEventSubscription::dispose(Self) -> Unit raise DomBoundaryError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum DomAction {
   Focus
   Click
@@ -90,64 +92,70 @@ pub(all) enum DomAction {
   Reload
   ListenCustomEvent
   RemoveCustomEventListener
-} derive(Eq, @debug.Debug)
+}
 pub fn DomAction::equal(Self, Self) -> Bool
 pub fn DomAction::not_equal(Self, Self) -> Bool
 pub fn DomAction::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum DomTarget {
   Id(String)
   Selector(String)
   EventSubscription
-} derive(Eq, @debug.Debug)
+}
 pub fn DomTarget::equal(Self, Self) -> Bool
 pub fn DomTarget::not_equal(Self, Self) -> Bool
 pub fn DomTarget::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct ElementMeasurement {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ElementMeasurement::equal(Self, Self) -> Bool
 pub fn ElementMeasurement::not_equal(Self, Self) -> Bool
 pub fn ElementMeasurement::offset_height(Self) -> Double
 pub fn ElementMeasurement::offset_width(Self) -> Double
 pub fn ElementMeasurement::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ScrollBehavior {
   Auto
   Instant
   Smooth
-} derive(Eq, @debug.Debug)
+}
 pub fn ScrollBehavior::equal(Self, Self) -> Bool
 pub fn ScrollBehavior::not_equal(Self, Self) -> Bool
 pub fn ScrollBehavior::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ScrollBlock {
   Start
   Center
   End
   Nearest
-} derive(Eq, @debug.Debug)
+}
 pub fn ScrollBlock::equal(Self, Self) -> Bool
 pub fn ScrollBlock::not_equal(Self, Self) -> Bool
 pub fn ScrollBlock::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct TextSelection {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn TextSelection::TextSelection(Int, Int, TextSelectionDirection) -> Self
+}
+pub fn TextSelection::TextSelection(Int32, Int32, TextSelectionDirection) -> Self
 pub fn TextSelection::direction(Self) -> TextSelectionDirection
-pub fn TextSelection::end(Self) -> Int
+pub fn TextSelection::end(Self) -> Int32
 pub fn TextSelection::equal(Self, Self) -> Bool
 pub fn TextSelection::not_equal(Self, Self) -> Bool
-pub fn TextSelection::start(Self) -> Int
+pub fn TextSelection::start(Self) -> Int32
 pub fn TextSelection::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum TextSelectionDirection {
   NoDirection
   Forward
   Backward
-} derive(Eq, @debug.Debug)
+}
 pub fn TextSelectionDirection::equal(Self, Self) -> Bool
 pub fn TextSelectionDirection::not_equal(Self, Self) -> Bool
 pub fn TextSelectionDirection::to_repr(Self) -> @debug.Repr

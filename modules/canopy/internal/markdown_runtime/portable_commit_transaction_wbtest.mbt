@@ -93,8 +93,8 @@ test "portable commit transaction keeps lowering rejection pre-commit" {
     ) {
     Err(
       PortableCommitError::EditRejected(
-        error=@core.EditError::NodeNotFound(action~, node_id~)
-      )
+        error=@core.EditError::NodeNotFound(action~, node_id~),
+      ),
     ) => {
       assert_eq(action, "compute_markdown_edit")
       assert_eq(node_id, missing)

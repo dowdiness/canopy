@@ -1,5 +1,5 @@
 ///|
-const READING_FACE_IDLE_TIMEOUT_MS : Int = 2000
+const READING_FACE_IDLE_TIMEOUT_MS : Int32 = 2000
 
 ///|
 /// Loads Text's Japanese face as the app starts, so Japanese text draws in it

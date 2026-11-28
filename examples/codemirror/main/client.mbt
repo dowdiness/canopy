@@ -51,7 +51,7 @@ impl Eq for Model with fn equal(_, _) {
 fn capped_prepend(
   xs : Array[String],
   value : String,
-  limit : Int,
+  limit : Int32,
 ) -> Array[String] {
   let next = xs.copy()
   next.insert(0, value)

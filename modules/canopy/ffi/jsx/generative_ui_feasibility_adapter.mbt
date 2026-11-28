@@ -268,8 +268,8 @@ fn feasibility_session_classification(session_json : String) -> String {
 
 ///|
 fn feasibility_commit_session(
-  handle : Int,
-  base_revision : Int,
+  handle : Int32,
+  base_revision : Int32,
   prepared : PreparedFeasibilityCandidate,
 ) -> String {
   let session = match session_registry.get(handle) {
@@ -355,8 +355,8 @@ pub fn __jsx_evaluate_feasibility_candidate_json(
 
 ///|
 pub fn __jsx_commit_feasibility_candidate_json(
-  handle : Int,
-  base_revision : Int,
+  handle : Int32,
+  base_revision : Int32,
   candidate_json : String,
   capabilities_json : String,
   dataset_json : String,

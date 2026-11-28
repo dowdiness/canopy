@@ -16,7 +16,7 @@ priv suberror WritingFocusSubscription {
 /// both after rendering and release the old connection. The session draws the
 /// caret in Text and Split; Focus Mode attaches dimming to the same session.
 fn writing_focus_subscription(
-  activation : Int,
+  activation : Int32,
   focus_mode : Bool,
   preview : @editor.EditorState,
 ) -> @sub.Sub {

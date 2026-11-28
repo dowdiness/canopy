@@ -25,10 +25,10 @@ pub struct LanguageCapabilities[T] {
 
 ///|
 pub fn[T] LanguageCapabilities::new(
-  get_annotations? : (() -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]])? = None,
-  get_decorations? : (() -> Array[@protocol.Decoration])? = None,
-  get_diagnostics? : (() -> (String, @loom_core.DiagnosticSet)?)? = None,
-  pretty_post_process? : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[
+  get_annotations~ : (() -> Map[@core.NodeId, Array[@protocol.ViewAnnotation]])? = None,
+  get_decorations~ : (() -> Array[@protocol.Decoration])? = None,
+  get_diagnostics~ : (() -> (String, @loom_core.DiagnosticSet)?)? = None,
+  pretty_post_process~ : ((@pretty.Layout[@pretty.SyntaxCategory]) -> @pretty.Layout[
     @pretty.SyntaxCategory,
   ])? = None,
 ) -> LanguageCapabilities[T] {

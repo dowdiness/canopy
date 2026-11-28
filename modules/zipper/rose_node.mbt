@@ -16,10 +16,11 @@
 // of what data the nodes carry. No per-language codegen is needed.
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct RoseNode[T] {
   data : T
   children : Array[RoseNode[T]]
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl[T : Debug] Show for RoseNode[T] with fn output(self, logger) {
@@ -29,7 +30,7 @@ pub impl[T : Debug] Show for RoseNode[T] with fn output(self, logger) {
 ///|
 pub fn[T] RoseNode::RoseNode(
   data~ : T,
-  children? : Array[RoseNode[T]] = [],
+  children~ : Array[RoseNode[T]] = [],
 ) -> RoseNode[T] {
   { data, children, }
 }
@@ -49,12 +50,13 @@ pub fn[T, U] RoseNode::map(
 ///
 /// `left` is stored in reverse order (nearest sibling first) so that
 /// go_left/go_right are O(1) list cons/uncons operations.
+#derive(Debug, Eq)
 pub(all) struct RoseCtx[T] {
   data : T
   left : @list.List[RoseNode[T]]
   right : @list.List[RoseNode[T]]
-  index : Int
-} derive(Debug, Eq)
+  index : Int32
+}
 
 ///|
 pub impl[T : Debug] Show for RoseCtx[T] with fn output(self, logger) {
@@ -65,11 +67,12 @@ pub impl[T : Debug] Show for RoseCtx[T] with fn output(self, logger) {
 /// A focused position within a rose tree. `focus` is the current subtree,
 /// `path` is the stack of contexts from focus to root (innermost first).
 /// `depth` is cached (invariant: depth == path.length()) for O(1) queries.
+#derive(Debug, Eq)
 pub(all) struct RoseZipper[T] {
   focus : RoseNode[T]
   path : @list.List[RoseCtx[T]]
-  depth : Int
-} derive(Debug, Eq)
+  depth : Int32
+}
 
 ///|
 pub impl[T : Debug] Show for RoseZipper[T] with fn output(self, logger) {

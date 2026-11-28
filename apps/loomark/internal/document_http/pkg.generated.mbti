@@ -18,20 +18,22 @@ pub fn get(@source_repository.AccountId, @source_repository.DocumentId, @cmd.Emi
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum DiscoveryResult {
   Discovered(Array[@source_repository.RemoteEntry])
   AccountChanged
   Unavailable
-} derive(Eq, @debug.Debug)
+}
 pub fn DiscoveryResult::equal(Self, Self) -> Bool
 pub fn DiscoveryResult::not_equal(Self, Self) -> Bool
 pub fn DiscoveryResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum RemoteResult {
   Found(@source_repository.RemoteDocument)
   AccountChanged
   Unavailable
-} derive(Eq, @debug.Debug)
+}
 pub fn RemoteResult::equal(Self, Self) -> Bool
 pub fn RemoteResult::not_equal(Self, Self) -> Bool
 pub fn RemoteResult::to_repr(Self) -> @debug.Repr

@@ -25,7 +25,7 @@ fn sample_writing_shade(
   let computed_opacity = window
     .get_computed_style(shade.element.as_element())
     .get_property_value("opacity")
-  let opacity = @string.parse_double(computed_opacity.view())
+  let opacity = @string.parse_double(computed_opacity[:])
   let sample : @writing_focus.OpacitySample = match animation {
     None => Still(opacity)
     Some({ native, timing, }) => {

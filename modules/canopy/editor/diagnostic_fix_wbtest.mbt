@@ -2,8 +2,8 @@
 fn test_diagnostic_fix(
   source_id : @loom_core.SourceId,
   title : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   replacement : String,
 ) -> @loom_core.DiagnosticFix {
   try! @loom_core.DiagnosticFix(title, @loom_core.FixApplicability::Always, [

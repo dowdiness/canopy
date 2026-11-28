@@ -2,44 +2,46 @@
 /// Decode and commit the concrete JSON candidate used by the GenUI replay demo.
 /// The adapter owns the wire format; cognition owns validation and lifecycle
 /// policy, while the JSX session owns dry-run and DOM commit effects.
-const GENUI_MAX_CAPABILITIES_LENGTH : Int = 64 * 1024
+const GENUI_MAX_CAPABILITIES_LENGTH : Int32 = 64 * 1024
 
 ///|
-const GENUI_MAX_CAPABILITY_BINDINGS : Int = 256
+const GENUI_MAX_CAPABILITY_BINDINGS : Int32 = 256
 
 ///|
-const GENUI_MAX_CAPABILITY_FIELDS : Int = 64
+const GENUI_MAX_CAPABILITY_FIELDS : Int32 = 64
 
 ///|
-const GENUI_MAX_CAPABILITY_SELECTION_KEYS : Int = 32
+const GENUI_MAX_CAPABILITY_SELECTION_KEYS : Int32 = 32
 
 ///|
-const GENUI_MAX_CAPABILITY_OPERATORS : Int = 32
+const GENUI_MAX_CAPABILITY_OPERATORS : Int32 = 32
 
 ///|
-const GENUI_MAX_CAPABILITY_AGGREGATIONS : Int = 32
+const GENUI_MAX_CAPABILITY_AGGREGATIONS : Int32 = 32
 
 ///|
+#derive(@json.FromJson)
 priv struct SessionErrorJson {
   code : String
   message : String
-} derive(@json.FromJson)
+}
 
 ///|
 priv struct SessionResultJson {
-  schema_version : Int
+  schema_version : Int32
   success : Bool
-  revision : Int
+  revision : Int32
   mounted_ids : Array[String]
   diagnostics : Array[String]
   error : SessionErrorJson?
 }
 
 ///|
+#derive(@json.FromJson)
 priv struct RawAttributeJson {
   name : String
   value : String
-} derive(@json.FromJson)
+}
 
 ///|
 priv struct RawNodeJson {
@@ -51,18 +53,20 @@ priv struct RawNodeJson {
 }
 
 ///|
+#derive(@json.FromJson)
 priv struct BindingJson {
   name : String
   fields : Array[String]
   selection_keys : Array[String]
-} derive(@json.FromJson)
+}
 
 ///|
+#derive(@json.FromJson)
 priv struct CapabilitiesJson {
   bindings : Array[BindingJson]
   filter_operators : Array[String]
   aggregations : Array[String]
-} derive(@json.FromJson)
+}
 
 ///|
 fn[T : FromJson] require_json_field(
@@ -125,8 +129,8 @@ impl @json.FromJson for RawNodeJson with fn from_json(json, path) {
 
 ///|
 pub fn jsx_session_replay_candidate_json(
-  handle : Int,
-  base_revision : Int,
+  handle : Int32,
+  base_revision : Int32,
   chunks_input : String,
   capabilities_json : String,
 ) -> String {
@@ -285,7 +289,7 @@ fn decode_validated_candidate(
 /// session remains the only owner of dry-run, DOM apply, and revision commit.
 fn commit_candidate_with_lifecycle(
   session : JsxSession,
-  handle : Int,
+  handle : Int32,
   revision : @cognition.GenerativeUiRevision,
   lifecycle : @cognition.GenerativeUiLifecycle,
   generation_id : @cognition.GenerativeUiGenerationId,
@@ -323,7 +327,7 @@ fn commit_candidate_with_lifecycle(
 ///|
 fn commit_validated_candidate_transaction(
   session : JsxSession,
-  handle : Int,
+  handle : Int32,
   revision : @cognition.GenerativeUiRevision,
   lifecycle : @cognition.GenerativeUiLifecycle,
   generation_id : @cognition.GenerativeUiGenerationId,
@@ -342,7 +346,7 @@ fn commit_validated_candidate_transaction(
     ) {
     @cognition.GenerativeUiTransition::DryRunStarted => ()
     @cognition.GenerativeUiTransition::Rejected(
-      reason=@cognition.GenerativeUiRejection::BaseRevisionMismatch(..)
+      reason=@cognition.GenerativeUiRejection::BaseRevisionMismatch(..),
     ) =>
       return render_result_json(
         false,
@@ -437,7 +441,7 @@ fn replay_transition_message(
 ) -> String {
   match transition {
     @cognition.GenerativeUiTransition::Rejected(
-      reason=@cognition.GenerativeUiRejection::InputLimitExceeded(limit~)
+      reason=@cognition.GenerativeUiRejection::InputLimitExceeded(limit~),
     ) =>
       match limit {
         @cognition.GenerativeUiInputLimit::ChunkLength =>
@@ -448,7 +452,7 @@ fn replay_transition_message(
           "candidate source exceeds the generation limit"
       }
     @cognition.GenerativeUiTransition::Ignored(
-      reason=@cognition.GenerativeUiIgnoreReason::StaleGeneration
+      reason=@cognition.GenerativeUiIgnoreReason::StaleGeneration,
     ) => "stale generation input"
     _ => "generation input was not accepted"
   }
@@ -474,9 +478,9 @@ fn decode_candidate_json(
 ///|
 fn validate_raw_node_limits(
   json : Json,
-  depth : Int,
-  nodes : Int,
-) -> Result[Int, String] {
+  depth : Int32,
+  nodes : Int32,
+) -> Result[Int32, String] {
   guard depth <= @cognition.GENERATIVE_UI_MAX_DEPTH else {
     return Err("candidate nesting exceeds the validation limit")
   }
@@ -589,7 +593,7 @@ fn lower_raw_node(
 ///|
 fn validate_capability_string_array(
   values : Array[Json],
-  limit : Int,
+  limit : Int32,
   label : String,
 ) -> Result[Unit, String] {
   guard values.length() <= limit else {

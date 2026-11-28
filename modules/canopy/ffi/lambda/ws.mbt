@@ -1,7 +1,7 @@
 // WebSocket FFI — lambda editor ws client transport
 
 ///|
-pub fn ws_on_open(handle : Int, ws : @editor.JsWebSocket) -> Unit {
+pub fn ws_on_open(handle : Int32, ws : @editor.JsWebSocket) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_open(ws)
     None => ()
@@ -9,7 +9,7 @@ pub fn ws_on_open(handle : Int, ws : @editor.JsWebSocket) -> Unit {
 }
 
 ///|
-pub fn ws_on_message(handle : Int, data : Bytes) -> Unit {
+pub fn ws_on_message(handle : Int32, data : Bytes) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_message(data)
     None => ()
@@ -17,7 +17,7 @@ pub fn ws_on_message(handle : Int, data : Bytes) -> Unit {
 }
 
 ///|
-pub fn ws_on_close(handle : Int) -> Unit {
+pub fn ws_on_close(handle : Int32) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_on_close()
     None => ()
@@ -25,7 +25,7 @@ pub fn ws_on_close(handle : Int) -> Unit {
 }
 
 ///|
-pub fn ws_broadcast_edit(handle : Int) -> Unit {
+pub fn ws_broadcast_edit(handle : Int32) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_broadcast_edit()
     None => ()
@@ -33,7 +33,7 @@ pub fn ws_broadcast_edit(handle : Int) -> Unit {
 }
 
 ///|
-pub fn ws_broadcast_cursor(handle : Int) -> Unit {
+pub fn ws_broadcast_cursor(handle : Int32) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.ws_broadcast_cursor()
     None => ()
@@ -46,7 +46,7 @@ pub fn ws_broadcast_cursor(handle : Int) -> Unit {
 /// Called by the JS watchdog timer when it fires.
 /// `request_id` is compared against the current recovery epoch —
 /// stale firings (response already arrived) are silently ignored.
-pub fn ws_on_watchdog_fire(handle : Int, request_id : Int) -> Unit {
+pub fn ws_on_watchdog_fire(handle : Int32, request_id : Int32) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.on_watchdog_fire(request_id)
     None => ()
@@ -58,7 +58,7 @@ pub fn ws_on_watchdog_fire(handle : Int, request_id : Int) -> Unit {
 /// After each SyncRequest the editor will call `js_schedule_watchdog`,
 /// which schedules a setTimeout(() => ws_on_watchdog_fire(handle, request_id)).
 /// Call once at editor construction time.
-pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
+pub fn ws_enable_watchdog(handle : Int32, timeout_ms : Int32) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => {
       h.editor.set_watchdog_timeout(timeout_ms)
@@ -87,7 +87,7 @@ pub fn ws_enable_watchdog(handle : Int, timeout_ms : Int) -> Unit {
 /// Fires one notification with the current status immediately on
 /// registration so late-registering hosts can bootstrap — otherwise
 /// a status that changed before registration would never be observed.
-pub fn ws_set_status_callback(handle : Int) -> Unit {
+pub fn ws_set_status_callback(handle : Int32) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) => {
       h.editor.set_on_status_change(
@@ -162,9 +162,9 @@ fn encode_sync_status(status : @editor.SyncStatus) -> String {
 /// indirection avoids assuming an intra-module symbol resolution for the
 /// setTimeout callback.
 extern "js" fn js_schedule_watchdog(
-  handle : Int,
-  request_id : Int,
-  timeout_ms : Int,
+  handle : Int32,
+  request_id : Int32,
+  timeout_ms : Int32,
 ) -> Unit =
   #|(handle, requestId, timeoutMs) => {
   #|  var scheduleWatchdog = globalThis.__canopy_bridge?.scheduleWatchdog;
@@ -176,7 +176,10 @@ extern "js" fn js_schedule_watchdog(
 ///|
 /// Low-level JS bridge: notify the JS side of a SyncStatus transition.
 /// `encoded` is the tagged string produced by `encode_sync_status`.
-extern "js" fn js_notify_status_change(handle : Int, encoded : String) -> Unit =
+extern "js" fn js_notify_status_change(
+  handle : Int32,
+  encoded : String,
+) -> Unit =
   #|(handle, encoded) => {
   #|  var onStatusChange = globalThis.__canopy_bridge?.onStatusChange;
   #|  if (typeof onStatusChange === "function") {

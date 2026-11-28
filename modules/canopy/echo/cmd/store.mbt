@@ -1,12 +1,13 @@
 ///|
+#derive(Debug, ToJson, FromJson)
 struct StoredPost {
   text : String
   ts : String
-} derive(Debug, ToJson, FromJson)
+}
 
 ///|
 fn posts_to_json(posts : Array[StoredPost]) -> String {
-  posts.to_json().stringify()
+  Json(posts).stringify()
 }
 
 ///|
@@ -47,8 +48,7 @@ fn load_posts() -> Array[StoredPost] {
     Some(msg) => {
       println("Error: \{msg}")
       println("Refusing to overwrite. Fix or delete ~/.echo/posts.json")
-      @sys.exit(1)
-      []
+      @env.exit(1)
     }
     None => posts
   }

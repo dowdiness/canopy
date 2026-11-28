@@ -1,12 +1,14 @@
 ///|
+#derive(Eq)
 priv enum ScreenPhase {
   LoadingScreen
   RecoveryScreen(@source_repository.OpenFailure)
   CreationScreen
   EditingScreen
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct LayoutInput {
   phase : ScreenPhase
   focus_mode : Bool
@@ -22,7 +24,7 @@ priv struct LayoutInput {
   /// The Document index, shown over the Editor while `browsing`.
   index : @rabbita.Html
   browsing : Bool
-} derive(Eq)
+}
 
 ///|
 fn screen_layout(

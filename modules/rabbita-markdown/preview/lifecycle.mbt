@@ -1,5 +1,5 @@
 ///|
-const PREVIEW_QUIET_MS : Int = 24
+const PREVIEW_QUIET_MS : Int32 = 24
 
 ///|
 /// Current app-owned facts needed by the Preview lifecycle.
@@ -7,42 +7,46 @@ const PREVIEW_QUIET_MS : Int = 24
 /// Document text remains owned by the app Model. A captured Input identifies
 /// the activation and text from which one Preview operation was requested; it
 /// is not a request identity or a second text authority.
+#derive(Eq)
 pub struct Input {
-  priv generation : Int
+  priv generation : Int32
   priv document_text : String
-} derive(Eq)
+}
 
 ///|
-pub fn Input::Input(generation : Int, document_text : String) -> Input {
+pub fn Input::Input(generation : Int32, document_text : String) -> Input {
   { generation, document_text, }
 }
 
 ///|
+#derive(Eq)
 priv struct RenderedPreview {
   document_text : String
   html : @rabbita.Html
   empty : Bool
   block_ranges : Array[SourceRange]
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum Phase {
   Unrequested
   Preparing
   Ready(RenderedPreview)
   Failed(RenderedPreview?)
-} derive(Eq)
+}
 
 ///|
 /// Preview demand and presentation state retained in the Rabbita Model.
+#derive(Eq)
 pub struct State {
   priv phase : Phase
   priv demanded : Bool
-} derive(Eq)
+}
 
 ///|
 priv enum EventKind {
-  BeginPreparation(Int)
+  BeginPreparation(Int32)
   Prepared(Input, Result[PreviewOutput, PreviewFailure])
   ParserAdvanced(Input, Bool, Result[Unit, PreviewFailure])
   RefreshRequested(Input)
@@ -70,11 +74,11 @@ priv enum PreviewInputEvent {
 /// PreviewEngine shell. Rabbita Cmd remains the sole effect representation.
 priv enum PreviewDecision {
   NoCommand
-  ActivateGeneration(Int)
-  BeginPreparationAfterPaint(Int)
+  ActivateGeneration(Int32)
+  BeginPreparationAfterPaint(Int32)
   Prepare(Input)
   Apply(Input, @text_change.TextChange, Bool)
-  Discard(Int)
+  Discard(Int32)
   DiscardAndScheduleRefresh(Input)
   ScheduleRefresh(Input)
   Refresh(Input)
@@ -231,7 +235,7 @@ fn preview_transition(
 ///|
 fn PreviewEngine::activate_command(
   self : PreviewEngine,
-  generation : Int,
+  generation : Int32,
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(_ => ignore(self.activate_generation(generation)))
 }
@@ -292,7 +296,7 @@ fn PreviewEngine::refresh_command(
 ///|
 fn PreviewEngine::discard_command(
   self : PreviewEngine,
-  generation : Int,
+  generation : Int32,
 ) -> @cmd.Cmd {
   @cmd.custom_cmd(_ => ignore(self.discard_owned(generation)))
 }

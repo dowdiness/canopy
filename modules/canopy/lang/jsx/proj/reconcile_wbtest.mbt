@@ -55,8 +55,8 @@ fn find_text(patches : Array[DomPatch], expected : String) -> Bool {
 
 ///|
 /// Helper: collect IDs that correspond to mounted DOM nodes.
-fn patch_ids(patches : Array[DomPatch]) -> Array[Int] {
-  let ids : Array[Int] = []
+fn patch_ids(patches : Array[DomPatch]) -> Array[Int32] {
+  let ids : Array[Int32] = []
   for patch in patches {
     match patch {
       MakeElement(_, id, _, _, _)
@@ -73,7 +73,7 @@ fn patch_ids(patches : Array[DomPatch]) -> Array[Int] {
 
 ///|
 /// Helper: count element creation patches for one tag.
-fn count_make_element(patches : Array[DomPatch], expected : String) -> Int {
+fn count_make_element(patches : Array[DomPatch], expected : String) -> Int32 {
   let mut count = 0
   for patch in patches {
     match patch {
@@ -86,7 +86,7 @@ fn count_make_element(patches : Array[DomPatch], expected : String) -> Int {
 
 ///|
 /// Helper: count text creation patches for one value.
-fn count_make_text(patches : Array[DomPatch], expected : String) -> Int {
+fn count_make_text(patches : Array[DomPatch], expected : String) -> Int32 {
   let mut count = 0
   for patch in patches {
     match patch {

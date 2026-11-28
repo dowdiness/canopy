@@ -10,11 +10,11 @@ import {
 }
 
 // Values
-pub fn accepted(@text_area.TextArea, @preview.PreviewEngine, @preview.State, Int, String, @text_change.TextChange, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
+pub fn accepted(@text_area.TextArea, @preview.PreviewEngine, @preview.State, Int32, String, @text_change.TextChange, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
 
-pub fn activate(@text_area.TextArea, @preview.PreviewEngine, Int, String, Bool, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
+pub fn activate(@text_area.TextArea, @preview.PreviewEngine, Int32, String, Bool, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
 
-pub fn visibility_changed(@preview.PreviewEngine, @preview.State, Int, String, Bool, Bool, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
+pub fn visibility_changed(@preview.PreviewEngine, @preview.State, Int32, String, Bool, Bool, @cmd.Emit[@preview.Event]) -> (@preview.State, @cmd.Cmd)
 
 // Errors
 
@@ -23,9 +23,10 @@ pub struct EditorEvent {
   // private fields
 }
 
+#derive(Eq)
 pub struct EditorState {
   // private fields
-} derive(Eq)
+}
 pub fn EditorState::equal(Self, Self) -> Bool
 pub fn EditorState::not_equal(Self, Self) -> Bool
 pub fn EditorState::preview_shows_blocks(Self) -> Bool
@@ -38,22 +39,23 @@ pub struct MarkdownEditor {
   // private fields
 }
 pub fn MarkdownEditor::MarkdownEditor(String) -> Self
-pub fn MarkdownEditor::accepted(Self, EditorState, Int, String, @text_change.TextChange, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
-pub fn MarkdownEditor::activate(Self, Int, String, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::accepted(Self, EditorState, Int32, String, @text_change.TextChange, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::activate(Self, Int32, String, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
 pub fn MarkdownEditor::admit(Self, InputEdit) -> @text_change.TextChange?
-pub fn MarkdownEditor::input_view(Self, String, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd, disabled? : Bool, read_only? : Bool, rows? : Int, autofocus? : Bool, class? : String, placeholder? : String) -> @html.Html
-pub fn MarkdownEditor::mode_changed(Self, EditorState, Int, String, Mode, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::input_view(Self, String, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd, disabled? : Bool, read_only? : Bool, rows? : Int32, autofocus? : Bool, class? : String, placeholder? : String) -> @html.Html
+pub fn MarkdownEditor::mode_changed(Self, EditorState, Int32, String, Mode, Mode, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
 pub fn MarkdownEditor::preview_view(Self, EditorState, id? : String) -> @html.Html
 pub fn MarkdownEditor::restore(Self, String) -> @cmd.Cmd
-pub fn MarkdownEditor::update(Self, EditorState, Int, String, EditorEvent, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
+pub fn MarkdownEditor::update(Self, EditorState, Int32, String, EditorEvent, @cmd.Emit[EditorEvent]) -> (EditorState, @cmd.Cmd)
 pub fn MarkdownEditor::value(Self, (String) -> @cmd.Cmd) -> @cmd.Cmd
 pub fn MarkdownEditor::view(Self, EditorState, Mode, String, (InputEdit) -> @cmd.Cmd, (Bool) -> @cmd.Cmd, disabled? : Bool, read_only? : Bool) -> @html.Html
 
+#derive(Eq)
 pub(all) enum Mode {
   Text
   Preview
   Split
-} derive(Eq)
+}
 pub fn Mode::equal(Self, Self) -> Bool
 pub fn Mode::not_equal(Self, Self) -> Bool
 

@@ -8,7 +8,7 @@ fn inspect_transition(
 
 ///|
 fn generative_ui_start_for_test(
-  base_revision : Int,
+  base_revision : Int32,
 ) -> (
   @cognition.GenerativeUiLifecycle,
   @cognition.GenerativeUiGenerationId,
@@ -29,7 +29,7 @@ fn generative_ui_start_for_test(
 fn generative_ui_chunk(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
   payload : String,
 ) -> @cognition.GenerativeUiEvent {
   Input(
@@ -46,7 +46,7 @@ fn generative_ui_chunk(
 fn generative_ui_finalize(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
 ) -> @cognition.GenerativeUiEvent {
   Input(
     @cognition.GenerativeUiInput::finalize(
@@ -61,7 +61,7 @@ fn generative_ui_finalize(
 fn generative_ui_cancel(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
 ) -> @cognition.GenerativeUiEvent {
   Input(
     @cognition.GenerativeUiInput::cancel(

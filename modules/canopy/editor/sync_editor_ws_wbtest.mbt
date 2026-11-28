@@ -14,7 +14,7 @@ test "ws_on_close: clears ws reference" {
 test "ws_send: does nothing when disconnected" {
   let editor = try! @probe.new_test_editor("alice")
   // ws is None by default — should not panic
-  editor.ws_send(Bytes::new(0))
+  editor.ws_send(Bytes::make(0, b'\x00'))
   inspect(editor.interaction.ws is None, content="true")
 }
 

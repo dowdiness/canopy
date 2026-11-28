@@ -11,7 +11,8 @@ import {
 // Errors
 
 // Types and methods
-type StoredPost derive(ToJson, @debug.Debug, @json.FromJson)
+#derive(@debug.Debug, @json.FromJson, @json.ToJson)
+type StoredPost
 
 // Type aliases
 

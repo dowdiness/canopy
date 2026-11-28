@@ -1,9 +1,10 @@
 ///|
 /// Viewport/client-space anchor for an open context menu.
+#derive(Eq)
 pub(all) struct Point {
   x : Float
   y : Float
-} derive(Eq)
+}
 
 ///|
 /// Create a context-menu anchor point from client coordinates.
@@ -13,27 +14,29 @@ pub fn Point::Point(x~ : Float, y~ : Float) -> Point {
 
 ///|
 /// How the default positioning command handles viewport collision.
+#derive(Eq)
 pub(all) enum CollisionStrategy {
   NoCollisionHandling
   ClampToViewport
-} derive(Eq)
+}
 
 ///|
 /// Positioning options for `Model::position_cmd`.
+#derive(Eq)
 pub struct Positioning {
   priv offset_x : Float
   priv offset_y : Float
   priv viewport_margin : Float
   priv collision : CollisionStrategy
-} derive(Eq)
+}
 
 ///|
 /// Create positioning options for a context-menu panel.
 pub fn Positioning::Positioning(
-  offset_x? : Float = 0.0F,
-  offset_y? : Float = 0.0F,
-  viewport_margin? : Float = 8.0F,
-  collision? : CollisionStrategy = ClampToViewport,
+  offset_x~ : Float = 0.0F,
+  offset_y~ : Float = 0.0F,
+  viewport_margin~ : Float = 8.0F,
+  collision~ : CollisionStrategy = ClampToViewport,
 ) -> Positioning {
   { offset_x, offset_y, viewport_margin, collision, }
 }
@@ -50,17 +53,19 @@ pub fn Positioning::default() -> Positioning {
 /// The model owns the copied items while open, the client-space anchor, and
 /// the embedded `@menu.Model` used for ARIA, roving focus, and keyboard
 /// behavior. Closed models retain none of those open-only values.
+#derive(Eq)
 priv enum ModelState[T] {
   Closed
   Open(anchor~ : Point, items~ : Array[T], menu~ : @menu.Model)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 pub struct Model[T] {
   priv id : String
   priv state : ModelState[T]
   priv close_focus_id : String?
-} derive(Eq)
+}
 
 ///|
 pub(all) enum DismissReason {
@@ -74,8 +79,8 @@ pub(all) enum Msg {
   FocusPrevious
   FocusFirst
   FocusLast
-  FocusItem(Int)
-  Activate(Int)
+  FocusItem(Int32)
+  Activate(Int32)
   Close
   Dismiss(DismissReason)
   Key(String)
@@ -151,7 +156,7 @@ pub fn[T] Model::items(self : Model[T]) -> ArrayView[T] {
 ///|
 /// Resolve a raw UI index against the currently owned items.
 /// Invalid indices and closed models return `None`.
-pub fn[T] Model::item(self : Model[T], index : Int) -> T? {
+pub fn[T] Model::item(self : Model[T], index : Int32) -> T? {
   match self.state {
     Closed => None
     Open(items~, ..) => items.get(index)

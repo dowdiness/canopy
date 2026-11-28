@@ -4,14 +4,14 @@
 pub struct ScopeAnnotation {
   binder_id : @core.NodeId?
   is_definition : Bool
-  color_index : Int
+  color_index : Int32
   usage_ids : Array[@core.NodeId]
 }
 
 ///|
 /// Deterministic color index from binder name. Stable across edits.
 /// Returns a value in 0..7 (8-hue palette).
-pub fn binder_color_index(name : String) -> Int {
+pub fn binder_color_index(name : String) -> Int32 {
   let mut h = 0
   for ch in name {
     h = h * 31 + ch.to_int()
@@ -147,18 +147,18 @@ pub fn compute_highlight_set(
   selected_id : @core.NodeId,
   scope_map : Map[@core.NodeId, ScopeAnnotation],
 ) -> @immut/hashset.HashSet[@core.NodeId] {
-  let mut hs = @immut/hashset.new()
+  let mut hs = @immut/hashset.empty()
   match scope_map.get(selected_id) {
     None => hs
     Some(ann) => {
       // Include the binder and all its usages.
       match ann.binder_id {
         Some(bid) => {
-          hs = hs.add(bid)
+          hs = hs.insert(bid)
           match scope_map.get(bid) {
             Some(binder_ann) =>
               for uid in binder_ann.usage_ids {
-                hs = hs.add(uid)
+                hs = hs.insert(uid)
               }
             None => ()
           }
@@ -167,9 +167,9 @@ pub fn compute_highlight_set(
       }
       // If this IS a binder, include self + usages.
       if ann.is_definition {
-        hs = hs.add(selected_id)
+        hs = hs.insert(selected_id)
         for uid in ann.usage_ids {
-          hs = hs.add(uid)
+          hs = hs.insert(uid)
         }
       }
       hs

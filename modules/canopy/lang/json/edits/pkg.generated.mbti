@@ -13,6 +13,7 @@ pub fn compute_json_edit(JsonEditOp, String, @core.ProjNode[@json.JsonValue], @c
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum JsonEditOp {
   Delete(node_id~ : @core.NodeId)
   AddMember(object_id~ : @core.NodeId, key~ : String)
@@ -21,9 +22,9 @@ pub(all) enum JsonEditOp {
   WrapInObject(node_id~ : @core.NodeId, key~ : String)
   Unwrap(node_id~ : @core.NodeId)
   ChangeType(node_id~ : @core.NodeId, new_type~ : JsonType)
-  RenameKey(object_id~ : @core.NodeId, key_index~ : Int, new_key~ : String)
+  RenameKey(object_id~ : @core.NodeId, key_index~ : Int32, new_key~ : String)
   CommitEdit(node_id~ : @core.NodeId, new_value~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub fn JsonEditOp::equal(Self, Self) -> Bool
 pub fn JsonEditOp::not_equal(Self, Self) -> Bool
 pub fn JsonEditOp::output(Self, &Logger) -> Unit
@@ -31,6 +32,7 @@ pub fn JsonEditOp::to_repr(Self) -> @debug.Repr
 pub fn JsonEditOp::to_string(Self) -> String
 pub impl Show for JsonEditOp
 
+#derive(Eq, @debug.Debug)
 pub(all) enum JsonType {
   JNull
   JBool
@@ -38,7 +40,7 @@ pub(all) enum JsonType {
   JString
   JArray
   JObject
-} derive(Eq, @debug.Debug)
+}
 pub fn JsonType::equal(Self, Self) -> Bool
 pub fn JsonType::not_equal(Self, Self) -> Bool
 pub fn JsonType::to_repr(Self) -> @debug.Repr

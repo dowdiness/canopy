@@ -6,15 +6,16 @@
 // probing invariants.
 
 ///|
+#derive(Eq)
 #warnings("-struct_never_constructed-unused_field")
 priv struct HeadingObservation {
   id : @core.NodeId
-  level : Int
+  level : Int32
   text : String
   range : @loomcore.Range
   marker : @loomcore.Range?
   text_span : @loomcore.Range?
-} derive(Eq)
+}
 
 ///|
 #warnings("-unused_constructor")
@@ -24,18 +25,20 @@ priv enum HeadingSnapshotValidity {
 }
 
 ///|
+#derive(Eq)
 priv enum HeadingSideTableStatus {
   HeadingLive
   HeadingMissing
   HeadingTombstoned
   HeadingAmbiguous
   HeadingRetired
-} derive(Eq)
+}
 
 ///|
+#derive(Eq, Hash)
 priv struct HeadingStableRowId {
   seed : @core.NodeId
-} derive(Eq, Hash)
+}
 
 ///|
 fn HeadingStableRowId::from_node(id : @core.NodeId) -> HeadingStableRowId {
@@ -52,14 +55,15 @@ priv enum HeadingSideTableConfidence {
 }
 
 ///|
+#derive(Eq)
 #warnings("-unused_constructor")
 priv enum HeadingEntityEvidence {
   HeadingSameNodeId(@core.NodeId)
   HeadingSameSemanticKey(String)
   HeadingSemanticDrift(String, String)
   HeadingOverlappingRange(@loomcore.Range, @loomcore.Range)
-  HeadingCandidateCount(Int)
-} derive(Eq)
+  HeadingCandidateCount(Int32)
+}
 
 ///|
 #warnings("-unused_field")
@@ -76,6 +80,7 @@ priv struct HeadingSideTableMatch {
 }
 
 ///|
+#derive(Eq)
 #warnings("-unused_field")
 priv struct HeadingSideTableRow {
   stable_id : HeadingStableRowId
@@ -87,17 +92,18 @@ priv struct HeadingSideTableRow {
   // Counts consecutive valid-snapshot absences. `Missing` with zero absences
   // means no valid absence evidence has been observed yet, usually because an
   // invalid snapshot used the hold path.
-  consecutive_absences : Int
-} derive(Eq)
+  consecutive_absences : Int32
+}
 
 ///|
+#derive(Eq)
 priv struct HeadingSideTable {
   rows : Array[HeadingSideTableRow]
   current_index : Map[@core.NodeId, HeadingStableRowId]
   used_stable_ids : Set[HeadingStableRowId]
-  retention_threshold : Int
-  next_entity_seed : Int
-} derive(Eq)
+  retention_threshold : Int32
+  next_entity_seed : Int32
+}
 
 ///|
 fn ranges_overlap(a : @loomcore.Range, b : @loomcore.Range) -> Bool {
@@ -183,8 +189,8 @@ fn heading_mentioned_current_ids(
 ///|
 fn next_unused_stable_id(
   used_stable_ids : Set[HeadingStableRowId],
-  seed : Int,
-) -> (HeadingStableRowId, Int) {
+  seed : Int32,
+) -> (HeadingStableRowId, Int32) {
   let candidate = HeadingStableRowId::from_node(@core.NodeId::from_int(seed))
   if used_stable_ids.contains(candidate) {
     next_unused_stable_id(used_stable_ids, seed - 1)
@@ -200,7 +206,7 @@ fn next_unused_stable_id(
 fn HeadingSideTable::from_observations(
   observations : Array[HeadingObservation],
   validity~ : HeadingSnapshotValidity,
-  retention_threshold? : Int = 0,
+  retention_threshold~ : Int32 = 0,
 ) -> HeadingSideTable {
   let rows = match validity {
     HeadingSnapshotValid => observations.map(heading_side_table_live_row)
@@ -426,7 +432,7 @@ fn heading_candidate(
 ///|
 fn heading_side_table_match_evidence(
   candidates : Array[HeadingMatchCandidate],
-  count : Int,
+  count : Int32,
 ) -> Array[HeadingEntityEvidence] {
   candidates.iter().flat_map(candidate => candidate.evidence.iter()).collect() +
   [HeadingCandidateCount(count)]
@@ -500,7 +506,7 @@ fn gc_eligible(row : HeadingSideTableRow) -> Bool {
 fn candidate_claim_count(
   matches : Array[(HeadingSideTableRow, HeadingSideTableMatch)],
   id : @core.NodeId,
-) -> Int {
+) -> Int32 {
   matches.iter().filter(pair => candidate_ids(pair.1).contains(id)).count()
 }
 
@@ -542,7 +548,7 @@ fn heading_side_table_match_with_same_node_priority(
 fn heading_side_table_absent_row(
   row : HeadingSideTableRow,
   evidence : Array[HeadingEntityEvidence],
-  retention_threshold : Int,
+  retention_threshold : Int32,
 ) -> HeadingSideTableRow {
   let new_absences = row.consecutive_absences + 1
   let next_status = match row.status {
@@ -579,8 +585,8 @@ fn row_from_match(
   row : HeadingSideTableRow,
   match_result : HeadingSideTableMatch,
   current : Array[HeadingObservation],
-  claim_count : (@core.NodeId) -> Int,
-  retention_threshold? : Int = 0,
+  claim_count : (@core.NodeId) -> Int32,
+  retention_threshold~ : Int32 = 0,
 ) -> HeadingSideTableRow {
   let ids = candidate_ids(match_result)
   match row.status {
@@ -698,7 +704,7 @@ fn HeadingSideTable::advance(
       })
       let used_stable_ids = self.used_stable_ids.copy()
       let occupied_current_ids = heading_mentioned_current_ids(next_rows)
-      let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int) = {
+      let (fresh_rows, next_entity_seed) : (Array[HeadingSideTableRow], Int32) = {
         let result : Array[HeadingSideTableRow] = []
         let mut seed = self.next_entity_seed
         for obs in current {
@@ -712,8 +718,8 @@ fn HeadingSideTable::advance(
               (base_stable, seed)
             }
             seed = next_seed
-            used_stable_ids.add(stable_id)
-            occupied_current_ids.add(obs.id)
+            used_stable_ids.insert(stable_id)
+            occupied_current_ids.insert(obs.id)
             result.push({ ..heading_side_table_live_row(obs), stable_id, })
           }
         }

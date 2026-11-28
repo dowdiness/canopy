@@ -1,9 +1,10 @@
 ///|
 /// A world-space position paired with an item identity.
+#derive(Eq, Debug)
 pub struct ItemPosition[Id] {
   id : Id
   point : WorldPoint
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct an item position.
@@ -16,10 +17,11 @@ pub fn[Id] ItemPosition::from_id_and_point(
 
 ///|
 /// A drag gesture snapshot.
+#derive(Eq, Debug)
 pub struct Drag[Id] {
   priv initial_positions : Array[ItemPosition[Id]]
   priv initial_pointer : WorldPoint
-} derive(Eq, Debug)
+}
 
 ///|
 /// Capture initial item positions and the pointer position at drag start.

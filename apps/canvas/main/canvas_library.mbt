@@ -1,7 +1,7 @@
 ///|
 priv struct CanvasLibraryBinding {
   root : @dom.Element
-  handle : Int
+  handle : Int32
   on_change : () -> Unit
   send_source : (CanvasSourceMessage) -> Unit
   can_mutate : () -> Bool
@@ -14,9 +14,10 @@ priv enum CanvasLibraryMsg {
 }
 
 ///|
+#derive(Eq)
 priv struct CanvasLibraryModel {
   filter : String
-} derive(Eq)
+}
 
 ///|
 fn canvas_library_matches(
@@ -154,7 +155,7 @@ fn canvas_library_view(
 fn mount_canvas_library(
   root : @dom.Element,
   search : @dom.HTMLInputElement,
-  handle : Int,
+  handle : Int32,
   on_change : () -> Unit,
   send_source : (CanvasSourceMessage) -> Unit,
   can_mutate : () -> Bool,

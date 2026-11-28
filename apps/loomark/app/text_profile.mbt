@@ -51,14 +51,15 @@ fn joins_previous(c : Char) -> Bool {
 
 ///|
 /// Measures of settled Document text shown around the editor.
+#derive(Eq)
 priv struct TextProfile {
   /// Visible characters, excluding spaces and line breaks.
-  characters : Int
+  characters : Int32
   /// Kana marks Japanese rather than Chinese; East Asian characters must
   /// outnumber other words so an English note with a Japanese phrase keeps
   /// its own typography.
   japanese : Bool
-} derive(Eq)
+}
 
 ///|
 fn text_profile(text : String) -> TextProfile {
@@ -90,7 +91,7 @@ fn text_profile(text : String) -> TextProfile {
 }
 
 ///|
-fn character_count_label(count : Int) -> String {
+fn character_count_label(count : Int32) -> String {
   let digits = count.to_string()
   let grouped = StringBuilder()
   for i, c in digits {

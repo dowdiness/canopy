@@ -7,7 +7,7 @@ fn canvas_wheel_test_scale(value : Double) -> @spatial.Scale {
 fn canvas_wheel_required_target(
   current_scale : @spatial.Scale,
   delta_y : Double,
-  delta_mode : Int,
+  delta_mode : Int32,
   ctrl_key : Bool,
   mac_like : Bool,
   min_scale~ : Double,

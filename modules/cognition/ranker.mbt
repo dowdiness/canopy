@@ -8,7 +8,7 @@ pub fn ContextRanker::path_match() -> ContextRanker {
 }
 
 ///|
-fn context_score_for_summary(query : String, key : CognitionKey) -> Int {
+fn context_score_for_summary(query : String, key : CognitionKey) -> Int32 {
   match key {
     FileSummary(path) => context_score_for_path(query, path)
     _ => 0
@@ -24,7 +24,7 @@ fn context_reason_for_summary(query : String, key : CognitionKey) -> String {
 }
 
 ///|
-fn context_score_for_path(query : String, path : String) -> Int {
+fn context_score_for_path(query : String, path : String) -> Int32 {
   let filename = file_name_from_path(path)
   let stem = file_stem_from_name(filename)
   if query_contains_non_empty(query, path) {

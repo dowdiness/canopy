@@ -22,7 +22,7 @@ pub fn distinct_characters(text : String) -> String {
   let characters = StringBuilder()
   for c in text {
     if !seen.contains(c) {
-      seen.add(c)
+      seen.insert(c)
       characters.write_char(c)
     }
   }

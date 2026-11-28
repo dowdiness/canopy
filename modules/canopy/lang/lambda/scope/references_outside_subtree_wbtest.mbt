@@ -113,7 +113,7 @@ test "references_outside_subtree: nested block — block-local is inside" {
 test "references_outside_subtree: empty subtree" {
   let (_proj, registry, source_map) = build_fixture("let x = 0\nx")
   let g = build(registry, source_map)
-  let empty : @immut/hashset.HashSet[@core.NodeId] = @immut/hashset.new()
+  let empty : @immut/hashset.HashSet[@core.NodeId] = @immut/hashset.empty()
   let result = references_outside_subtree(g, empty)
   inspect(result.length(), content="0")
 }

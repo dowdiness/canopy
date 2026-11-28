@@ -1,5 +1,6 @@
 ///|
 /// What keeps the textarea's scroll position when it resizes.
+#derive(Eq)
 pub(all) enum TextPlacement {
   RevealCaret
   /// Keep the anchor at its height, also when a late font rewraps the text,
@@ -7,7 +8,7 @@ pub(all) enum TextPlacement {
   HoldAnchor(ReadingAnchor)
   /// Preview is being read, so Split scrolls the textarea to follow it.
   FollowPreview
-} derive(Eq)
+}
 
 ///|
 pub extend TextPlacement with Eq::{equal, not_equal}
@@ -86,7 +87,7 @@ pub fn place_text_area(
       scrolled_away()
     }
   }
-  let element = area.as_element()
+  let element = @dom.IsElement::as_element(area)
   element.add_event_listener_with_options("scroll", listener, passive=true)
   let stop_resize = on_resize(element, resized)
   let stop_fonts = on_fonts_loaded(@browser.element_document(element), realign)

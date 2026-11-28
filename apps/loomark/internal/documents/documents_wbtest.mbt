@@ -74,7 +74,7 @@ fn begin_sync_start(
 }
 
 ///|
-fn pending_revision(documents : Model, id : Key) -> Int {
+fn pending_revision(documents : Model, id : Key) -> Int32 {
   match find_record(documents.records, id).unwrap().edit {
     Waiting(revision) | ComposingWaiting(revision) => revision
     Idle | ComposingIdle | ComposingReady => abort("no pending revision")
@@ -117,7 +117,7 @@ test "a key is parsed back from its text, and other text names no key" {
       "source/",
       "source/36/",
       text + "x",
-      text.view(end_offset=text.length() - 1).to_owned(),
+      text.exact_view(end=text.length() - 1).to_owned(),
       "source/36/not-a-document-id-not-a-document-i",
       "sources/36/" + id.value(),
       "replica/0//36/" + id.value(),

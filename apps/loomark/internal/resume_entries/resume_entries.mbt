@@ -3,21 +3,23 @@ let resume_source_id : @loom.SourceId = @loom.SourceId("loomark-resume-entries")
 
 ///|
 /// The kind named by a `###` heading.
+#derive(Eq, Debug)
 pub(all) enum EntryKind {
   Observation
   Decision
   NextStep
-} derive(Eq, Debug)
+}
 
 ///|
 /// A top-level list item under a kind heading: a half-open UTF-16 range in
 /// its document's source, and the enclosing `##` heading text, if any.
+#derive(Eq, Debug)
 pub struct ResumeEntry {
   kind : EntryKind
   project : String?
-  start : Int
-  end : Int
-} derive(Eq, Debug)
+  start : Int32
+  end : Int32
+}
 
 ///|
 /// One selected document. `entries` is `None` when parsing failed.
@@ -46,7 +48,7 @@ pub fn[K : Eq + Hash] extract(
   documents.filter_map(document => {
     let (key, source) = document
     guard !seen.contains(key) else { None }
-    seen.add(key)
+    seen.insert(key)
     Some({ key, source, entries: extract_entries(source), })
   })
 }

@@ -1,6 +1,6 @@
 ///|
 struct Post {
-  id : Int
+  id : Int32
   text : String
   tf : TermFreq
   mut vec : SparseVec
@@ -9,20 +9,20 @@ struct Post {
 ///|
 pub(all) struct Corpus {
   priv tokenize : (String) -> Array[String]
-  priv mut next_id : Int
-  priv doc_freq : Map[String, Int]
+  priv mut next_id : Int32
+  priv doc_freq : Map[String, Int32]
   priv posts : Array[Post]
 }
 
 ///|
 pub fn Corpus::new(
-  tokenize? : (String) -> Array[String] = @tokenizer.bigram,
+  tokenize~ : (String) -> Array[String] = @tokenizer.bigram,
 ) -> Corpus {
   { tokenize, next_id: 0, doc_freq: Default::default(), posts: [], }
 }
 
 ///|
-pub fn Corpus::get_post_text(self : Corpus, post_id : Int) -> String? {
+pub fn Corpus::get_post_text(self : Corpus, post_id : Int32) -> String? {
   for post in self.posts {
     if post.id == post_id {
       return Some(post.text)
@@ -35,7 +35,7 @@ pub fn Corpus::get_post_text(self : Corpus, post_id : Int) -> String? {
 /// Tokenizes text, stores term frequency, updates corpus IDF, and
 /// recomputes all vectors. Full recompute is necessary because IDF
 /// changes for every term in the new post, affecting all existing vectors.
-pub fn Corpus::add_post(self : Corpus, text : String) -> Int {
+pub fn Corpus::add_post(self : Corpus, text : String) -> Int32 {
   let id = self.next_id
   self.next_id += 1
   let tokens = (self.tokenize)(text)
@@ -63,8 +63,8 @@ fn Corpus::recompute_vectors(self : Corpus) -> Unit {
 pub fn Corpus::query_text(
   self : Corpus,
   text : String,
-  top_n? : Int = 5,
-) -> Array[(Int, Double)] {
+  top_n~ : Int32 = 5,
+) -> Array[(Int32, Double)] {
   if top_n <= 0 {
     return []
   }
@@ -77,7 +77,7 @@ pub fn Corpus::query_text(
   if query_vec.norm == 0.0 {
     return []
   }
-  let scores : Array[(Int, Double)] = Array(capacity=self.posts.length())
+  let scores : Array[(Int32, Double)] = Array(capacity=self.posts.length())
   for post in self.posts {
     let sim = cosine_similarity(query_vec, post.vec)
     if sim > 0.0 {
@@ -91,9 +91,9 @@ pub fn Corpus::query_text(
 /// Find posts similar to an already-stored post. Self is excluded from results.
 pub fn Corpus::query_similar(
   self : Corpus,
-  post_id : Int,
-  top_n? : Int = 5,
-) -> Array[(Int, Double)] {
+  post_id : Int32,
+  top_n~ : Int32 = 5,
+) -> Array[(Int32, Double)] {
   if top_n <= 0 {
     return []
   }
@@ -110,7 +110,7 @@ pub fn Corpus::query_similar(
       if vec.norm == 0.0 {
         return []
       }
-      let scores : Array[(Int, Double)] = Array(capacity=self.posts.length())
+      let scores : Array[(Int32, Double)] = Array(capacity=self.posts.length())
       for post in self.posts {
         if post.id != post_id {
           let sim = cosine_similarity(vec, post.vec)

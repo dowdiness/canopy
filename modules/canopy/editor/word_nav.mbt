@@ -3,18 +3,19 @@
 // see the spec's disposal inventory before extending this file).
 
 ///|
+#derive(Eq)
 priv enum WordNavClass {
   Whitespace
   WordLike
   Other
-} derive(Eq)
+}
 
 ///|
 /// Classify a raw UAX word segment `[start, end)` by its first
 /// non-default-ignorable codepoint. Segments made entirely of
 /// default-ignorable codepoints classify as `Whitespace` so invisible
 /// format characters never become stop targets.
-fn classify_segment(text : String, start : Int, end : Int) -> WordNavClass {
+fn classify_segment(text : String, start : Int32, end : Int32) -> WordNavClass {
   let mut i = start
   while i < end {
     let (cp, next_i) = @moji.decode_codepoint_at(text, i)
@@ -37,9 +38,9 @@ fn classify_segment(text : String, start : Int, end : Int) -> WordNavClass {
 ///|
 /// Classified stop units: raw UAX segments with adjacent `Other` segments
 /// merged, so a punctuation run or CJK stretch is one navigable unit.
-fn word_nav_units(text : String) -> Array[(WordNavClass, Int, Int)] {
+fn word_nav_units(text : String) -> Array[(WordNavClass, Int32, Int32)] {
   let bounds = @moji.word_boundaries(text)
-  let units : Array[(WordNavClass, Int, Int)] = []
+  let units : Array[(WordNavClass, Int32, Int32)] = []
   for i in 0..<(bounds.length() - 1) {
     let start = bounds[i]
     let end = bounds[i + 1]
@@ -58,7 +59,7 @@ fn word_nav_units(text : String) -> Array[(WordNavClass, Int, Int)] {
 /// (VS Code-style Ctrl+Right), post-snapped to a grapheme boundary
 /// because UAX word boundaries can fall inside grapheme clusters
 /// (e.g. GCB=Prepend codepoints).
-fn next_word_stop(text : String, pos : Int) -> Int {
+fn next_word_stop(text : String, pos : Int32) -> Int32 {
   for unit in word_nav_units(text) {
     let (kind, _, end) = unit
     if kind != Whitespace && end > pos {
@@ -71,7 +72,7 @@ fn next_word_stop(text : String, pos : Int) -> Int {
 ///|
 /// Start of the last non-whitespace unit strictly left of `pos`
 /// (VS Code-style Ctrl+Left), post-snapped like `next_word_stop`.
-fn prev_word_stop(text : String, pos : Int) -> Int {
+fn prev_word_stop(text : String, pos : Int32) -> Int32 {
   let units = word_nav_units(text)
   for i = units.length() - 1; i >= 0; i = i - 1 {
     let (kind, start, _) = units[i]

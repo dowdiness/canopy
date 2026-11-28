@@ -38,7 +38,7 @@ extern "js" fn complete_get(
   #| }
 
 ///|
-extern "js" fn CompleteResponse::status(self : CompleteResponse) -> Int =
+extern "js" fn CompleteResponse::status(self : CompleteResponse) -> Int32 =
   #| response => response.status
 
 ///|

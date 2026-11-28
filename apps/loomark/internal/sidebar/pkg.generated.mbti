@@ -33,7 +33,7 @@ pub fn[C : @html.IsChildren] sidebar_group_label(scope? : SidebarScope, hide_whe
 
 pub fn[C : @html.IsChildren] sidebar_header(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
 
-pub fn sidebar_input(name? : String, value? : String, placeholder? : String, auto_complete? : @html.AutoComplete, id? : String, class? : String, title? : String, disabled? : Bool, aria_label? : String, on_change? : @cmd.Emit[String], on_input? : @cmd.Emit[String], attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
+pub fn sidebar_input(name? : String, value? : String, placeholder? : String, auto_complete? : String, id? : String, class? : String, title? : String, disabled? : Bool, aria_label? : String, on_change? : @cmd.Emit[String], on_input? : @cmd.Emit[String], attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
 
 pub fn[C : @html.IsChildren] sidebar_inset(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], C) -> @html.Html
 
@@ -65,7 +65,7 @@ pub fn[T : Eq] sidebar_provider_with_input(input~ : @rabbita.Val[T], default_col
 
 pub fn[T : Eq] sidebar_provider_with_state(state~ : SidebarProviderState, input~ : @rabbita.Val[T], id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String], (SidebarScope, T) -> @html.Html) -> @rabbita.Val[@html.Html]
 
-pub fn sidebar_rail(SidebarScope, min_width? : Int, max_width? : Int, id? : String, class? : String, title? : String, aria_label? : String, on_click? : @cmd.Cmd, attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
+pub fn sidebar_rail(SidebarScope, min_width? : Int32, max_width? : Int32, id? : String, class? : String, title? : String, aria_label? : String, on_click? : @cmd.Cmd, attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
 
 pub fn sidebar_separator(id? : String, class? : String, title? : String, attrs? : @html.Attrs, style? : Array[String]) -> @html.Html
 
@@ -74,28 +74,31 @@ pub fn[C : @html.IsChildren] sidebar_trigger(SidebarScope, mobile? : Bool, contr
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum SidebarCollapsible {
   SidebarOffcanvas
   SidebarIcon
   SidebarFixed
-} derive(Eq, @debug.Debug)
+}
 pub fn SidebarCollapsible::equal(Self, Self) -> Bool
 pub fn SidebarCollapsible::not_equal(Self, Self) -> Bool
 pub fn SidebarCollapsible::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SidebarMenuButtonSize {
   SidebarMenuSm
   SidebarMenuDefault
   SidebarMenuLg
-} derive(Eq, @debug.Debug)
+}
 pub fn SidebarMenuButtonSize::equal(Self, Self) -> Bool
 pub fn SidebarMenuButtonSize::not_equal(Self, Self) -> Bool
 pub fn SidebarMenuButtonSize::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SidebarMenuButtonVariant {
   SidebarMenuButtonDefault
   SidebarMenuButtonOutline
-} derive(Eq, @debug.Debug)
+}
 pub fn SidebarMenuButtonVariant::equal(Self, Self) -> Bool
 pub fn SidebarMenuButtonVariant::not_equal(Self, Self) -> Bool
 pub fn SidebarMenuButtonVariant::to_repr(Self) -> @debug.Repr
@@ -105,7 +108,7 @@ pub enum SidebarMessage {
   SetSidebarCollapsed(Bool)
   ToggleSidebarMobile
   SetSidebarMobile(Bool)
-  CommitSidebarWidth(Int)
+  CommitSidebarWidth(Int32)
 }
 
 pub struct SidebarProviderState {
@@ -119,37 +122,40 @@ pub fn SidebarProviderState::visible(Self) -> @rabbita.Val[Bool]
 pub struct SidebarScope {
   collapsed : Bool
   mobile_open : Bool
-  desktop_width : Int?
+  desktop_width : Int32?
   toggle_collapsed : @cmd.Cmd
   expand : @cmd.Cmd
   collapse : @cmd.Cmd
   toggle_mobile : @cmd.Cmd
   open_mobile : @cmd.Cmd
   close_mobile : @cmd.Cmd
-  commit_width : @cmd.Emit[Int]
+  commit_width : @cmd.Emit[Int32]
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SidebarSide {
   SidebarLeft
   SidebarRight
-} derive(Eq, @debug.Debug)
+}
 pub fn SidebarSide::equal(Self, Self) -> Bool
 pub fn SidebarSide::not_equal(Self, Self) -> Bool
 pub fn SidebarSide::to_repr(Self) -> @debug.Repr
 
+#derive(Eq)
 pub struct SidebarState {
   collapsed : Bool
   mobile_open : Bool
-  desktop_width : Int?
-} derive(Eq)
+  desktop_width : Int32?
+}
 pub fn SidebarState::equal(Self, Self) -> Bool
 pub fn SidebarState::not_equal(Self, Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SidebarVariant {
   SidebarDefault
   SidebarFloating
   SidebarInset
-} derive(Eq, @debug.Debug)
+}
 pub fn SidebarVariant::equal(Self, Self) -> Bool
 pub fn SidebarVariant::not_equal(Self, Self) -> Bool
 pub fn SidebarVariant::to_repr(Self) -> @debug.Repr

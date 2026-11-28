@@ -13,6 +13,7 @@
 
 ///|
 /// A structural-edit hint, expressed against the previous projection tree.
+#derive(Eq, Debug)
 pub(all) enum IdentityTransform {
   /// `inner` (a prev subtree) becomes a child of a newly introduced wrapper.
   /// `inner` and its descendants keep their identity; the wrapper is fresh.
@@ -28,12 +29,12 @@ pub(all) enum IdentityTransform {
   /// identity. Closes the unary-chain spine-orphan failure of similarity diffing.
   RenameLeaf(node~ : NodeId)
   /// A fresh subtree is inserted under `parent` at `index`; siblings keep identity.
-  InsertSubtree(parent~ : NodeId, index~ : Int)
+  InsertSubtree(parent~ : NodeId, index~ : Int32)
   /// `node`'s subtree is deleted; its identity retires, siblings keep identity.
   DeleteSubtree(node~ : NodeId)
   /// Raw text / remote / undescribable edit: `reconcile` falls back to LCS.
   Opaque
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend IdentityTransform with @moonbitlang/core/debug.Debug::{to_repr}

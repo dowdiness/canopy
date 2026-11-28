@@ -26,7 +26,7 @@ fn default_json_project(
 /// with an always-None projection memo.
 fn stub_lang(
   edit : (String, @runtime.EditContext[@djson.JsonValue]) -> @runtime.EditResult raise @core.EditError,
-  project? : (@loom.Parser[@djson.JsonValue], @core.IdentityHintConsumer) -> (
+  project~ : (@loom.Parser[@djson.JsonValue], @core.IdentityHintConsumer) -> (
     @incr.Derived[@core.ProjNode[@djson.JsonValue]?],
     @incr.Derived[Map[@core.NodeId, @core.ProjNode[@djson.JsonValue]]],
     @incr.Derived[@core.SourceMap],

@@ -1,18 +1,20 @@
 ///|
 /// Durable workflow graph document. High-frequency UI affordances such as
 /// hover, live drag preview, and viewport live outside this value.
+#derive(Debug, Eq)
 pub(all) struct CanvasDocument {
   nodes : Array[CanvasNode]
   edges : Array[Edge]
-  next_node_id : Int
-} derive(Debug, Eq)
+  next_node_id : Int32
+}
 
 ///|
 /// Ephemeral live-drag overlay. Empty positions means no active preview;
 /// committed node positions remain in `CanvasDocument` until pointerup.
+#derive(Debug, Eq)
 pub(all) struct DragPreview {
   positions : Array[NodePosition]
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for DragPreview with fn output(self, logger) {
@@ -22,10 +24,11 @@ pub impl Show for DragPreview with fn output(self, logger) {
 ///|
 /// Selection is its own UI input so sparse inspector surfaces can depend on it
 /// without reading drag/viewport gesture state.
+#derive(Debug, Eq)
 pub(all) struct SelectionState {
   selected : NodeId?
   selected_nodes : Array[NodeId]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn selection_from_interaction(

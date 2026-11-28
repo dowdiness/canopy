@@ -1,6 +1,6 @@
 ///|
 /// Browser-sized source used to measure the fast append decision itself.
-fn sync_text_benchmark_source(block_count : Int) -> String {
+fn sync_text_benchmark_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     let number = index.to_string()
     "## Heading " +

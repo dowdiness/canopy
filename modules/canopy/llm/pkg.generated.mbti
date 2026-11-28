@@ -3,6 +3,7 @@ package "dowdiness/canopy/llm"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -13,53 +14,58 @@ pub async fn fix_typos(GeminiConfig, String) -> Array[EditAction] raise LlmError
 pub fn parse_edit_actions(String) -> Array[EditAction]
 
 // Errors
+#derive(@debug.Debug)
 pub suberror LlmError {
   LlmError(String)
-} derive(@debug.Debug)
+}
 pub fn LlmError::output(Self, &Logger) -> Unit
 pub fn LlmError::to_repr(Self) -> @debug.Repr
 pub fn LlmError::to_string(Self) -> String
 pub impl Show for LlmError
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum EditAction {
-  Replace(line~ : Int, old~ : String, new~ : String)
-  Insert(line~ : Int, text~ : String)
-  Delete(line~ : Int)
+  Replace(line~ : Int32, old~ : String, new~ : String)
+  Insert(line~ : Int32, text~ : String)
+  Delete(line~ : Int32)
   FixTypos(original~ : String, fixed~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub fn EditAction::equal(Self, Self) -> Bool
 pub fn EditAction::not_equal(Self, Self) -> Bool
 pub fn EditAction::output(Self, &Logger) -> Unit
-pub fn EditAction::to_json(Self) -> Json
+pub fn EditAction::to_json(Self) -> @json.Json
 pub fn EditAction::to_repr(Self) -> @debug.Repr
 pub fn EditAction::to_string(Self) -> String
 pub impl Show for EditAction
-pub impl ToJson for EditAction
+pub impl @json.ToJson for EditAction
 
+#derive(@debug.Debug)
 pub(all) struct GeminiConfig {
   api_key : String
   model : String
   temperature : Double
-  max_output_tokens : Int
-} derive(@debug.Debug)
-pub fn GeminiConfig::GeminiConfig(api_key~ : String, model? : String, temperature? : Double, max_output_tokens? : Int) -> Self
+  max_output_tokens : Int32
+}
+pub fn GeminiConfig::GeminiConfig(api_key~ : String, model? : String, temperature? : Double, max_output_tokens? : Int32) -> Self
 pub fn GeminiConfig::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Message {
   role : Role
   content : String
-} derive(Eq, @debug.Debug)
+}
 pub fn Message::Message(role~ : Role, content~ : String) -> Self
 pub fn Message::equal(Self, Self) -> Bool
 pub fn Message::not_equal(Self, Self) -> Bool
 pub fn Message::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Role {
   System
   User
   Assistant
-} derive(Eq, @debug.Debug)
+}
 pub fn Role::equal(Self, Self) -> Bool
 pub fn Role::not_equal(Self, Self) -> Bool
 pub fn Role::output(Self, &Logger) -> Unit

@@ -211,7 +211,7 @@ fn build_eval_annotations(
 /// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 pub fn new_lambda_editor(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@ast.Term], LambdaCompanion) raise {
   lambda_language.build(agent_id, capture_timeout_ms~, parent_runtime?)
@@ -287,11 +287,13 @@ fn build_lambda_capabilities(
 /// Returns the array of `SpanEdit`s that were applied to the underlying
 /// text CRDT, so callers can record a patch-level trace alongside the
 /// originating `TreeEditOp` (see the Inspector Patch panel).
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn apply_lambda_tree_edit(
   editor : @editor.SyncEditor[@ast.Term],
   companion : LambdaCompanion,
   op : @lambda_edits.TreeEditOp,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Array[@core.SpanEdit], @core.EditError] raise {
   let _ = companion
   lambda_language.apply_edit(editor, op, timestamp_ms)
@@ -301,11 +303,13 @@ pub fn apply_lambda_tree_edit(
 /// Apply one Lambda edit and return an opt-in, detached scope-failure review
 /// for the agent host. Ordinary editor and protocol paths remain on
 /// `apply_lambda_tree_edit` and do not pay the two scope snapshots.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn apply_lambda_tree_edit_with_reachable_failure_review(
   editor : @editor.SyncEditor[@ast.Term],
   companion : LambdaCompanion,
   op : @lambda_edits.TreeEditOp,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
   attribution : ReachableFailureAttribution,
 ) -> Result[ReachableFailureReview, @core.EditError] raise {
   let before = snapshot_reachable_failures(editor)

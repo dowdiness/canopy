@@ -2,7 +2,3 @@ import {
   "dowdiness/canopy/protocol/wire",
   "dowdiness/byte_codec",
 }
-
-options(
-  is_main: false,
-)

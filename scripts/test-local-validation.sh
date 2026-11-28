@@ -63,6 +63,12 @@ git -C "$fixture" config user.name local-validation-test
 git -C "$fixture" add .
 git -C "$fixture" commit --quiet -m baseline
 
+# MoonBit RC1 emits manifests in ignored formatter output. Neither preparation
+# nor push validation may treat them as source packages of the changed module.
+mkdir -p "$fixture/_build/wasm-gc/release/format" "$fixture/nested/module/_build/js/release/format"
+printf 'package "generated/cache"\n' >"$fixture/_build/wasm-gc/release/format/moon.pkg"
+printf 'package "generated/nested-cache"\n' >"$fixture/nested/module/_build/js/release/format/moon.pkg"
+
 printf 'pub fn answer() -> Int { 43 }\n' >"$fixture/pkg/main.mbt"
 git -C "$fixture" add pkg/main.mbt
 

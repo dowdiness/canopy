@@ -25,7 +25,7 @@ fn reset_coordinator_for_phase1_tests() -> Unit {
 
 ///|
 fn drain_lambda_handle_after_direct_coordinator_destroy(
-  handle : Int,
+  handle : Int32,
   h : LambdaHandle,
 ) -> Unit {
   h.companion.dispose_analysis_attachment()

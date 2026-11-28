@@ -2,11 +2,12 @@
 /// Producer-neutral metadata supplied by the agent host for one reviewed edit.
 /// `summary` describes this edit for a human; it is not a durable identity or
 /// graph/revision reference.
+#derive(Debug)
 pub(all) struct ReachableFailureAttribution {
   producer : String
   edit_id : String
   summary : String
-} derive(Debug)
+}
 
 ///|
 /// A detached before/after scope-failure review for one applied Lambda edit.

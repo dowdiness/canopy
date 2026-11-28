@@ -21,7 +21,7 @@ pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@m
 
 pub fn proj_to_view_node(@core.ProjNode[@markdown.Block], @core.SourceMap, annotations? : Map[@core.NodeId, Array[@protocol.ViewAnnotation]], source_text? : String?) -> @protocol.ViewNode
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@markdown.Block]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int32]) -> @core.ProjNode[@markdown.Block]
 
 // Errors
 

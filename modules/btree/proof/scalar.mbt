@@ -1,10 +1,10 @@
 ///|
 /// Scalar model for the leaf-count change published by `propagate`.
 pub fn splice_leaf_delta(
-  start : Int,
-  end_ : Int,
-  inserted_count : Int,
-) -> Int where {
+  start : Int32,
+  end_ : Int32,
+  inserted_count : Int32,
+) -> Int32 where {
   proof_ensure: result => leaf_delta_law(start, end_, inserted_count, result),
 } {
   inserted_count - (end_ - start)
@@ -13,11 +13,11 @@ pub fn splice_leaf_delta(
 ///|
 /// Scalar model for the leaf count after replacing `[start, end_)`.
 pub fn splice_new_count(
-  old_count : Int,
-  start : Int,
-  end_ : Int,
-  inserted_count : Int,
-) -> Int where {
+  old_count : Int32,
+  start : Int32,
+  end_ : Int32,
+  inserted_count : Int32,
+) -> Int32 where {
   proof_require: valid_splice(old_count, start, end_, inserted_count),
   proof_ensure: result => {
     splice_cardinality_law(old_count, start, end_, inserted_count, result)
@@ -32,9 +32,9 @@ pub fn splice_new_count(
 /// `remaining <= 2 * min_degree` is the terminal push. Otherwise this mirrors
 /// the loop's split decision and leaves another legal non-root remainder.
 pub fn planned_group_size(
-  remaining : Int,
-  min_degree : Int,
-) -> Int where {
+  remaining : Int32,
+  min_degree : Int32,
+) -> Int32 where {
   proof_require: valid_group_state(remaining, min_degree),
   proof_ensure: result => grouping_step_law(remaining, min_degree, result),
 } {
@@ -54,9 +54,9 @@ pub fn planned_group_size(
 /// Strict remainder decrease proves termination; the postcondition proves that
 /// all emitted group sizes sum exactly to the input child count.
 pub fn planned_group_total(
-  remaining : Int,
-  min_degree : Int,
-) -> Int where {
+  remaining : Int32,
+  min_degree : Int32,
+) -> Int32 where {
   proof_decrease: remaining,
   proof_require: valid_group_state(remaining, min_degree),
   proof_ensure: result => grouping_total_law(remaining, result),
@@ -77,11 +77,11 @@ pub fn planned_group_total(
 /// decisions: emitted children plus remaining children stays equal to the
 /// original input count, and a terminal step emits the exact total.
 pub fn advance_group_sum(
-  original_count : Int,
-  emitted_count : Int,
-  remaining : Int,
-  min_degree : Int,
-) -> Int where {
+  original_count : Int32,
+  emitted_count : Int32,
+  remaining : Int32,
+  min_degree : Int32,
+) -> Int32 where {
   proof_require: valid_group_accumulator(
     original_count, emitted_count, remaining, min_degree,
   ),
@@ -98,11 +98,11 @@ pub fn advance_group_sum(
 /// Child count of an underfull node after the range-repair merge-or-steal
 /// decision. The sibling's remaining count is modeled in the postcondition.
 pub fn repaired_node_count(
-  underfull_count : Int,
-  sibling_count : Int,
-  min_degree : Int,
-  target_count : Int,
-) -> Int where {
+  underfull_count : Int32,
+  sibling_count : Int32,
+  min_degree : Int32,
+  target_count : Int32,
+) -> Int32 where {
   proof_require: valid_repair_state(
     underfull_count, sibling_count, min_degree, target_count,
   ),
@@ -142,12 +142,12 @@ pub fn repaired_node_count(
 /// Repeated loop steps may choose a new pair and decomposition, while each step
 /// preserves the same global total independently of merge versus steal.
 pub fn repair_total_with_unaffected(
-  unaffected_count : Int,
-  underfull_count : Int,
-  sibling_count : Int,
-  min_degree : Int,
-  target_count : Int,
-) -> Int where {
+  unaffected_count : Int32,
+  underfull_count : Int32,
+  sibling_count : Int32,
+  min_degree : Int32,
+  target_count : Int32,
+) -> Int32 where {
   proof_require: unaffected_count >= 0,
   proof_require: valid_repair_state(
     underfull_count, sibling_count, min_degree, target_count,
@@ -170,8 +170,8 @@ pub fn repair_total_with_unaffected(
 /// Exact acceptance predicate used by `checked_span_add` before addition.
 /// The literal is the mathematical model of `@int.MAX_VALUE` (2^31 - 1).
 pub fn span_add_accepted(
-  total : Int,
-  span : Int,
+  total : Int32,
+  span : Int32,
 ) -> Bool where {
   proof_ensure: result => checked_add_law(total, span, result),
 } {
@@ -183,7 +183,7 @@ pub fn span_add_accepted(
 /// by executable BTree properties; this proves only the published leaf-count
 /// contract.
 pub fn project_root_present(
-  leaf_count : Int,
+  leaf_count : Int32,
 ) -> Bool where {
   proof_require: leaf_count >= 0,
   proof_ensure: result => root_lifecycle_law(leaf_count, result),

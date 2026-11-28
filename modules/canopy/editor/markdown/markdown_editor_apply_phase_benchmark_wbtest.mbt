@@ -42,14 +42,14 @@ test "perf: CRDT tail range mutation pair (250 blocks)" (b : @bench.T) {
   let mut tick = 0
   b.bench(() => {
     if tick % 2 == 0 {
-      let end = doc.len()
+      let end = try! doc.len()
       try! doc.replace_range(@text.Range::from_ints(end, end), "x")
     } else {
-      let end = doc.len()
+      let end = try! doc.len()
       try! doc.replace_range(@text.Range::from_ints(end - 1, end), "")
     }
     tick += 1
-    b.keep(doc.len())
+    b.keep(try! doc.len())
   })
 }
 

@@ -28,7 +28,7 @@ let coordinator : @workspace.Coordinator = @workspace.Coordinator::new()
 let lambda_registry : @host.HostRegistry[LambdaHandle] = @host.HostRegistry::HostRegistry()
 
 ///|
-let last_created_handle : Ref[Int?] = { val: None, }
+let last_created_handle : Ref[Int32?] = { val: None, }
 
 ///|
 /// Build a Lambda editor + companion on the shared runtime, then
@@ -38,7 +38,7 @@ let last_created_handle : Ref[Int?] = { val: None, }
 /// (atomic-boundary observation, spec §8.3).
 fn assemble_lambda_handle(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
 ) -> @workspace.EditorId raise {
   let (editor, companion) = @lang_lambda.new_lambda_editor(
     agent_id,
@@ -94,7 +94,7 @@ pub fn get_lambda_companion() -> @lang_lambda.LambdaCompanion? {
 ///|
 /// Create a new SyncEditor instance.
 /// Returns a unique handle, or `-1` when `agent_id` is invalid.
-pub fn create_editor(agent_id : String) -> Int raise {
+pub fn create_editor(agent_id : String) -> Int32 raise {
   assemble_lambda_handle(agent_id).0
 }
 
@@ -103,7 +103,7 @@ pub fn create_editor(agent_id : String) -> Int raise {
 /// gateway refuses if workspace deps still reference the editor; in that
 /// case the FFI-side bookkeeping and analysis attachment are intentionally
 /// left intact so reads of cached state remain valid.
-pub fn try_destroy_editor(handle : Int) -> Bool {
+pub fn try_destroy_editor(handle : Int32) -> Bool {
   let h = match lambda_registry.get(handle) {
     Some(v) => v
     None => return true
@@ -129,13 +129,13 @@ pub fn try_destroy_editor(handle : Int) -> Bool {
 }
 
 ///|
-pub fn destroy_editor(handle : Int) -> Unit {
+pub fn destroy_editor(handle : Int32) -> Unit {
   ignore(try_destroy_editor(handle))
 }
 
 ///|
 /// Get current text content
-pub fn get_text(handle : Int) -> String {
+pub fn get_text(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.get_text()
     None => ""
@@ -144,7 +144,7 @@ pub fn get_text(handle : Int) -> String {
 
 ///|
 /// Set text content directly (replaces entire document)
-pub fn set_text(handle : Int, new_text : String) -> Unit raise {
+pub fn set_text(handle : Int32, new_text : String) -> Unit raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.set_text(new_text)
     None => ()

@@ -10,7 +10,7 @@
 // identifiers/gaps under the neutral grammar and measure the wrong tree.
 
 ///|
-fn bench_source(def_count : Int) -> String {
+fn bench_source(def_count : Int32) -> String {
   let segments : Array[String] = []
   for i in 0..<def_count {
     segments.push("def\{i}(add\{i}(x\{i} n\{i}))")
@@ -20,7 +20,7 @@ fn bench_source(def_count : Int) -> String {
 }
 
 ///|
-fn bench_setup(let_count : Int) -> @protocol.ViewNode {
+fn bench_setup(let_count : Int32) -> @protocol.ViewNode {
   let editor = try! @probe.new_test_editor("bench")
   try! editor.set_text(bench_source(let_count))
   let proj_node = (try! editor.get_proj_node()).unwrap()

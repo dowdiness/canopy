@@ -6,27 +6,28 @@ import {
 }
 
 // Values
-pub const GENERATIVE_UI_MAX_ATTRIBUTES : Int = 32
+pub const GENERATIVE_UI_MAX_ATTRIBUTES : Int32 = 32
 
-pub const GENERATIVE_UI_MAX_CHUNKS : Int = 256
+pub const GENERATIVE_UI_MAX_CHUNKS : Int32 = 256
 
-pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int = 8192
+pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int32 = 8192
 
-pub const GENERATIVE_UI_MAX_DEPTH : Int = 32
+pub const GENERATIVE_UI_MAX_DEPTH : Int32 = 32
 
-pub const GENERATIVE_UI_MAX_NODES : Int = 1024
+pub const GENERATIVE_UI_MAX_NODES : Int32 = 1024
 
-pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int = 1048576
+pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int32 = 1048576
 
-pub const GENERATIVE_UI_MAX_STRING_LENGTH : Int = 8192
+pub const GENERATIVE_UI_MAX_STRING_LENGTH : Int32 = 8192
 
 pub fn demo_trace() -> Array[String]
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ProviderError {
   Cancelled
   Timeout
-  RateLimited(retry_after_ms~ : Int?)
+  RateLimited(retry_after_ms~ : Int32?)
   Auth
   UnsupportedModel(model_id~ : String)
   Network(message~ : String)
@@ -35,25 +36,26 @@ pub(all) suberror ProviderError {
   Decode(message~ : String)
   BudgetExceeded
   StaleCompletion
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderError::equal(Self, Self) -> Bool
 pub fn ProviderError::not_equal(Self, Self) -> Bool
 pub fn ProviderError::retry_classification(Self) -> ProviderRetryClassification
 pub fn ProviderError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum CognitionKey {
   FileText(String)
   FileSummary(String)
   RepoSummary
   QueryContext(String)
-  PackedContext(String, Int)
-  BudgetedContext(String, Int, Int)
-  TruncatedContext(String, Int, Int)
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub fn CognitionKey::compare(Self, Self) -> Int
+  PackedContext(String, Int32)
+  BudgetedContext(String, Int32, Int32)
+  TruncatedContext(String, Int32, Int32)
+}
+pub fn CognitionKey::compare(Self, Self) -> Int32
 pub fn CognitionKey::equal(Self, Self) -> Bool
-pub fn CognitionKey::hash(Self) -> Int
+pub fn CognitionKey::hash(Self) -> Int32
 pub fn CognitionKey::hash_combine(Self, Hasher) -> Unit
 pub fn CognitionKey::label(Self) -> String
 pub fn CognitionKey::not_equal(Self, Self) -> Bool
@@ -94,80 +96,86 @@ pub fn CognitionStore::mark_dirty(Self, CognitionKey) -> Unit
 pub fn CognitionStore::new() -> Self
 pub fn CognitionStore::new_with_provider(CognitionProvider) -> Self
 pub fn CognitionStore::new_with_provider_and_ranker(CognitionProvider, ContextRanker) -> Self
-pub fn CognitionStore::pack_context(Self, String, Int) -> Array[ContextItem]
-pub fn CognitionStore::pack_context_with_budget(Self, String, Int, Int) -> Array[ContextItem]
+pub fn CognitionStore::pack_context(Self, String, Int32) -> Array[ContextItem]
+pub fn CognitionStore::pack_context_with_budget(Self, String, Int32, Int32) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_options(Self, String, ContextPackOptions) -> Array[ContextItem]
 pub fn CognitionStore::pack_context_with_stats(Self, String, ContextPackOptions) -> (Array[ContextItem], ContextPackStats)
 pub fn CognitionStore::plan_provider_request(Self, target~ : CognitionKey, options~ : ProviderOptionProvenance) -> ProviderRequestDescriptor
-pub fn CognitionStore::recompute_count(Self, CognitionKey) -> Int
+pub fn CognitionStore::recompute_count(Self, CognitionKey) -> Int32
 pub fn CognitionStore::recompute_dirty(Self) -> Array[CognitionKey]
 pub fn CognitionStore::remove_file(Self, String) -> Bool
 pub fn CognitionStore::set_input(Self, CognitionKey, CognitionValue) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CognitionValue {
   Text(String)
   Summary(String)
   ContextBundle(Array[String])
   ContextItems(Array[ContextItem])
-} derive(Eq, @debug.Debug)
+}
 pub fn CognitionValue::equal(Self, Self) -> Bool
 pub fn CognitionValue::not_equal(Self, Self) -> Bool
 pub fn CognitionValue::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ContextItem {
   source : CognitionKey
   source_revision : Revision
   payload : String
   reason : String
-} derive(Eq, @debug.Debug)
+}
 pub fn ContextItem::equal(Self, Self) -> Bool
 pub fn ContextItem::not_equal(Self, Self) -> Bool
 pub fn ContextItem::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ContextPackOptions {
-  max_items : Int
-  max_chars : Int?
+  max_items : Int32
+  max_chars : Int32?
   truncate_items : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn ContextPackOptions::equal(Self, Self) -> Bool
-pub fn ContextPackOptions::new(max_items~ : Int, max_chars? : Int, truncate_items? : Bool) -> Self
+pub fn ContextPackOptions::new(max_items~ : Int32, max_chars? : Int32, truncate_items? : Bool) -> Self
 pub fn ContextPackOptions::not_equal(Self, Self) -> Bool
 pub fn ContextPackOptions::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ContextPackStats {
-  selected_items : Int
-  skipped_items : Int
-  truncated_items : Int
-  payload_chars : Int
-} derive(Eq, @debug.Debug)
+  selected_items : Int32
+  skipped_items : Int32
+  truncated_items : Int32
+  payload_chars : Int32
+}
 pub fn ContextPackStats::equal(Self, Self) -> Bool
 pub fn ContextPackStats::not_equal(Self, Self) -> Bool
 pub fn ContextPackStats::to_repr(Self) -> @debug.Repr
 
 pub(all) struct ContextRanker {
-  score_summary : (String, CognitionKey) -> Int
+  score_summary : (String, CognitionKey) -> Int32
   reason_summary : (String, CognitionKey) -> String
 }
 pub fn ContextRanker::path_match() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Dependency {
   from : CognitionKey
   input : CognitionKey
-} derive(Eq, @debug.Debug)
+}
 pub fn Dependency::equal(Self, Self) -> Bool
 pub fn Dependency::not_equal(Self, Self) -> Bool
 pub fn Dependency::to_repr(Self) -> @debug.Repr
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum GenerativeUiAggregation {
   Count
   Sum
   Average
   Minimum
   Maximum
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiAggregation::compare(Self, Self) -> Int
+}
+pub fn GenerativeUiAggregation::compare(Self, Self) -> Int32
 pub fn GenerativeUiAggregation::equal(Self, Self) -> Bool
-pub fn GenerativeUiAggregation::hash(Self) -> Int
+pub fn GenerativeUiAggregation::hash(Self) -> Int32
 pub fn GenerativeUiAggregation::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiAggregation::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiAggregation::op_ge(Self, Self) -> Bool
@@ -176,9 +184,10 @@ pub fn GenerativeUiAggregation::op_le(Self, Self) -> Bool
 pub fn GenerativeUiAggregation::op_lt(Self, Self) -> Bool
 pub fn GenerativeUiAggregation::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct GenerativeUiBindingCapabilities {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiBindingCapabilities::GenerativeUiBindingCapabilities(name~ : String, fields~ : Array[String], selection_keys~ : Array[String]) -> Self
 pub fn GenerativeUiBindingCapabilities::equal(Self, Self) -> Bool
 pub fn GenerativeUiBindingCapabilities::not_equal(Self, Self) -> Bool
@@ -190,10 +199,12 @@ pub struct GenerativeUiCandidate {
 pub fn GenerativeUiCandidate::root(Self) -> GenerativeUiCandidateNode
 pub fn GenerativeUiCandidate::validate(raw~ : GenerativeUiRawNode, capabilities~ : GenerativeUiHostCapabilities) -> Result[Self, Array[GenerativeUiDiagnostic]]
 
-type GenerativeUiCandidateContext derive(Eq)
+#derive(Eq)
+type GenerativeUiCandidateContext
 pub fn GenerativeUiCandidateContext::equal(Self, Self) -> Bool
 pub fn GenerativeUiCandidateContext::not_equal(Self, Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiCandidateNode {
   Stack(children~ : Array[GenerativeUiCandidateNode])
   Panel(children~ : Array[GenerativeUiCandidateNode])
@@ -202,15 +213,16 @@ pub(all) enum GenerativeUiCandidateNode {
   Filter(field~ : GenerativeUiField, operator~ : GenerativeUiFilterOperator)
   Text(value~ : String)
   Summary(field~ : GenerativeUiField, aggregation~ : GenerativeUiAggregation)
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiCandidateNode::equal(Self, Self) -> Bool
 pub fn GenerativeUiCandidateNode::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiCandidateNode::to_repr(Self) -> @debug.Repr
 
-pub struct GenerativeUiDataBinding(String) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiDataBinding::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct GenerativeUiDataBinding(String)
+pub fn GenerativeUiDataBinding::compare(Self, Self) -> Int32
 pub fn GenerativeUiDataBinding::equal(Self, Self) -> Bool
-pub fn GenerativeUiDataBinding::hash(Self) -> Int
+pub fn GenerativeUiDataBinding::hash(Self) -> Int32
 pub fn GenerativeUiDataBinding::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiDataBinding::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiDataBinding::op_ge(Self, Self) -> Bool
@@ -220,9 +232,10 @@ pub fn GenerativeUiDataBinding::op_lt(Self, Self) -> Bool
 pub fn GenerativeUiDataBinding::to_repr(Self) -> @debug.Repr
 pub fn GenerativeUiDataBinding::to_string(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub struct GenerativeUiDiagnostic {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiDiagnostic::detail(Self) -> String
 pub fn GenerativeUiDiagnostic::equal(Self, Self) -> Bool
 pub fn GenerativeUiDiagnostic::kind(Self) -> GenerativeUiDiagnosticKind
@@ -230,6 +243,7 @@ pub fn GenerativeUiDiagnostic::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiDiagnostic::path(Self) -> String
 pub fn GenerativeUiDiagnostic::to_repr(Self) -> @debug.Repr
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum GenerativeUiDiagnosticKind {
   UnknownComponent
   UnknownAttribute
@@ -244,10 +258,10 @@ pub(all) enum GenerativeUiDiagnosticKind {
   InvalidChild
   UnexpectedChildren
   LimitExceeded
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiDiagnosticKind::compare(Self, Self) -> Int
+}
+pub fn GenerativeUiDiagnosticKind::compare(Self, Self) -> Int32
 pub fn GenerativeUiDiagnosticKind::equal(Self, Self) -> Bool
-pub fn GenerativeUiDiagnosticKind::hash(Self) -> Int
+pub fn GenerativeUiDiagnosticKind::hash(Self) -> Int32
 pub fn GenerativeUiDiagnosticKind::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiDiagnosticKind::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiDiagnosticKind::op_ge(Self, Self) -> Bool
@@ -256,6 +270,7 @@ pub fn GenerativeUiDiagnosticKind::op_le(Self, Self) -> Bool
 pub fn GenerativeUiDiagnosticKind::op_lt(Self, Self) -> Bool
 pub fn GenerativeUiDiagnosticKind::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiEvent {
   Start(base_revision~ : GenerativeUiRevision)
   Input(GenerativeUiInput)
@@ -265,15 +280,16 @@ pub(all) enum GenerativeUiEvent {
   DryRunFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
   ApplySucceeded(generation_id~ : GenerativeUiGenerationId, revision~ : GenerativeUiRevision)
   ApplyFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiEvent::equal(Self, Self) -> Bool
 pub fn GenerativeUiEvent::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiEvent::to_repr(Self) -> @debug.Repr
 
-pub struct GenerativeUiField(String) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiField::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct GenerativeUiField(String)
+pub fn GenerativeUiField::compare(Self, Self) -> Int32
 pub fn GenerativeUiField::equal(Self, Self) -> Bool
-pub fn GenerativeUiField::hash(Self) -> Int
+pub fn GenerativeUiField::hash(Self) -> Int32
 pub fn GenerativeUiField::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiField::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiField::op_ge(Self, Self) -> Bool
@@ -283,16 +299,17 @@ pub fn GenerativeUiField::op_lt(Self, Self) -> Bool
 pub fn GenerativeUiField::to_repr(Self) -> @debug.Repr
 pub fn GenerativeUiField::to_string(Self) -> String
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum GenerativeUiFilterOperator {
   Equal
   NotEqual
   Contains
   GreaterThan
   LessThan
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiFilterOperator::compare(Self, Self) -> Int
+}
+pub fn GenerativeUiFilterOperator::compare(Self, Self) -> Int32
 pub fn GenerativeUiFilterOperator::equal(Self, Self) -> Bool
-pub fn GenerativeUiFilterOperator::hash(Self) -> Int
+pub fn GenerativeUiFilterOperator::hash(Self) -> Int32
 pub fn GenerativeUiFilterOperator::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiFilterOperator::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiFilterOperator::op_ge(Self, Self) -> Bool
@@ -301,61 +318,67 @@ pub fn GenerativeUiFilterOperator::op_le(Self, Self) -> Bool
 pub fn GenerativeUiFilterOperator::op_lt(Self, Self) -> Bool
 pub fn GenerativeUiFilterOperator::to_repr(Self) -> @debug.Repr
 
-pub struct GenerativeUiGenerationId(Int) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiGenerationId::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct GenerativeUiGenerationId(Int32)
+pub fn GenerativeUiGenerationId::compare(Self, Self) -> Int32
 pub fn GenerativeUiGenerationId::equal(Self, Self) -> Bool
-pub fn GenerativeUiGenerationId::hash(Self) -> Int
+pub fn GenerativeUiGenerationId::hash(Self) -> Int32
 pub fn GenerativeUiGenerationId::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiGenerationId::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiGenerationId::op_ge(Self, Self) -> Bool
 pub fn GenerativeUiGenerationId::op_gt(Self, Self) -> Bool
 pub fn GenerativeUiGenerationId::op_le(Self, Self) -> Bool
 pub fn GenerativeUiGenerationId::op_lt(Self, Self) -> Bool
-pub fn GenerativeUiGenerationId::to_int(Self) -> Int
+pub fn GenerativeUiGenerationId::to_int(Self) -> Int32
 pub fn GenerativeUiGenerationId::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct GenerativeUiHostCapabilities {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiHostCapabilities::GenerativeUiHostCapabilities(bindings~ : Array[GenerativeUiBindingCapabilities], filter_operators~ : Array[GenerativeUiFilterOperator], aggregations~ : Array[GenerativeUiAggregation]) -> Self
 pub fn GenerativeUiHostCapabilities::equal(Self, Self) -> Bool
 pub fn GenerativeUiHostCapabilities::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiHostCapabilities::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiIgnoreReason {
   StaleGeneration
   TerminalState
   EventNotAcceptedInPhase
   CancellationTooLate
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiIgnoreReason::equal(Self, Self) -> Bool
 pub fn GenerativeUiIgnoreReason::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiIgnoreReason::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct GenerativeUiInput {
   // private fields
-} derive(Eq, @debug.Debug)
-pub fn GenerativeUiInput::cancel(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int) -> Self
-pub fn GenerativeUiInput::chunk(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int, payload~ : String) -> Self
+}
+pub fn GenerativeUiInput::cancel(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int32) -> Self
+pub fn GenerativeUiInput::chunk(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int32, payload~ : String) -> Self
 pub fn GenerativeUiInput::equal(Self, Self) -> Bool
-pub fn GenerativeUiInput::finalize(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int) -> Self
+pub fn GenerativeUiInput::finalize(generation_id~ : GenerativeUiGenerationId, base_revision~ : GenerativeUiRevision, sequence~ : Int32) -> Self
 pub fn GenerativeUiInput::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiInput::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiInputKind {
   Chunk
   Final
   Cancel
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiInputKind::equal(Self, Self) -> Bool
 pub fn GenerativeUiInputKind::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiInputKind::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiInputLimit {
   ChunkLength
   ChunkCount
   SourceLength
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiInputLimit::equal(Self, Self) -> Bool
 pub fn GenerativeUiInputLimit::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiInputLimit::to_repr(Self) -> @debug.Repr
@@ -369,11 +392,12 @@ pub fn GenerativeUiLifecycle::candidate_source(Self) -> String
 pub fn GenerativeUiLifecycle::committed_revision(Self) -> GenerativeUiRevision?
 pub fn GenerativeUiLifecycle::dispatch(Self, GenerativeUiEvent) -> GenerativeUiTransition
 pub fn GenerativeUiLifecycle::generation_id(Self) -> GenerativeUiGenerationId?
-pub fn GenerativeUiLifecycle::next_sequence(Self) -> Int
+pub fn GenerativeUiLifecycle::next_sequence(Self) -> Int32
 pub fn GenerativeUiLifecycle::phase(Self) -> GenerativeUiPhase
 pub fn GenerativeUiLifecycle::rejection(Self) -> GenerativeUiRejection?
 pub fn GenerativeUiLifecycle::restart(Self, GenerativeUiRevision) -> GenerativeUiTransition
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiPhase {
   Idle
   Receiving
@@ -384,33 +408,36 @@ pub(all) enum GenerativeUiPhase {
   Rejected
   Cancelled
   Failed
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiPhase::equal(Self, Self) -> Bool
 pub fn GenerativeUiPhase::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiPhase::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct GenerativeUiRawAttribute {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiRawAttribute::GenerativeUiRawAttribute(name~ : String, value~ : String) -> Self
 pub fn GenerativeUiRawAttribute::equal(Self, Self) -> Bool
 pub fn GenerativeUiRawAttribute::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiRawAttribute::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiRawNode {
   Component(name~ : String, attributes~ : Array[GenerativeUiRawAttribute], children~ : Array[GenerativeUiRawNode])
   Text(value~ : String)
   RawHtml(value~ : String)
   Expression(value~ : String)
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiRawNode::equal(Self, Self) -> Bool
 pub fn GenerativeUiRawNode::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiRawNode::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiRejection {
-  InvalidSequence(sequence~ : Int)
-  SequenceGap(expected~ : Int, received~ : Int)
-  ConflictingDuplicate(sequence~ : Int)
+  InvalidSequence(sequence~ : Int32)
+  SequenceGap(expected~ : Int32, received~ : Int32)
+  ConflictingDuplicate(sequence~ : Int32)
   InputLimitExceeded(limit~ : GenerativeUiInputLimit)
   UnexpectedFinalPayload
   BaseRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
@@ -418,7 +445,7 @@ pub(all) enum GenerativeUiRejection {
   DryRunFailed(message~ : String)
   ApplyFailed(message~ : String)
   ApplyRevisionMismatch(expected~ : GenerativeUiRevision, received~ : GenerativeUiRevision)
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiRejection::equal(Self, Self) -> Bool
 pub fn GenerativeUiRejection::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiRejection::to_repr(Self) -> @debug.Repr
@@ -431,26 +458,28 @@ pub fn GenerativeUiReplaySource::is_exhausted(Self) -> Bool
 pub fn GenerativeUiReplaySource::next(Self) -> GenerativeUiInput?
 pub fn GenerativeUiReplaySource::reset(Self) -> Unit
 
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub struct GenerativeUiRevision {
   // private fields
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiRevision::GenerativeUiRevision(Int) -> Self
-pub fn GenerativeUiRevision::compare(Self, Self) -> Int
+}
+pub fn GenerativeUiRevision::GenerativeUiRevision(Int32) -> Self
+pub fn GenerativeUiRevision::compare(Self, Self) -> Int32
 pub fn GenerativeUiRevision::equal(Self, Self) -> Bool
-pub fn GenerativeUiRevision::hash(Self) -> Int
+pub fn GenerativeUiRevision::hash(Self) -> Int32
 pub fn GenerativeUiRevision::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiRevision::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiRevision::op_ge(Self, Self) -> Bool
 pub fn GenerativeUiRevision::op_gt(Self, Self) -> Bool
 pub fn GenerativeUiRevision::op_le(Self, Self) -> Bool
 pub fn GenerativeUiRevision::op_lt(Self, Self) -> Bool
-pub fn GenerativeUiRevision::to_int(Self) -> Int
+pub fn GenerativeUiRevision::to_int(Self) -> Int32
 pub fn GenerativeUiRevision::to_repr(Self) -> @debug.Repr
 
-pub struct GenerativeUiSelectionKey(String) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn GenerativeUiSelectionKey::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct GenerativeUiSelectionKey(String)
+pub fn GenerativeUiSelectionKey::compare(Self, Self) -> Int32
 pub fn GenerativeUiSelectionKey::equal(Self, Self) -> Bool
-pub fn GenerativeUiSelectionKey::hash(Self) -> Int
+pub fn GenerativeUiSelectionKey::hash(Self) -> Int32
 pub fn GenerativeUiSelectionKey::hash_combine(Self, Hasher) -> Unit
 pub fn GenerativeUiSelectionKey::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiSelectionKey::op_ge(Self, Self) -> Bool
@@ -460,10 +489,11 @@ pub fn GenerativeUiSelectionKey::op_lt(Self, Self) -> Bool
 pub fn GenerativeUiSelectionKey::to_repr(Self) -> @debug.Repr
 pub fn GenerativeUiSelectionKey::to_string(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub(all) enum GenerativeUiTransition {
   Started(generation_id~ : GenerativeUiGenerationId)
-  ChunkAccepted(sequence~ : Int)
-  DuplicateChunk(sequence~ : Int)
+  ChunkAccepted(sequence~ : Int32)
+  DuplicateChunk(sequence~ : Int32)
   Finalized
   ValidationStarted
   DryRunStarted
@@ -473,15 +503,16 @@ pub(all) enum GenerativeUiTransition {
   Rejected(reason~ : GenerativeUiRejection)
   Failed(reason~ : GenerativeUiRejection)
   Ignored(reason~ : GenerativeUiIgnoreReason)
-} derive(Eq, @debug.Debug)
+}
 pub fn GenerativeUiTransition::equal(Self, Self) -> Bool
 pub fn GenerativeUiTransition::not_equal(Self, Self) -> Bool
 pub fn GenerativeUiTransition::to_repr(Self) -> @debug.Repr
 
-pub struct ProviderDependencyFingerprint(String) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn ProviderDependencyFingerprint::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct ProviderDependencyFingerprint(String)
+pub fn ProviderDependencyFingerprint::compare(Self, Self) -> Int32
 pub fn ProviderDependencyFingerprint::equal(Self, Self) -> Bool
-pub fn ProviderDependencyFingerprint::hash(Self) -> Int
+pub fn ProviderDependencyFingerprint::hash(Self) -> Int32
 pub fn ProviderDependencyFingerprint::hash_combine(Self, Hasher) -> Unit
 pub fn ProviderDependencyFingerprint::new(String) -> Self
 pub fn ProviderDependencyFingerprint::not_equal(Self, Self) -> Bool
@@ -492,20 +523,22 @@ pub fn ProviderDependencyFingerprint::op_lt(Self, Self) -> Bool
 pub fn ProviderDependencyFingerprint::to_repr(Self) -> @debug.Repr
 pub fn ProviderDependencyFingerprint::to_string(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProviderOptionProvenance {
   task_kind : String
   provider_id : String
   model_id : String
   option_identity : RedactedOptionIdentity
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderOptionProvenance::equal(Self, Self) -> Bool
 pub fn ProviderOptionProvenance::new(task_kind~ : String, provider_id~ : String, model_id~ : String, option_identity~ : RedactedOptionIdentity) -> Self
 pub fn ProviderOptionProvenance::not_equal(Self, Self) -> Bool
 pub fn ProviderOptionProvenance::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct ProviderRequestDescriptor {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderRequestDescriptor::context(Self) -> Array[ContextItem]
 pub fn ProviderRequestDescriptor::dependencies(Self) -> Array[CognitionKey]
 pub fn ProviderRequestDescriptor::dependency_fingerprint(Self) -> ProviderDependencyFingerprint
@@ -518,10 +551,11 @@ pub fn ProviderRequestDescriptor::source_revisions(Self) -> Array[ProviderSource
 pub fn ProviderRequestDescriptor::target(Self) -> CognitionKey
 pub fn ProviderRequestDescriptor::to_repr(Self) -> @debug.Repr
 
-pub struct ProviderRequestId(String) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn ProviderRequestId::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct ProviderRequestId(String)
+pub fn ProviderRequestId::compare(Self, Self) -> Int32
 pub fn ProviderRequestId::equal(Self, Self) -> Bool
-pub fn ProviderRequestId::hash(Self) -> Int
+pub fn ProviderRequestId::hash(Self) -> Int32
 pub fn ProviderRequestId::hash_combine(Self, Hasher) -> Unit
 pub fn ProviderRequestId::new(String) -> Self
 pub fn ProviderRequestId::not_equal(Self, Self) -> Bool
@@ -532,28 +566,31 @@ pub fn ProviderRequestId::op_lt(Self, Self) -> Bool
 pub fn ProviderRequestId::to_repr(Self) -> @debug.Repr
 pub fn ProviderRequestId::to_string(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProviderRequestStatus {
   Planned
   Pending
   Succeeded
   Failed(ProviderError)
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderRequestStatus::classification(Self) -> ProviderStatusClassification
 pub fn ProviderRequestStatus::equal(Self, Self) -> Bool
 pub fn ProviderRequestStatus::not_equal(Self, Self) -> Bool
 pub fn ProviderRequestStatus::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProviderResult {
   Succeeded(CognitionValue)
   Failed(ProviderError)
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderResult::equal(Self, Self) -> Bool
 pub fn ProviderResult::not_equal(Self, Self) -> Bool
 pub fn ProviderResult::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct ProviderResultDescriptor {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderResultDescriptor::dependency_fingerprint(Self) -> ProviderDependencyFingerprint
 pub fn ProviderResultDescriptor::equal(Self, Self) -> Bool
 pub fn ProviderResultDescriptor::new(request_id~ : ProviderRequestId, target~ : CognitionKey, options~ : ProviderOptionProvenance, source_revisions~ : Array[ProviderSourceSnapshot], dependency_fingerprint~ : ProviderDependencyFingerprint, result~ : ProviderResult) -> Self
@@ -566,39 +603,43 @@ pub fn ProviderResultDescriptor::status(Self) -> ProviderRequestStatus
 pub fn ProviderResultDescriptor::target(Self) -> CognitionKey
 pub fn ProviderResultDescriptor::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProviderRetryClassification {
-  RetryableLater(retry_after_ms~ : Int?)
+  RetryableLater(retry_after_ms~ : Int32?)
   TerminalUntilConfigurationChanges
   TerminalForRequest
   CallerInitiated
   GraphConsistency
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderRetryClassification::equal(Self, Self) -> Bool
 pub fn ProviderRetryClassification::not_equal(Self, Self) -> Bool
 pub fn ProviderRetryClassification::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProviderSourceSnapshot {
   key : CognitionKey
   revision : Revision
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderSourceSnapshot::equal(Self, Self) -> Bool
 pub fn ProviderSourceSnapshot::new(key~ : CognitionKey, revision~ : Revision) -> Self
 pub fn ProviderSourceSnapshot::not_equal(Self, Self) -> Bool
 pub fn ProviderSourceSnapshot::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProviderStatusClassification {
   NotStarted
   InFlight
   Succeeded
   Failed(ProviderRetryClassification)
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderStatusClassification::equal(Self, Self) -> Bool
 pub fn ProviderStatusClassification::not_equal(Self, Self) -> Bool
 pub fn ProviderStatusClassification::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct ProviderStatusDescriptor {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn ProviderStatusDescriptor::classification(Self) -> ProviderStatusClassification
 pub fn ProviderStatusDescriptor::equal(Self, Self) -> Bool
 pub fn ProviderStatusDescriptor::new(request_id~ : ProviderRequestId, target~ : CognitionKey, status~ : ProviderRequestStatus) -> Self
@@ -608,10 +649,11 @@ pub fn ProviderStatusDescriptor::status(Self) -> ProviderRequestStatus
 pub fn ProviderStatusDescriptor::target(Self) -> CognitionKey
 pub fn ProviderStatusDescriptor::to_repr(Self) -> @debug.Repr
 
-pub struct RedactedOptionIdentity(String) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn RedactedOptionIdentity::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct RedactedOptionIdentity(String)
+pub fn RedactedOptionIdentity::compare(Self, Self) -> Int32
 pub fn RedactedOptionIdentity::equal(Self, Self) -> Bool
-pub fn RedactedOptionIdentity::hash(Self) -> Int
+pub fn RedactedOptionIdentity::hash(Self) -> Int32
 pub fn RedactedOptionIdentity::hash_combine(Self, Hasher) -> Unit
 pub fn RedactedOptionIdentity::new(String) -> Self
 pub fn RedactedOptionIdentity::not_equal(Self, Self) -> Bool
@@ -622,17 +664,18 @@ pub fn RedactedOptionIdentity::op_lt(Self, Self) -> Bool
 pub fn RedactedOptionIdentity::to_repr(Self) -> @debug.Repr
 pub fn RedactedOptionIdentity::to_string(Self) -> String
 
-pub struct Revision(Int) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn Revision::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct Revision(Int32)
+pub fn Revision::compare(Self, Self) -> Int32
 pub fn Revision::equal(Self, Self) -> Bool
-pub fn Revision::hash(Self) -> Int
+pub fn Revision::hash(Self) -> Int32
 pub fn Revision::hash_combine(Self, Hasher) -> Unit
 pub fn Revision::not_equal(Self, Self) -> Bool
 pub fn Revision::op_ge(Self, Self) -> Bool
 pub fn Revision::op_gt(Self, Self) -> Bool
 pub fn Revision::op_le(Self, Self) -> Bool
 pub fn Revision::op_lt(Self, Self) -> Bool
-pub fn Revision::to_int(Self) -> Int
+pub fn Revision::to_int(Self) -> Int32
 pub fn Revision::to_repr(Self) -> @debug.Repr
 
 // Type aliases

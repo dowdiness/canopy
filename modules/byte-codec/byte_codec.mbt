@@ -8,7 +8,7 @@
 ///|
 pub struct Reader {
   data : Bytes
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
@@ -27,7 +27,7 @@ pub fn Reader::read_byte(self : Reader) -> Byte raise CodecError {
 }
 
 ///|
-fn Reader::read_bytes(self : Reader, n : Int) -> Bytes raise CodecError {
+fn Reader::read_bytes(self : Reader, n : Int32) -> Bytes raise CodecError {
   if self.pos + n > self.data.length() {
     raise CodecError::UnexpectedEndOfInput
   }
@@ -62,7 +62,7 @@ pub fn read_uvarint(reader : Reader) -> UInt64 raise CodecError {
 }
 
 ///|
-pub fn safe_uvarint_to_int(v : UInt64) -> Int raise CodecError {
+pub fn safe_uvarint_to_int(v : UInt64) -> Int32 raise CodecError {
   if v > 2147483647UL {
     raise CodecError::VarintValueTooLarge
   }
@@ -88,10 +88,10 @@ pub fn read_ivarint(reader : Reader) -> Int64 raise CodecError {
 ///|
 pub fn write_string(buf : Buffer, s : String) -> Unit {
   let tmp = Buffer()
-  tmp.write_string_utf16le(s.view())
+  tmp.write_string_utf16le(s[:])
   let bytes = tmp.to_bytes()
   write_uvarint(buf, bytes.length().to_uint64())
-  buf.write_bytes(bytes)
+  buf.write_bytesview(bytes)
 }
 
 ///|
@@ -108,7 +108,7 @@ pub fn read_string(reader : Reader) -> String raise CodecError {
 ///|
 pub fn write_len_bytes(buf : Buffer, b : Bytes) -> Unit {
   write_uvarint(buf, b.length().to_uint64())
-  buf.write_bytes(b)
+  buf.write_bytesview(b)
 }
 
 ///|

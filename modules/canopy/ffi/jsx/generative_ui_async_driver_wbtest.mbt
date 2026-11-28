@@ -1,6 +1,6 @@
 ///|
 /// Package-level coverage for the deterministic async driver shell.
-fn async_driver_int(value : @js.Any, key : String) -> Int {
+fn async_driver_int(value : @js.Any, key : String) -> Int32 {
   value.get(key).cast()
 }
 

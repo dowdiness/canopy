@@ -5,7 +5,7 @@ const INCR_CANVAS_NODE_WIDTH : Double = 150.0
 const INCR_CANVAS_NODE_HEIGHT : Double = 44.0
 
 ///|
-const INCR_CANVAS_GRID_COLUMNS : Int = 4
+const INCR_CANVAS_GRID_COLUMNS : Int32 = 4
 
 ///|
 const INCR_CANVAS_GRID_X : Double = 190.0
@@ -26,6 +26,7 @@ const INCR_CANVAS_MIN_SCALE : Double = 0.25
 const INCR_CANVAS_MAX_SCALE : Double = 4.0
 
 ///|
+#derive(Eq)
 struct IncrCanvasState {
   viewport : @spatial.Viewport
   panning : @spatial.Pan?
@@ -33,8 +34,8 @@ struct IncrCanvasState {
   positions : Map[@incr.CellId, @spatial.WorldPoint]
   selected : Array[@incr.CellId]
   live_cells : Set[@incr.CellId]
-  active_pointer_id : Int?
-} derive(Eq)
+  active_pointer_id : Int32?
+}
 
 ///|
 fn IncrCanvasState::empty() -> IncrCanvasState {
@@ -55,7 +56,7 @@ fn IncrCanvasState::empty() -> IncrCanvasState {
 }
 
 ///|
-fn incr_canvas_initial_position(index : Int) -> @spatial.WorldPoint {
+fn incr_canvas_initial_position(index : Int32) -> @spatial.WorldPoint {
   let column = index % INCR_CANVAS_GRID_COLUMNS
   let row = index / INCR_CANVAS_GRID_COLUMNS
   try! @spatial.WorldPoint::from_xy(
@@ -69,7 +70,7 @@ fn incr_canvas_initial_position(index : Int) -> @spatial.WorldPoint {
 /// node. Starting at the node's frontier index keeps stable layouts compact
 /// while avoiding overlaps after remove/add transitions.
 fn incr_canvas_free_initial_position(
-  index : Int,
+  index : Int32,
   occupied : Array[@spatial.WorldPoint],
 ) -> @spatial.WorldPoint {
   let mut slot = index
@@ -205,7 +206,7 @@ fn incr_canvas_hit_test(
 ///|
 fn incr_canvas_pointer_claim_matches(
   claimed_id : String?,
-  pointer_id : Int?,
+  pointer_id : Int32?,
 ) -> Bool {
   match (claimed_id, pointer_id) {
     (Some(claimed), Some(pointer)) => claimed == pointer.to_string()
@@ -216,7 +217,7 @@ fn incr_canvas_pointer_claim_matches(
 ///|
 fn incr_canvas_pointer_admitted(
   state : IncrCanvasState,
-  pointer_id : Int?,
+  pointer_id : Int32?,
 ) -> Bool {
   state.active_pointer_id is None && pointer_id is Some(_)
 }
@@ -227,7 +228,7 @@ fn incr_canvas_pointer_down(
   snapshot : @visualizer.RecomputeSnapshot,
   x : Double,
   y : Double,
-  pointer_id : Int?,
+  pointer_id : Int32?,
 ) -> IncrCanvasState {
   guard incr_canvas_pointer_admitted(state, pointer_id) else { return state }
   let screen = match incr_canvas_screen_point(x, y) {
@@ -276,7 +277,7 @@ fn incr_canvas_pointer_move(
   state : IncrCanvasState,
   x : Double,
   y : Double,
-  pointer_id : Int?,
+  pointer_id : Int32?,
 ) -> IncrCanvasState {
   guard state.active_pointer_id == pointer_id else { return state }
   let screen = match incr_canvas_screen_point(x, y) {
@@ -310,7 +311,7 @@ fn incr_canvas_pointer_move(
 ///|
 fn incr_canvas_pointer_up(
   state : IncrCanvasState,
-  pointer_id : Int?,
+  pointer_id : Int32?,
 ) -> IncrCanvasState {
   guard state.active_pointer_id == pointer_id else { return state }
   { ..state, panning: None, dragging: None, active_pointer_id: None, }
@@ -324,7 +325,7 @@ fn incr_canvas_capture_lost(state : IncrCanvasState) -> IncrCanvasState {
 ///|
 fn incr_canvas_capture_lost_for_pointer(
   state : IncrCanvasState,
-  pointer_id : Int?,
+  pointer_id : Int32?,
 ) -> IncrCanvasState {
   guard state.active_pointer_id == pointer_id else { return state }
   incr_canvas_capture_lost(state)

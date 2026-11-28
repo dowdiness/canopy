@@ -27,7 +27,7 @@ pub fn BlockDoc::new(
 pub fn BlockDoc::create_block(
   self : BlockDoc,
   block_type : BlockType,
-  parent? : @container.TreeNodeId = root_block_id,
+  parent~ : @container.TreeNodeId = root_block_id,
 ) -> @container.TreeNodeId raise @container.DocumentError {
   let id = self.tree.create_node(parent~)
   self.apply_block_type(id, block_type)
@@ -147,7 +147,7 @@ pub fn BlockDoc::set_text(
 pub fn BlockDoc::insert_char(
   self : BlockDoc,
   id : @container.TreeNodeId,
-  pos : Int,
+  pos : Int32,
   ch : String,
 ) -> Unit {
   self.tree.insert_text(id, pos, ch) catch {
@@ -160,7 +160,7 @@ pub fn BlockDoc::insert_char(
 pub fn BlockDoc::delete_char(
   self : BlockDoc,
   id : @container.TreeNodeId,
-  pos : Int,
+  pos : Int32,
 ) -> Unit {
   self.tree.delete_text(id, pos) catch {
     _ => ()

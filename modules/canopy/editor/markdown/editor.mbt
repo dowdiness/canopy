@@ -4,22 +4,23 @@ pub(all) suberror MarkdownEditorError {
   InvalidAgentId
   InitializationFailed(detail~ : String)
   ProjectionUnavailable
-  InvalidTextRange(start~ : Int, delete_len~ : Int, source_length~ : Int)
+  InvalidTextRange(start~ : Int32, delete_len~ : Int32, source_length~ : Int32)
   EditFailed(detail~ : String)
   /// The causal edit landed; this is never authorization to retry it.
   Committed(
     evidence~ : MarkdownCommittedEvidence,
-    issue~ : MarkdownPostCommitIssue
+    issue~ : MarkdownPostCommitIssue,
   )
 }
 
 ///|
 /// Sentinel-free evidence retained when receipt construction is interrupted
 /// after the document version has advanced.
+#derive(Eq, Debug)
 pub struct MarkdownCommittedEvidence {
   priv before : String
   priv after : String?
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn MarkdownCommittedEvidence::before(self : Self) -> String {
@@ -33,40 +34,43 @@ pub fn MarkdownCommittedEvidence::after(self : Self) -> String? {
 
 ///|
 /// Typed post-commit reasons that require recovery rather than edit retry.
+#derive(Eq, Debug)
 pub(all) enum MarkdownPostCommitIssue {
   RuntimeFailure(detail~ : String)
   ProjectionUnavailable
   ProjectionFailed
-  UnexpectedTransformCount(count~ : Int)
-} derive(Eq, Debug)
+  UnexpectedTransformCount(count~ : Int32)
+}
 
 ///|
 /// Stable editable block kinds exposed by the Markdown façade.
+#derive(Eq, Debug)
 pub(all) enum MarkdownBlockKind {
   Paragraph
-  Heading(level~ : Int)
+  Heading(level~ : Int32)
   UnorderedListItem
-  OrderedListItem(start~ : Int, delimiter~ : String)
+  OrderedListItem(start~ : Int32, delimiter~ : String)
   CodeBlock(info~ : String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Immutable, façade-owned snapshot of one supported top-level block.
+#derive(Eq, Debug)
 pub struct MarkdownBlockSnapshot {
   priv node_id : MarkdownNodeId
   priv kind : MarkdownBlockKind
   priv text : String
-  priv source_start : Int
-  priv source_end : Int
-  priv text_start : Int
-  priv text_end : Int
-  priv marker_start : Int?
-  priv marker_end : Int?
-  priv fence_open_start : Int?
-  priv fence_open_end : Int?
-  priv fence_close_start : Int?
-  priv fence_close_end : Int?
-} derive(Eq, Debug)
+  priv source_start : Int32
+  priv source_end : Int32
+  priv text_start : Int32
+  priv text_end : Int32
+  priv marker_start : Int32?
+  priv marker_end : Int32?
+  priv fence_open_start : Int32?
+  priv fence_open_end : Int32?
+  priv fence_close_start : Int32?
+  priv fence_close_end : Int32?
+}
 
 ///|
 pub fn MarkdownBlockSnapshot::node_id(self : Self) -> MarkdownNodeId {
@@ -100,18 +104,18 @@ fn MarkdownBlockSnapshot::canonical_text(self : Self) -> String {
 
 ///|
 /// Sentinel-free UTF-16 range in the owning document snapshot source.
-pub fn MarkdownBlockSnapshot::source_range(self : Self) -> (Int, Int) {
+pub fn MarkdownBlockSnapshot::source_range(self : Self) -> (Int32, Int32) {
   (self.source_start, self.source_end)
 }
 
 ///|
 /// Sentinel-free UTF-16 payload range in the owning snapshot source.
-pub fn MarkdownBlockSnapshot::text_range(self : Self) -> (Int, Int) {
+pub fn MarkdownBlockSnapshot::text_range(self : Self) -> (Int32, Int32) {
   (self.text_start, self.text_end)
 }
 
 ///|
-pub fn MarkdownBlockSnapshot::marker_range(self : Self) -> (Int, Int)? {
+pub fn MarkdownBlockSnapshot::marker_range(self : Self) -> (Int32, Int32)? {
   match (self.marker_start, self.marker_end) {
     (Some(start), Some(end)) => Some((start, end))
     _ => None
@@ -120,7 +124,7 @@ pub fn MarkdownBlockSnapshot::marker_range(self : Self) -> (Int, Int)? {
 
 ///|
 /// Exact opening-fence span for a fenced code block, including its info string.
-pub fn MarkdownBlockSnapshot::fence_open_range(self : Self) -> (Int, Int)? {
+pub fn MarkdownBlockSnapshot::fence_open_range(self : Self) -> (Int32, Int32)? {
   match (self.fence_open_start, self.fence_open_end) {
     (Some(start), Some(end)) => Some((start, end))
     _ => None
@@ -129,7 +133,7 @@ pub fn MarkdownBlockSnapshot::fence_open_range(self : Self) -> (Int, Int)? {
 
 ///|
 /// Exact closing-fence span for a fenced code block.
-pub fn MarkdownBlockSnapshot::fence_close_range(self : Self) -> (Int, Int)? {
+pub fn MarkdownBlockSnapshot::fence_close_range(self : Self) -> (Int32, Int32)? {
   match (self.fence_close_start, self.fence_close_end) {
     (Some(start), Some(end)) => Some((start, end))
     _ => None
@@ -138,17 +142,18 @@ pub fn MarkdownBlockSnapshot::fence_close_range(self : Self) -> (Int, Int)? {
 
 ///|
 /// A resource dimension enforced while opening a Markdown archive.
+#derive(Eq, Debug)
 pub(all) enum MarkdownArchiveLimitDimension {
   EncodedBytes
   DecodedOperations
   PendingOperations
   ParentsPerOperation
-} derive(Eq, Debug)
+}
 
 ///|
 /// Invalid caller-selected archive open limits.
 pub(all) suberror MarkdownArchiveOpenLimitsError {
-  InvalidLimit(dimension~ : MarkdownArchiveLimitDimension, value~ : Int)
+  InvalidLimit(dimension~ : MarkdownArchiveLimitDimension, value~ : Int32)
 }
 
 ///|
@@ -163,10 +168,10 @@ pub struct MarkdownArchiveOpenLimits {
 ///|
 /// Construct archive open limits from the four EGW-enforced dimensions.
 pub fn MarkdownArchiveOpenLimits::MarkdownArchiveOpenLimits(
-  max_encoded_bytes~ : Int,
-  max_decoded_operations~ : Int,
-  max_pending_operations~ : Int,
-  max_parents_per_operation~ : Int,
+  max_encoded_bytes~ : Int32,
+  max_decoded_operations~ : Int32,
+  max_pending_operations~ : Int32,
+  max_parents_per_operation~ : Int32,
 ) -> MarkdownArchiveOpenLimits raise MarkdownArchiveOpenLimitsError {
   if max_encoded_bytes < 0 {
     raise MarkdownArchiveOpenLimitsError::InvalidLimit(
@@ -229,8 +234,8 @@ pub(all) suberror MarkdownArchiveError {
   ExportFailed(detail~ : String)
   LimitExceeded(
     dimension~ : MarkdownArchiveLimitDimension,
-    maximum~ : Int,
-    actual~ : Int
+    maximum~ : Int32,
+    actual~ : Int32,
   )
   HistoryAdmissionFailed(detail~ : String)
   IncompleteHistory
@@ -243,6 +248,7 @@ pub(all) suberror MarkdownArchiveError {
 /// between replicas and is not a failure, so it is reported rather than raised.
 /// Whether it is acceptable is the caller's judgment: a peer exchange expects
 /// it, and an archive that claims to be complete is contradicted by it.
+#derive(Eq, Debug)
 pub(all) enum MarkdownAdmitReport {
   /// Nothing is held: every operation in the history is now in this document.
   ///
@@ -258,14 +264,15 @@ pub(all) enum MarkdownAdmitReport {
   /// different responses: `applied` is how many operations were new to this
   /// document, so zero means nothing landed at all, and that reading holds
   /// whatever else the message contained.
-  Withheld(applied~ : Int, withheld~ : Int)
-} derive(Eq, Debug)
+  Withheld(applied~ : Int32, withheld~ : Int32)
+}
 
 ///|
 /// Opaque identity of a projected Markdown node.
+#derive(Eq, Debug)
 pub struct MarkdownNodeId {
   priv value : @core.NodeId
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn MarkdownNodeId::key(self : Self) -> String {
@@ -274,10 +281,11 @@ pub fn MarkdownNodeId::key(self : Self) -> String {
 
 ///|
 /// Immutable logical selection inside one editable block.
+#derive(Eq, Debug)
 pub struct MarkdownBlockSelection {
   priv node_id : MarkdownNodeId
-  priv offset : Int
-} derive(Eq, Debug)
+  priv offset : Int32
+}
 
 ///|
 pub fn MarkdownBlockSelection::node_id(self : Self) -> MarkdownNodeId {
@@ -286,45 +294,47 @@ pub fn MarkdownBlockSelection::node_id(self : Self) -> MarkdownNodeId {
 
 ///|
 /// UTF-16 code-unit offset relative to the selected block's text span.
-pub fn MarkdownBlockSelection::offset(self : Self) -> Int {
+pub fn MarkdownBlockSelection::offset(self : Self) -> Int32 {
   self.offset
 }
 
 ///|
 /// Why a document-level UTF-16 selection could not be constructed.
+#derive(Eq, Debug)
 pub(all) suberror MarkdownDocumentUtf16SelectionError {
-  OutOfBounds(anchor~ : Int, head~ : Int, source_length~ : Int)
-  MidGraphemeBoundary(offset~ : Int)
-} derive(Eq, Debug)
+  OutOfBounds(anchor~ : Int32, head~ : Int32, source_length~ : Int32)
+  MidGraphemeBoundary(offset~ : Int32)
+}
 
 ///|
 /// Directed source selection in one detached Markdown document snapshot.
 ///
 /// `anchor` and `head` are document-level UTF-16 code-unit offsets. Their
 /// order preserves direction; range operations use their ordered bounds.
+#derive(Eq, Debug)
 pub struct MarkdownDocumentUtf16Selection {
-  priv anchor : Int
-  priv head : Int
-} derive(Eq, Debug)
+  priv anchor : Int32
+  priv head : Int32
+}
 
 ///|
-pub fn MarkdownDocumentUtf16Selection::anchor(self : Self) -> Int {
+pub fn MarkdownDocumentUtf16Selection::anchor(self : Self) -> Int32 {
   self.anchor
 }
 
 ///|
-pub fn MarkdownDocumentUtf16Selection::head(self : Self) -> Int {
+pub fn MarkdownDocumentUtf16Selection::head(self : Self) -> Int32 {
   self.head
 }
 
 ///|
-pub fn MarkdownDocumentUtf16Selection::range_start(self : Self) -> Int {
+pub fn MarkdownDocumentUtf16Selection::range_start(self : Self) -> Int32 {
   let (start, _) = @cmp.minmax(self.anchor, self.head)
   start
 }
 
 ///|
-pub fn MarkdownDocumentUtf16Selection::range_end(self : Self) -> Int {
+pub fn MarkdownDocumentUtf16Selection::range_end(self : Self) -> Int32 {
   let (_, end) = @cmp.minmax(self.anchor, self.head)
   end
 }
@@ -341,24 +351,26 @@ pub fn MarkdownDocumentUtf16Selection::is_collapsed(self : Self) -> Bool {
 
 ///|
 /// A caller-owned edit request lowered by the Markdown façade.
+#derive(Eq, Debug)
 pub(all) enum MarkdownEditRequest {
   ReplaceSource(String)
-  ReplaceText(start~ : Int, delete_len~ : Int, inserted~ : String)
+  ReplaceText(start~ : Int32, delete_len~ : Int32, inserted~ : String)
   CommitEdit(node_id~ : MarkdownNodeId, new_text~ : String)
   CommitTextControlEdit(node_id~ : MarkdownNodeId, new_text~ : String)
-  SplitBlock(node_id~ : MarkdownNodeId, offset~ : Int)
-  ChangeHeadingLevel(node_id~ : MarkdownNodeId, level~ : Int)
+  SplitBlock(node_id~ : MarkdownNodeId, offset~ : Int32)
+  ChangeHeadingLevel(node_id~ : MarkdownNodeId, level~ : Int32)
   ToggleListItem(node_id~ : MarkdownNodeId)
   Delete(node_id~ : MarkdownNodeId)
   MergeWithPrevious(node_id~ : MarkdownNodeId)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Immutable, façade-owned projection summary.
+#derive(Eq, Debug)
 pub struct MarkdownProjectionSnapshot {
   priv root_id : MarkdownNodeId?
   priv node_ids : @vector.Vector[MarkdownNodeId]
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn MarkdownProjectionSnapshot::root_id(self : Self) -> MarkdownNodeId? {
@@ -374,11 +386,12 @@ pub fn MarkdownProjectionSnapshot::node_ids(
 
 ///|
 /// An immutable source snapshot detached from the editor implementation.
+#derive(Eq, Debug)
 pub struct MarkdownDocumentSnapshot {
   priv source : String
   priv projection : MarkdownProjectionSnapshot
   priv blocks : @vector.Vector[MarkdownBlockSnapshot]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Sentinel-free UTF-16 source shared by all snapshot ranges and receipts.
@@ -405,8 +418,8 @@ pub fn MarkdownDocumentSnapshot::blocks(
 /// immutable Markdown snapshot.
 pub fn MarkdownDocumentUtf16Selection::MarkdownDocumentUtf16Selection(
   snapshot : MarkdownDocumentSnapshot,
-  anchor~ : Int,
-  head~ : Int,
+  anchor~ : Int32,
+  head~ : Int32,
 ) -> MarkdownDocumentUtf16Selection raise MarkdownDocumentUtf16SelectionError {
   let source = snapshot.source()
   let source_length = source.length()
@@ -446,9 +459,10 @@ priv struct PortableDocumentSnapshot {
 /// source unchanged still moves it. Equality here means "has not advanced",
 /// never "is the same document" — two different histories can share a
 /// frontier, so continuation is decided by `MarkdownDocumentHistory` instead.
+#derive(Eq, Debug)
 pub struct MarkdownDocumentVersion {
   priv value : @text.Version
-} derive(Eq, Debug)
+}
 
 ///|
 /// Encode this causal frontier as the canonical portable text-version token.
@@ -507,10 +521,11 @@ pub impl Eq for MarkdownDocumentHistory with fn equal(
 
 ///|
 /// Result of one atomic editor commit.
+#derive(Eq, Debug)
 pub(all) enum MarkdownCommitResult {
   Applied(MarkdownDocumentSnapshot, MarkdownBlockSelection?)
   Unchanged(MarkdownDocumentSnapshot)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Origin of a committed Markdown change.
@@ -518,9 +533,10 @@ pub(all) enum MarkdownCommitResult {
 /// This ticket reports only edits produced by this writing instance. Keeping
 /// origin explicit prevents a future remote admission from entering a local
 /// persistence outbox by accident.
+#derive(Eq, Debug)
 pub(all) enum MarkdownCommitOrigin {
   Local
-} derive(Eq, Debug)
+}
 
 ///|
 /// One source transform for downstream presence coordinates.
@@ -530,17 +546,18 @@ pub(all) enum MarkdownCommitOrigin {
 /// relative to the source immediately before the commit; each later transform
 /// is relative to the source produced by every preceding transform. Applying
 /// the ordered sequence yields the receipt's post-commit snapshot source.
+#derive(Eq, Debug)
 pub struct MarkdownTextTransform {
   priv change : @core.SpanEdit
-} derive(Eq, Debug)
+}
 
 ///|
-pub fn MarkdownTextTransform::start(self : Self) -> Int {
+pub fn MarkdownTextTransform::start(self : Self) -> Int32 {
   self.change.start
 }
 
 ///|
-pub fn MarkdownTextTransform::delete_len(self : Self) -> Int {
+pub fn MarkdownTextTransform::delete_len(self : Self) -> Int32 {
   self.change.delete_len
 }
 
@@ -821,7 +838,7 @@ fn open_markdown_editor(
   let report = editor.admit_with_limits(history.message, open_limits.limits) catch {
     Failure::Failure(_) as failure => raise failure
     @text.TextError::SyncFailed(
-      @sync.Failure::LimitExceeded(kind~, limit~, actual~)
+      @sync.Failure::LimitExceeded(kind~, limit~, actual~),
     ) =>
       raise MarkdownArchiveError::LimitExceeded(
         dimension=MarkdownArchiveLimitDimension::from_sync(kind),
@@ -944,7 +961,7 @@ pub fn MarkdownEditor::snapshot(
 
 ///|
 /// Return portable Markdown with façade-owned empty-block sentinels removed.
-pub fn MarkdownEditor::portable_markdown(self : Self) -> String {
+pub fn MarkdownEditor::portable_markdown(self : Self) -> String raise Failure {
   markdown_full_export_observed()
   @md_companion.export_markdown_text(self.editor)
 }
@@ -1018,6 +1035,8 @@ pub fn MarkdownEditor::history_since(
 /// This compatibility method intentionally returns only the existing
 /// source-oriented result. Call `commit_with_receipt` when causal advancement
 /// and presence transforms are needed.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn MarkdownEditor::commit(
   self : Self,
   request : MarkdownEditRequest,
@@ -1028,11 +1047,12 @@ pub fn MarkdownEditor::commit(
 ///|
 /// Facade-owned observation phases, including A1 evidence that does not belong
 /// to the lower-level SyncEditor mutation scope.
+#derive(Eq, Debug)
 pub enum MarkdownProjectionObservationPhase {
   AuthorityAccepted
   ProjectionMirrorSynchronized
   CausalEvidenceAvailable
-} derive(Eq, Debug)
+}
 
 ///|
 /// Apply one request and report causal advancement without changing `commit`.
@@ -1040,6 +1060,8 @@ pub enum MarkdownProjectionObservationPhase {
 /// History export can fail independently after the local edit has committed,
 /// so archive failures remain raised while edit failures keep the legacy
 /// `Result` channel.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn MarkdownEditor::commit_with_receipt(
   self : Self,
   request : MarkdownEditRequest,
@@ -1050,6 +1072,8 @@ pub fn MarkdownEditor::commit_with_receipt(
 ///|
 /// Apply one request while observing its projection-relevant synchronous
 /// phases. Observation is telemetry only and does not alter edit semantics.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn MarkdownEditor::commit_with_receipt_observing(
   self : Self,
   request : MarkdownEditRequest,
@@ -1059,6 +1083,8 @@ pub fn MarkdownEditor::commit_with_receipt_observing(
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn MarkdownEditor::commit_with_receipt_impl(
   self : Self,
   request : MarkdownEditRequest,
@@ -1124,7 +1150,7 @@ fn MarkdownEditor::commit_with_receipt_impl(
           after_version,
           origin: MarkdownCommitOrigin::Local,
           history: None,
-          transforms: @vector.new(),
+          transforms: @vector.empty(),
         })
       } else {
         Ok({
@@ -1142,6 +1168,8 @@ fn MarkdownEditor::commit_with_receipt_impl(
 
 ///|
 /// Keep the mutation shell shared by legacy commits and causal receipts.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn MarkdownEditor::commit_recording_transforms(
   self : Self,
   request : MarkdownEditRequest,
@@ -1153,7 +1181,7 @@ fn MarkdownEditor::commit_recording_transforms(
     ReplaceSource(source) => {
       let before = capture_portable_coordinates(self.editor)
       if before.source() == source {
-        Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.new()))
+        Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.empty()))
       } else {
         // The synchronization edit returns the same accepted splice used by
         // the CRDT; project that splice rather than diffing portable sources.
@@ -1422,6 +1450,8 @@ fn MarkdownEditor::commit_recording_transforms(
 ///|
 /// Lower one typed request once, apply the same spans, and retain their exact
 /// order for the receipt without re-diffing the resulting source.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn MarkdownEditor::commit_structural_recording_transforms(
   self : Self,
   op : @md_edits.MarkdownEditOp,
@@ -1446,7 +1476,7 @@ fn MarkdownEditor::commit_structural_recording_transforms(
     Ok(@markdown_runtime.PortableCommitOutcome::Committed(evidence~, issue~)) =>
       Err(markdown_committed_error(evidence, issue))
     Ok(@markdown_runtime.PortableCommitOutcome::Unchanged(_)) =>
-      Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.new()))
+      Ok((MarkdownCommitResult::Unchanged(self.snapshot()), @vector.empty()))
     Ok(@markdown_runtime.PortableCommitOutcome::Applied(commit)) => {
       let state = match
         committed_document_snapshot(
@@ -1551,6 +1581,8 @@ fn markdown_post_commit_issue(
 ///|
 /// Preserve pre-commit failure categories while keeping committed failures out
 /// of the edit-rejection channel.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn portable_not_committed_error(
   issue : @markdown_runtime.PortableCommitIssue,
 ) -> Result[
@@ -1595,6 +1627,8 @@ fn markdown_text_transform(edit : @core.SpanEdit) -> MarkdownTextTransform {
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn project_portable_transform(
   before : @markdown_runtime.PortableCoordinateMap,
   edit : @core.SpanEdit,
@@ -1667,8 +1701,8 @@ fn normalize_text_control_line_endings(text : String) -> String {
 /// Map an LF-normalized UTF-16 offset back into canonical source coordinates.
 fn canonical_offset_for_text_control(
   canonical_text : String,
-  normalized_offset : Int,
-) -> Int {
+  normalized_offset : Int32,
+) -> Int32 {
   let mut canonical_offset = 0
   let mut normalized_offset_seen = 0
   while canonical_offset < canonical_text.length() &&
@@ -1718,10 +1752,10 @@ fn reconcile_text_control_edit(
 /// Resolve the SyncEditor cursor against the detached post-commit snapshot.
 fn selection_for_cursor(
   snapshot : MarkdownDocumentSnapshot,
-  cursor : Int,
+  cursor : Int32,
   allow_nearest~ : Bool,
 ) -> MarkdownBlockSelection? {
-  let closest : (Int, MarkdownBlockSelection)? = snapshot
+  let closest : (Int32, MarkdownBlockSelection)? = snapshot
     .blocks()
     .fold(init=None, (closest, block) => {
       let (start, end) = block.text_range()
@@ -1757,7 +1791,7 @@ fn projection_snapshot(
   editor : @editor.SyncEditor[@md_markdown.Block],
 ) -> MarkdownProjectionSnapshot raise Failure {
   match editor.get_proj_node() {
-    None => { root_id: None, node_ids: @vector.new(), }
+    None => { root_id: None, node_ids: @vector.empty(), }
     Some(root) => {
       let ids : Array[MarkdownNodeId] = []
       root.walk_preorder(node => ids.push({ value: node.id(), }))
@@ -1803,6 +1837,8 @@ fn document_snapshot_from_coordinates(
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn committed_document_snapshot(
   editor : @editor.SyncEditor[@md_markdown.Block],
   before : String,
@@ -1821,6 +1857,8 @@ fn committed_document_snapshot(
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn committed_document_snapshot_from_coordinates(
   editor : @editor.SyncEditor[@md_markdown.Block],
   before : String,
@@ -1851,6 +1889,8 @@ fn capture_portable_coordinates(
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn capture_committed_portable_coordinates(
   editor : @editor.SyncEditor[@md_markdown.Block],
   before : String,
@@ -1871,7 +1911,7 @@ fn editable_block_snapshots(
   coordinates : @markdown_runtime.PortableCoordinateMap,
 ) -> @vector.Vector[MarkdownBlockSnapshot] raise Failure {
   match editor.get_proj_node() {
-    None => @vector.new()
+    None => @vector.empty()
     Some(root) => {
       let source_map = editor.get_source_map()
       let blocks : Array[MarkdownBlockSnapshot] = []
@@ -2018,9 +2058,9 @@ fn append_editable_block_snapshot(
 ///|
 fn project_snapshot_range(
   coordinates : @markdown_runtime.PortableCoordinateMap,
-  start : Int,
-  end : Int,
-) -> (Int, Int) raise Failure {
+  start : Int32,
+  end : Int32,
+) -> (Int32, Int32) raise Failure {
   match coordinates.project_range(start, end) {
     Ok(projected) => projected
     Err(_) =>
@@ -2031,9 +2071,9 @@ fn project_snapshot_range(
 ///|
 fn project_optional_snapshot_range(
   coordinates : @markdown_runtime.PortableCoordinateMap,
-  start : Int?,
-  end : Int?,
-) -> (Int?, Int?) raise Failure {
+  start : Int32?,
+  end : Int32?,
+) -> (Int32?, Int32?) raise Failure {
   match (start, end) {
     (None, None) => (None, None)
     (Some(start), Some(end)) => {
@@ -2066,7 +2106,7 @@ fn tight_top_level_list(
       None => return false
     }
     let payload = source[text_span.start:text_span.end]
-    if payload.contains("\n".view()) || payload.contains("\r".view()) {
+    if payload.contains("\n"[:]) || payload.contains("\r"[:]) {
       return false
     }
   }
@@ -2085,7 +2125,7 @@ fn tight_top_level_list(
     let normalized = gap
       .replace_all(old="\r\n", new="\n")
       .replace_all(old="\r", new="\n")
-    if normalized.contains("\n\n".view()) {
+    if normalized.contains("\n\n"[:]) {
       return false
     }
   }

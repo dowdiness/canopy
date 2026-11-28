@@ -27,7 +27,7 @@ fn emit_children(
   buf : StringBuilder,
   doc : BlockDoc,
   parent_id : @container.TreeNodeId,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   let children = doc.children(parent_id)
   let len = children.length()

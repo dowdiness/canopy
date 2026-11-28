@@ -1,7 +1,7 @@
 ///|
 /// Like VS Code, continuous typing keeps the caret solid without touching its
 /// animation; the blink resumes once input pauses this long.
-const CARET_REST_MS : Int = 500
+const CARET_REST_MS : Int32 = 500
 
 ///|
 /// The widest bar that still clears the side bearings of tight pairs such as
@@ -42,7 +42,7 @@ const CARET_BLINK_ITERATIONS : Double = 8.0
 /// the timer plays the blink; otherwise the blink is breathing.
 priv struct ShownCaret {
   mut at : @writing_focus.Caret
-  mut resting : Int?
+  mut resting : Int32?
 }
 
 ///|

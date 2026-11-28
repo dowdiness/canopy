@@ -148,6 +148,15 @@ export class CanopyEditor extends HTMLElement {
         result = this.crdt.apply_sync_json(this.crdtHandle, e.detail.data);
       }
       if (result !== "ok") {
+        const outcome = JSON.parse(result) as {
+          history_advanced: boolean;
+          projection_available: boolean;
+        };
+        if (outcome.history_advanced && outcome.projection_available) {
+          this.dispatchEvent(new CustomEvent(CanopyEvents.EXTERNAL_CRDT_CHANGE, {
+            bubbles: true, composed: true,
+          }));
+        }
         console.warn("[sync] apply_sync_json failed:", result);
         this.dispatchEvent(new CustomEvent('sync-error', {
           detail: { error: result },

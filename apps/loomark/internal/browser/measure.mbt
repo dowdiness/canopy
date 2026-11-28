@@ -37,7 +37,7 @@ pub fn element_width(
 
 ///|
 priv suberror RenderedHeights {
-  RenderedHeights(String, @cmd.Emit[Array[Int]])
+  RenderedHeights(String, @cmd.Emit[Array[Int32]])
 }
 
 ///|
@@ -49,9 +49,9 @@ pub fn[T] rendered_heights(
   id : String,
   layer_id : String,
   items : Array[T],
-  measured : @cmd.Emit[Array[(T, Int)]],
+  measured : @cmd.Emit[Array[(T, Int32)]],
 ) -> @sub.Sub {
-  let paired : @cmd.Emit[Array[Int]] = @cmd.Emit(heights => {
+  let paired : @cmd.Emit[Array[Int32]] = @cmd.Emit(heights => {
     guard heights.length() == items.length() else {
       abort("#\{layer_id} must hold one child per item")
     }

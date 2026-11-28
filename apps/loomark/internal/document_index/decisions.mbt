@@ -51,12 +51,12 @@ fn is_leaving_key(press : KeyPress) -> Bool {
 
 ///|
 /// Narrowest grid that still fits one card.
-const MIN_GRID_WIDTH : Int = 160
+const MIN_GRID_WIDTH : Int32 = 160
 
 ///|
 /// The grid width to lay cards out at, from the measured width of the
 /// index's content box. Narrow windows still get room for one card.
-fn grid_width_of(measured : Double) -> Int {
+fn grid_width_of(measured : Double) -> Int32 {
   measured.to_int().max(MIN_GRID_WIDTH)
 }
 
@@ -64,19 +64,19 @@ fn grid_width_of(measured : Double) -> Int {
 /// A card's box in grid pixels.
 priv struct CardRect[K] {
   id : K
-  left : Int
-  top : Int
-  width : Int
-  height : Int
+  left : Int32
+  top : Int32
+  width : Int32
+  height : Int32
 }
 
 ///|
-fn[K] CardRect::right(self : CardRect[K]) -> Int {
+fn[K] CardRect::right(self : CardRect[K]) -> Int32 {
   self.left + self.width
 }
 
 ///|
-fn[K] CardRect::bottom(self : CardRect[K]) -> Int {
+fn[K] CardRect::bottom(self : CardRect[K]) -> Int32 {
   self.top + self.height
 }
 

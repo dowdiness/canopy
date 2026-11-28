@@ -15,9 +15,10 @@ pub fn MarkdownEditor::MarkdownEditor(id : String) -> MarkdownEditor {
 }
 
 ///|
+#derive(Eq)
 pub struct EditorState {
   priv preview : @preview.State
-} derive(Eq)
+}
 
 ///|
 pub extend EditorState with Eq::{equal, not_equal}
@@ -34,11 +35,12 @@ pub struct InputEdit {
 }
 
 ///|
+#derive(Eq)
 pub(all) enum Mode {
   Text
   Preview
   Split
-} derive(Eq)
+}
 
 ///|
 pub extend Mode with Eq::{equal, not_equal}
@@ -46,7 +48,7 @@ pub extend Mode with Eq::{equal, not_equal}
 ///|
 pub fn MarkdownEditor::activate(
   self : MarkdownEditor,
-  generation : Int,
+  generation : Int32,
   text : String,
   mode : Mode,
   emit : @rabbita.Emit[EditorEvent],
@@ -66,7 +68,7 @@ pub fn MarkdownEditor::activate(
 pub fn MarkdownEditor::accepted(
   self : MarkdownEditor,
   state : EditorState,
-  generation : Int,
+  generation : Int32,
   text : String,
   change : @text_change.TextChange,
   emit : @rabbita.Emit[EditorEvent],
@@ -87,7 +89,7 @@ pub fn MarkdownEditor::accepted(
 pub fn MarkdownEditor::mode_changed(
   self : MarkdownEditor,
   state : EditorState,
-  generation : Int,
+  generation : Int32,
   text : String,
   previous : Mode,
   current : Mode,
@@ -109,7 +111,7 @@ pub fn MarkdownEditor::mode_changed(
 pub fn MarkdownEditor::update(
   self : MarkdownEditor,
   state : EditorState,
-  generation : Int,
+  generation : Int32,
   text : String,
   event : EditorEvent,
   emit : @rabbita.Emit[EditorEvent],
@@ -167,9 +169,9 @@ pub fn MarkdownEditor::input_view(
   on_composing : (Bool) -> @rabbita.Cmd,
   disabled? : Bool,
   read_only? : Bool,
-  rows? : Int = 20,
-  autofocus? : Bool = false,
-  class? : String = "rmd-editor-input",
+  rows~ : Int32 = 20,
+  autofocus~ : Bool = false,
+  class~ : String = "rmd-editor-input",
   placeholder? : String,
 ) -> @rabbita.Html {
   @html.textarea(
@@ -182,7 +184,7 @@ pub fn MarkdownEditor::input_view(
     attrs=self.area.attach(
       @html.Attrs::build()
       .aria_label(label)
-      .autocomplete(Off)
+      .autocomplete("off")
       .autocorrect("off"),
       input => on_change({ input, }),
       on_composing,

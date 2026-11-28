@@ -7,7 +7,7 @@ priv enum SplicePolicy {
 }
 
 ///|
-fn clamp_utf16_offset(text : String, position : Int) -> Int {
+fn clamp_utf16_offset(text : String, position : Int32) -> Int32 {
   if position < 0 {
     0
   } else if position > text.length() {
@@ -18,7 +18,7 @@ fn clamp_utf16_offset(text : String, position : Int) -> Int {
 }
 
 ///|
-fn utf16_offset_to_item_pos(text : String, offset : Int) -> Int {
+fn utf16_offset_to_item_pos(text : String, offset : Int32) -> Int32 {
   let target = clamp_utf16_offset(text, offset)
   let mut utf16_pos = 0
   let mut item_pos = 0
@@ -67,7 +67,7 @@ fn AuthorityCore::replace_range_and_record(
   self : AuthorityCore,
   range : @text.Range,
   inserted : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   self.doc.replace_range_and_record(range, inserted, self.undo, timestamp_ms~)
 }
@@ -84,9 +84,10 @@ pub fn[T : Eq] SyncEditor::insert(
 ) -> Unit raise {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   self.interaction.set_cursor_prev_grapheme_boundary(
     old_source,
     self.interaction.cursor,
@@ -98,12 +99,12 @@ pub fn[T : Eq] SyncEditor::insert(
     self.observe_authority_acceptance()
   }
   self.interaction.set_cursor_next_grapheme_boundary(
-    self.authority.doc.text(),
+    self.authority.get_text(),
     insert_start + text.length(),
   )
   self.apply_local_text_change(
     old_source,
-    self.authority.doc.text(),
+    self.authority.get_text(),
     Some(@loom_core.Edit::insert(insert_start, text.length())),
     before_version~,
   )
@@ -113,9 +114,10 @@ pub fn[T : Eq] SyncEditor::insert(
 pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   if !@moji.is_grapheme_boundary(old_source, self.interaction.cursor) {
     self.interaction.set_cursor_prev_grapheme_boundary(
       old_source,
@@ -138,13 +140,13 @@ pub fn[T : Eq] SyncEditor::delete(self : SyncEditor[T]) -> Bool raise Failure {
   try
     self.authority.delete_range(@text.Range::from_ints(item_start, item_end))
   catch {
-    _ => false
+    error => self.reject_mutation(error)
   } noraise {
     _ => {
       if self.authority.doc.version() != before_version {
         self.observe_authority_acceptance()
       }
-      let new_text = self.authority.doc.text()
+      let new_text = self.authority.get_text()
       self.interaction.set_cursor_next_grapheme_boundary(
         new_text,
         clamp_utf16_offset(new_text, self.interaction.cursor),
@@ -166,9 +168,10 @@ pub fn[T : Eq] SyncEditor::backspace(
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   if !@moji.is_grapheme_boundary(old_source, self.interaction.cursor) {
     self.interaction.set_cursor_next_grapheme_boundary(
       old_source,
@@ -186,7 +189,7 @@ pub fn[T : Eq] SyncEditor::backspace(
     try
       self.authority.delete_range(@text.Range::from_ints(item_start, item_end))
     catch {
-      _ => false
+      error => self.reject_mutation(error)
     } noraise {
       _ => {
         if self.authority.doc.version() != before_version {
@@ -195,7 +198,7 @@ pub fn[T : Eq] SyncEditor::backspace(
         self.interaction.set_cursor(left)
         self.apply_local_text_change(
           old_source,
-          self.authority.doc.text(),
+          self.authority.get_text(),
           Some(@loom_core.Edit::delete(left, delete_end)),
           before_version~,
         )
@@ -208,8 +211,11 @@ pub fn[T : Eq] SyncEditor::backspace(
 }
 
 ///|
-pub fn[T] SyncEditor::move_cursor(self : SyncEditor[T], position : Int) -> Unit {
-  let text = self.authority.doc.text()
+pub fn[T] SyncEditor::move_cursor(
+  self : SyncEditor[T],
+  position : Int32,
+) -> Unit raise Failure {
+  let text = self.authority.get_text()
   self.interaction.set_cursor_prev_grapheme_boundary(
     text,
     clamp_utf16_offset(text, position),
@@ -217,19 +223,23 @@ pub fn[T] SyncEditor::move_cursor(self : SyncEditor[T], position : Int) -> Unit 
 }
 
 ///|
-pub fn[T] SyncEditor::move_cursor_left_grapheme(self : SyncEditor[T]) -> Unit {
+pub fn[T] SyncEditor::move_cursor_left_grapheme(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
   if self.interaction.cursor == 0 {
     return
   }
   self.interaction.set_cursor_prev_grapheme_boundary(
-    self.authority.doc.text(),
+    self.authority.get_text(),
     self.interaction.cursor - 1,
   )
 }
 
 ///|
-pub fn[T] SyncEditor::move_cursor_right_grapheme(self : SyncEditor[T]) -> Unit {
-  let text = self.authority.doc.text()
+pub fn[T] SyncEditor::move_cursor_right_grapheme(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
+  let text = self.authority.get_text()
   if self.interaction.cursor == text.length() {
     return
   }
@@ -243,26 +253,30 @@ pub fn[T] SyncEditor::move_cursor_right_grapheme(self : SyncEditor[T]) -> Unit {
 /// Word-navigation policy (VS Code-style) over moji's raw UAX #29
 /// boundaries: left lands at word start, right at word end, whitespace is
 /// skipped, punctuation runs are single units. See `word_nav.mbt`.
-pub fn[T] SyncEditor::move_cursor_left_word(self : SyncEditor[T]) -> Unit {
+pub fn[T] SyncEditor::move_cursor_left_word(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
   self.interaction.set_cursor(
-    prev_word_stop(self.authority.doc.text(), self.interaction.cursor),
+    prev_word_stop(self.authority.get_text(), self.interaction.cursor),
   )
 }
 
 ///|
-pub fn[T] SyncEditor::move_cursor_right_word(self : SyncEditor[T]) -> Unit {
+pub fn[T] SyncEditor::move_cursor_right_word(
+  self : SyncEditor[T],
+) -> Unit raise Failure {
   self.interaction.set_cursor(
-    next_word_stop(self.authority.doc.text(), self.interaction.cursor),
+    next_word_stop(self.authority.get_text(), self.interaction.cursor),
   )
 }
 
 ///|
-pub fn[T] SyncEditor::get_text(self : SyncEditor[T]) -> String {
+pub fn[T] SyncEditor::get_text(self : SyncEditor[T]) -> String raise Failure {
   self.authority.get_text()
 }
 
 ///|
-pub fn[T] SyncEditor::get_cursor(self : SyncEditor[T]) -> Int {
+pub fn[T] SyncEditor::get_cursor(self : SyncEditor[T]) -> Int32 {
   self.interaction.cursor
 }
 
@@ -270,18 +284,18 @@ pub fn[T] SyncEditor::get_cursor(self : SyncEditor[T]) -> Int {
 fn[T] SyncEditor::apply_replace_span(
   self : SyncEditor[T],
   old_source : String,
-  start : Int,
-  deleted_len : Int,
+  start : Int32,
+  deleted_len : Int32,
   inserted : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
   record_undo : Bool,
-) -> Bool {
+) -> Bool raise Failure {
   // The Raw append path already validated an end insertion. TextState.len()
   // is the exact item position and avoids scanning the whole UTF-16 source
   // twice just to convert the same endpoint.
   let (item_start, item_end) = if start == old_source.length() &&
     deleted_len == 0 {
-    let end = self.authority.doc.len()
+    let end = self.authority.len()
     (end, end)
   } else {
     (
@@ -294,11 +308,11 @@ fn[T] SyncEditor::apply_replace_span(
   }
   if record_undo {
     self.authority.replace_range_and_record(range, inserted, timestamp_ms) catch {
-      _ => return false
+      error => return self.reject_mutation(error)
     }
   } else {
     self.authority.replace_range(range, inserted) catch {
-      _ => return false
+      error => return self.reject_mutation(error)
     }
   }
   true
@@ -312,12 +326,13 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
   self : SyncEditor[T],
   source_id : @loom_core.SourceId,
   fix : @loom_core.DiagnosticFix,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   let expected_source = fix.apply(source_id, old_source) catch {
     _ => return false
   }
@@ -329,7 +344,7 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
     if applied {
       let range = edit.span().range()
       applied = self.apply_replace_span(
-        self.authority.doc.text(),
+        self.authority.get_text(),
         range.start().value(),
         range.length(),
         edit.replacement(),
@@ -343,7 +358,7 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
   if after_version != before_version {
     self.observe_authority_acceptance()
   }
-  let new_source = self.authority.doc.text()
+  let new_source = self.authority.get_text()
   self.interaction.set_cursor_next_grapheme_boundary(
     new_source,
     clamp_utf16_offset(new_source, self.interaction.cursor),
@@ -367,16 +382,16 @@ fn[T : Eq] SyncEditor::apply_diagnostic_fix_candidate(
 fn[T] SyncEditor::apply_text_edit_mutation_only(
   self : SyncEditor[T],
   old_source : String,
-  start : Int,
-  deleted_len : Int,
+  start : Int32,
+  deleted_len : Int32,
   inserted : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
   record_undo : Bool,
   policy : SplicePolicy,
 ) -> @loom_core.Edit? raise Failure {
   let text_len = old_source.length()
   editor_perf_begin("applyEditPolicy")
-  let resolved : (Int, Int)? = match policy {
+  let resolved : (Int32, Int32)? = match policy {
     ExactBoundaries =>
       if start < 0 ||
         deleted_len < 0 ||
@@ -429,19 +444,20 @@ fn[T] SyncEditor::apply_text_edit_mutation_only(
 ///|
 fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
   self : SyncEditor[T],
-  start : Int,
-  deleted_len : Int,
+  start : Int32,
+  deleted_len : Int32,
   inserted : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
   record_undo : Bool,
   move_cursor_to_edit_end : Bool,
   policy : SplicePolicy,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   let before_version = self.authority.doc.version()
   let old_source = editor_perf_measure("applyEditOldSnapshot", () => {
-    self.authority.doc.text()
+    self.authority.get_text()
   })
   guard self.apply_text_edit_mutation_only(
       old_source, start, deleted_len, inserted, timestamp_ms, record_undo, policy,
@@ -453,7 +469,7 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
     self.observe_authority_acceptance()
   }
   let new_text = editor_perf_measure("applyEditNewSnapshot", () => {
-    self.authority.doc.text()
+    self.authority.get_text()
   })
   if move_cursor_to_edit_end {
     self.interaction.set_cursor_next_grapheme_boundary(
@@ -486,10 +502,10 @@ fn[T : Eq] SyncEditor::apply_text_edit_with_policy(
 /// `delete` methods instead.
 fn[T : Eq] SyncEditor::apply_text_edit_internal(
   self : SyncEditor[T],
-  start : Int,
-  deleted_len : Int,
+  start : Int32,
+  deleted_len : Int32,
   inserted : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
   record_undo : Bool,
   move_cursor_to_edit_end : Bool,
 ) -> Bool raise Failure {
@@ -507,10 +523,10 @@ fn[T : Eq] SyncEditor::apply_text_edit_internal(
 ///|
 pub fn[T : Eq] SyncEditor::apply_text_edit(
   self : SyncEditor[T],
-  start : Int,
-  deleted_len : Int,
+  start : Int32,
+  deleted_len : Int32,
   inserted : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
   self.taint_pending_transforms()
@@ -524,10 +540,10 @@ pub fn[T : Eq] SyncEditor::apply_text_edit(
 ///|
 pub fn[T : Eq] SyncEditor::apply_text_edit_exact(
   self : SyncEditor[T],
-  start : Int,
-  deleted_len : Int,
+  start : Int32,
+  deleted_len : Int32,
   inserted : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   editor_perf_scope(() => {
     self.ensure_parser_healthy()
@@ -597,7 +613,8 @@ pub fn[T : Eq] SyncEditor::set_text_with_change(
 ) -> (@text_change.TextChange, Bool) raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
-  let old_text = self.authority.doc.text()
+  errdefer self.settle_interrupted_mutation()
+  let old_text = self.authority.get_text()
   let splice = match fast_append_text_change(old_text, new_text) {
     Some(splice) => splice
     None => @text_change.compute_text_change(old_text, new_text)
@@ -640,12 +657,12 @@ pub fn[T : Eq] SyncEditor::set_text(
 /// Records the operation for undo. Used by ProseMirror bridge.
 pub fn[T : Eq] SyncEditor::insert_at(
   self : SyncEditor[T],
-  position : Int,
+  position : Int32,
   text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
-  let text_len = self.authority.doc.len()
+  let text_len = self.authority.len()
   if position < 0 || position > text_len {
     return
   }
@@ -661,11 +678,11 @@ pub fn[T : Eq] SyncEditor::insert_at(
 /// Used by ProseMirror bridge.
 pub fn[T : Eq] SyncEditor::delete_at(
   self : SyncEditor[T],
-  position : Int,
-  timestamp_ms : Int,
+  position : Int32,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
-  let text_len = self.authority.doc.len()
+  let text_len = self.authority.len()
   if position < 0 || position >= text_len {
     return false
   }
@@ -680,7 +697,7 @@ pub fn[T : Eq] SyncEditor::delete_at(
 pub fn[T : Eq] SyncEditor::set_text_and_record(
   self : SyncEditor[T],
   new_text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise Failure {
   editor_perf_scope(() => self.set_text_and_record_impl(new_text, timestamp_ms))
 }
@@ -689,11 +706,11 @@ pub fn[T : Eq] SyncEditor::set_text_and_record(
 fn[T : Eq] SyncEditor::set_text_and_record_impl(
   self : SyncEditor[T],
   new_text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise Failure {
   self.ensure_parser_healthy()
   let old_text = editor_perf_measure("setTextOldSnapshot", () => {
-    self.authority.doc.text()
+    self.authority.get_text()
   })
   if old_text == new_text {
     return

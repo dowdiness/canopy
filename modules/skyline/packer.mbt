@@ -1,15 +1,16 @@
 ///|
+#derive(Debug)
 pub struct Packer {
-  priv width : Int
-  priv max_height : Int?
+  priv width : Int32
+  priv max_height : Int32?
   priv mut skyline : Array[Node]
-  priv mut used_height : Int
-} derive(Debug)
+  priv mut used_height : Int32
+}
 
 ///|
 pub fn Packer::Packer(
-  width~ : Int,
-  max_height? : Int,
+  width~ : Int32,
+  max_height? : Int32,
 ) -> Packer raise PackError {
   guard width > 0 else { raise InvalidBinWidth(width) }
   match max_height {
@@ -20,7 +21,7 @@ pub fn Packer::Packer(
 }
 
 ///|
-pub fn Packer::height(self : Packer) -> Int {
+pub fn Packer::height(self : Packer) -> Int32 {
   self.used_height
 }
 
@@ -32,7 +33,7 @@ fn Packer::validate_size(self : Packer, size : Size) -> Unit raise PackError {
 }
 
 ///|
-fn Packer::height_at(self : Packer, x : Int) -> Int {
+fn Packer::height_at(self : Packer, x : Int32) -> Int32 {
   if x == self.width {
     0
   } else {
@@ -46,7 +47,7 @@ fn Packer::height_at(self : Packer, x : Int) -> Int {
 }
 
 ///|
-fn Packer::height_over(self : Packer, left : Int, right : Int) -> Int {
+fn Packer::height_over(self : Packer, left : Int32, right : Int32) -> Int32 {
   self.skyline
   .windows(2)
   .iter()
@@ -56,11 +57,11 @@ fn Packer::height_over(self : Packer, left : Int, right : Int) -> Int {
     segment_right > left && node.x < right
   })
   .map(window => window[0].y)
-  .fold(init=0, Int::max)
+  .fold(init=0, Int32::max)
 }
 
 ///|
-fn Packer::candidate_at(self : Packer, size : Size, x : Int) -> Candidate? {
+fn Packer::candidate_at(self : Packer, size : Size, x : Int32) -> Candidate? {
   guard x >= 0 && x <= self.width - size.width else { None }
   let y = self.height_over(x, x + size.width)
   match self.max_height {
@@ -84,7 +85,7 @@ fn Packer::find_candidate(self : Packer, size : Size) -> Candidate? {
 fn Packer::find_constrained_candidate(
   self : Packer,
   size : Size,
-  allowed_x : ArrayView[Int],
+  allowed_x : ArrayView[Int32],
 ) -> Candidate? {
   allowed_x.fold(init=None, (best, x) => {
     match self.candidate_at(size, x) {
@@ -141,7 +142,7 @@ pub fn Packer::place(self : Packer, size : Size) -> Placement raise PackError {
 pub fn Packer::place_constrained(
   self : Packer,
   size : Size,
-  allowed_x : ArrayView[Int],
+  allowed_x : ArrayView[Int32],
 ) -> Placement raise PackError {
   self.validate_size(size)
   guard self.find_constrained_candidate(size, allowed_x) is Some(candidate) else {
@@ -153,7 +154,12 @@ pub fn Packer::place_constrained(
 ///|
 /// Area left empty under a rectangle whose bottom edge is `y` over
 /// `[left, right)`. Once the rectangle is placed, the skyline no longer tracks it.
-fn Packer::area_under(self : Packer, left : Int, right : Int, y : Int) -> Int64 {
+fn Packer::area_under(
+  self : Packer,
+  left : Int32,
+  right : Int32,
+  y : Int32,
+) -> Int64 {
   self.skyline
   .windows(2)
   .iter()
@@ -174,7 +180,7 @@ fn Packer::area_under(self : Packer, left : Int, right : Int, y : Int) -> Int64 
 pub fn Packer::preview(
   self : Packer,
   size : Size,
-  allowed_x? : ArrayView[Int],
+  allowed_x? : ArrayView[Int32],
 ) -> PlacementPreview? raise PackError {
   self.validate_size(size)
   let candidate = match allowed_x {
@@ -193,7 +199,7 @@ pub fn Packer::preview(
 /// The returned placements have the same indices as the input sizes.
 pub fn pack_in_order(
   sizes : ArrayView[Size],
-  bin_width~ : Int,
+  bin_width~ : Int32,
 ) -> PackResult raise PackError {
   let packer = Packer(width=bin_width)
   let placements : Array[Placement] = []

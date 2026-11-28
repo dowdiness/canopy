@@ -1,20 +1,26 @@
 ///|
-pub(all) suberror InvalidAccountId derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) suberror InvalidAccountId
 
 ///|
-pub(all) suberror InvalidOperationId derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) suberror InvalidOperationId
 
 ///|
-pub(all) suberror InvalidRecoveryId derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) suberror InvalidRecoveryId
 
 ///|
-pub(all) suberror InvalidRevision derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) suberror InvalidRevision
 
 ///|
-pub(all) suberror InvalidReplica derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) suberror InvalidReplica
 
 ///|
-pub struct AccountId(String) derive(Eq, Hash, Debug)
+#derive(Eq, Hash, Debug)
+pub struct AccountId(String)
 
 ///|
 pub fn AccountId::parse(value : String) -> AccountId raise InvalidAccountId {
@@ -28,7 +34,8 @@ pub fn AccountId::value(self : Self) -> String {
 }
 
 ///|
-pub struct OperationId(String) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct OperationId(String)
 
 ///|
 pub fn OperationId::parse(
@@ -44,7 +51,8 @@ pub fn OperationId::value(self : Self) -> String {
 }
 
 ///|
-pub struct SavedRevision(Double) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct SavedRevision(Double)
 
 ///|
 pub fn SavedRevision::parse(
@@ -64,11 +72,12 @@ pub fn SavedRevision::value(self : Self) -> Double {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RemoteDocument {
   Missing
   Present(SavedRevision, Content)
   Deleted(SavedRevision)
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn RemoteDocument::revision(self : Self) -> Double {
@@ -79,10 +88,11 @@ pub fn RemoteDocument::revision(self : Self) -> Double {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RemoteEntry {
   Present(DocumentId, SavedRevision, String, ChangeTime)
   Deleted(DocumentId, SavedRevision)
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn RemoteEntry::document_id(self : Self) -> DocumentId {
@@ -100,16 +110,18 @@ pub fn RemoteEntry::revision(self : Self) -> SavedRevision {
 
 ///|
 /// The bounded remote fact relevant to one already-identified document.
+#derive(Eq, Debug)
 pub(all) enum RemoteHead {
   Present(SavedRevision)
   Deleted(SavedRevision)
-} derive(Eq, Debug)
+}
 
 ///|
 /// The newest remote fact known from both durable Replica state and transient
 /// discovery. Construction remains in this package so callers cannot forget
 /// either source of knowledge.
-pub struct RemoteKnowledge(RemoteHead?) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct RemoteKnowledge(RemoteHead?)
 
 ///|
 pub fn RemoteEntry::head(self : Self) -> RemoteHead {
@@ -192,17 +204,19 @@ fn RemoteDocument::head(self : Self) -> RemoteHead? {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum PendingContent {
   Save(Content)
   Delete
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct PendingOperation {
   operation_id : OperationId
   base_revision : Double
   content : PendingContent
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn PendingOperation::operation_id(self : Self) -> OperationId {
@@ -220,7 +234,8 @@ pub fn PendingOperation::content(self : Self) -> PendingContent {
 }
 
 ///|
-pub struct RecoveryIdentity(DocumentId) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct RecoveryIdentity(DocumentId)
 
 ///|
 fn recovery_identity(
@@ -243,50 +258,57 @@ fn RecoveryIdentity::document(self : Self, working : Document) -> Document {
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum LivePhase {
   Ready
   Sending(PendingOperation)
   Available(RemoteDocument)
   Diverged(RemoteDocument)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub enum LiveBaseline {
   Unpublished
   Saved(SavedRevision, Content)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub enum DeletionPhase {
   Ready
   ResolvingSave(PendingOperation)
   Sending(PendingOperation)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct LiveReplica {
   document : Document
   baseline : LiveBaseline
   phase : LivePhase
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct DeletingReplica {
   document : Document
   baseline : LiveBaseline
   phase : DeletionPhase
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum ReplicaState {
   Live(LiveReplica)
   Deleting(DeletingReplica)
   Tombstone(SavedRevision)
-} derive(Eq, Debug)
+}
 
 ///|
 /// The visible working copy's relation to the newest remote head observed by
 /// this client. Persistence and effect activity are deliberately absent.
+#derive(Eq, Debug)
 pub(all) enum Relation {
   Current
   LocalAhead
@@ -295,30 +317,33 @@ pub(all) enum Relation {
   Diverged
   DeletedRemotely
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
 /// A remote revision parsed from the only Replica phase in which it may be
 /// explicitly opened. Callers cannot manufacture one from another phase.
+#derive(Eq, Debug)
 pub struct RemoteUpdate {
   priv replica : DocumentReplica
   priv content : RemoteUpdateContent
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum RemoteUpdateContent {
   PresentUpdate(SavedRevision, Content)
   DeletedUpdate(SavedRevision)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct DocumentReplica {
   account : AccountId
   generation : Double
   document_id : DocumentId
   state : ReplicaState
   recovery : RecoveryIdentity?
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DocumentReplica::DocumentReplica(
@@ -545,6 +570,7 @@ pub fn DocumentReplica::is_deleting(self : Self) -> Bool {
 ///|
 /// A write intent produced by a sync transition. Callers cannot accidentally
 /// detach conflict recovery from its replica.
+#derive(Eq, Debug)
 pub enum ReplicaWrite {
   Store(DocumentReplica)
   // Removal commits identity, not the candidate's transient text. The Replica
@@ -552,7 +578,7 @@ pub enum ReplicaWrite {
   Remove(DocumentReplica)
   Fork(DocumentReplica, Document)
   PromoteSource(DocumentReplica)
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn ReplicaWrite::replica(self : Self) -> DocumentReplica {

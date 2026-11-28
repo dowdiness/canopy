@@ -7,43 +7,43 @@ import {
 }
 
 // Values
-pub fn __jsx_async_driver_cancel(Int) -> String
+pub fn __jsx_async_driver_cancel(Int32) -> String
 
-pub fn __jsx_async_driver_commit(Int, String) -> String
+pub fn __jsx_async_driver_commit(Int32, String) -> String
 
-pub fn __jsx_async_driver_dispose(Int) -> Unit
+pub fn __jsx_async_driver_dispose(Int32) -> Unit
 
-pub fn __jsx_async_driver_new(Int, Int) -> String
+pub fn __jsx_async_driver_new(Int32, Int32) -> String
 
-pub fn __jsx_async_driver_provider_abort(Int) -> Unit
+pub fn __jsx_async_driver_provider_abort(Int32) -> Unit
 
-pub fn __jsx_async_driver_provider_new(Int, Int, Int, Int) -> String
+pub fn __jsx_async_driver_provider_new(Int32, Int32, Int32, Int32) -> String
 
-pub fn __jsx_async_driver_provider_reject(Int, String, String) -> Unit
+pub fn __jsx_async_driver_provider_reject(Int32, String, String) -> Unit
 
-pub fn __jsx_async_driver_provider_resolve(Int, String) -> Unit
+pub fn __jsx_async_driver_provider_resolve(Int32, String) -> Unit
 
-pub fn __jsx_async_driver_provider_wait(Int) -> @js_async.Promise[String]
+pub fn __jsx_async_driver_provider_wait(Int32) -> @js_async.Promise[String]
 
-pub fn __jsx_async_driver_queue_chunk(Int, Int, Int, Int, String) -> Unit
+pub fn __jsx_async_driver_queue_chunk(Int32, Int32, Int32, Int32, String) -> Unit
 
-pub fn __jsx_async_driver_queue_failure(Int, Int, Int, Int, String, String) -> Unit
+pub fn __jsx_async_driver_queue_failure(Int32, Int32, Int32, Int32, String, String) -> Unit
 
-pub fn __jsx_async_driver_queue_final(Int, Int, Int, Int) -> Unit
+pub fn __jsx_async_driver_queue_final(Int32, Int32, Int32, Int32) -> Unit
 
-pub fn __jsx_async_driver_resolve_current(Int) -> Unit
+pub fn __jsx_async_driver_resolve_current(Int32) -> Unit
 
-pub fn __jsx_async_driver_resolve_next(Int) -> @js_async.Promise[String]
+pub fn __jsx_async_driver_resolve_next(Int32) -> @js_async.Promise[String]
 
-pub fn __jsx_async_driver_restart(Int, Int) -> String
+pub fn __jsx_async_driver_restart(Int32, Int32) -> String
 
-pub fn __jsx_async_driver_start(Int) -> String
+pub fn __jsx_async_driver_start(Int32) -> String
 
-pub fn __jsx_async_driver_stats(Int) -> String
+pub fn __jsx_async_driver_stats(Int32) -> String
 
-pub fn __jsx_async_driver_wait_next(Int) -> @js_async.Promise[String]
+pub fn __jsx_async_driver_wait_next(Int32) -> @js_async.Promise[String]
 
-pub fn __jsx_commit_feasibility_candidate_json(Int, Int, String, String, String) -> String
+pub fn __jsx_commit_feasibility_candidate_json(Int32, Int32, String, String, String) -> String
 
 pub fn __jsx_evaluate_feasibility_candidate_json(String, String, String) -> String
 
@@ -55,15 +55,15 @@ pub fn jsx_parse_and_render(String, String) -> String raise
 
 pub fn jsx_parse_to_json(String) -> String raise
 
-pub fn jsx_session_commit_candidate(Int, @cognition.GenerativeUiRevision, @cognition.GenerativeUiCandidate) -> String
+pub fn jsx_session_commit_candidate(Int32, @cognition.GenerativeUiRevision, @cognition.GenerativeUiCandidate) -> String
 
-pub fn jsx_session_dispose(Int) -> Unit
+pub fn jsx_session_dispose(Int32) -> Unit
 
 pub fn jsx_session_new(String, String) -> String
 
-pub fn jsx_session_render(Int, String) -> String
+pub fn jsx_session_render(Int32, String) -> String
 
-pub fn jsx_session_replay_candidate_json(Int, Int, String, String) -> String
+pub fn jsx_session_replay_candidate_json(Int32, Int32, String, String) -> String
 
 pub fn jsx_streaming_to_json(String) -> String raise
 

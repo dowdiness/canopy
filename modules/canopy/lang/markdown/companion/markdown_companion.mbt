@@ -8,7 +8,7 @@
 /// Raises `TextError::EmptyReplicaId` when `agent_id` is empty.
 pub fn new_markdown_editor(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> @editor.SyncEditor[@markdown.Block] raise {
   @markdown_runtime.new_editor(agent_id, capture_timeout_ms~, parent_runtime?)
@@ -20,7 +20,7 @@ pub fn new_markdown_editor(
 /// Markdown-specific companion boundary.
 pub fn new_markdown_editor_with_semantic_attachment(
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise {
   @markdown_runtime.new_editor_with_semantic_attachment(
@@ -40,7 +40,7 @@ pub fn new_markdown_editor_with_semantic_attachment(
 /// other text) untouched.
 pub fn export_markdown_text(
   editor : @editor.SyncEditor[@markdown.Block],
-) -> String {
+) -> String raise Failure {
   @markdown_runtime.export_markdown_text(editor)
 }
 
@@ -50,7 +50,7 @@ pub fn export_markdown_text(
 pub fn apply_markdown_edit(
   editor : @editor.SyncEditor[@markdown.Block],
   op : @md_edits.MarkdownEditOp,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Unit, String] raise {
   match @markdown_runtime.apply_edit(editor, op, timestamp_ms) {
     Ok(_) => Ok(())

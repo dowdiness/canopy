@@ -1,7 +1,8 @@
 ///|
+#derive(Eq, Debug)
 pub struct GoogleAuthorizationUrl {
   priv value : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn GoogleAuthorizationUrl::value(self : Self) -> String {
@@ -21,21 +22,24 @@ pub fn GoogleAuthorizationUrl::parse(value : String) -> GoogleAuthorizationUrl? 
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum LogoutResult {
   SignedOut
   Unconfirmed
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(FromJson)
 priv struct AccountResponse {
   id : String
   name : String
-} derive(FromJson)
+}
 
 ///|
+#derive(FromJson)
 priv struct AuthorizationResponse {
   url : String
-} derive(FromJson)
+}
 
 ///|
 extenum @cmd.Extension += {
@@ -45,7 +49,7 @@ extenum @cmd.Extension += {
 }
 
 ///|
-fn account_result(status : Int, body : String) -> @sync.AccountResult {
+fn account_result(status : Int32, body : String) -> @sync.AccountResult {
   match status {
     200 =>
       try {
@@ -129,11 +133,25 @@ async fn logout_request(origin : String) -> LogoutResult noraise {
 let op : @cmd.Op = @cmd.Op()..on_invoke((extension, context) => {
   match extension {
     ResolveAccount(done) =>
-      @cmd.Async(() => done(resolve_request(context.get_origin())))
+      @cmd.Async(() => {
+        done(
+          resolve_request(@base_uri.origin_of_base_uri(context.get_base_uri())),
+        )
+      })
     RequestAuthorizationUrl(done) =>
-      @cmd.Async(() => done(authorization_request(context.get_origin())))
+      @cmd.Async(() => {
+        done(
+          authorization_request(
+            @base_uri.origin_of_base_uri(context.get_base_uri()),
+          ),
+        )
+      })
     SignOut(done) =>
-      @cmd.Async(() => done(logout_request(context.get_origin())))
+      @cmd.Async(() => {
+        done(
+          logout_request(@base_uri.origin_of_base_uri(context.get_base_uri())),
+        )
+      })
     _ => raise @cmd.Unhandled
   }
 })

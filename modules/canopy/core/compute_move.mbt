@@ -102,7 +102,7 @@ pub fn compute_move(
 /// (`contains` takes a position; `overlaps` is intersection, not
 /// containment), so the manual loop and range arithmetic are the
 /// minimal-coupling choices.
-fn skip_ws(text : String, start : Int, end : Int) -> Int {
+fn skip_ws(text : String, start : Int32, end : Int32) -> Int32 {
   let mut i = start
   while i < end {
     match text[i] {

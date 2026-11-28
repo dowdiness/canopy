@@ -3,7 +3,7 @@ using @rabbita {type Html, type Val}
 
 ///|
 /// Code shows at most this many lines; longer lines end in an ellipsis.
-const CODE_LINES : Int = 8
+const CODE_LINES : Int32 = 8
 
 ///|
 fn marked(text : String, truncated : Bool) -> String {
@@ -27,7 +27,7 @@ fn tidied(line : String) -> String {
   ]
   for marker in markers {
     if line.has_prefix(marker.0) {
-      return marker.1 + line.view(start_offset=marker.0.length()).to_owned()
+      return marker.1 + line.exact_view(start=marker.0.length()).to_owned()
     }
   }
   line
@@ -213,24 +213,26 @@ fn[K] card_measure_view(requests : Array[MeasureRequest[K]]) -> Html {
 
 ///|
 /// Where a card slot is on screen.
+#derive(Eq, Hash)
 priv enum SlotPlace {
   /// Placed in the packed grid on screen.
-  At(x~ : Int, y~ : Int, width~ : Int, height~ : Int, tab_stop~ : Bool)
+  At(x~ : Int32, y~ : Int32, width~ : Int32, height~ : Int32, tab_stop~ : Bool)
   /// Left out of the grid on screen, such as by the search, yet still drawn,
   /// so that typing in Search never removes a node from the document:
   /// Chromium ends a typing Undo step whenever one leaves.
   Hidden
-} derive(Eq, Hash)
+}
 
 ///|
 /// Everything one card slot shows: its card, and where it is on screen.
 /// Each card is its own branch of the incremental graph, so it is rebuilt
 /// only when its slot changes.
+#derive(Eq, Hash)
 priv struct CardSlot[K] {
   card : Card[K]
   place : SlotPlace
   just_arrived : Bool
-} derive(Eq, Hash)
+}
 
 ///|
 /// A slot for every listed card, most recently changed first, so the order
@@ -318,7 +320,7 @@ fn[K : Show] card_slot_view(
 /// Keys pressed on a card reach the grid.
 fn[K : Show] grid_view(
   emit : Emit[Msg[K]],
-  size : (Int, Int)?,
+  size : (Int32, Int32)?,
   slots : @vector.Vector[CardSlot[K]],
   rows : @vector.Vector[Html],
 ) -> Html {
@@ -351,20 +353,22 @@ fn[K : Show] grid_view(
 ///|
 /// What the header shows: the search query, and while searching how many
 /// documents match it.
+#derive(Eq)
 priv struct Header {
   count : String?
   query : String
   new_href : String
-} derive(Eq)
+}
 
 ///|
 /// What the documents area shows besides the grid. While any document is
 /// listed, the note for a search that matches none stays drawn, hidden while
 /// cards match, so searching never removes it from the document.
+#derive(Eq)
 priv enum Documents {
   NoDocuments
   Listed(query~ : String, matched~ : Bool)
-} derive(Eq)
+}
 
 ///|
 fn[K : Eq] header_and_documents(
@@ -462,7 +466,7 @@ fn[K] documents_view(
 
 ///|
 /// The size of the packed grid on screen while it shows any card.
-fn[K : Eq] grid_size(index : DocumentIndex[K]) -> (Int, Int)? {
+fn[K : Eq] grid_size(index : DocumentIndex[K]) -> (Int32, Int32)? {
   match (index.grid, visible_cursor(index)) {
     (Packed(layout), Some(_)) => Some((layout.width, layout.height))
     (NotMeasured, _) | (_, None) => None

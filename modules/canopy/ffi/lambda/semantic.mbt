@@ -41,7 +41,7 @@ fn empty_semantic_projection_json() -> String {
 /// Returns `{annotations, decorations, diagnostics}` and never mutates editor
 /// state; semantic edits still lower through text/CRDT edit paths. Returns the
 /// empty projection if any protected read fails.
-pub fn get_semantic_projection_json(handle : Int) -> String {
+pub fn get_semantic_projection_json(handle : Int32) -> String {
   match lambda_registry.get(handle) {
     Some(h) => {
       let root = match
@@ -97,10 +97,10 @@ pub fn get_semantic_projection_json(handle : Int) -> String {
 /// This is a thin semantic-action prototype: the overlay gates the action, then
 /// `TreeEditOp::Rename` computes and applies `SpanEdit`s to the text CRDT.
 pub fn rename_semantic_node(
-  handle : Int,
-  node_id : Int,
+  handle : Int32,
+  node_id : Int32,
   new_name : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> String raise {
   match lambda_registry.get(handle) {
     Some(h) => {

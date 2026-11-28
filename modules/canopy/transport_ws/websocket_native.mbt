@@ -1,7 +1,7 @@
 ///|
 /// Native no-op stub for JsWebSocket (non-JS targets).
 /// Methods intentionally do nothing — real WebSocket is JS-only.
-pub struct JsWebSocket(Int)
+pub struct JsWebSocket(Int32)
 
 ///|
 /// No-op: native target cannot send WebSocket data.

@@ -19,18 +19,18 @@ fn char_type(c : Char) -> String {
     | '万'
     | '億'
     | '兆' => "M"
-    '一'..='龠' | '々' | '〆' | 'ヵ' | 'ヶ' => "H"
-    'ぁ'..='ん' => "I"
-    'ァ'..='ヴ' | 'ー' | 'ｱ'..='ﾝ' | 'ﾞ' | 'ｰ' => "K"
-    'a'..='z' | 'A'..='Z' | 'ａ'..='ｚ' | 'Ａ'..='Ｚ' => "A"
-    '0'..='9' | '０'..='９' => "N"
+    '一'..<='龠' | '々' | '〆' | 'ヵ' | 'ヶ' => "H"
+    'ぁ'..<='ん' => "I"
+    'ァ'..<='ヴ' | 'ー' | 'ｱ'..<='ﾝ' | 'ﾞ' | 'ｰ' => "K"
+    'a'..<='z' | 'A'..<='Z' | 'ａ'..<='ｚ' | 'Ａ'..<='Ｚ' => "A"
+    '0'..<='9' | '０'..<='９' => "N"
     _ => "O"
   }
 }
 
 ///|
 /// Looks up a feature weight, returning 0 for missing keys.
-fn lookup(key : String) -> Int {
+fn lookup(key : String) -> Int32 {
   weights.get(key).unwrap_or(0)
 }
 
@@ -40,11 +40,11 @@ fn lookup(key : String) -> Int {
 fn score_boundary(
   chars : Array[String],
   types : Array[String],
-  i : Int,
+  i : Int32,
   p1 : String,
   p2 : String,
   p3 : String,
-) -> Int {
+) -> Int32 {
   let w1 = chars[i - 3]
   let w2 = chars[i - 2]
   let w3 = chars[i - 1]

@@ -3,7 +3,7 @@
 // by Canopy's internal ranges. Must be called at the adapter boundary, not inside
 // the analysis layer — byte offsets must never cross the boundary.
 // Offsets that fall mid-codepoint snap left to the preceding char boundary.
-pub fn byte_offset_to_utf16(source : String, byte_offset : Int) -> Int {
+pub fn byte_offset_to_utf16(source : String, byte_offset : Int32) -> Int32 {
   let mut bytes_seen = 0
   let mut utf16_offset = 0
   for c in source {
