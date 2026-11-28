@@ -101,9 +101,9 @@ diagnostics. Legacy `link.js.exports` declarations remain supported but emit
 a planner deprecation notice; the FFI export-manifest contract still checks
 those declarations.
 
-The standalone `deps/rabbita/doc` module is excluded from the RC1 migration:
-its `ShellWen/sw_router@0.2.0` dependency has an incompatible registry manifest.
-The exception and migration evidence are tracked in
+The standalone `deps/rabbita/doc` module is also in scope. Check it from its
+own module root with `MOON_WORK=off`; it is not covered by the Canopy root
+workspace. Migration evidence is tracked in
 [issue #1486](https://github.com/dowdiness/canopy/issues/1486).
 
 
@@ -164,10 +164,10 @@ git add deps/event-graph-walker     # records the new commit pointer
 git commit -m "chore: update event-graph-walker submodule"
 ```
 
-Use PRs for submodule changes, except for the
-[Rabbita fork's direct-main workflow](rabbita-fork.md#development-guidance).
-Do not push other submodules' main without asking. Commit and push the
-submodule's commit to its own remote **before** committing the parent pointer
+Use PRs for submodule changes. The
+[Rabbita fork](rabbita-fork.md#development-guidance) uses an owned downstream
+integration branch rather than upstream or `main`. Do not push submodule main
+without asking. Publish the child commit to its own remote **before** committing the parent pointer
 or opening a parent PR. Stage only the submodule
 pointers that actually moved. CI clones with `submodules: recursive`, so a parent
 commit referencing a submodule SHA that is not yet on `origin` will fail.

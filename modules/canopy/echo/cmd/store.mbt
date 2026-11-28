@@ -48,8 +48,7 @@ fn load_posts() -> Array[StoredPost] {
     Some(msg) => {
       println("Error: \{msg}")
       println("Refusing to overwrite. Fix or delete ~/.echo/posts.json")
-      @sys.exit(1)
-      []
+      @env.exit(1)
     }
     None => posts
   }

@@ -10,8 +10,8 @@ or bindings), read the repository's `.claude/skills/rabbita` skill. The vendored
 docs in `deps/rabbita/doc/` and `deps/rabbita/rabbita/*/README.mbt.md` and
 `design.md` are authoritative when they disagree with plans or pasted specs.
 
-The RC1 compiler migration is published on `chore/moonbit-rc1` and reviewed
-against `canopy/rebase-20261119`. Do not push either the established downstream
+The RC1 upstream integration is published on `canopy/upstream-0.17.2-rc1` and
+reviewed against `canopy/rebase-20261128`. Do not push the established downstream
 branch or `main` directly, force-push, or move existing tags. Canopy pin updates
 follow the normal Canopy PR and CI workflow.
 
@@ -19,11 +19,11 @@ follow the normal Canopy PR and CI workflow.
 
 - **Fork:** [`dowdiness/rabbita`](https://github.com/dowdiness/rabbita)
 - **Upstream:** [`moonbit-community/rabbita`](https://github.com/moonbit-community/rabbita)
-- **Downstream branch:** `chore/moonbit-rc1`, based on `canopy/rebase-20261119`. Rebase branches and `main` remain unchanged so earlier pins stay reachable.
-- **Upstream base:** `316bab8d9012540b7af44690da72bdb98c98a256` (upstream `main`, 2026-11-18)
-- **Pinned commit:** `020485b00fee93711b5aa6d8d777616a29f2b491`
-- **Pin tag:** `canopy-moonbit-rc1-020485b00fee`; `canopy-worker-20261004` identifies the earlier Worker binding pin.
-- **History:** the 25 rebased fork commits, one MoonBit 0.10.21 formatting commit, then the RC1 compatibility commit; no merge commits. The earlier stack has 15 commits that do not type-check individually, so that stack is for reading, not for `git bisect`.
+- **Downstream branch:** `canopy/upstream-0.17.2-rc1`, reviewed against the new `canopy/rebase-20261128` line seeded at upstream. The earlier RC1 branch, dated rebase branches and `main` remain unchanged so older pins stay reachable.
+- **Upstream base:** `99d91eaf648eddaaa1ede5f94d90159cc77cd1d5` (upstream `main`, 2026-11-27)
+- **Pinned commit:** `b2718a0d26188cc2eaadb9f06308219b62833f6a`
+- **Pin tag:** `canopy-moonbit-rc1-b2718a0d2618`; `canopy-worker-20261004` identifies the earlier Worker binding pin.
+- **History:** 27 previous downstream/compatibility commits replayed on the new upstream base, followed by the popup-focus and toast-test correction; no merge commits. Historical commits are not individually validated; the integration tip is the validation unit.
 - **Canopy submodule:** `deps/rabbita`
 
 The Canopy `.gitmodules` entry intentionally points at the fork. The
@@ -60,12 +60,30 @@ Canopy needs a MoonBit-typed pointer-capture boundary for its Canvas hosts. This
 patch is intentionally maintained downstream rather than proposed as an
 upstream Rabbita change.
 
+## 0.17.2 integration
+
+The current pin integrates Rabbita 0.17.2, RUI 0.5.3 and Warren 0.4.6.
+Canopy's dependency declarations and the Warren installer use this integration.
+It retains the downstream changes above and adds upstream's synchronous
+`Html::render_to_string`, Select keyboard fixes and inherited host-font default.
+Set `--rui-font-sans` explicitly when an application requires a different font.
+
+The fork also makes opening popups immediately focusable without animating
+`visibility`; opacity/transform entry and the existing closing transitions remain.
+The unmodified modal-Select regression failed on pristine upstream with the same
+browser before this downstream correction. The retained-slot toast containment
+test now selects visible notifications by accessible role rather than hidden
+reserved slots. The standalone documentation module is checked and tested too;
+it is no longer excluded from the RC1 migration.
+
+See [Rabbita PR #10](https://github.com/dowdiness/rabbita/pull/10).
+
 ## 0.16.3 integration
 
 The 0.16.3 integration placed the fork-specific commits on top of upstream
 `main`, rather than merging upstream into the old downstream branch. It includes Rabbita
 0.16.3, RUI 0.3.5, and Warren 0.4.5 with its embedded evol minifier.
-Canopy's Rabbita dependency declarations match 0.16.3.
+Canopy's dependency declarations matched 0.16.3 at that integration.
 
 - Loomark imports `moonbit-community/rui` instead of `Yoorkin/rui`. Its delete
   confirmation uses the native alert dialog, `@dialog.show`, and the dialog
