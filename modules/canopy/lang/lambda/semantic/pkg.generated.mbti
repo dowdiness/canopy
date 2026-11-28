@@ -6,6 +6,7 @@ import {
   "dowdiness/diagnostic",
   "dowdiness/lambda/ast",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
@@ -14,23 +15,25 @@ pub fn build_semantic_diagnostics(@diagnostic.SourceId, String, @dowdiness/canop
 pub fn build_semantic_projection(@dowdiness/canopy/core.ProjNode[@ast.Term], @dowdiness/canopy/core.SourceMap) -> SemanticProjection
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror SemanticDiagnosticError {
-  InvalidSourceRange(Int, Int, Int)
-  InvalidUtf16Boundary(Int, Int)
-} derive(Eq, @debug.Debug)
+  InvalidSourceRange(Int32, Int32, Int32)
+  InvalidUtf16Boundary(Int32, Int32)
+}
 pub fn SemanticDiagnosticError::equal(Self, Self) -> Bool
 pub fn SemanticDiagnosticError::not_equal(Self, Self) -> Bool
 pub fn SemanticDiagnosticError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(@debug.Debug)
 pub struct SemanticProjection {
   annotations : Map[@dowdiness/canopy/core.NodeId, Array[@protocol.ViewAnnotation]]
   decorations : Array[@protocol.Decoration]
-} derive(@debug.Debug)
+}
 pub fn SemanticProjection::empty() -> Self
-pub fn SemanticProjection::to_json(Self) -> Json
+pub fn SemanticProjection::to_json(Self) -> @json.Json
 pub fn SemanticProjection::to_repr(Self) -> @debug.Repr
-pub impl ToJson for SemanticProjection
+pub impl @json.ToJson for SemanticProjection
 
 // Type aliases
 

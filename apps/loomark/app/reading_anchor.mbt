@@ -51,7 +51,7 @@ fn editor_text_area() -> @dom.HTMLTextAreaElement? {
     is Some(element) else {
     return None
   }
-  element.to_html_text_area_element()
+  @dom.IsEventTarget::to_html_text_area_element(element)
 }
 
 ///|
@@ -85,7 +85,7 @@ fn capture_reading_anchor(
 fn preview_anchor_subscription(
   anchor : @viewport.ReadingAnchor,
   scrolled_away : @rabbita.Cmd,
-  activation : Int,
+  activation : Int32,
   compact : Bool,
 ) -> @sub.Sub {
   @sub.custom_sub(

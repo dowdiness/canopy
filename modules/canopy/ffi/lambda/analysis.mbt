@@ -1,7 +1,7 @@
 // Lambda editor analysis FFI — host ast-grep results -> MoonBit analysis facts.
 
 ///|
-fn json_int_field(m : Map[String, Json], key : String) -> Result[Int, String] {
+fn json_int_field(m : Map[String, Json], key : String) -> Result[Int32, String] {
   match m.get(key) {
     Some(Json::Number(n, ..)) => {
       let i = n.to_int()
@@ -80,7 +80,7 @@ fn LambdaHandle::pattern_source_snapshot(
 }
 
 ///|
-fn is_utf8_byte_boundary(bytes : Bytes, offset : Int) -> Bool {
+fn is_utf8_byte_boundary(bytes : Bytes, offset : Int32) -> Bool {
   guard offset >= 0 && offset <= bytes.length() else { return false }
   try @utf8.decode(bytes.exact_view(end=offset)) catch {
     _ => false
@@ -97,9 +97,9 @@ fn is_utf8_byte_boundary(bytes : Bytes, offset : Int) -> Bool {
 /// Byte offsets are converted to UTF-16 positions only inside
 /// `@analysis.from_ast_grep_matches`, which is the provider adapter boundary.
 pub fn apply_ast_grep_results_json(
-  handle : Int,
+  handle : Int32,
   matches_json : String,
-) -> String {
+) -> String raise Failure {
   let h = match lambda_registry.get(handle) {
     Some(h) => h
     None => return "error: invalid handle"
@@ -135,7 +135,7 @@ pub fn apply_ast_grep_results_json(
 ///|
 /// Return current structural-search matches as normalized UTF-16 ranges.
 /// Stale provider facts collapse to an empty array.
-pub fn get_pattern_matches_json(handle : Int) -> String {
+pub fn get_pattern_matches_json(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => {
       let source = h.editor.get_text()
@@ -145,9 +145,9 @@ pub fn get_pattern_matches_json(handle : Int) -> String {
         .get_pattern_matches(snapshot)
         .map(entry => {
           Json::object({
-            "from": entry.from.to_json(),
-            "to": entry.to.to_json(),
-            "pattern_id": entry.pattern_id.to_json(),
+            "from": Json(entry.from),
+            "to": Json(entry.to),
+            "pattern_id": Json(entry.pattern_id),
           })
         }),
       ).stringify()

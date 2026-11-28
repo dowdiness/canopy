@@ -2,7 +2,7 @@
 fn compute_unwrap(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
-  keep_child_index : Int,
+  keep_child_index : Int32,
 ) -> EditResult raise EditError {
   let (node, range) = ctx.resolve(node_id)
   ensure_replaceable_node_range(ctx, node_id, node, range)

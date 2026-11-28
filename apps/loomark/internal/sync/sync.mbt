@@ -6,27 +6,30 @@ pub(all) enum AccountResult {
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum AccountSelection {
   NoAccountSelected
   AccountSelected(@source_repository.AccountId)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub enum Session {
-  Resolving(Int)
+  Resolving(Int32)
   Revoking(LogoutAttempt)
   NoAccount
   Current(@source_repository.AccountId, String)
   LogoutUnconfirmed(LogoutAttempt)
   SessionUnavailable
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct LogoutAttempt {
-  priv id : Int
+  priv id : Int32
   priv account : @source_repository.AccountId
   priv name : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn LogoutAttempt::name(self : Self) -> String {
@@ -34,14 +37,16 @@ pub fn LogoutAttempt::name(self : Self) -> String {
 }
 
 ///|
-pub struct DiscoveryId(Int) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct DiscoveryId(Int32)
 
 ///|
+#derive(Eq, Debug)
 pub struct OperationAttempt {
-  priv id : Int
+  priv id : Int32
   priv account : @source_repository.AccountId
   priv document_id : @source_repository.DocumentId
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn OperationAttempt::account(self : Self) -> @source_repository.AccountId {
@@ -56,12 +61,13 @@ pub fn OperationAttempt::document_id(
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct DeliveryAttempt {
-  priv id : Int
+  priv id : Int32
   priv account : @source_repository.AccountId
   priv document_id : @source_repository.DocumentId
   priv operation_id : @source_repository.OperationId
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn DeliveryAttempt::account(self : Self) -> @source_repository.AccountId {
@@ -76,18 +82,20 @@ pub fn DeliveryAttempt::document_id(
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum ReplicaRead {
   ResolveConflict(@source_repository.OperationId)
   Refresh(@source_repository.SavedRevision)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct ReadAttempt {
-  priv id : Int
+  priv id : Int32
   priv account : @source_repository.AccountId
   priv document_id : @source_repository.DocumentId
   priv read : ReplicaRead
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn ReadAttempt::account(self : Self) -> @source_repository.AccountId {
@@ -100,11 +108,12 @@ pub fn ReadAttempt::document_id(self : Self) -> @source_repository.DocumentId {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct RecoveryAttempt {
-  priv id : Int
+  priv id : Int32
   priv account : @source_repository.AccountId
   priv document_id : @source_repository.DocumentId
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn RecoveryAttempt::account(self : Self) -> @source_repository.AccountId {
@@ -119,14 +128,16 @@ pub fn RecoveryAttempt::document_id(
 }
 
 ///|
-pub struct SelectionIntent(Int) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct SelectionIntent(Int32)
 
 ///|
+#derive(Eq, Debug)
 pub struct Retry {
   priv account : @source_repository.AccountId
   priv document_id : @source_repository.DocumentId
-  priv failed_attempt : Int
-} derive(Eq, Debug)
+  priv failed_attempt : Int32
+}
 
 ///|
 pub fn Retry::account(self : Self) -> @source_repository.AccountId {
@@ -139,32 +150,36 @@ pub fn Retry::document_id(self : Self) -> @source_repository.DocumentId {
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum Activity {
   Idle
   Working
   Retryable(Retry)
   Blocked
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Observation {
   Unknown
   Observed
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv struct Selection {
   intent : SelectionIntent
   account : @source_repository.AccountId
   document_id : @source_repository.DocumentId
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct OpenAttempt {
-  priv id : Int
+  priv id : Int32
   priv selection : Selection
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn OpenAttempt::account(self : Self) -> @source_repository.AccountId {
@@ -177,9 +192,10 @@ pub fn OpenAttempt::document_id(self : Self) -> @source_repository.DocumentId {
 }
 
 ///|
+#derive(Eq, Debug)
 pub struct SelectionRetry {
   priv failed : OpenAttempt
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn SelectionRetry::account(self : Self) -> @source_repository.AccountId {
@@ -194,23 +210,26 @@ pub fn SelectionRetry::document_id(
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum SelectionActivity {
   Idle
   Working
   Retryable(SelectionRetry)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum SelectionStep {
   Wait
   Fetch(OpenAttempt)
   Persist(@source_repository.ReplicaWrite)
-} derive(Eq, Debug)
+}
 
 ///|
 /// A selection is a demand for an openable durable Replica. Only a remote-only
 /// document owns a separate fetch lifecycle here; existing Replicas continue
 /// through their ordinary network lane.
+#derive(Eq, Debug)
 priv enum Opening {
   Idle
   Selected(Selection)
@@ -218,23 +237,25 @@ priv enum Opening {
   Failed(OpenAttempt)
   Persisting(Selection)
   Ready(Selection)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum Work {
   Prepare(OperationAttempt, @source_repository.OperationDraft)
   Deliver(DeliveryAttempt)
   Read(ReadAttempt)
   Recover(RecoveryAttempt)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv struct AccountCatalog {
   account : @source_repository.AccountId
   entries : Array[@source_repository.RemoteEntry]
   observation : Observation
   discovery : DiscoveryId?
-} derive(Eq, Debug)
+}
 
 ///|
 fn AccountCatalog::AccountCatalog(
@@ -244,10 +265,11 @@ fn AccountCatalog::AccountCatalog(
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum Catalog {
   Unbound
   Bound(AccountCatalog)
-} derive(Eq, Debug)
+}
 
 ///|
 fn Catalog::account(self : Self) -> @source_repository.AccountId? {
@@ -258,24 +280,26 @@ fn Catalog::account(self : Self) -> @source_repository.AccountId? {
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum NetworkState {
   Running(Work)
   RetryPending(Work)
   Blocked(@source_repository.OperationDraft)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv struct Network {
   account : @source_repository.AccountId
   document_id : @source_repository.DocumentId
   state : NetworkState
-} derive(Eq, Debug)
+}
 
 ///|
 priv enum Next {
   NoWork
   NetworkRunning
-  Restart(Int)
+  Restart(Int32)
   NetworkBlocked
   Deliver(@source_repository.PendingOperation)
   Fetch(@source_repository.SavedRevision)
@@ -284,41 +308,46 @@ priv enum Next {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Action {
   CreateOperation(OperationAttempt)
   Deliver(DeliveryAttempt, @source_repository.PendingOperation)
   GetRemote(ReadAttempt)
   OpenRemote(OpenAttempt)
   CreateRecovery(RecoveryAttempt)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror WorkError {
   StaleWork
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror LookupBlocked {
   LookupBlocked
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror InvalidSession {
   InvalidSession
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct State {
   priv session : Session
   priv catalog : Catalog
   priv opening : Opening
   priv network : Array[Network]
-  priv last_lookup_id : Int
-  priv last_logout_id : Int
-  priv last_discovery_id : Int
-  priv last_attempt_id : Int
-  priv last_selection_intent : Int
-} derive(Eq, Debug)
+  priv last_lookup_id : Int32
+  priv last_logout_id : Int32
+  priv last_discovery_id : Int32
+  priv last_attempt_id : Int32
+  priv last_selection_intent : Int32
+}
 
 ///|
 pub fn State::State() -> State {
@@ -341,7 +370,7 @@ pub fn State::session(self : Self) -> Session {
 }
 
 ///|
-pub fn State::begin_lookup(self : Self) -> (Self, Int) raise LookupBlocked {
+pub fn State::begin_lookup(self : Self) -> (Self, Int32) raise LookupBlocked {
   match self.session {
     Revoking(_) => raise LookupBlocked
     _ => ()
@@ -392,7 +421,7 @@ pub fn State::logged_out(
 ///|
 pub fn State::resolved(
   self : Self,
-  request_id : Int,
+  request_id : Int32,
   result : AccountResult,
 ) -> (Self, AccountSelection?) {
   guard self.session == Resolving(request_id) else { return (self, None) }
@@ -665,7 +694,7 @@ pub fn State::discovered(
 }
 
 ///|
-fn State::attempt_id(self : Self) -> (Self, Int) {
+fn State::attempt_id(self : Self) -> (Self, Int32) {
   let value = self.last_attempt_id + 1
   ({ ..self, last_attempt_id: value, }, value)
 }
@@ -874,7 +903,7 @@ fn State::find_network(
   self : Self,
   account : @source_repository.AccountId,
   document_id : @source_repository.DocumentId,
-) -> Int? {
+) -> Int32? {
   self.network
   .exact_view()
   .search_by(task => task.account == account && task.document_id == document_id)
@@ -987,7 +1016,7 @@ fn State::next(
 }
 
 ///|
-fn State::remove_network(self : Self, index : Int) -> Self {
+fn State::remove_network(self : Self, index : Int32) -> Self {
   let network = self.network.copy()
   network.remove(index) |> ignore
   { ..self, network, }
@@ -996,7 +1025,7 @@ fn State::remove_network(self : Self, index : Int) -> Self {
 ///|
 fn State::replace_network(
   self : Self,
-  index : Int,
+  index : Int32,
   state : NetworkState,
 ) -> Self {
   {
@@ -1012,7 +1041,7 @@ fn State::replace_network(
 }
 
 ///|
-fn Work::attempt_id(self : Self) -> Int {
+fn Work::attempt_id(self : Self) -> Int32 {
   match self {
     Prepare(attempt, _) => attempt.id
     Deliver(attempt) => attempt.id
@@ -1061,7 +1090,7 @@ fn NetworkState::accepts(
 }
 
 ///|
-fn Work::renew(self : Self, id : Int) -> Work {
+fn Work::renew(self : Self, id : Int32) -> Work {
   match self {
     Prepare(attempt, draft) =>
       Prepare(
@@ -1114,7 +1143,7 @@ fn Work::action(
 ///|
 fn State::restart(
   self : Self,
-  index : Int,
+  index : Int32,
   failed : Work,
   durable : @source_repository.DocumentReplica,
 ) -> (Self, Action) raise WorkError {
@@ -1315,7 +1344,7 @@ fn State::delivery(
   self : Self,
   durable : @source_repository.DocumentReplica,
   attempt : DeliveryAttempt,
-) -> Int raise WorkError {
+) -> Int32 raise WorkError {
   guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
     self.network[index].state is Running(Deliver(active)) &&
@@ -1370,7 +1399,7 @@ fn State::remote_fetch(
   self : Self,
   durable : @source_repository.DocumentReplica,
   attempt : ReadAttempt,
-) -> Int raise WorkError {
+) -> Int32 raise WorkError {
   guard self.find_network(durable.account(), durable.document_id())
     is Some(index) &&
     self.network[index].state.accepts(durable) &&

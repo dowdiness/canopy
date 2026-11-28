@@ -1,12 +1,14 @@
 ///|
+#derive(Eq)
 priv enum ScreenPhase {
   LoadingScreen
   RecoveryScreen(@source_repository.OpenFailure)
   CreationScreen
   EditingScreen
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct LayoutInput {
   phase : ScreenPhase
   focus_mode : Bool
@@ -24,7 +26,7 @@ priv struct LayoutInput {
   browsing : Bool
   /// Resume, shown over the index while it is in front.
   resume_panel : @rabbita.Html?
-} derive(Eq)
+}
 
 ///|
 fn screen_layout(

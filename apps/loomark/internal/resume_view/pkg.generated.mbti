@@ -12,21 +12,23 @@ pub fn[K : Eq + Hash + Show] view(Array[Source[K]], notes_href~ : String, @cmd.E
 // Errors
 
 // Types and methods
+#derive(Eq)
 pub(all) struct Choice[K] {
   key : K
   source : String
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   id : String
-} derive(Eq)
+}
 pub fn[K : Eq] Choice::equal(Self[K], Self[K]) -> Bool
 pub fn[K : Eq] Choice::not_equal(Self[K], Self[K]) -> Bool
 
+#derive(Eq)
 pub(all) struct Source[K] {
   key : K
   name : String
   text : String
-} derive(Eq)
+}
 pub fn[K : Eq] Source::equal(Self[K], Self[K]) -> Bool
 pub fn[K : Eq] Source::not_equal(Self[K], Self[K]) -> Bool
 

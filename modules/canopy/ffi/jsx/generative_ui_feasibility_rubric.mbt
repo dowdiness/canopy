@@ -1,6 +1,6 @@
 ///|
 priv struct FeasibilityEvidence {
-  schema_version : Int
+  schema_version : Int32
   case_id : String
   source_format : String
   binding : String
@@ -15,7 +15,7 @@ priv struct FeasibilityEvidence {
 
 ///|
 fn FeasibilityEvidence::FeasibilityEvidence(
-  schema_version : Int,
+  schema_version : Int32,
   case_id : String,
   source_format : String,
   binding : String,

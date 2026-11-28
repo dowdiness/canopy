@@ -43,7 +43,7 @@ pub fn Model::tree_attrs(
 pub fn Model::treeitem_attrs(
   self : Model,
   node_key~ : String,
-  level~ : Int,
+  level~ : Int32,
   selected~ : Bool,
   expansion~ : Expansion,
 ) -> @html.Attrs {

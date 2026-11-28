@@ -5,11 +5,12 @@ using @vector {type Vector}
 /// A non-empty sequence with one item in focus. Holding one proves there is
 /// something to show and something holding the tab stop, so code that receives
 /// a cursor never checks for an empty list or a missing focus.
+#derive(Eq)
 priv struct Cursor[T] {
   before : Vector[T]
   current : T
   after : Vector[T]
-} derive(Eq)
+}
 
 ///|
 /// Focus the first item `is_wanted` accepts, or else the first item.
@@ -30,7 +31,7 @@ fn[T] Cursor::focus_on(
 
 ///|
 /// Focus the item at `at`, or `None` when there is none.
-fn[T] Cursor::at(items : Vector[T], at : Int) -> Cursor[T]? {
+fn[T] Cursor::at(items : Vector[T], at : Int32) -> Cursor[T]? {
   items
   .get(at)
   .map(current => {
@@ -56,7 +57,7 @@ fn[T] Cursor::to_array(self : Cursor[T]) -> Array[T] {
 }
 
 ///|
-fn[T] Cursor::length(self : Cursor[T]) -> Int {
+fn[T] Cursor::length(self : Cursor[T]) -> Int32 {
   self.before.length() + 1 + self.after.length()
 }
 

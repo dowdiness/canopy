@@ -1,5 +1,5 @@
 ///|
-fn identity_lam(id : Int, hint : String) -> AlphaTerm {
+fn identity_lam(id : Int32, hint : String) -> AlphaTerm {
   let binder = test_binder(id, hint)
   Lam(binder, Var(Bound(binder.id)))
 }

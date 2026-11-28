@@ -6,19 +6,21 @@
 ///
 /// Contract: callbacks must not call back into SyncEditor synchronously —
 /// re-entry could cause double emissions that the equality guard cannot absorb.
+#derive(Debug, Eq)
 pub enum SyncStatus {
   /// No WebSocket connection established.
   Disconnected
   /// Connected and fully synchronized.
   Idle
   /// Actively recovering from a causal gap with a specific peer.
-  Recovering(peer_id~ : String, attempt~ : Int)
+  Recovering(peer_id~ : String, attempt~ : Int32)
   /// Recovery failed or aborted; last-known bad state.
   Error(reason~ : SyncErrorReason)
-} derive(Debug, Eq)
+}
 
 ///|
 /// Reason for entering the Error state.
+#derive(Debug, Eq)
 pub enum SyncErrorReason {
   /// All three retries were used with no successful response.
   Exhausted(peer_id~ : String)
@@ -27,12 +29,12 @@ pub enum SyncErrorReason {
   /// The current local Version exceeded the fixed text wire envelope.
   LocalVersionLimitExceeded(
     kind~ : @sync.LimitKind,
-    limit~ : Int,
-    actual~ : Int
+    limit~ : Int32,
+    actual~ : Int32,
   )
   /// Local Version serialization failed for a reason outside its limit contract.
   LocalVersionEncodingFailed
-} derive(Debug, Eq)
+}
 
 ///|
 /// Stub Show — currently a Debug dump. No Collaboration panel consumer is

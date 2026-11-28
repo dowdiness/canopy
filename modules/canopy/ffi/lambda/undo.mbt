@@ -6,17 +6,17 @@
 /// Returns a unique handle for this editor, or `-1` when `agent_id` is invalid.
 pub fn create_editor_with_undo(
   agent_id : String,
-  capture_timeout_ms : Int,
-) -> Int raise {
+  capture_timeout_ms : Int32,
+) -> Int32 raise {
   assemble_lambda_handle(agent_id, capture_timeout_ms~).0
 }
 
 ///|
 /// Insert text at cursor position and record for undo
 pub fn insert_and_record(
-  handle : Int,
+  handle : Int32,
   text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit {
   match lambda_registry.get(handle) {
     Some(h) =>
@@ -30,8 +30,8 @@ pub fn insert_and_record(
 ///|
 /// Delete character at cursor (forward delete) and record for undo
 pub fn delete_and_record(
-  handle : Int,
-  timestamp_ms : Int,
+  handle : Int32,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.delete_and_record(timestamp_ms)
@@ -42,8 +42,8 @@ pub fn delete_and_record(
 ///|
 /// Delete character before cursor (backspace) and record for undo
 pub fn backspace_and_record(
-  handle : Int,
-  timestamp_ms : Int,
+  handle : Int32,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.backspace_and_record(timestamp_ms)
@@ -54,9 +54,9 @@ pub fn backspace_and_record(
 ///|
 /// Set text content directly and record changes for undo
 pub fn set_text_and_record(
-  handle : Int,
+  handle : Int32,
   new_text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.set_text_and_record(new_text, timestamp_ms)
@@ -66,7 +66,7 @@ pub fn set_text_and_record(
 
 ///|
 /// Undo the last operation group.
-pub fn undo_manager_undo(handle : Int) -> Bool raise Failure {
+pub fn undo_manager_undo(handle : Int32) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.undo()
     None => false
@@ -75,7 +75,7 @@ pub fn undo_manager_undo(handle : Int) -> Bool raise Failure {
 
 ///|
 /// Redo the last undone operation group.
-pub fn undo_manager_redo(handle : Int) -> Bool raise Failure {
+pub fn undo_manager_redo(handle : Int32) -> Bool raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.redo()
     None => false
@@ -85,7 +85,7 @@ pub fn undo_manager_redo(handle : Int) -> Bool raise Failure {
 ///|
 /// Undo and return sync ops as JSON for peer broadcast.
 /// Returns empty string if undo stack is empty.
-pub fn undo_and_export_json(handle : Int) -> String raise Failure {
+pub fn undo_and_export_json(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.undo_and_export() {
@@ -99,7 +99,7 @@ pub fn undo_and_export_json(handle : Int) -> String raise Failure {
 ///|
 /// Redo and return sync ops as JSON for peer broadcast.
 /// Returns empty string if redo stack is empty.
-pub fn redo_and_export_json(handle : Int) -> String raise Failure {
+pub fn redo_and_export_json(handle : Int32) -> String raise Failure {
   match lambda_registry.get(handle) {
     Some(h) =>
       match h.editor.redo_and_export() {
@@ -112,7 +112,7 @@ pub fn redo_and_export_json(handle : Int) -> String raise Failure {
 
 ///|
 /// Check if undo is possible
-pub fn undo_manager_can_undo(handle : Int) -> Bool {
+pub fn undo_manager_can_undo(handle : Int32) -> Bool {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.can_undo()
     None => false
@@ -121,7 +121,7 @@ pub fn undo_manager_can_undo(handle : Int) -> Bool {
 
 ///|
 /// Check if redo is possible
-pub fn undo_manager_can_redo(handle : Int) -> Bool {
+pub fn undo_manager_can_redo(handle : Int32) -> Bool {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.can_redo()
     None => false
@@ -131,7 +131,7 @@ pub fn undo_manager_can_redo(handle : Int) -> Bool {
 ///|
 /// Enable or disable undo tracking
 pub fn undo_manager_set_tracking(
-  handle : Int,
+  handle : Int32,
   enabled : Bool,
 ) -> Unit raise Failure {
   match lambda_registry.get(handle) {
@@ -142,7 +142,7 @@ pub fn undo_manager_set_tracking(
 
 ///|
 /// Clear both undo and redo stacks
-pub fn undo_manager_clear(handle : Int) -> Unit raise Failure {
+pub fn undo_manager_clear(handle : Int32) -> Unit raise Failure {
   match lambda_registry.get(handle) {
     Some(h) => h.editor.clear_undo()
     None => ()

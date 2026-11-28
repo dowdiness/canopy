@@ -1,5 +1,6 @@
 ///|
 /// Errors returned by the canonical-to-portable Markdown projection core.
+#derive(Debug, Eq)
 pub enum PortableProjectionError {
   InvalidHiddenRange
   OverlappingHiddenRanges
@@ -7,16 +8,17 @@ pub enum PortableProjectionError {
   InvalidEditRange
   CanonicalAfterSourceMismatch
   NonRepresentable
-} derive(Debug, Eq)
+}
 
 ///|
 /// An immutable canonical-to-portable coordinate projection. Its canonical
 /// source and private hidden ranges remain inside the Markdown runtime.
+#derive(Debug, Eq)
 pub struct PortableCoordinateMap {
   priv canonical : String
   priv portable : String
   priv hidden : Array[@loom.Range]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn PortableCoordinateMap::source(self : Self) -> String {
@@ -27,8 +29,8 @@ pub fn PortableCoordinateMap::source(self : Self) -> String {
 /// Collapse one canonical UTF-16 offset onto its sentinel-free position.
 pub fn PortableCoordinateMap::project_offset(
   self : Self,
-  offset : Int,
-) -> Result[Int, PortableProjectionError] {
+  offset : Int32,
+) -> Result[Int32, PortableProjectionError] {
   if offset < 0 || offset > self.canonical.length() {
     return Err(PortableProjectionError::InvalidCoordinateRange)
   }
@@ -39,9 +41,9 @@ pub fn PortableCoordinateMap::project_offset(
 /// Project one canonical half-open UTF-16 range without exposing hidden spans.
 pub fn PortableCoordinateMap::project_range(
   self : Self,
-  start : Int,
-  end : Int,
-) -> Result[(Int, Int), PortableProjectionError] {
+  start : Int32,
+  end : Int32,
+) -> Result[(Int32, Int32), PortableProjectionError] {
   if start < 0 || end < start || end > self.canonical.length() {
     return Err(PortableProjectionError::InvalidCoordinateRange)
   }
@@ -200,8 +202,8 @@ fn project_normalized_source(
 fn project_normalized_interval(
   source : String,
   ranges : Array[@loom.Range],
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> String {
   let builder = StringBuilder()
   let mut cursor = start
@@ -224,7 +226,11 @@ fn project_normalized_interval(
 
 ///|
 /// Count private characters in the half-open interval [start, end].
-fn hidden_width(ranges : Array[@loom.Range], start : Int, end : Int) -> Int {
+fn hidden_width(
+  ranges : Array[@loom.Range],
+  start : Int32,
+  end : Int32,
+) -> Int32 {
   ranges.fold(init=0, (total, range) => {
     let clipped_start = if range.start < start { start } else { range.start }
     let clipped_end = if range.end > end { end } else { range.end }

@@ -1,10 +1,10 @@
 ///|
-fn Model::item_id(self : Model, index : Int) -> String {
+fn Model::item_id(self : Model, index : Int32) -> String {
   self.id + "-item-" + index.to_string()
 }
 
 ///|
-fn Model::is_focused(self : Model, index : Int) -> Bool {
+fn Model::is_focused(self : Model, index : Int32) -> Bool {
   match self.focused {
     Some(focused) => focused == index
     None => false
@@ -77,7 +77,7 @@ pub fn Model::panel_attrs(
 }
 
 ///|
-fn Model::base_item_attrs(self : Model, index : Int) -> @html.Attrs {
+fn Model::base_item_attrs(self : Model, index : Int32) -> @html.Attrs {
   let focused = self.is_focused(index)
   @html.Attrs::build()
   .id(self.item_id(index))
@@ -92,7 +92,7 @@ fn Model::base_item_attrs(self : Model, index : Int) -> @html.Attrs {
 #cfg(target="js")
 pub fn Model::item_attrs(
   self : Model,
-  index : Int,
+  index : Int32,
   dispatch : (Msg) -> @rabbita.Cmd,
 ) -> @html.Attrs {
   self
@@ -105,7 +105,7 @@ pub fn Model::item_attrs(
 #cfg(not(target="js"))
 pub fn Model::item_attrs(
   self : Model,
-  index : Int,
+  index : Int32,
   dispatch : (Msg) -> @rabbita.Cmd,
 ) -> @html.Attrs {
   ignore(dispatch)

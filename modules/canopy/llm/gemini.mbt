@@ -3,7 +3,7 @@ let gemini_base_url : String = "https://generativelanguage.googleapis.com/v1beta
 
 ///|
 fn text_part(text : String) -> Json {
-  Json::object({ "text": text.to_json() })
+  Json::object({ "text": Json(text) })
 }
 
 ///|
@@ -16,8 +16,8 @@ fn build_gemini_url(config : GeminiConfig) -> String {
 ///|
 fn build_gemini_headers(config : GeminiConfig) -> String {
   Json::object({
-    "Content-Type": "application/json".to_json(),
-    "x-goog-api-key": config.api_key.to_json(),
+    "Content-Type": Json("application/json"),
+    "x-goog-api-key": Json(config.api_key),
   }).stringify()
 }
 
@@ -28,19 +28,16 @@ fn build_gemini_body(
   user_text~ : String,
 ) -> String {
   let body : Map[String, Json] = Map([])
-  body["contents"] = [
-    Json::object({
-      "role": "user".to_json(),
-      "parts": [text_part(user_text)].to_json(),
-    }),
-  ].to_json()
+  body["contents"] = Json([
+    Json::object({ "role": Json("user"), "parts": Json([text_part(user_text)]) }),
+  ])
   body["systemInstruction"] = Json::object({
-    "parts": [text_part(system_prompt)].to_json(),
+    "parts": Json([text_part(system_prompt)]),
   })
   body["generationConfig"] = Json::object({
-    "temperature": config.temperature.to_json(),
-    "maxOutputTokens": config.max_output_tokens.to_json(),
-    "responseMimeType": "application/json".to_json(),
+    "temperature": Json(config.temperature),
+    "maxOutputTokens": Json(config.max_output_tokens),
+    "responseMimeType": Json("application/json"),
   })
   Json::object(body).stringify()
 }

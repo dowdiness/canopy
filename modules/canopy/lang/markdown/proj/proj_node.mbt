@@ -20,7 +20,7 @@ pub fn parse_to_proj_node(
 ///|
 pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[@markdown.Block] {
   // CstFold produces a fully-populated Block with inline content
   let fold = @loomcore.CstFold::new(@markdown.markdown_fold_node)
@@ -32,7 +32,7 @@ pub fn syntax_to_proj_node(
 fn build_proj_tree(
   syntax_node : @seam.SyntaxNode,
   block : @markdown.Block,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[@markdown.Block] {
   match block {
     Document(_) =>
@@ -58,7 +58,7 @@ fn build_container(
   syntax_node : @seam.SyntaxNode,
   block : @markdown.Block,
   syntax_children : Array[@seam.SyntaxNode],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[@markdown.Block] {
   let block_children = block.children()
   let len = syntax_children.length().min(block_children.length())
@@ -127,8 +127,8 @@ fn is_block_node(kind : @markdown.SyntaxKind) -> Bool {
 pub fn proj_to_view_node(
   node : @core.ProjNode[@markdown.Block],
   source_map : @core.SourceMap,
-  annotations? : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = Map([]),
-  source_text? : String? = None,
+  annotations~ : Map[@core.NodeId, Array[@protocol.ViewAnnotation]] = Map([]),
+  source_text~ : String? = None,
 ) -> @protocol.ViewNode {
   @protocol.proj_to_view_node(node, source_map, annotations~, source_text~)
 }

@@ -13,7 +13,14 @@ The canonical browser example lives under `apps/web/`, where the Vite plugin exp
 Refer to the `apps/web/` directory for a complete integration example using Vite.
 
 ```ts
-import * as crdt from '@moonbit/crdt-lambda';
+import * as raw from '@moonbit/crdt-lambda';
+import { adaptMoonBitModule } from '@canopy/editor-adapter/moonbit-result';
+
+const crdt = adaptMoonBitModule(raw, {
+  createFunctions: ['create_editor', 'create_editor_with_undo'],
+  destroyFunctions: ['destroy_editor'],
+  tryDestroyFunctions: ['try_destroy_editor'],
+});
 
 function setup() {
   const handle = crdt.create_editor("agent-1");
@@ -36,6 +43,18 @@ just build-js
 
 All FFI functions take a `handle` as their first argument. The implementation now keeps a real handle-to-editor registry, so multiple JS-created editors can coexist in the same module instance.
 
+The signatures below describe the adapted host API. Fallible raw MoonBit
+exports can return structural `Result` objects; the adapter unwraps successes
+and throws `CanopyHostError` on failure. In particular, `get_text` is now
+fallible when the document projection is unavailable. Do not treat a raw
+`Result` as a string or replace a failed read with empty/stale text.
+
+This also applies to `save_file`, `json_get_text`, `json_get_errors`,
+`markdown_get_text`, `markdown_export_text`, `markdown_compute_view_patches_json`,
+`get_diagnostics_json`, `get_pattern_matches_json`, and
+`apply_ast_grep_results_json`. An adapter failure quarantines an owned handle;
+do not continue operating on that handle.
+
 ### Initialization
 - `create_editor(agent_id: string): number`
 - `create_editor_with_undo(agent_id: string, capture_timeout_ms: number): number`
@@ -51,8 +70,15 @@ All FFI functions take a `handle` as their first argument. The implementation no
 ### Synchronization
 - `export_all_json(handle: number): string`
 - `export_since_json(handle: number, peer_version_json: string): string`
-- `apply_sync_json(handle: number, sync_json: string): void`
+- `apply_sync_json(handle: number, sync_json: string): string`
 - `get_version_json(handle: number): string`
+
+`apply_sync_json` returns `"ok"` or a JSON error object with `history_advanced`
+and `projection_available` booleans. An error does not imply rollback. Refresh
+the host from accepted history when both fields are true, before handling the
+error; never read an unavailable projection as a fallback. Preserve persisted
+recovery data after partial acceptance or a host exception rather than assuming
+the saved history was corrupt.
 
 ### Presence & Ephemeral State
 - `ephemeral_encode_all(handle: number): Uint8Array`
@@ -112,9 +138,8 @@ Each run represents multiple consecutive operations from the same agent. For lin
     - Listen for local changes and broadcast `export_since_json` deltas to peers via WebSockets/WebRTC.
     - Periodically call `ephemeral_remove_outdated` to prune disconnected peers.
 4.  **Lifecycle:** Call `destroy_editor(handle)` when an editor is permanently torn down so the JS module can release it from the handle registry.
-5.  **Error Handling:** the root FFI is the string/JSON flattening edge. Typed
-    internal errors such as `TreeEditError` are converted to strings there.
-    Example: `apply_tree_edit_json(...)` returns `"ok"` or `"error: <message>"`.
-    Integration code should still handle generated-module/runtime exceptions,
-    but ordinary editor failures are expected to arrive through these string
-    return values rather than raw MoonBit error objects.
+5.  **Error Handling:** domain-operation envelopes such as
+    `apply_tree_edit_json(...)` still return `"ok"` or `"error: <message>"`.
+    Generated fallible exports use a separate `Result`/exception boundary.
+    Use the adapter and handle `CanopyHostError` at the owning editor/session
+    boundary; a quarantined handle must not receive further editor operations.

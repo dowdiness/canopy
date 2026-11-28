@@ -74,7 +74,7 @@ test "total over non-BMP and surrogate input — no abort" {
 /// A lone surrogate is malformed UTF-16. The text facade rejects it before
 /// CRDT allocation or parsing, leaving source, cursor, and parsed AST unchanged.
 test "rejects a lone surrogate before parsing without changing text" {
-  let half = "😀".view(start_offset=0, end_offset=1).to_owned()
+  let half = "😀".unsafe_view(start=0, end=1).to_owned()
   let ed = new_test_editor("agent")
   try ed.insert("a" + half + "b") catch {
     @text.TextError::InvalidText(detail~) =>

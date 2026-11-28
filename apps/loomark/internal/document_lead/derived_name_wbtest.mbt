@@ -16,6 +16,7 @@ test "derive_name uses the first parser-recognized readable line" {
       ("---\n\nAfter rule\n", "After rule"),
       ("<div>raw</div>\n\nAfter HTML\n", "After HTML"),
       ("# 😀\nBody\n", "😀"),
+      ("# Notes 🎉", "Notes 🎉"),
       ("", ""),
       ("  \n\t\n", ""),
       ("# )bad\n", ")bad"),

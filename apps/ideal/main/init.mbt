@@ -1,11 +1,14 @@
 ///|
-const ROOT_REVISION_MAX : Int = 2147483647
+const INITIAL_DOC : String = "fn id(x : Int) { x }\nfn apply(f : Int -> Int, x : Int) { f x }\napply id 42"
+
+///|
+const ROOT_REVISION_MAX : Int32 = 2147483647
 
 ///|
 /// Root-only reactive wrapper. `Model` owns mutable editor/FFI state and cannot
 /// provide structural equality. A monotonically advancing generation keeps
 /// adjacent root states unequal even when multiple updates are batched.
-struct RootState(Model, Int)
+struct RootState(Model, Int32)
 
 ///|
 impl Eq for RootState with fn equal(self, other) {
@@ -13,7 +16,7 @@ impl Eq for RootState with fn equal(self, other) {
 }
 
 ///|
-fn next_root_revision(revision : Int) -> Int {
+fn next_root_revision(revision : Int32) -> Int32 {
   if revision == ROOT_REVISION_MAX {
     0
   } else {
@@ -37,8 +40,8 @@ fn init_model() -> Model raise {
   // are visible to the IncrGraph panel. `attach` only fails if incr's listener
   // slot is already claimed by an external caller — fatal here, propagate.
   let incr_tap = @visualizer.RecomputeTap::attach(editor.parser_runtime())
-  let init_text = "fn id(x : Int) { x }\nfn apply(f : Int -> Int, x : Int) { f x }\napply id 42"
-  editor.set_text(init_text)
+
+  editor.set_text(INITIAL_DOC)
   let outline_state : @proj.TreeEditorState[@ast.Term] = @proj.TreeEditorState::from_projection(
     editor.get_proj_node(),
     editor.get_source_map(),
@@ -60,7 +63,7 @@ fn init_model() -> Model raise {
     sync_status: Connecting,
     overlay: ActionOverlayHost::empty(),
     scope_map: build_scope_map_from_editor(editor),
-    highlight_set: @immut/hashset.new(),
+    highlight_set: @immut/hashset.empty(),
     nav_path: None,
     drag_source: None,
     drop_target_id: None,
@@ -123,23 +126,12 @@ fn root_subscriptions(state : RootState, emit : Emit[Msg]) -> Sub {
 }
 
 ///|
-fn render_view_fallback(model : Model) -> Html {
-  let source = model.editor.get_text()
+fn render_view_fallback(error_message : String) -> Html {
   @html.div(attrs=@html.Attrs::build().role("alert"), [
     @html.p([
-      @html.text(
-        "Derived views are unavailable. The current source is shown read-only.",
-      ),
+      @html.text("The editor view is unavailable because a source read failed:"),
     ]),
-    @html.node(
-      "pre",
-      @html.Attrs::build()
-      .role("textbox")
-      .aria_label("Current source, read-only")
-      .aria_multiline("true")
-      .aria_readonly("true"),
-      [@html.text(source)],
-    ),
+    @html.node("pre", @html.Attrs::build(), [@html.text(error_message)]),
   ])
 }
 
@@ -153,7 +145,7 @@ fn main {
     )
     model.map(state => {
       view(emit, state.0) catch {
-        _ => render_view_fallback(state.0)
+        error => render_view_fallback(error.to_string())
       }
     })
   })

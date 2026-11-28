@@ -3,16 +3,18 @@ package "dowdiness/worker_platform/http"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror BodyError {
   TooLarge
   InvalidBody
   InvalidLimit
-} derive(Eq, @debug.Debug)
+}
 pub fn BodyError::equal(Self, Self) -> Bool
 pub fn BodyError::not_equal(Self, Self) -> Bool
 pub fn BodyError::to_repr(Self) -> @debug.Repr
@@ -23,12 +25,12 @@ pub type Request
 pub fn Request::header(Self, String) -> String? raise
 pub fn Request::path(Self) -> String
 pub fn Request::query(Self, String) -> String?
-pub async fn Request::read_text(Self, max_bytes~ : Int) -> String
+pub async fn Request::read_text(Self, max_bytes~ : Int32) -> String
 pub fn Request::verb(Self) -> String
 
 #external
 pub type Response
-pub fn Response::json(Json, status? : Int) -> Self raise
+pub fn Response::json(@json.Json, status? : Int32) -> Self raise
 
 // Type aliases
 

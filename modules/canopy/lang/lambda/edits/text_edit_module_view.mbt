@@ -5,7 +5,7 @@
 priv struct EditModuleBinding {
   name : String
   init : ProjNode[@ast.Term]
-  start : Int
+  start : Int32
   binding_id : NodeId
 }
 

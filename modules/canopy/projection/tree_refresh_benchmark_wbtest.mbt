@@ -6,7 +6,10 @@ let tree_refresh_benchmark_source : @loomcore.SourceId = @loomcore.SourceId(
 )
 
 ///|
-fn tree_refresh_bench_source(let_count : Int, tail_literal : String) -> String {
+fn tree_refresh_bench_source(
+  let_count : Int32,
+  tail_literal : String,
+) -> String {
   let segments : Array[String] = []
   for i = 0; i < let_count - 1; i = i + 1 {
     segments.push("let x\{i} = \{i}")
@@ -18,7 +21,7 @@ fn tree_refresh_bench_source(let_count : Int, tail_literal : String) -> String {
 
 ///|
 fn tree_refresh_bench_setup(
-  let_count : Int,
+  let_count : Int32,
 ) -> (
   TreeEditorState[@ast.Term],
   ProjNode[@ast.Term],

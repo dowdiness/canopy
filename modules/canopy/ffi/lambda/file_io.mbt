@@ -14,7 +14,7 @@ pub fn register_file_host(host : @js.Any) -> Unit {
 /// Open a file picker and load the chosen file's text into editor `handle`.
 /// Asynchronous — returns immediately; the host reads the file and calls
 /// `on_file_opened` below. A cancelled picker is a no-op.
-pub fn load_file(handle : Int) -> Unit {
+pub fn load_file(handle : Int32) -> Unit {
   @io.request_open(handle)
 }
 
@@ -24,15 +24,15 @@ pub fn load_file(handle : Int) -> Unit {
 /// `LoadExample` / CodeMirror edits in the app). `timestamp_ms` orders the
 /// undo entry. A miss on `handle` (editor already destroyed) drops the content.
 pub fn on_file_opened(
-  handle : Int,
+  handle : Int32,
   content : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   set_text_and_record(handle, content, timestamp_ms)
 }
 
 ///|
 /// Save editor `handle`'s current text to a file named `suggested_name`.
-pub fn save_file(handle : Int, suggested_name : String) -> Unit {
+pub fn save_file(handle : Int32, suggested_name : String) -> Unit raise Failure {
   @io.save_text(get_text(handle), suggested_name)
 }

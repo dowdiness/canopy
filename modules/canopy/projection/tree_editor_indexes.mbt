@@ -32,7 +32,7 @@ fn[T] build_parent_map_walk(
 /// Build preorder index by walking the InteractiveTreeNode tree.
 fn[T] build_preorder_from_tree(tree : InteractiveTreeNode[T]?) -> LazyPreorder {
   let ids : Array[NodeId] = []
-  let range_by_root : Map[NodeId, (Int, Int)] = Map([])
+  let range_by_root : Map[NodeId, (Int32, Int32)] = Map([])
   match tree {
     Some(root) => build_preorder_walk(root, ids, range_by_root)
     None => ()
@@ -44,7 +44,7 @@ fn[T] build_preorder_from_tree(tree : InteractiveTreeNode[T]?) -> LazyPreorder {
 fn[T] build_preorder_walk(
   node : InteractiveTreeNode[T],
   ids : Array[NodeId],
-  range_by_root : Map[NodeId, (Int, Int)],
+  range_by_root : Map[NodeId, (Int32, Int32)],
 ) -> Unit {
   let start = ids.length()
   ids.push(node.id)
@@ -62,8 +62,8 @@ fn[T] build_preorder_walk(
 /// Collect a contiguous preorder slice from the structural index.
 fn collect_preorder_slice(
   preorder_ids : Array[NodeId],
-  start_idx : Int,
-  end_idx : Int,
+  start_idx : Int32,
+  end_idx : Int32,
 ) -> Array[NodeId] {
   [
     for i in start_idx..<=end_idx => preorder_ids[i]

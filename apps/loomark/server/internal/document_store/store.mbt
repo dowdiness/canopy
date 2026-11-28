@@ -47,12 +47,7 @@ pub async fn commit(
         Text(text),
         Text(@document_lead.extract(text).primary()),
         Number(changed_at),
-        [
-          id.to_json(),
-          mutation.base_revision.to_json(),
-          text.to_json(),
-          changed_at.to_json(),
-        ],
+        [Json(id), Json(mutation.base_revision), Json(text), Json(changed_at)],
       )
     None =>
       (
@@ -60,7 +55,7 @@ pub async fn commit(
         Null,
         Null,
         Null,
-        [id.to_json(), mutation.base_revision.to_json(), Json::null()],
+        [Json(id), Json(mutation.base_revision), Json::null()],
       )
   }
   let hash = @crypto.sha256(payload.stringify())

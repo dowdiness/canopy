@@ -9,20 +9,22 @@ priv enum DocumentIntent {
 }
 
 ///|
+#derive(Eq)
 priv struct DocumentToolsInput {
   activation : Activation
   examples_disabled : Bool
   import_disabled : Bool
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct ToolbarInput {
   can_create : Bool
   menu_open : Bool
   import_disabled : Bool
   /// Whether the Document index is behind the Editor for `Notes` to return to.
   has_notes : Bool
-} derive(Eq)
+}
 
 ///|
 fn focus_mode_toggle(
@@ -185,7 +187,7 @@ fn document_footer(
   persistence : @replica_persistence.Status?,
   attention : (@rabbita.Html, Bool),
   focus_mode : Bool,
-  characters : Int?,
+  characters : Int32?,
   on_mode : @rabbita.Emit[@editor.Mode],
 ) -> @rabbita.Html {
   let (attention, has_attention) = attention

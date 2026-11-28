@@ -18,7 +18,8 @@ pub fn[K : Eq + Hash + Show] view(@rabbita.Val[DocumentIndex[K]], on_delete~ : @
 // Errors
 
 // Types and methods
-type DocumentIndex[K] derive(Eq)
+#derive(Eq)
+type DocumentIndex[K]
 pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(ArrayView[Seed[K]], new_href~ : String, today_href~ : String, resume_href~ : String) -> Self[K]
 pub fn[K] DocumentIndex::covered(Self[K]) -> Self[K]
 pub fn[K : Eq] DocumentIndex::equal(Self[K], Self[K]) -> Bool
@@ -33,6 +34,7 @@ pub fn[K : Eq + Show] DocumentIndex::update(Self[K], Msg[K]) -> (Self[K], @cmd.C
 
 type Msg[K]
 
+#derive(Eq)
 pub(all) struct Seed[K] {
   key : K
   href : String
@@ -41,7 +43,7 @@ pub(all) struct Seed[K] {
   status : @recent_documents.RowStatus
   deletion : @recent_documents.DeletionAvailability
   loading : Bool
-} derive(Eq)
+}
 pub fn[K : Eq] Seed::equal(Self[K], Self[K]) -> Bool
 pub fn[K : Eq] Seed::not_equal(Self[K], Self[K]) -> Bool
 

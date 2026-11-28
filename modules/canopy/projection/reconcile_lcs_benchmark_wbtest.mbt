@@ -33,7 +33,7 @@ let reconcile_lcs_benchmark_source : @loomcore.SourceId = @loomcore.SourceId(
 )
 
 ///|
-fn lcs_setup(n : Int) -> (ProjNode[@ast.Term], ProjNode[@ast.Term]) raise {
+fn lcs_setup(n : Int32) -> (ProjNode[@ast.Term], ProjNode[@ast.Term]) raise {
   let (root_a, _) = @lambda_proj.parse_to_proj_node(
     reconcile_lcs_benchmark_source,
     tree_refresh_bench_source(n, "0"),
@@ -50,7 +50,7 @@ fn lcs_setup(n : Int) -> (ProjNode[@ast.Term], ProjNode[@ast.Term]) raise {
 /// at the middle of the second tree. The positional fast path requires
 /// same-kind at every index, so this setup reaches the LCS DP table.
 fn lcs_setup_fallback(
-  n : Int,
+  n : Int32,
 ) -> (ProjNode[@ast.Term], ProjNode[@ast.Term]) raise {
   let (root_a, root_b) = lcs_setup(n)
   let mid = root_b.children.length() / 2
@@ -132,7 +132,7 @@ test "control: fallback workload reaches the LCS DP table" {
 /// over the N+1 direct children. The two sources differ only in the final
 /// literal, so their sibling kind sequence is positionally identical — the
 /// positional fast path.
-fn bench_reconcile_fast_path(b : @bench.T, n : Int) -> Unit raise {
+fn bench_reconcile_fast_path(b : @bench.T, n : Int32) -> Unit raise {
   let (root_a, root_b) = lcs_setup(n)
   b.bench(() => {
     let r = @core.reconcile(root_a, root_b, Ref(5000))
@@ -143,7 +143,7 @@ fn bench_reconcile_fast_path(b : @bench.T, n : Int) -> Unit raise {
 ///|
 /// Same wide shape with one different-kind child mid-list — forces the LCS
 /// DP table. Fresh ids start at 5000, above every parsed id in either tree.
-fn bench_reconcile_fallback(b : @bench.T, n : Int) -> Unit raise {
+fn bench_reconcile_fallback(b : @bench.T, n : Int32) -> Unit raise {
   let (root_a, root_b) = lcs_setup_fallback(n)
   b.bench(() => {
     let r = @core.reconcile(root_a, root_b, Ref(5000))
@@ -154,7 +154,7 @@ fn bench_reconcile_fallback(b : @bench.T, n : Int) -> Unit raise {
 ///|
 /// `reconcile_with_exact_key` on the wide lists: fingerprint maps for both
 /// trees plus the weighted suffix DP.
-fn bench_reconcile_exact_key(b : @bench.T, n : Int) -> Unit raise {
+fn bench_reconcile_exact_key(b : @bench.T, n : Int32) -> Unit raise {
   let (root_a, root_b) = lcs_setup(n)
   b.bench(() => {
     let r = @core.reconcile_with_exact_key(

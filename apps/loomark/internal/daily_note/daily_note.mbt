@@ -4,18 +4,19 @@ pub const TEMPLATE_HEADING : String = "# Daily template"
 
 ///|
 /// What Today opens for a date.
+#derive(Eq, Debug)
 pub(all) enum Today[K] {
   /// The most recently changed document whose first line is the date heading.
   Existing(K)
   /// The text of a new daily note.
   New(String)
-} derive(Eq, Debug)
+}
 
 ///|
 fn first_line(text : String) -> String {
   let line = match text.find("\n") {
-    Some(end) => text.view(end_offset=end)
-    None => text.view()
+    Some(end) => text.exact_view(end~)
+    None => text.exact_view()
   }
   line.trim().to_owned()
 }
@@ -34,7 +35,7 @@ pub fn[K] today(documents : ArrayView[(K, String)], date : String) -> Today[K] {
     let (_, text) = document
     if first_line(text) == TEMPLATE_HEADING {
       let body = match text.find("\n") {
-        Some(end) => text.view(start_offset=end).to_owned()
+        Some(end) => text.exact_view(start=end).to_owned()
         None => "\n"
       }
       return New(heading + body)

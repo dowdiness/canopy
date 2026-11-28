@@ -106,7 +106,7 @@ test "candidate validation builds an allowlisted declarative tree" {
         @cognition.GenerativeUiCandidateNode::Table(
           binding~,
           selection_key~,
-          children~
+          children~,
         ) => {
           inspect(binding.to_string(), content="orders")
           match selection_key {
@@ -122,7 +122,7 @@ test "candidate validation builds an allowlisted declarative tree" {
         @cognition.GenerativeUiCandidateNode::Table(
           binding~,
           selection_key~,
-          children~
+          children~,
         ) => {
           let _ = binding
           let _ = selection_key
@@ -136,7 +136,7 @@ test "candidate validation builds an allowlisted declarative tree" {
         @cognition.GenerativeUiCandidateNode::Table(
           binding~,
           selection_key~,
-          children~
+          children~,
         ) => {
           let _ = binding
           let _ = selection_key

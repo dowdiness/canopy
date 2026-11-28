@@ -54,7 +54,7 @@ fn defer_sync(run : () -> Unit) -> Unit {
 
 ///|
 struct SourceDemoModel {
-  handle : Int
+  handle : Int32
   editor : String
   // `dirty` is true while the editor's current text is not graph-valid. The
   // source always tracks the editor buffer (see `apply_codemirror_changes`), so
@@ -459,7 +459,7 @@ fn source_demo_update(
 /// graph handle (which graph to observe) and the tagger that turns a settle
 /// ping into a `SyncFromGraph` message.
 priv suberror SourceGraphSub {
-  GraphChanged(Int, @rabbita.Emit[Unit])
+  GraphChanged(Int32, @rabbita.Emit[Unit])
 }
 
 ///|
@@ -475,7 +475,7 @@ priv suberror SourceGraphSub {
 /// would read stale source. Deferring also means `scheduler.add` never runs
 /// inside an in-progress drain, so there is no reentrancy to reason about.
 fn source_graph_change_sub(
-  handle : Int,
+  handle : Int32,
   tagger : @rabbita.Emit[Unit],
 ) -> @sub.Sub {
   // Key on the handle only (not the tagger identity) so re-renders rebind the
@@ -549,7 +549,7 @@ fn source_graph_change_sub_loader(
 priv suberror CanvasSourceSub {
   CanvasSourceBinding(
     ((CanvasSourceMessage) -> Unit) -> Unit,
-    @rabbita.Emit[CanvasSourceMessage]
+    @rabbita.Emit[CanvasSourceMessage],
   )
 }
 
@@ -672,7 +672,7 @@ fn source_demo_view(
 #warnings("-alert_unstable")
 #cfg(target="js")
 fn mount_source_demo(
-  handle : Int,
+  handle : Int32,
   enabled : Bool,
   on_change : () -> Unit,
   register : ((CanvasSourceMessage) -> Unit) -> Unit,

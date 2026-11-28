@@ -85,7 +85,7 @@ fn count(
   entries : Array[@resume_entries.ResumeEntry],
   project : String?,
   kind : @resume_entries.EntryKind,
-) -> Int {
+) -> Int32 {
   entries
   .filter(entry => entry.project == project && entry.kind == kind)
   .length()

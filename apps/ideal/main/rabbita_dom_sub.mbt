@@ -175,7 +175,7 @@ extern "js" fn js_warn_dom_event_subscription_error(message : String) -> Unit =
 
 ///|
 priv suberror StructureInputSub {
-  Listen(Int, @rabbita.Emit[Msg])
+  Listen(Int32, @rabbita.Emit[Msg])
 }
 
 ///|
@@ -214,7 +214,7 @@ fn structure_input_sub_loader(
 
 ///|
 fn structure_input_subscription(
-  generation : Int,
+  generation : Int32,
   emit : @rabbita.Emit[Msg],
 ) -> @sub.Sub {
   @sub.custom_sub(

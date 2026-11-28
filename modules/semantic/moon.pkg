@@ -5,6 +5,7 @@ import {
 
 import {
   "moonbitlang/core/float",
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/core/quickcheck",
   "moonbitlang/quickcheck" @qc,
 } for "wbtest"

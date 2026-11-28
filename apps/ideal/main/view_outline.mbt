@@ -64,7 +64,7 @@ fn outline_active_node_key(model : Model) -> String? {
 ///|
 /// Initialize drag data on a dragstart event via JS global capture.
 /// Called from on_dragstart to ensure dataTransfer is populated (required by browsers).
-extern "js" fn js_init_drag(node_id : Int) -> Unit =
+extern "js" fn js_init_drag(node_id : Int32) -> Unit =
   #|(id) => {
   #|  window.__canopy_outline_drag_source = id;
   #|}
@@ -93,7 +93,7 @@ extern "js" fn js_install_outline_drag_capture() -> Unit =
 fn view_outline_node(
   dispatch : Emit[Msg],
   node : @proj.InteractiveTreeNode[@ast.Term],
-  depth : Int,
+  depth : Int32,
   model : Model,
   eval_annotations : Map[@canopy_core.NodeId, Array[@lambda.EvalResult]],
 ) -> Html {

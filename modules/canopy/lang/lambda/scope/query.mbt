@@ -149,7 +149,7 @@ pub fn binder_span(
 pub fn go_to_definition(
   g : ScopeGraph,
   source_map : @core.SourceMap,
-  position : Int,
+  position : Int32,
 ) -> @loomcore.Range? {
   guard source_map.innermost_node_at(position) is Some(ref_id) else {
     return None
@@ -168,14 +168,14 @@ pub fn enclosing_env(
   node : @core.NodeId,
 ) -> @immut/hashset.HashSet[String] {
   let start = scope_for_node(g, node)
-  let mut env : @immut/hashset.HashSet[String] = @immut/hashset.new()
+  let mut env : @immut/hashset.HashSet[String] = @immut/hashset.empty()
   let mut cur = start
   while cur is Some(sid) {
     let ScopeId(si) = sid
     let scope = g.scopes[si]
     for did in scope.decl_ids {
       let DeclId(di) = did
-      env = env.add(g.decls[di].name)
+      env = env.insert(g.decls[di].name)
     }
     cur = scope.parent
   }
@@ -203,13 +203,13 @@ pub fn enclosing_env(
 pub fn references_outside_subtree(
   g : ScopeGraph,
   subtree_node_ids : @immut/hashset.HashSet[@core.NodeId],
-  registry? : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
+  registry~ : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
 ) -> Array[Ref] {
   // Collect distinct scopes containing subtree nodes.
-  let mut seen : @immut/hashset.HashSet[ScopeId] = @immut/hashset.new()
+  let mut seen : @immut/hashset.HashSet[ScopeId] = @immut/hashset.empty()
   for nid in subtree_node_ids.iter() {
     match g.node_scope.get(nid) {
-      Some(sid) => seen = seen.add(sid)
+      Some(sid) => seen = seen.insert(sid)
       None => continue
     }
   }

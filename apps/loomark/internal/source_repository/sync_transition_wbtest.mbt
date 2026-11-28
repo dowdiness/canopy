@@ -5,7 +5,7 @@ const TEST_OPERATION_1 : String = "a0000000-0000-4000-8000-000000000001"
 const TEST_OPERATION_2 : String = "a0000000-0000-4000-8000-000000000002"
 
 ///|
-fn test_account(value? : String = "account-a") -> AccountId {
+fn test_account(value~ : String = "account-a") -> AccountId {
   AccountId::parse(value) catch {
     _ => abort("invalid test account")
   }
@@ -217,7 +217,7 @@ test "acknowledgment retains an edit made during sending" {
         baseline: LiveBaseline::Saved(_, baseline),
         phase: LivePhase::Ready,
         ..
-      }
+      },
     ) &&
     baseline.text() == "first",
   )

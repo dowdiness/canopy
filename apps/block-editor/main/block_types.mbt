@@ -1,9 +1,10 @@
 ///|
+#derive(Eq, Debug)
 pub enum ListStyle {
   Bullet
   Numbered
   Todo
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for ListStyle with fn output(self, logger) {
@@ -11,15 +12,16 @@ pub impl Show for ListStyle with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, Debug)
 pub enum BlockType {
   Paragraph
-  Heading(Int) // level 1–6
+  Heading(Int32) // level 1–6
   ListItem(ListStyle)
   Quote
   Code(String) // language, empty = plain
   Divider // no text content
   Raw // verbatim, no parsing
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for BlockType with fn output(self, logger) {

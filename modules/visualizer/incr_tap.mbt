@@ -64,7 +64,7 @@ fn remember_cell(
   seen : Set[@incr.CellId],
   id : @incr.CellId,
 ) -> Unit {
-  if seen.add_and_check(id) {
+  if seen.insert_and_check(id) {
     ids.push(id)
   }
 }

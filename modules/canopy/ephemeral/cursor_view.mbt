@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) struct PeerCursor {
-  mut raw_cursor : Int
-  mut adjusted_cursor : Int
+  mut raw_cursor : Int32
+  mut adjusted_cursor : Int32
   mut display_name : String
   mut color : String
-  mut selection : (Int, Int)?
-} derive(Debug)
+  mut selection : (Int32, Int32)?
+}
 
 ///|
 pub impl Show for PeerCursor with fn output(self, logger) {
@@ -27,10 +28,10 @@ pub fn PeerCursorView::new() -> PeerCursorView {
 pub fn PeerCursorView::set_cursor(
   self : PeerCursorView,
   peer_id : String,
-  cursor : Int,
+  cursor : Int32,
   name : String,
   color : String,
-  selection? : (Int, Int)? = None,
+  selection~ : (Int32, Int32)? = None,
 ) -> Unit {
   self.cursors[peer_id] = {
     raw_cursor: cursor,
@@ -63,9 +64,9 @@ pub fn PeerCursorView::remove(self : PeerCursorView, peer_id : String) -> Unit {
 ///|
 pub fn PeerCursorView::adjust_for_edit(
   self : PeerCursorView,
-  edit_start : Int,
-  old_len : Int,
-  new_len : Int,
+  edit_start : Int32,
+  old_len : Int32,
+  new_len : Int32,
 ) -> Unit {
   for _peer_id, cursor in self.cursors {
     cursor.adjusted_cursor = adjust_position(
@@ -156,11 +157,11 @@ pub fn PeerCursorView::from_store(
 
 ///|
 pub fn adjust_position(
-  pos : Int,
-  edit_start : Int,
-  old_len : Int,
-  new_len : Int,
-) -> Int {
+  pos : Int32,
+  edit_start : Int32,
+  old_len : Int32,
+  new_len : Int32,
+) -> Int32 {
   if pos <= edit_start {
     pos
   } else if pos <= edit_start + old_len {

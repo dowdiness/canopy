@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum EphemeralValue {
   Null
   Bool(Bool)
@@ -8,7 +9,7 @@ pub(all) enum EphemeralValue {
   Bytes(Bytes)
   List(Array[EphemeralValue])
   Map(Map[String, EphemeralValue])
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for EphemeralValue with fn output(self, logger) {
@@ -16,11 +17,12 @@ pub impl Show for EphemeralValue with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum EphemeralEventTrigger {
   Local
   Import
   Timeout
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for EphemeralEventTrigger with fn output(self, logger) {
@@ -28,12 +30,13 @@ pub impl Show for EphemeralEventTrigger with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug)
 pub(all) struct EphemeralStoreEvent {
   by : EphemeralEventTrigger
   added : Array[String]
   updated : Array[String]
   removed : Array[String]
-} derive(Debug)
+}
 
 ///|
 pub fn EphemeralStoreEvent::by(
@@ -70,26 +73,26 @@ struct EphemeralRecord {
 
 ///|
 struct EphemeralLocalEntry {
-  id : Int
+  id : Int32
   callback : (Bytes) -> Bool
 }
 
 ///|
 struct EphemeralSubscriberEntry {
-  id : Int
+  id : Int32
   callback : (EphemeralStoreEvent) -> Bool
 }
 
 ///|
 pub struct EphemeralSubscription {
   priv store : EphemeralStore
-  priv id : Int
+  priv id : Int32
 }
 
 ///|
 pub struct EphemeralStore {
   priv timeout_ms : UInt64
-  priv mut next_sub_id : Int
+  priv mut next_sub_id : Int32
   priv mut states : Map[String, EphemeralRecord]
   priv mut local_subs : Array[EphemeralLocalEntry]
   priv mut subs : Array[EphemeralSubscriberEntry]
@@ -239,14 +242,14 @@ pub fn EphemeralStore::subscribe(
 }
 
 ///|
-fn EphemeralStore::alloc_sub_id(self : EphemeralStore) -> Int {
+fn EphemeralStore::alloc_sub_id(self : EphemeralStore) -> Int32 {
   let id = self.next_sub_id
   self.next_sub_id = if id == @int.MAX_VALUE { 1 } else { id + 1 }
   id
 }
 
 ///|
-fn EphemeralStore::unsubscribe(self : EphemeralStore, id : Int) -> Unit {
+fn EphemeralStore::unsubscribe(self : EphemeralStore, id : Int32) -> Unit {
   self.local_subs = self.local_subs.filter(fn(e) { e.id != id })
   self.subs = self.subs.filter(fn(e) { e.id != id })
 }
@@ -281,11 +284,11 @@ pub fn EphemeralStore::encode(self : EphemeralStore, key : String) -> Bytes {
   match self.states.get(key) {
     Some(record) =>
       if is_expired(record.updated_at, now, self.timeout_ms) {
-        Bytes::new(0)
+        Bytes::make(0, b'\x00')
       } else {
         encode_entries([(key, record)])
       }
-    None => Bytes::new(0)
+    None => Bytes::make(0, b'\x00')
   }
 }
 

@@ -26,7 +26,7 @@ fn source_binders(graph : @scope.ScopeGraph) -> Map[@core.NodeId, Binder] {
 }
 
 ///|
-fn generated_binder(hint : String, salt : Int) -> Binder {
+fn generated_binder(hint : String, salt : Int32) -> Binder {
   { id: BinderId(-1 - salt), hint, origin: Generated(salt), }
 }
 
@@ -66,7 +66,7 @@ fn lower_child_or_error(
   node : @core.ProjNode[@ast.Term],
   graph : @scope.ScopeGraph,
   binders : Map[@core.NodeId, Binder],
-  index : Int,
+  index : Int32,
   label : String,
 ) -> AlphaTerm {
   node.children

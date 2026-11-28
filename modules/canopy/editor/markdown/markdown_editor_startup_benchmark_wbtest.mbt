@@ -5,7 +5,7 @@
 /// They are diagnostic evidence, not a startup budget or a production cache.
 
 ///|
-fn startup_phase_source(block_count : Int) -> String {
+fn startup_phase_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     let number = index.to_string()
     "## Heading " +
@@ -19,7 +19,7 @@ fn startup_phase_source(block_count : Int) -> String {
 }
 
 ///|
-fn startup_phase_history(cycles : Int) -> MarkdownDocumentHistory {
+fn startup_phase_history(cycles : Int32) -> MarkdownDocumentHistory {
   let source = startup_phase_source(100)
   let editor = try! MarkdownEditor(
     agent_id="markdown-startup-fixture",
@@ -66,7 +66,7 @@ test "perf: startup CRDT admission (41 operations)" (b : @bench.T) {
       history~,
       open_limits=startup_phase_limits(),
     )
-    b.keep(editor.portable_markdown())
+    b.keep(try! editor.portable_markdown())
   })
 }
 
@@ -81,7 +81,7 @@ test "perf: startup CRDT admission with semantic attachment (41 operations)" (
       history~,
       open_limits=startup_phase_limits(),
     )
-    let source = editor.portable_markdown()
+    let source = try! editor.portable_markdown()
     attachment.dispose()
     b.keep(source)
   })
@@ -95,7 +95,7 @@ test "perf: startup semantic attachment from source (100 blocks)" (b : @bench.T)
       agent_id="markdown-startup-semantic-source",
       source~,
     )
-    let current = editor.portable_markdown()
+    let current = try! editor.portable_markdown()
     attachment.dispose()
     b.keep(current)
   })

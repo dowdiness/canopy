@@ -23,53 +23,70 @@ The `SyncEditor` is the primary facade for the editor application, integrating t
   Snaps the current cursor to the previous grapheme boundary, inserts text at
   that position, then snaps the cursor to the next grapheme boundary after the
   inserted text.
-- `delete() -> Bool`
+- `delete() -> Bool raise Failure`
   Deletes the character at the current cursor position (forward delete).
   Deletes the next UAX #29 grapheme cluster and leaves the cursor on a
   grapheme boundary.
-- `backspace() -> Bool`
+- `backspace() -> Bool raise Failure`
   Deletes the previous UAX #29 grapheme cluster and leaves the cursor on a
   grapheme boundary.
-- `move_cursor(position : Int) -> Unit`
+- `move_cursor(position : Int) -> Unit raise Failure`
   Moves the cursor to the specified absolute position. `position` is a
   UTF-16 code-unit offset clamped to `[0, doc.text().length()]`, then snapped
   backward to the nearest grapheme boundary.
-- `move_cursor_left_grapheme() -> Unit`
+- `move_cursor_left_grapheme() -> Unit raise Failure`
   Moves left by one grapheme cluster.
-- `move_cursor_right_grapheme() -> Unit`
+- `move_cursor_right_grapheme() -> Unit raise Failure`
   Moves right by one grapheme cluster.
-- `move_cursor_left_word() -> Unit`
+- `move_cursor_left_word() -> Unit raise Failure`
   Moves left to the previous raw UAX #29 word boundary.
-- `move_cursor_right_word() -> Unit`
+- `move_cursor_right_word() -> Unit raise Failure`
   Moves right to the next raw UAX #29 word boundary.
-- `get_text() -> String`
-  Returns the full document text.
+- `get_text() -> String raise Failure`
+  Returns the full document text. An unavailable EGW projection raises instead
+  of returning stale text or implicitly rebuilding it.
 - `get_cursor() -> Int`
   Returns the current cursor position as a UTF-16 code-unit offset. The value
   is maintained as a grapheme boundary by the editor layer.
-- `set_text(new_text : String) -> Unit`
+- `set_text(new_text : String) -> Unit raise Failure`
   Replaces the entire document text (useful for initialization).
   Routes through `dowdiness/text_change::compute_text_change`, whose prefix
   and suffix walks compare full grapheme clusters.
 
 ### Undo/Redo
 - `insert_and_record(text : String, timestamp_ms : Int) -> Unit raise`
-- `delete_and_record(timestamp_ms : Int) -> Bool`
-- `backspace_and_record(timestamp_ms : Int) -> Bool`
-- `undo() -> Bool`
-- `redo() -> Bool`
+- `delete_and_record(timestamp_ms : Int) -> Bool raise Failure`
+- `backspace_and_record(timestamp_ms : Int) -> Bool raise Failure`
+- `undo() -> Bool raise Failure`
+- `redo() -> Bool raise Failure`
 - `can_undo() -> Bool`
 - `can_redo() -> Bool`
 
 ### Synchronization
-- `export_all() -> @text.SyncMessage`
+- `export_all() -> @text.SyncMessage raise`
   Exports all operations for initial synchronization.
-- `export_since(peer_version : @text.Version) -> @text.SyncMessage`
+- `export_since(peer_version : @text.Version) -> @text.SyncMessage raise`
   Exports operations created since the specified peer version.
-- `apply_sync(msg : @text.SyncMessage) -> Unit`
+- `apply_sync(msg : @text.SyncMessage) -> Unit raise`
   Applies a synchronization message received from a peer.
 - `get_version() -> @text.Version`
   Returns the current document version.
+- `causal_view() -> @history.CausalView`
+  Returns a live read-only causal graph view, not a frozen snapshot. Capture
+  `children_counts()` once per non-mutating diagnostic refresh; entries count
+  direct successors.
+
+EGW 0.11 keeps schema-2 synchronization and persisted versions unchanged.
+Admission may commit history before reporting an error. The editor reconciles
+available publication before propagating that error; unavailable publication
+quarantines the parser/projection mirror while history export remains possible.
+Interrupted local edits likewise publish the accepted version before
+quarantining an unsettled mirror. Precommit input validation remains a normal
+rejection. `MarkdownEditor::portable_markdown()` also raises `Failure` when its
+canonical source cannot be read.
+A batch that accepts earlier spans before rejecting a later span is also
+fail-closed: the accepted source remains readable/exportable, but the parser
+mirror is not silently rebuilt. Reopen the exported history in a fresh editor.
 
 ### AST & Parsing
 - `get_ast() -> @ast.Term`
@@ -95,7 +112,7 @@ The `SyncEditor` is the primary facade for the editor application, integrating t
 - `decode_message(data : Bytes) -> SyncMessage?`
   Compatibility decoder that drops malformed frames by returning `None`.
 - `decode_message_result(data : Bytes) -> Result[SyncMessage, ProtocolError]`
-  Typed decoder for callers that need explicit protocol failure reasons.
+  Typed decoder that returns explicit protocol failure reasons as data.
 - `ws_on_message(data : Bytes) -> Unit`
   Applies incoming wire data. Malformed protocol/input frames are intentionally
   dropped as resilience policy; typed decode helpers exist when diagnostics are

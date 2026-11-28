@@ -2,7 +2,7 @@
 const DATABASE_NAME : String = "loomark"
 
 ///|
-const DATABASE_VERSION : Int = 2
+const DATABASE_VERSION : Int32 = 2
 
 ///|
 const STORE_NAME : String = "documents"
@@ -27,9 +27,9 @@ fn upgrade_storage() -> @js_async.Promise[Bool] {
 ///|
 extern "js" fn ffi_upgrade_storage(
   name : String,
-  version : Int,
+  version : Int32,
   store_name : String,
-  rewrite : (Int, String, String, (String) -> Unit) -> Unit,
+  rewrite : (Int32, String, String, (String) -> Unit) -> Unit,
 ) -> @js_async.Promise[Bool] =
   #| (name, version, storeName, rewrite) => new Promise(resolve => {
   #|   let open;
@@ -67,7 +67,7 @@ extern "js" fn ffi_upgrade_storage(
 /// Loomark reads anything. Every saved document gets the epoch as its Change
 /// time, so the existing order (by Document ID) is kept until each document
 /// next changes. No other code knows the old format.
-fn upgrade_record(old_version : Int, key : String, value : String) -> String? {
+fn upgrade_record(old_version : Int32, key : String, value : String) -> String? {
   guard old_version < 2 else { return None }
   if key.has_prefix(SOURCE_KEY_PREFIX) {
     upgrade_source(value)

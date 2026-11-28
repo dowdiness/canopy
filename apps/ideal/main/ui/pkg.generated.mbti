@@ -12,7 +12,7 @@ pub fn action_button_class() -> String
 
 pub fn action_button_danger_class() -> String
 
-pub fn behavior(id~ : String, tab_count~ : Int, selected~ : Int) -> @tabs.Model
+pub fn behavior(id~ : String, tab_count~ : Int32, selected~ : Int32) -> @tabs.Model
 
 pub fn inspector_label_class() -> String
 
@@ -28,9 +28,9 @@ pub fn panel_section_class() -> String
 
 pub fn tab_class(Bool) -> String
 
-pub fn tab_panel_view(@tabs.Model, Int, panel_id~ : String, class~ : String, Array[@html.Html]) -> @html.Html
+pub fn tab_panel_view(@tabs.Model, Int32, panel_id~ : String, class~ : String, Array[@html.Html]) -> @html.Html
 
-pub fn tab_trigger_view(@tabs.Model, Int, Tab, panel_id~ : String, Bool, (Int) -> @cmd.Cmd, (Bool) -> String) -> @html.Html
+pub fn tab_trigger_view(@tabs.Model, Int32, Tab, panel_id~ : String, Bool, (Int32) -> @cmd.Cmd, (Bool) -> String) -> @html.Html
 
 pub fn tablist_view(label~ : String, class~ : String, Array[@html.Html]) -> @html.Html
 

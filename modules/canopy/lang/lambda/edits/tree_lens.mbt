@@ -2,6 +2,7 @@
 
 ///|
 /// Tree edit operations for the interactive tree editor
+#derive(Debug)
 pub(all) enum TreeEditOp {
   // Selection
   Select(node_id~ : NodeId)
@@ -16,7 +17,7 @@ pub(all) enum TreeEditOp {
   Delete(node_id~ : NodeId)
   WrapInLambda(node_id~ : NodeId, var_name~ : String)
   WrapInApp(node_id~ : NodeId)
-  InsertChild(parent~ : NodeId, index~ : Int, kind~ : @ast.Term)
+  InsertChild(parent~ : NodeId, index~ : Int32, kind~ : @ast.Term)
 
   // Drag and drop
   StartDrag(node_id~ : NodeId)
@@ -28,7 +29,7 @@ pub(all) enum TreeEditOp {
   Expand(node_id~ : NodeId)
 
   // New structural actions
-  Unwrap(node_id~ : NodeId, keep_child_index~ : Int)
+  Unwrap(node_id~ : NodeId, keep_child_index~ : Int32)
   SwapChildren(node_id~ : NodeId)
   WrapInIf(node_id~ : NodeId)
   WrapInBop(node_id~ : NodeId, op~ : @ast.Bop)
@@ -50,7 +51,7 @@ pub(all) enum TreeEditOp {
 
   // Rename
   Rename(node_id~ : NodeId, new_name~ : String)
-} derive(Debug)
+}
 
 ///|
 pub impl Show for TreeEditOp with fn output(self, logger) {
@@ -163,7 +164,7 @@ fn[T : Renderable] placeholder_text_for_kind(kind : T) -> String {
 ///|
 fn insert_child_at(
   node : ProjNode[@ast.Term],
-  index : Int,
+  index : Int32,
   child : ProjNode[@ast.Term],
 ) -> ProjNode[@ast.Term] {
   let new_children : Array[ProjNode[@ast.Term]] = []

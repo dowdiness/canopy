@@ -4,22 +4,24 @@ using @rabbita {type Emit, type Html}
 ///|
 /// A document offered to the view: its key, the name it is listed by, and
 /// its current Document text.
+#derive(Eq)
 pub(all) struct Source[K] {
   key : K
   name : String
   text : String
-} derive(Eq)
+}
 
 ///|
 /// An entry chosen to be read where it was written. `source` is the text its
 /// range was taken from; `id` is the element that asked.
+#derive(Eq)
 pub(all) struct Choice[K] {
   key : K
   source : String
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   id : String
-} derive(Eq)
+}
 
 ///|
 let kinds : Array[(@resume_entries.EntryKind, String)] = [

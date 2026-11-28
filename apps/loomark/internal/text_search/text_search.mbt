@@ -19,9 +19,10 @@ pub fn Query::parse(text : String) -> Query? {
 
 ///|
 /// Text a query is matched against, in lower case.
+#derive(Eq, Hash, Debug)
 pub struct Searchable {
   priv lower : String
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 pub fn Searchable::of(text : String) -> Searchable {
@@ -38,13 +39,13 @@ pub fn Query::found_in(self : Query, text : Searchable) -> Bool {
 /// Where `self` occurs in `text` ignoring case, as code unit ranges that do
 /// not overlap. Text whose lower case changes its length has none, as its
 /// offsets would not line up.
-pub fn Query::occurrences(self : Query, text : String) -> Array[(Int, Int)] {
+pub fn Query::occurrences(self : Query, text : String) -> Array[(Int32, Int32)] {
   let lower = text.to_lower()
   guard lower.length() == text.length() else { return [] }
   let needle = self.lower
   let found = []
   let mut from = 0
-  while lower.view(start_offset=from).find(needle) is Some(offset) {
+  while lower.exact_view(start=from).find(needle) is Some(offset) {
     let at = from + offset
     found.push((at, at + needle.length()))
     from = at + needle.length()

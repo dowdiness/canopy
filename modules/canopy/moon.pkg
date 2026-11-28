@@ -5,7 +5,3 @@ import {
   "dowdiness/canopy/protocol",
   "dowdiness/canopy/relay",
 }
-
-options(
-  is_main: false,
-)

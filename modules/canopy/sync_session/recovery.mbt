@@ -2,14 +2,14 @@
 
 ///|
 /// Maximum number of deferred messages buffered during recovery.
-let max_deferred : Int = 32
+let max_deferred : Int32 = 32
 
 ///|
 /// Maximum number of retries AFTER the initial SyncRequest before giving up.
 /// With this set to 3, total wire sends per recovery attempt are 1 + 3 = 4
 /// (one original request + three retries). Surfaces Error(Exhausted) after
 /// the fourth handle_recovery_retry invocation.
-let max_retries_after_initial : Int = 3
+let max_retries_after_initial : Int32 = 3
 
 ///|
 /// Per-peer recovery state. Tracks the failed message, retry count,
@@ -18,15 +18,15 @@ struct RecoveryContext {
   peer_id : String
   pending_msg : @text.SyncMessage
   deferred : Array[@text.SyncMessage]
-  mut retries : Int
-  mut request_id : Int
+  mut retries : Int32
+  mut request_id : Int32
 }
 
 ///|
 fn RecoveryContext::new(
   peer_id : String,
   pending_msg : @text.SyncMessage,
-  request_id : Int,
+  request_id : Int32,
 ) -> RecoveryContext {
   { peer_id, pending_msg, deferred: [], retries: 0, request_id, }
 }
@@ -35,7 +35,7 @@ fn RecoveryContext::new(
 /// Advance to the next retry: increment counter, update request_id.
 fn RecoveryContext::advance_retry(
   self : RecoveryContext,
-  new_request_id : Int,
+  new_request_id : Int32,
 ) -> Unit {
   self.retries += 1
   self.request_id = new_request_id

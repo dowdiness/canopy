@@ -1,5 +1,5 @@
 ///|
-pub fn[T] BTreeNode::height(self : BTreeNode[T]) -> Int {
+pub fn[T] BTreeNode::height(self : BTreeNode[T]) -> Int32 {
   match self {
     Leaf(..) => 0
     // Empty internal is a transient state during range splicing — treat as 0
@@ -12,7 +12,7 @@ pub fn[T] BTreeNode::height(self : BTreeNode[T]) -> Int {
 fn[T] shared_prefix_length(
   left : Array[PathFrame[T]],
   right : Array[PathFrame[T]],
-) -> Int {
+) -> Int32 {
   let max_shared = if left.length() < right.length() {
     left.length()
   } else {

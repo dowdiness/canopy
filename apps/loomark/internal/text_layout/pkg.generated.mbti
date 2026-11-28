@@ -9,13 +9,13 @@ import {
 // Values
 pub fn measure(TextArea) -> MeasuredText
 
-pub fn measure_caret(TextArea, Int) -> CaretPosition raise MeasurementError
+pub fn measure_caret(TextArea, Int32) -> CaretPosition raise MeasurementError
 
-pub fn measure_line_bounds(TextArea, Int, Int) -> (Double, Double)
+pub fn measure_line_bounds(TextArea, Int32, Int32) -> (Double, Double)
 
-pub fn measure_line_top(TextArea, Int) -> Double
+pub fn measure_line_top(TextArea, Int32) -> Double
 
-pub fn measure_offset_at(TextArea, Double) -> Int
+pub fn measure_offset_at(TextArea, Double) -> Int32
 
 // Errors
 pub suberror MeasurementError {
@@ -31,7 +31,7 @@ pub struct CaretPosition {
 pub struct MeasuredText {
   source : @text_lines.TextLines
   metrics : TextMetrics
-  reflow_revision : Int
+  reflow_revision : Int32
 }
 
 pub struct TextArea {

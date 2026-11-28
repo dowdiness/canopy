@@ -1,4 +1,5 @@
 ///|
+#derive(Eq)
 priv enum AccountStatus {
   Checking
   SignedOut
@@ -7,25 +8,27 @@ priv enum AccountStatus {
   SignOutUnconfirmed(String)
   Unavailable
   SyncUnavailable
-} derive(Eq)
+}
 
 ///|
 /// Whether the current working copy is recoverable from this device.
+#derive(Eq)
 priv enum LocalDurability {
   NotStarted
   Saving
   Stored
   NotStored
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum DocumentSync {
   DeviceOnly
   SyncAvailable(@documents.StartSync)
   Linking
   Unavailable
   Linked
-} derive(Eq)
+}
 
 ///|
 fn account_status(sync : @sync.State) -> AccountStatus {

@@ -7,7 +7,3 @@ import {
   "dowdiness/loom/pipeline" @loom_pipeline,
   "dowdiness/seam",
 }
-
-options(
-  is_main: false,
-)

@@ -1,10 +1,11 @@
 ///|
 /// Request intent fed into the internal provider-planning graph.
+#derive(Eq)
 priv struct ProviderPlanningIntent {
   target : CognitionKey
   options : ProviderOptionProvenance
   snapshot : ProviderPlanningSnapshot
-} derive(Eq)
+}
 
 ///|
 fn ProviderPlanningIntent::ProviderPlanningIntent(
@@ -17,11 +18,12 @@ fn ProviderPlanningIntent::ProviderPlanningIntent(
 
 ///|
 /// Graph snapshot observed while planning one provider request.
+#derive(Eq)
 priv struct ProviderPlanningSnapshot {
   context : Array[ContextItem]
   source_revisions : Array[ProviderSourceSnapshot]
   dependencies : Array[CognitionKey]
-} derive(Eq)
+}
 
 ///|
 fn ProviderPlanningSnapshot::ProviderPlanningSnapshot(
@@ -38,16 +40,17 @@ fn ProviderPlanningSnapshot::ProviderPlanningSnapshot(
 
 ///|
 /// User cancellation input recorded for one planned request.
+#derive(Eq)
 priv struct ProviderCancellationRecord {
   request_id : ProviderRequestId
-  cancelled_at_ms : Int
+  cancelled_at_ms : Int32
   driver_acknowledged : Bool
-} derive(Eq)
+}
 
 ///|
 fn ProviderCancellationRecord::ProviderCancellationRecord(
   request_id~ : ProviderRequestId,
-  cancelled_at_ms~ : Int,
+  cancelled_at_ms~ : Int32,
 ) -> ProviderCancellationRecord {
   { request_id, cancelled_at_ms, driver_acknowledged: false, }
 }
@@ -65,42 +68,45 @@ fn ProviderCancellationRecord::acknowledge_driver(
 
 ///|
 /// Driver start input recorded for the current in-flight attempt.
+#derive(Eq)
 priv struct ProviderStartRecord {
   request_id : ProviderRequestId
-  started_at_ms : Int
-} derive(Eq)
+  started_at_ms : Int32
+}
 
 ///|
 fn ProviderStartRecord::ProviderStartRecord(
   request_id~ : ProviderRequestId,
-  started_at_ms~ : Int,
+  started_at_ms~ : Int32,
 ) -> ProviderStartRecord {
   { request_id, started_at_ms, }
 }
 
 ///|
 /// Completion/error input recorded for one planned request.
+#derive(Eq)
 priv struct ProviderCompletionRecord {
   completion : ProviderResultDescriptor
-  completed_at_ms : Int
-} derive(Eq)
+  completed_at_ms : Int32
+}
 
 ///|
 fn ProviderCompletionRecord::ProviderCompletionRecord(
   completion~ : ProviderResultDescriptor,
-  completed_at_ms~ : Int,
+  completed_at_ms~ : Int32,
 ) -> ProviderCompletionRecord {
   { completion, completed_at_ms, }
 }
 
 ///|
 /// Internal status state for one planned provider request.
+#derive(Eq)
 priv struct ProviderRequestState {
   request : ProviderRequestDescriptor
   start : ProviderStartRecord?
   cancellation : ProviderCancellationRecord?
   completion : ProviderCompletionRecord?
-} derive(Eq)
+}
 
 ///|
 fn ProviderRequestState::ProviderRequestState(
@@ -189,7 +195,7 @@ fn ProviderRequestState::status(
 ///|
 fn ProviderRequestState::driver_action(
   self : ProviderRequestState,
-  now_ms : Int,
+  now_ms : Int32,
 ) -> ProviderDriverAction {
   provider_next_driver_action_for_records(
     self.request,
@@ -202,13 +208,14 @@ fn ProviderRequestState::driver_action(
 
 ///|
 /// Deterministic next action for a provider driver to interpret outside `@incr`.
+#derive(Eq)
 priv enum ProviderDriverAction {
   NoDriverAction
   StartProviderRequest(ProviderRequestDescriptor)
   CancelProviderRequest(ProviderRequestId)
-  WaitProviderRetry(ProviderRequestId, Int)
+  WaitProviderRetry(ProviderRequestId, Int32)
   RetryProviderRequest(ProviderRequestDescriptor)
-} derive(Eq)
+}
 
 ///|
 /// Internal `@incr` cells for provider planning/status state.
@@ -217,7 +224,7 @@ priv struct ProviderPlanningGraph {
   scope : @incr.Scope
   intent : @incr.Input[ProviderPlanningIntent?]
   request_states : @incr.Input[Array[ProviderRequestState]]
-  fake_time_ms : @incr.Input[Int]
+  fake_time_ms : @incr.Input[Int32]
   dependency_fingerprint_cell_id : @incr.CellId
   request_cell_id : @incr.CellId
   status_cell_id : @incr.CellId
@@ -470,7 +477,7 @@ fn ProviderPlanningGraph::record_completion(
 ///|
 fn ProviderPlanningGraph::set_fake_time_ms(
   self : ProviderPlanningGraph,
-  now_ms : Int,
+  now_ms : Int32,
 ) -> Unit {
   self.fake_time_ms.set(now_ms)
 }
@@ -478,7 +485,7 @@ fn ProviderPlanningGraph::set_fake_time_ms(
 ///|
 fn ProviderPlanningGraph::next_driver_action_at(
   self : ProviderPlanningGraph,
-  now_ms : Int,
+  now_ms : Int32,
 ) -> ProviderDriverAction {
   self.fake_time_ms.set(now_ms)
   self.next_driver_action()
@@ -667,7 +674,7 @@ fn provider_state_for_request(
 ///|
 fn provider_next_driver_action_for_states(
   states : Array[ProviderRequestState],
-  now_ms : Int,
+  now_ms : Int32,
 ) -> ProviderDriverAction {
   let mut cancellation_action : ProviderDriverAction? = None
   let mut pending_start_action : ProviderDriverAction? = None
@@ -694,8 +701,8 @@ fn provider_next_driver_action_for_states(
                 Some(
                   ProviderDriverAction::WaitProviderRetry(
                     _,
-                    current_ready_at_ms
-                  )
+                    current_ready_at_ms,
+                  ),
                 ) =>
                   if current_ready_at_ms > ready_at_ms {
                     delayed_action = Some(
@@ -782,7 +789,7 @@ fn provider_next_driver_action_for_records(
   start : ProviderStartRecord?,
   cancellation : ProviderCancellationRecord?,
   completion : ProviderCompletionRecord?,
-  now_ms : Int,
+  now_ms : Int32,
 ) -> ProviderDriverAction {
   if provider_cancellation_wins(request, cancellation, completion) {
     match cancellation {
@@ -825,8 +832,8 @@ fn provider_start_matches_request(
 fn provider_retry_driver_action(
   request : ProviderRequestDescriptor,
   error : ProviderError,
-  completed_at_ms : Int,
-  now_ms : Int,
+  completed_at_ms : Int32,
+  now_ms : Int32,
 ) -> ProviderDriverAction {
   match error.retry_classification() {
     ProviderRetryClassification::RetryableLater(retry_after_ms~) => {

@@ -1,13 +1,15 @@
 ///|
+#derive(Eq, Hash)
 enum AlphaKeyRef {
-  KBound(Int)
+  KBound(Int32)
   KUnscopedBound(BinderId)
   KFree(String)
-} derive(Eq, Hash)
+}
 
 ///|
+#derive(Eq)
 enum AlphaKeyRepr {
-  KInt(Int)
+  KInt(Int32)
   KUnit
   KVar(AlphaKeyRef)
   KLam(AlphaKeyRepr)
@@ -17,8 +19,8 @@ enum AlphaKeyRepr {
   KLetDef(AlphaKeyRepr)
   KModule(Array[AlphaKeyRepr], AlphaKeyRepr)
   KError(String)
-  KHole(Int)
-} derive(Eq)
+  KHole(Int32)
+}
 
 ///|
 /// Opaque canonical key for an `AlphaTerm`.
@@ -28,9 +30,10 @@ enum AlphaKeyRepr {
 /// `FreeOrigin` is diagnostic/source provenance and does not affect the key.
 /// The internal representation is private so future hash-consing/egraph work can
 /// change the encoding without changing callers.
+#derive(Eq)
 pub struct AlphaKey {
   priv repr : AlphaKeyRepr
-} derive(Eq)
+}
 
 ///|
 impl Hash for AlphaKeyRepr with fn hash_combine(self, hasher) {
@@ -98,13 +101,13 @@ pub impl Hash for AlphaKey with fn hash_combine(self, hasher) {
 /// the result is intended for whole `AlphaTerm` keys rather than context-free
 /// subterm extraction.
 pub fn alpha_key(term : AlphaTerm) -> AlphaKey {
-  let env : Map[BinderId, Int] = Map([])
+  let env : Map[BinderId, Int32] = Map([])
   let (key, _) = key_term(term, env, 0)
   AlphaKey::{ repr: key, }
 }
 
 ///|
-fn key_ref(alpha_ref : AlphaRef, env : Map[BinderId, Int]) -> AlphaKeyRef {
+fn key_ref(alpha_ref : AlphaRef, env : Map[BinderId, Int32]) -> AlphaKeyRef {
   match alpha_ref {
     Bound(id) =>
       match env.get(id) {
@@ -116,7 +119,7 @@ fn key_ref(alpha_ref : AlphaRef, env : Map[BinderId, Int]) -> AlphaKeyRef {
 }
 
 ///|
-fn key_bop_index(op : @ast.Bop) -> Int {
+fn key_bop_index(op : @ast.Bop) -> Int32 {
   match op {
     @ast.Bop::Plus => 0
     @ast.Bop::Minus => 1
@@ -126,9 +129,9 @@ fn key_bop_index(op : @ast.Bop) -> Int {
 ///|
 fn key_term(
   term : AlphaTerm,
-  env : Map[BinderId, Int],
-  next : Int,
-) -> (AlphaKeyRepr, Int) {
+  env : Map[BinderId, Int32],
+  next : Int32,
+) -> (AlphaKeyRepr, Int32) {
   match term {
     Int(value) => (KInt(value), next)
     Unit => (KUnit, next)

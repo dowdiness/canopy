@@ -30,7 +30,7 @@ struct SourceBackedGraph {
 }
 
 ///|
-fn source_graph_source_id(handle : Int) -> @core.SourceId {
+fn source_graph_source_id(handle : Int32) -> @core.SourceId {
   @core.SourceId("canopy-canvas-source-graph:" + handle.to_string())
 }
 
@@ -77,7 +77,7 @@ fn SourceBackedGraph::apply_attachment_mutation(
 }
 
 ///|
-fn source_graph_by_handle(handle : Int) -> SourceBackedGraph? {
+fn source_graph_by_handle(handle : Int32) -> SourceBackedGraph? {
   match canvas_backing(handle) {
     Some(Source(graph)) => Some(graph)
     _ => None
@@ -191,7 +191,7 @@ fn source_node_to_json(
 
 ///|
 fn canvas_node_from_graph_node(
-  index : Int,
+  index : Int32,
   graph_node : @graph_dsl.GraphNode,
 ) -> CanvasNode {
   @graph_model.CanvasNode::from_parts(
@@ -341,20 +341,21 @@ fn source_graph_validation(graph : SourceBackedGraph) -> Array[ValidationJson] {
 }
 
 ///|
+#derive(ToJson, FromJson)
 struct SourceGraphOperationResultJson {
   applied : Bool
   source : String
   diagnostics : Array[String]
-  action_count : Int
+  action_count : Int32
   message : String?
-} derive(ToJson, FromJson)
+}
 
 ///|
 fn source_graph_operation_result_json(
   applied : Bool,
   source : String,
   diagnostics : Array[String],
-  action_count : Int,
+  action_count : Int32,
   message : String?,
 ) -> SourceGraphOperationResultJson {
   { applied, source, diagnostics, action_count, message, }
@@ -365,7 +366,7 @@ fn source_graph_operation_result(
   applied : Bool,
   source : String,
   diagnostics : Array[String],
-  action_count : Int,
+  action_count : Int32,
   message : String?,
 ) -> String {
   ToJson::to_json(
@@ -624,7 +625,7 @@ fn SourceBackedGraph::apply_codemirror_changes(
 /// registered source-backed graph. The source CodeMirror editor's
 /// `listen(on_change=...)` subscription forwards its `ChangeDelta` batch here.
 fn apply_source_graph_codemirror_changes(
-  handle : Int,
+  handle : Int32,
   changes : Array[@codemirror.ChangeDelta],
   expected_doc : String,
 ) -> SourceGraphOperationResultJson raise Failure {
@@ -1038,7 +1039,7 @@ fn SourceBackedGraph::complete_connection(
 fn SourceBackedGraph::zoom(
   self : SourceBackedGraph,
   delta_y : Double,
-  delta_mode : Int,
+  delta_mode : Int32,
   ctrl_key : Bool,
   cx : Double,
   cy : Double,
@@ -1125,7 +1126,7 @@ fn SourceBackedGraph::insert_unique_result(
 
 ///|
 fn source_graph_insert_unique_result(
-  handle : Int,
+  handle : Int32,
   binding_base : String,
   constructor_name : String,
 ) -> SourceGraphOperationResultJson raise Failure {
@@ -1145,7 +1146,7 @@ fn source_graph_insert_unique_result(
 
 ///|
 fn source_graph_connect_sample_result(
-  handle : Int,
+  handle : Int32,
 ) -> SourceGraphOperationResultJson raise Failure {
   let graph = match source_graph_by_handle(handle) {
     Some(graph) => graph
@@ -1180,7 +1181,7 @@ fn source_graph_connect_sample_result(
 
 ///|
 pub fn source_graph_insert_unique(
-  handle : Int,
+  handle : Int32,
   binding_base : String,
   constructor_name : String,
 ) -> String raise Failure {
@@ -1195,7 +1196,7 @@ pub fn sample_graph_dsl_source() -> String {
 }
 
 ///|
-pub fn create_source_graph(source : String) -> Int raise Failure {
+pub fn create_source_graph(source : String) -> Int32 raise Failure {
   let handle = canvas_instances.length()
   let source_id = source_graph_source_id(handle)
   canvas_instances.push(Some(Source(SourceBackedGraph(source_id, source))))
@@ -1203,7 +1204,7 @@ pub fn create_source_graph(source : String) -> Int raise Failure {
 }
 
 ///|
-pub fn try_destroy_source_graph(handle : Int) -> Bool {
+pub fn try_destroy_source_graph(handle : Int32) -> Bool {
   match canvas_backing(handle) {
     Some(Source(graph)) => {
       graph.dispose()
@@ -1216,12 +1217,12 @@ pub fn try_destroy_source_graph(handle : Int) -> Bool {
 }
 
 ///|
-pub fn destroy_source_graph(handle : Int) -> Unit {
+pub fn destroy_source_graph(handle : Int32) -> Unit {
   ignore(try_destroy_source_graph(handle))
 }
 
 ///|
-pub fn get_source_graph_source(handle : Int) -> String {
+pub fn get_source_graph_source(handle : Int32) -> String {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.source
     None => ""
@@ -1235,7 +1236,7 @@ pub fn get_source_graph_source(handle : Int) -> String {
 /// origin), and the panel pulls `get_source_graph_source` on the ping. Returns
 /// `None` for an unknown handle.
 fn source_graph_subscribe(
-  handle : Int,
+  handle : Int32,
   listener : () -> Unit,
 ) -> @graph_dsl.GraphAttachmentSubscription? {
   match source_graph_by_handle(handle) {
@@ -1246,7 +1247,7 @@ fn source_graph_subscribe(
 
 ///|
 fn set_source_graph_source_checked(
-  handle : Int,
+  handle : Int32,
   source : String,
 ) -> SourceGraphOperationResultJson raise Failure {
   let graph = match source_graph_by_handle(handle) {
@@ -1276,7 +1277,7 @@ fn set_source_graph_source_checked(
 
 ///|
 pub fn set_source_graph_source(
-  handle : Int,
+  handle : Int32,
   source : String,
 ) -> Unit raise Failure {
   ignore(set_source_graph_source_checked(handle, source))
@@ -1284,7 +1285,7 @@ pub fn set_source_graph_source(
 
 ///|
 pub fn set_source_graph_source_result(
-  handle : Int,
+  handle : Int32,
   source : String,
 ) -> String raise Failure {
   ToJson::to_json(set_source_graph_source_checked(handle, source)).stringify()
@@ -1293,7 +1294,7 @@ pub fn set_source_graph_source_result(
 ///|
 #warnings("-unused_value")
 fn source_graph_pointer_down(
-  handle : Int,
+  handle : Int32,
   node_id : String,
   sx : Double,
   sy : Double,
@@ -1306,7 +1307,7 @@ fn source_graph_pointer_down(
 
 ///|
 #warnings("-unused_value")
-fn source_graph_pointer_move(handle : Int, sx : Double, sy : Double) -> Unit {
+fn source_graph_pointer_move(handle : Int32, sx : Double, sy : Double) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_move(sx, sy)
     None => ()
@@ -1316,7 +1317,7 @@ fn source_graph_pointer_move(handle : Int, sx : Double, sy : Double) -> Unit {
 ///|
 #warnings("-unused_value")
 fn source_graph_pointer_up(
-  handle : Int,
+  handle : Int32,
   node_id : String,
   target_port_id : String,
   additive : Bool,
@@ -1329,7 +1330,7 @@ fn source_graph_pointer_up(
 
 ///|
 #warnings("-unused_value")
-fn source_graph_pointer_interrupt(handle : Int) -> Unit {
+fn source_graph_pointer_interrupt(handle : Int32) -> Unit {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.pointer_interrupt()
     None => ()
@@ -1380,7 +1381,7 @@ fn SourceBackedGraph::render_state_json(self : SourceBackedGraph) -> String {
 }
 
 ///|
-pub fn get_source_graph_render_state(handle : Int) -> String {
+pub fn get_source_graph_render_state(handle : Int32) -> String {
   match source_graph_by_handle(handle) {
     Some(graph) => graph.render_state_json()
     None =>
@@ -1395,10 +1396,10 @@ pub fn get_source_graph_render_state(handle : Int) -> String {
 }
 
 ///|
-pub fn get_source_graph_action_log(handle : Int) -> String {
+pub fn get_source_graph_action_log(handle : Int32) -> String {
   match source_graph_by_handle(handle) {
-    Some(graph) => graph.action_log.to_json().stringify()
-    None => ([] : Array[GraphOperation]).to_json().stringify()
+    Some(graph) => Json(graph.action_log).stringify()
+    None => Json(([] : Array[GraphOperation])).stringify()
   }
 }
 
@@ -1430,7 +1431,7 @@ fn SourceBackedGraph::apply_operation(
 
 ///|
 pub fn apply_source_graph_operation(
-  handle : Int,
+  handle : Int32,
   operation_json : String,
 ) -> String raise Failure {
   let graph = match source_graph_by_handle(handle) {

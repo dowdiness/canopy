@@ -98,7 +98,7 @@ fn incr_canvas_screen_point_from_wheel_event(
 }
 
 ///|
-fn incr_canvas_pointer_id(event : @dom.PointerEvent) -> Int {
+fn incr_canvas_pointer_id(event : @dom.PointerEvent) -> Int32 {
   event.get_pointer_id()
 }
 
@@ -143,7 +143,7 @@ fn incr_canvas_try_claim_pointer(event : @dom.PointerEvent) -> Bool {
 ///|
 fn incr_canvas_clear_pointer_claim(
   event : @dom.Event,
-  pointer_id : Int,
+  pointer_id : Int32,
 ) -> Unit {
   match event.current_target().to_option() {
     Some(target) =>

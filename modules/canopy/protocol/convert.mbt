@@ -7,8 +7,8 @@
 pub fn[T : @loomcore.Renderable] proj_to_view_node(
   node : @core.ProjNode[T],
   source_map : @core.SourceMap,
-  annotations? : Map[@core.NodeId, Array[ViewAnnotation]] = Map([]),
-  source_text? : String? = None,
+  annotations~ : Map[@core.NodeId, Array[ViewAnnotation]] = Map([]),
+  source_text~ : String? = None,
 ) -> ViewNode {
   let node_id = node.id()
   let kind_tag = @loomcore.Renderable::kind_tag(node.kind)
@@ -69,7 +69,7 @@ pub fn[T : @loomcore.Renderable] proj_to_view_node(
 
 ///|
 /// Count nodes in a ViewNode tree.
-pub fn ViewNode::node_count(self : ViewNode) -> Int {
+pub fn ViewNode::node_count(self : ViewNode) -> Int32 {
   let mut count = 1
   for child in self.children {
     count = count + child.node_count()

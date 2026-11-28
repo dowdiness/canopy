@@ -23,40 +23,43 @@ pub fn parse_to_proj_node(@diagnostic.SourceId, String) -> (@core.ProjNode[@jsx.
 
 pub fn populate_token_spans(@core.SourceMap, @seam.SyntaxNode, @core.ProjNode[@jsx.JsxNode]) -> Unit
 
-pub fn reconcile(@core.ProjNode[@jsx.JsxNode], Array[Int]) -> (Array[DomPatch], Array[Int])
+pub fn reconcile(@core.ProjNode[@jsx.JsxNode], Array[Int32]) -> (Array[DomPatch], Array[Int32])
 
-pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int]) -> @core.ProjNode[@jsx.JsxNode]
+pub fn syntax_to_proj_node(@seam.SyntaxNode, @ref.Ref[Int32]) -> @core.ProjNode[@jsx.JsxNode]
 
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum DomPatch {
-  MakeElement(Int, Int, String, Array[@jsx.JsxAttr], Int)
-  MakeText(Int, Int, String, Int)
-  MakeExprSpan(Int, Int, String, Int)
-  SetText(Int, String)
-  SetExpr(Int, String)
-  SetAttrs(Int, Array[@jsx.JsxAttr])
-  Release(Int)
-} derive(Eq, @debug.Debug)
+  MakeElement(Int32, Int32, String, Array[@jsx.JsxAttr], Int32)
+  MakeText(Int32, Int32, String, Int32)
+  MakeExprSpan(Int32, Int32, String, Int32)
+  SetText(Int32, String)
+  SetExpr(Int32, String)
+  SetAttrs(Int32, Array[@jsx.JsxAttr])
+  Release(Int32)
+}
 pub fn DomPatch::equal(Self, Self) -> Bool
 pub fn DomPatch::not_equal(Self, Self) -> Bool
 pub fn DomPatch::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub struct DryRunModel {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn DryRunModel::apply(Self, Array[DomPatch]) -> Result[Self, String]
 pub fn DryRunModel::empty() -> Self
 pub fn DryRunModel::equal(Self, Self) -> Bool
 pub fn DryRunModel::not_equal(Self, Self) -> Bool
 pub fn DryRunModel::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub enum DryRunNode {
-  Element(Int, String, Array[@jsx.JsxAttr], Array[DryRunNode])
-  Text(Int, String)
-  ExprSpan(Int, String)
-} derive(Eq, @debug.Debug)
+  Element(Int32, String, Array[@jsx.JsxAttr], Array[DryRunNode])
+  Text(Int32, String)
+  ExprSpan(Int32, String)
+}
 pub fn DryRunNode::equal(Self, Self) -> Bool
 pub fn DryRunNode::not_equal(Self, Self) -> Bool
 pub fn DryRunNode::to_repr(Self) -> @debug.Repr

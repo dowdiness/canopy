@@ -3,7 +3,7 @@ name = "dowdiness/zipper"
 version = "0.1.0"
 
 import {
-  "moonbitlang/quickcheck@0.11.2",
+  "moonbitlang/quickcheck@0.15.1",
 }
 
 repository = "https://github.com/dowdiness/canopy"

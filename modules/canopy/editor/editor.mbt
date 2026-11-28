@@ -4,12 +4,13 @@
 
 ///|
 /// Wraps a TextState and maintains cursor position
+#derive(Debug)
 pub struct Editor {
   doc : @text.TextState
   // Cursor positions use TextState's item-space coordinates: one Unicode
   // codepoint per position, rather than JavaScript UTF-16 code units.
-  mut cursor : Int
-} derive(Debug)
+  mut cursor : Int32
+}
 
 ///|
 /// Create a new editor for a non-empty agent identifier.
@@ -20,19 +21,22 @@ pub fn Editor::new(agent_id : String) -> Editor raise @text.TextError {
 
 ///|
 /// Get the current text content
-pub fn Editor::get_text(self : Editor) -> String {
+pub fn Editor::get_text(self : Editor) -> String raise @text.TextError {
   self.doc.text()
 }
 
 ///|
 /// Get the current cursor position in TextState item-space coordinates.
-pub fn Editor::get_cursor(self : Editor) -> Int {
+pub fn Editor::get_cursor(self : Editor) -> Int32 {
   self.cursor
 }
 
 ///|
 /// Move cursor to a specific position
-pub fn Editor::move_cursor(self : Editor, position : Int) -> Unit {
+pub fn Editor::move_cursor(
+  self : Editor,
+  position : Int32,
+) -> Unit raise @text.TextError {
   let text_len = self.doc.len()
   if position < 0 {
     self.cursor = 0
@@ -67,7 +71,7 @@ pub fn Editor::insert(self : Editor, text : String) -> Unit raise {
 /// Cursor does not move
 pub fn Editor::insert_at(
   self : Editor,
-  position : Int,
+  position : Int32,
   text : String,
 ) -> Unit raise {
   self.doc.insert(@text.Pos::at(position), text)
@@ -79,10 +83,10 @@ pub fn Editor::insert_at(
 
 ///|
 /// Returns true if successful, false if nothing to delete
-pub fn Editor::delete(self : Editor) -> Bool {
+pub fn Editor::delete(self : Editor) -> Bool raise @text.TextError {
   try self.doc.delete(@text.Pos::at(self.cursor)) catch {
     @text.TextError::InvalidPosition(..) => false
-    _ => false
+    error => raise error
   } noraise {
     _ => true
   }
@@ -94,7 +98,7 @@ pub fn Editor::delete(self : Editor) -> Bool {
 
 ///|
 /// Returns true if successful, false if at start
-pub fn Editor::backspace(self : Editor) -> Bool {
+pub fn Editor::backspace(self : Editor) -> Bool raise @text.TextError {
   if self.cursor > 0 {
     self.cursor -= 1
     try self.doc.delete(@text.Pos::at(self.cursor)) catch {
@@ -103,9 +107,9 @@ pub fn Editor::backspace(self : Editor) -> Bool {
         self.cursor += 1
         false
       }
-      _ => {
+      error => {
         self.cursor += 1
-        false
+        raise error
       }
     } noraise {
       _ => true
@@ -117,7 +121,7 @@ pub fn Editor::backspace(self : Editor) -> Bool {
 
 ///|
 /// Adjust cursor to stay within valid range after merge
-fn Editor::adjust_cursor(self : Editor) -> Unit {
+fn Editor::adjust_cursor(self : Editor) -> Unit raise @text.TextError {
   let text_len = self.doc.len()
   if self.cursor > text_len {
     self.cursor = text_len
@@ -158,18 +162,15 @@ pub fn Editor::admit(
   self : Editor,
   msg : @text.SyncMessage,
 ) -> @text.SyncReport raise @text.TextError {
-  let report_result : Result[@text.SyncReport, @text.TextError] = Ok(
-    self.doc.sync().apply(msg),
-  ) catch {
-    error => Err(error)
+  let transition = self.doc.sync().apply_transition(msg)
+  // Publication can be valid even when admission reports an error.
+  // An unavailable projection must not be read to repair shell state.
+  match transition.publication() {
+    @text.TextPublication::Exact(_) | @text.TextPublication::SnapshotRequired =>
+      self.adjust_cursor()
+    @text.TextPublication::Unavailable(_) => ()
   }
-  // EGW may apply ready operations before reporting an error or retaining
-  // causal orphans, so repair shell state before propagating either outcome.
-  self.adjust_cursor()
-  match report_result {
-    Ok(report) => report
-    Err(error) => raise error
-  }
+  transition.report()
 }
 
 ///|

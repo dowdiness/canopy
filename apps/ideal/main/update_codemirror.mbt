@@ -10,7 +10,7 @@ fn code_mirror_source_version_matches(
 fn apply_code_mirror_changes(
   editor : @editor.SyncEditor[@ast.Term],
   changes : Array[@cm.ChangeDelta],
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   let cursor = editor.get_cursor()
   guard changes.length() == 1 else { return false }

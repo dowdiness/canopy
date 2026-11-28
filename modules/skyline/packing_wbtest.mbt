@@ -1,5 +1,5 @@
 ///|
-fn skyline_pairs(packer : Packer) -> Array[(Int, Int)] {
+fn skyline_pairs(packer : Packer) -> Array[(Int32, Int32)] {
   packer.skyline.map(node => (node.x, node.y))
 }
 
@@ -28,7 +28,7 @@ fn assert_skyline_invariants(packer : Packer) -> Unit raise {
 ///|
 fn placements_in_bin(
   placements : ArrayView[Placement],
-  bin_width : Int,
+  bin_width : Int32,
 ) -> Bool {
   placements
   .iter()
@@ -60,9 +60,9 @@ fn any_interior_overlap(placements : ArrayView[Placement]) -> Bool {
 ///|
 fn covering_top(
   placements : ArrayView[Placement],
-  left : Int,
-  right : Int,
-) -> Int {
+  left : Int32,
+  right : Int32,
+) -> Int32 {
   placements.fold(init=0, (acc, placement) => {
     if placement.x < right && left < placement.x + placement.width {
       acc.max(placement.y + placement.height)

@@ -163,7 +163,7 @@ fn collect_token_spans_fn_binding(
 fn collect_token_spans_let_def(
   source_map : SourceMap,
   module_node : ProjNode[@ast.Term],
-  def_index : Int,
+  def_index : Int32,
   def_view : @parser.LetDefView,
   let_def_node : ProjNode[@ast.Term],
 ) -> Unit {
@@ -303,7 +303,7 @@ fn collect_token_spans_lambda_params(
 ///|
 fn lambda_body_proj(
   proj_node : ProjNode[@ast.Term],
-  param_count : Int,
+  param_count : Int32,
 ) -> ProjNode[@ast.Term]? {
   let mut current = proj_node
   for _ in 0..<param_count {

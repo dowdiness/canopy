@@ -135,7 +135,7 @@ pub fn[T] TreeEditorState::apply_edit(
       // Guard: only collapse if node exists in tree
       if self.loaded_nodes.get(node_id) is Some(_) {
         // Immutable add to collapsed_nodes
-        let collapsed_nodes = self.collapsed_nodes.add(node_id)
+        let collapsed_nodes = self.collapsed_nodes.insert(node_id)
         // Update tree node to reflect collapsed state
         let (tree, changed_nodes) = update_collapsed_state(
           self.tree,

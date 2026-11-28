@@ -12,7 +12,7 @@ pub extern "js" fn Any::get(self : Any, key : String) -> Any =
 
 ///|
 /// `self[index]`
-pub extern "js" fn Any::at(self : Any, index : Int) -> Any =
+pub extern "js" fn Any::at(self : Any, index : Int32) -> Any =
   #|(o, i) => o[i]
 
 ///|

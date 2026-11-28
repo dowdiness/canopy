@@ -1,5 +1,5 @@
 ///|
-const AUTOSAVE_MAXIMUM_MS : Int = 2000
+const AUTOSAVE_MAXIMUM_MS : Int32 = 2000
 
 ///|
 const COMPACT_MAX_WIDTH : Double = 720.0
@@ -86,7 +86,10 @@ fn creation_in_progress(creation : Creation?) -> Bool {
 }
 
 ///|
-fn creation_request_is_current(creation : Creation?, request_id : Int) -> Bool {
+fn creation_request_is_current(
+  creation : Creation?,
+  request_id : Int32,
+) -> Bool {
   match creation {
     Some(current) =>
       current.request_id == request_id && current.status is InProgress

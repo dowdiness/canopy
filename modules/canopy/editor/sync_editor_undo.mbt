@@ -25,7 +25,7 @@ fn AuthorityCore::insert_and_record(
   self : AuthorityCore,
   pos : @text.Pos,
   text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   self.doc.insert_and_record(pos, text, self.undo, timestamp_ms~)
 }
@@ -34,7 +34,7 @@ fn AuthorityCore::insert_and_record(
 fn AuthorityCore::delete_range_and_record(
   self : AuthorityCore,
   range : @text.Range,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   self.doc.delete_range_and_record(range, self.undo, timestamp_ms~)
 }
@@ -53,13 +53,14 @@ fn AuthorityCore::redo_history(self : AuthorityCore) -> Bool raise {
 pub fn[T : Eq] SyncEditor::insert_and_record(
   self : SyncEditor[T],
   text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Unit raise {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   self.interaction.set_cursor_prev_grapheme_boundary(
     old_source,
     self.interaction.cursor,
@@ -75,12 +76,12 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
     self.observe_authority_acceptance()
   }
   self.interaction.set_cursor_next_grapheme_boundary(
-    self.authority.doc.text(),
+    self.authority.get_text(),
     insert_start + text.length(),
   )
   self.apply_local_text_change(
     old_source,
-    self.authority.doc.text(),
+    self.authority.get_text(),
     Some(@loom_core.Edit::insert(insert_start, text.length())),
     before_version~,
   )
@@ -89,13 +90,14 @@ pub fn[T : Eq] SyncEditor::insert_and_record(
 ///|
 pub fn[T : Eq] SyncEditor::delete_and_record(
   self : SyncEditor[T],
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   if !@moji.is_grapheme_boundary(old_source, self.interaction.cursor) {
     self.interaction.set_cursor_prev_grapheme_boundary(
       old_source,
@@ -123,7 +125,7 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
     if self.authority.doc.version() != before_version {
       self.observe_authority_acceptance()
     }
-    let new_text = self.authority.doc.text()
+    let new_text = self.authority.get_text()
     self.interaction.set_cursor_next_grapheme_boundary(
       new_text,
       clamp_utf16_offset(new_text, self.interaction.cursor),
@@ -136,21 +138,21 @@ pub fn[T : Eq] SyncEditor::delete_and_record(
     )
     true
   } catch {
-    Failure::Failure(_) as failure => raise failure
-    _ => false
+    error => self.reject_mutation(error)
   }
 }
 
 ///|
 pub fn[T : Eq] SyncEditor::backspace_and_record(
   self : SyncEditor[T],
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let before_version = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   if !@moji.is_grapheme_boundary(old_source, self.interaction.cursor) {
     self.interaction.set_cursor_next_grapheme_boundary(
       old_source,
@@ -176,14 +178,13 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
       self.interaction.set_cursor(left)
       self.apply_local_text_change(
         old_source,
-        self.authority.doc.text(),
+        self.authority.get_text(),
         Some(@loom_core.Edit::delete(left, delete_end)),
         before_version~,
       )
       true
     } catch {
-      Failure::Failure(_) as failure => raise failure
-      _ => false
+      error => self.reject_mutation(error)
     }
   } else {
     false
@@ -194,20 +195,20 @@ pub fn[T : Eq] SyncEditor::backspace_and_record(
 pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   try {
     if !self.authority.undo_history() {
       return false
     }
-    let new_source = self.authority.doc.text()
+    let new_source = self.authority.get_text()
     self.adjust_cursor()
     self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
     self.mark_dirty()
     true
   } catch {
-    Failure::Failure(_) as failure => raise failure
-    _ => false
+    error => self.reject_mutation(error)
   }
 }
 
@@ -215,20 +216,20 @@ pub fn[T : Eq] SyncEditor::undo(self : SyncEditor[T]) -> Bool raise Failure {
 pub fn[T : Eq] SyncEditor::redo(self : SyncEditor[T]) -> Bool raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   try {
     if !self.authority.redo_history() {
       return false
     }
-    let new_source = self.authority.doc.text()
+    let new_source = self.authority.get_text()
     self.adjust_cursor()
     self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
     self.mark_dirty()
     true
   } catch {
-    Failure::Failure(_) as failure => raise failure
-    _ => false
+    error => self.reject_mutation(error)
   }
 }
 
@@ -240,22 +241,22 @@ pub fn[T : Eq] SyncEditor::undo_and_export(
 ) -> @text.SyncMessage? raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let ver_before = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   let success = try {
     if !self.authority.undo_history() {
       false
     } else {
-      let new_source = self.authority.doc.text()
+      let new_source = self.authority.get_text()
       self.adjust_cursor()
       self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
       self.mark_dirty()
       true
     }
   } catch {
-    Failure::Failure(_) as failure => raise failure
-    _ => false
+    error => self.reject_mutation(error)
   }
   if !success {
     return None
@@ -273,22 +274,22 @@ pub fn[T : Eq] SyncEditor::redo_and_export(
 ) -> @text.SyncMessage? raise Failure {
   self.ensure_parser_healthy()
   self.reject_projection_observer_reentry()
+  errdefer self.settle_interrupted_mutation()
   self.taint_pending_transforms()
   let ver_before = self.authority.doc.version()
-  let old_source = self.authority.doc.text()
+  let old_source = self.authority.get_text()
   let success = try {
     if !self.authority.redo_history() {
       false
     } else {
-      let new_source = self.authority.doc.text()
+      let new_source = self.authority.get_text()
       self.adjust_cursor()
       self.adjust_peer_cursors_after_text_change(old_source, new_source, None)
       self.mark_dirty()
       true
     }
   } catch {
-    Failure::Failure(_) as failure => raise failure
-    _ => false
+    error => self.reject_mutation(error)
   }
   if !success {
     return None

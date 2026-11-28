@@ -2,6 +2,7 @@
 using @byte_codec {type Reader, read_string, write_string}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)
   EphemeralUpdate(EphemeralNamespace, Bytes)
@@ -10,7 +11,7 @@ pub(all) enum SyncMessage {
   PeerJoined(String)
   PeerLeft(String)
   RelayedCrdtOps(sender~ : String, payload~ : Bytes)
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for SyncMessage with fn output(self, logger) {
@@ -60,11 +61,11 @@ pub fn encode_message(msg : SyncMessage) -> Bytes {
   buf.write_byte(b'\x00') // flags: no BFT
   match msg {
     CrdtOps(payload) | SyncRequest(payload) | SyncResponse(payload) =>
-      buf.write_bytes(payload)
+      buf.write_bytesview(payload)
     EphemeralUpdate(ns, payload) => {
       // Wire: [namespace: u8][payload bytes] — namespace byte immediately after header
       buf.write_byte(namespace_to_byte(ns))
-      buf.write_bytes(payload)
+      buf.write_bytesview(payload)
     }
     PeerJoined(peer_id) => {
       buf.write_byte(b'\x01') // sub_type: Join
@@ -87,7 +88,7 @@ pub fn encode_relayed_crdt_ops(sender : String, payload : Bytes) -> Bytes {
   buf.write_byte(msg_relayed_crdt_ops)
   buf.write_byte(b'\x00')
   write_string(buf, sender)
-  buf.write_bytes(payload)
+  buf.write_bytesview(payload)
   buf.to_bytes()
 }
 
@@ -132,15 +133,17 @@ pub fn encode_sync_response(
 }
 
 ///|
-fn payload_bytes(data : Bytes, payload_start : Int) -> Bytes {
+fn payload_bytes(data : Bytes, payload_start : Int32) -> Bytes {
   if payload_start < data.length() {
     data.exact_view(start=payload_start, end=data.length()).to_owned()
   } else {
-    Bytes::new(0)
+    Bytes::make(0, b'\x00')
   }
 }
 
 ///|
+// Result is ordinary data here; preserve the public decoding contract.
+#warnings("-result_error_return")
 pub fn read_string_field(
   reader : Reader,
   field : String,
@@ -151,6 +154,8 @@ pub fn read_string_field(
 }
 
 ///|
+// Result is ordinary data here; preserve the public decoding contract.
+#warnings("-result_error_return")
 pub fn decode_message_result(
   data : Bytes,
 ) -> Result[SyncMessage, ProtocolError] {
@@ -195,11 +200,10 @@ pub fn decode_message_result(
             .exact_view(start=payload_start + 1, end=data.length())
             .to_owned(),
           )
-          let peer_id = match read_string_field(reader, "peer_id") {
-            Ok(peer_id) => peer_id
-            Err(err) => return Err(err)
+          match read_string_field(reader, "peer_id") {
+            Ok(peer_id) => Ok(PeerJoined(peer_id))
+            Err(err) => Err(err)
           }
-          Ok(PeerJoined(peer_id))
         }
         b'\x02' => {
           let reader = Reader::new(
@@ -207,11 +211,10 @@ pub fn decode_message_result(
             .exact_view(start=payload_start + 1, end=data.length())
             .to_owned(),
           )
-          let peer_id = match read_string_field(reader, "peer_id") {
-            Ok(peer_id) => peer_id
-            Err(err) => return Err(err)
+          match read_string_field(reader, "peer_id") {
+            Ok(peer_id) => Ok(PeerLeft(peer_id))
+            Err(err) => Err(err)
           }
-          Ok(PeerLeft(peer_id))
         }
         _ => Err(ProtocolError::InvalidRoomControlSubtype(sub_type~))
       }
@@ -220,15 +223,16 @@ pub fn decode_message_result(
       let reader = Reader::new(
         data.exact_view(start=payload_start, end=data.length()).to_owned(),
       )
-      let sender = match read_string_field(reader, "sender") {
-        Ok(sender) => sender
-        Err(err) => return Err(err)
+      match read_string_field(reader, "sender") {
+        Ok(sender) => {
+          let remaining_pos = reader.pos
+          let remaining_data = data
+            .exact_view(start=payload_start + remaining_pos, end=data.length())
+            .to_owned()
+          Ok(RelayedCrdtOps(sender~, payload=remaining_data))
+        }
+        Err(err) => Err(err)
       }
-      let remaining_pos = reader.pos
-      let remaining_data = data
-        .exact_view(start=payload_start + remaining_pos, end=data.length())
-        .to_owned()
-      Ok(RelayedCrdtOps(sender~, payload=remaining_data))
     }
     _ => Err(ProtocolError::UnknownMessageType(msg_type~))
   }

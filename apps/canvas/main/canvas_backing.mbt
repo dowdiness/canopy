@@ -13,7 +13,7 @@ let canvas_instances : Array[CanvasBacking?] = []
 ///|
 /// Return the live backing at a handle without conflating an empty slot with a
 /// different backing kind.
-fn canvas_backing(handle : Int) -> CanvasBacking? {
+fn canvas_backing(handle : Int32) -> CanvasBacking? {
   canvas_instances.get(handle).bind(backing => backing)
 }
 
@@ -21,7 +21,7 @@ fn canvas_backing(handle : Int) -> CanvasBacking? {
 /// Runtime-only public entry points historically indexed their registry
 /// directly. Keep their out-of-range failure behavior while rejecting a valid
 /// source or destroyed slot instead of interpreting it as a runtime.
-fn canvas_runtime_for_public(handle : Int) -> CanvasRuntime? {
+fn canvas_runtime_for_public(handle : Int32) -> CanvasRuntime? {
   match canvas_backing(handle) {
     Some(Runtime(runtime)) => Some(runtime)
     Some(Source(_)) => None
@@ -128,7 +128,7 @@ fn CanvasBacking::pointer_interrupt(self : CanvasBacking) -> Unit {
 fn CanvasBacking::zoom(
   self : CanvasBacking,
   delta_y : Double,
-  delta_mode : Int,
+  delta_mode : Int32,
   ctrl_key : Bool,
   cx : Double,
   cy : Double,

@@ -12,7 +12,7 @@ fn OverlayEvent::to_overlay_msg(self : OverlayEvent) -> OverlayMsg {
 ///|
 fn overlay_effect_to_cmd(
   parent_emit : @rabbita.Emit[Msg],
-  token : Int,
+  token : Int32,
   state : OverlayState,
   effect : OverlayEffect,
 ) -> Cmd {
@@ -35,7 +35,7 @@ fn overlay_effect_to_cmd(
 ///|
 fn handle_overlay_msg(
   parent_emit : @rabbita.Emit[Msg],
-  token : Int,
+  token : Int32,
   msg : OverlayMsg,
   model : Model,
 ) -> (Cmd, Model) {
@@ -81,7 +81,7 @@ fn handle_overlay_event(
 /// ignored.
 fn handle_overlay_output(
   model : Model,
-  token : Int,
+  token : Int32,
   output : OverlayOutput,
 ) -> (Cmd, Model) raise {
   guard model.overlay.active_for_token(token) is Some((context, _, _)) else {

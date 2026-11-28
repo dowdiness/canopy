@@ -5,8 +5,8 @@ fn replica_test_frame(header : String, payload : String) -> String {
 
 ///|
 fn test_replica_key(
-  account? : String = "account-a",
-  document? : String = "document",
+  account~ : String = "account-a",
+  document~ : String = "document",
 ) -> String {
   replica_key(test_account(value=account), test_document_id(document))
 }

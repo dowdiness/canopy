@@ -2,7 +2,7 @@
 fn assert_lead(
   source : String,
   primary~ : String,
-  description? : String = "",
+  description~ : String = "",
 ) -> @document_lead.DocumentLead raise {
   let lead = @document_lead.extract(source)
   assert_eq(lead.primary(), primary)
@@ -106,7 +106,7 @@ test "extract preserves readable structure in the description" {
       ),
       ("- first\n- second\n  * child\n", "first", "- second\n  * child"),
       (
-        "# Heading\n\n> - item\n>   - nested\n", "Heading", "> - item\n> - nested",
+        "# Heading\n\n> - item\n>   - nested\n", "Heading", "> - item\n>   - nested",
       ),
       (
         "1. first\n2. [x] checked\n3. [ ] open\n", "first", "2. [x] checked\n3. [ ] open",

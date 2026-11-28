@@ -19,7 +19,7 @@ fn cm_mount_cmd(emit : Emit[Msg], model : Model) -> Cmd {
   @cm.mount(
     model.cm_id,
     "canopy-text-editor",
-    init_doc=model.editor.get_text(),
+    init_doc=INITIAL_DOC,
     source="global:__canopy_codemirror",
     initial_line_wrapping=true,
     on_mounted=emit(CmMounted),
@@ -203,9 +203,9 @@ fn highlight_set_for(
     Some(value) =>
       match parse_node_id(value) {
         Some(nid) => @scope.compute_highlight_set(nid, scope_map)
-        None => @immut/hashset.new()
+        None => @immut/hashset.empty()
       }
-    None => @immut/hashset.new()
+    None => @immut/hashset.empty()
   }
 }
 
@@ -248,6 +248,8 @@ fn can_hydrate_tree_node(model : Model, node_id : @canopy_core.NodeId) -> Bool {
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn commit_tree_edit(
   model : Model,
   tree_op : @lambda_edits.TreeEditOp,

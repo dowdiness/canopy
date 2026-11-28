@@ -23,8 +23,8 @@ fn emit_trace(
 pub fn[T : TreeNode + Renderable] reconcile(
   old : ProjNode[T],
   new : ProjNode[T],
-  counter : Ref[Int],
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  counter : Ref[Int32],
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
   reconcile_hinted(old, new, counter, Map([]), trace_ref~)
 }
@@ -38,11 +38,11 @@ pub fn[T : TreeNode + Renderable] reconcile(
 pub fn[T : TreeNode + Renderable] reconcile_with_exact_key(
   old : ProjNode[T],
   new : ProjNode[T],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   exact_key : (T) -> String,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
-  let interner : Map[String, Int] = Map([])
+  let interner : Map[String, Int32] = Map([])
   let next_fingerprint = Ref(0)
   let old_fingerprints = exact_fingerprint_map(
     old, exact_key, interner, next_fingerprint,
@@ -69,9 +69,9 @@ pub fn[T : TreeNode + Renderable] reconcile_with_exact_key(
 pub fn[T : TreeNode + Renderable] reconcile_hinted(
   old : ProjNode[T],
   new : ProjNode[T],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[NodeId, IdentityTransform],
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
   // A structural hint keyed by `old.id()` (wrap / unwrap) takes precedence and
   // may apply even when the new wrapper is the SAME kind as the wrapped node —
@@ -138,14 +138,14 @@ fn[T : TreeNode] can_reconcile_children_positionally(
 /// LCS and exact-key) produce this identical shape, so one fallback realizer
 /// consumes either plan.
 priv struct MatchPlan {
-  old_to_new : Array[Int]
-  new_to_old : Array[Int]
+  old_to_new : Array[Int32]
+  new_to_old : Array[Int32]
 }
 
 ///|
 fn MatchPlan::MatchPlan(
-  old_to_new : Array[Int],
-  new_to_old : Array[Int],
+  old_to_new : Array[Int32],
+  new_to_old : Array[Int32],
 ) -> MatchPlan {
   { old_to_new, new_to_old, }
 }
@@ -164,7 +164,7 @@ fn[T : TreeNode] plan_hinted_lcs(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
   hints : Map[NodeId, IdentityTransform],
-) -> (MatchPlan, Map[NodeId, Int]) {
+) -> (MatchPlan, Map[NodeId, Int32]) {
   let old_len = old_children.length()
   let new_len = new_children.length()
   // Old children whose hint will decide their identity are excluded from
@@ -180,7 +180,7 @@ fn[T : TreeNode] plan_hinted_lcs(
       lcs_excluded(old_children[oi], new_children, hints)
     })
   }
-  let lcs_match = fn(oi : Int, nj : Int) -> Bool {
+  let lcs_match = fn(oi : Int32, nj : Int32) -> Bool {
     @loomcore.TreeNode::same_kind(old_children[oi].kind, new_children[nj].kind) &&
     (excluded_old.length() == 0 || excluded_old[oi] == false)
   }
@@ -217,7 +217,7 @@ fn[T : TreeNode] plan_hinted_lcs(
   // with. Identity is carried only for an unambiguous 1:1 pairing, so an old
   // node whose wrapped subtree could land in more than one new sibling is
   // rejected (symmetric to the multiple-old-claiming-one-new case).
-  let old_pair_counts : Map[NodeId, Int] = if hints.is_empty() {
+  let old_pair_counts : Map[NodeId, Int32] = if hints.is_empty() {
     Map([])
   } else {
     hint_pair_counts(
@@ -240,9 +240,9 @@ fn[T : Renderable] realize_fallback(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
   plan : MatchPlan,
-  counter : Ref[Int],
+  counter : Ref[Int32],
   parent_id : NodeId,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
   match_node : (ProjNode[T], ProjNode[T]) -> ProjNode[T],
   unmatched_new : (ProjNode[T]) -> ProjNode[T]?,
 ) -> Array[ProjNode[T]] {
@@ -316,10 +316,10 @@ fn[T : Renderable] realize_fallback(
 fn[T : TreeNode + Renderable] reconcile_children(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[NodeId, IdentityTransform],
   parent_id : NodeId,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> Array[ProjNode[T]] {
   let new_len = new_children.length()
   // If the sibling lists already have a full positional same-kind match, the
@@ -393,11 +393,11 @@ fn[T : TreeNode + Renderable] reconcile_children(
 fn[T] exact_fingerprint_map(
   root : ProjNode[T],
   exact_key : (T) -> String,
-  interner : Map[String, Int],
-  next_fingerprint : Ref[Int],
-) -> Map[NodeId, Int] {
-  let result : Map[NodeId, Int] = Map([])
-  let _ = root.fold(fn(node, children : Array[Int]) -> Int {
+  interner : Map[String, Int32],
+  next_fingerprint : Ref[Int32],
+) -> Map[NodeId, Int32] {
+  let result : Map[NodeId, Int32] = Map([])
+  let _ = root.fold(fn(node, children : Array[Int32]) -> Int32 {
     let key = exact_key(node.kind)
     let signature = key.length().to_string() +
       ":" +
@@ -429,13 +429,13 @@ fn[T] exact_fingerprint_map(
 fn[T : TreeNode] plan_exact_lcs(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
-  old_fingerprints : Map[NodeId, Int],
-  new_fingerprints : Map[NodeId, Int],
+  old_fingerprints : Map[NodeId, Int32],
+  new_fingerprints : Map[NodeId, Int32],
 ) -> MatchPlan {
   let old_len = old_children.length()
   let new_len = new_children.length()
   let match_base_score = old_len.min(new_len) + 1
-  let match_score = fn(oi : Int, nj : Int) -> Int {
+  let match_score = fn(oi : Int32, nj : Int32) -> Int32 {
     if !@loomcore.TreeNode::same_kind(
         old_children[oi].kind,
         new_children[nj].kind,
@@ -497,11 +497,11 @@ fn[T : TreeNode] plan_exact_lcs(
 fn[T : TreeNode + Renderable] reconcile_children_exact(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
-  counter : Ref[Int],
-  old_fingerprints : Map[NodeId, Int],
-  new_fingerprints : Map[NodeId, Int],
+  counter : Ref[Int32],
+  old_fingerprints : Map[NodeId, Int32],
+  new_fingerprints : Map[NodeId, Int32],
   parent_id : NodeId,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> Array[ProjNode[T]] {
   let plan = plan_exact_lcs(
     old_children, new_children, old_fingerprints, new_fingerprints,
@@ -535,10 +535,10 @@ fn[T : TreeNode + Renderable] reconcile_children_exact(
 fn[T : TreeNode + Renderable] reconcile_exact(
   old : ProjNode[T],
   new : ProjNode[T],
-  counter : Ref[Int],
-  old_fingerprints : Map[NodeId, Int],
-  new_fingerprints : Map[NodeId, Int],
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  counter : Ref[Int32],
+  old_fingerprints : Map[NodeId, Int32],
+  new_fingerprints : Map[NodeId, Int32],
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T] {
   if @loomcore.TreeNode::same_kind(old.kind, new.kind) {
     let reconciled_children = reconcile_children_exact(
@@ -581,9 +581,9 @@ priv enum HintResult[T] {
 fn[T : TreeNode + Renderable] structural_pair(
   old : ProjNode[T],
   new : ProjNode[T],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[NodeId, IdentityTransform],
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> HintResult[T] {
   match hints.get(old.id()) {
     Some(Wrap(_)) =>
@@ -663,12 +663,12 @@ fn[T : TreeNode] lcs_excluded(
 fn[T : TreeNode + Renderable] try_unmatched_hint_pair(
   new_child : ProjNode[T],
   old_children : Array[ProjNode[T]],
-  old_matched : Array[Int],
-  old_pair_counts : Map[NodeId, Int],
+  old_matched : Array[Int32],
+  old_pair_counts : Map[NodeId, Int32],
   consumed : Map[NodeId, Bool],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[NodeId, IdentityTransform],
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> ProjNode[T]? {
   let candidates = [
     for idx, o in old_children if old_matched[idx] < 0 &&
@@ -701,11 +701,11 @@ fn[T : TreeNode + Renderable] try_unmatched_hint_pair(
 fn[T : TreeNode] hint_pair_counts(
   old_children : Array[ProjNode[T]],
   new_children : Array[ProjNode[T]],
-  old_matched : Array[Int],
-  new_matched : Array[Int],
+  old_matched : Array[Int32],
+  new_matched : Array[Int32],
   hints : Map[NodeId, IdentityTransform],
-) -> Map[NodeId, Int] {
-  let counts : Map[NodeId, Int] = Map([])
+) -> Map[NodeId, Int32] {
+  let counts : Map[NodeId, Int32] = Map([])
   for oi, o in old_children {
     if old_matched[oi] < 0 {
       let cnt = [
@@ -758,9 +758,9 @@ fn[T : TreeNode] hint_pairs(
 fn[T : TreeNode + Renderable] apply_wrap(
   old : ProjNode[T],
   wrapper : ProjNode[T],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[NodeId, IdentityTransform],
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> HintResult[T] {
   let targets = [
     for idx, c in wrapper.children if @loomcore.TreeNode::same_kind(
@@ -828,10 +828,10 @@ fn[T : TreeNode + Renderable] apply_wrap(
 fn[T : TreeNode + Renderable] apply_unwrap(
   wrapper : ProjNode[T],
   new : ProjNode[T],
-  counter : Ref[Int],
+  counter : Ref[Int32],
   hints : Map[NodeId, IdentityTransform],
   keep : NodeId,
-  trace_ref? : Ref[Array[ReconcileTraceEvent]]? = None,
+  trace_ref~ : Ref[Array[ReconcileTraceEvent]]? = None,
 ) -> HintResult[T] {
   match find_child(wrapper, keep) {
     Some(k) => Applied(reconcile_hinted(k, new, counter, hints, trace_ref~))
@@ -843,7 +843,7 @@ fn[T : TreeNode + Renderable] apply_unwrap(
 fn[T : TreeNode] count_same_kind_children(
   parent : ProjNode[T],
   target : ProjNode[T],
-) -> Int {
+) -> Int32 {
   parent.children.filter(c => T::same_kind(c.kind, target.kind)).length()
 }
 

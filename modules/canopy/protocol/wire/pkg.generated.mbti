@@ -39,7 +39,7 @@ pub let sub_leave : Byte
 
 // Errors
 pub(all) suberror ProtocolError {
-  MessageTooShort(length~ : Int)
+  MessageTooShort(length~ : Int32)
   UnsupportedVersion(version~ : Byte)
   UnknownMessageType(msg_type~ : Byte)
   MissingNamespace
@@ -53,15 +53,16 @@ pub(all) suberror ProtocolError {
 pub fn ProtocolError::message(Self) -> String
 
 // Types and methods
+#derive(Compare, Eq, Hash, @debug.Debug)
 pub(all) enum EphemeralNamespace {
   Cursor
   EditMode
   Drag
   Presence
-} derive(Compare, Eq, Hash, @debug.Debug)
-pub fn EphemeralNamespace::compare(Self, Self) -> Int
+}
+pub fn EphemeralNamespace::compare(Self, Self) -> Int32
 pub fn EphemeralNamespace::equal(Self, Self) -> Bool
-pub fn EphemeralNamespace::hash(Self) -> Int
+pub fn EphemeralNamespace::hash(Self) -> Int32
 pub fn EphemeralNamespace::hash_combine(Self, Hasher) -> Unit
 pub fn EphemeralNamespace::not_equal(Self, Self) -> Bool
 pub fn EphemeralNamespace::op_ge(Self, Self) -> Bool
@@ -73,6 +74,7 @@ pub fn EphemeralNamespace::to_repr(Self) -> @debug.Repr
 pub fn EphemeralNamespace::to_string(Self) -> String
 pub impl Show for EphemeralNamespace
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SyncMessage {
   CrdtOps(Bytes)
   EphemeralUpdate(EphemeralNamespace, Bytes)
@@ -81,7 +83,7 @@ pub(all) enum SyncMessage {
   PeerJoined(String)
   PeerLeft(String)
   RelayedCrdtOps(sender~ : String, payload~ : Bytes)
-} derive(Eq, @debug.Debug)
+}
 pub fn SyncMessage::equal(Self, Self) -> Bool
 pub fn SyncMessage::not_equal(Self, Self) -> Bool
 pub fn SyncMessage::output(Self, &Logger) -> Unit

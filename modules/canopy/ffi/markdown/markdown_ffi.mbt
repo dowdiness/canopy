@@ -58,7 +58,7 @@ fn assemble_markdown_handle(agent_id : String) -> @workspace.EditorId raise {
 ///|
 /// Create a new Markdown SyncEditor instance.
 /// Returns a unique handle, or `-1` when `agent_id` is invalid.
-pub fn create_markdown_editor(agent_id : String) -> Int raise {
+pub fn create_markdown_editor(agent_id : String) -> Int32 raise {
   assemble_markdown_handle(agent_id).0
 }
 
@@ -68,7 +68,7 @@ pub fn create_markdown_editor(agent_id : String) -> Int raise {
 /// FFI-side bookkeeping (registry handle entry, view-state entry) is
 /// intentionally left intact so reads of cached state remain valid. Phase 1
 /// behavior matches Lambda's `destroy_editor` (spec §5.3).
-pub fn try_destroy_markdown_editor(handle : Int) -> Bool {
+pub fn try_destroy_markdown_editor(handle : Int32) -> Bool {
   let h = match markdown_registry.get(handle) {
     Some(v) => v
     None => return true
@@ -77,12 +77,12 @@ pub fn try_destroy_markdown_editor(handle : Int) -> Bool {
 }
 
 ///|
-pub fn destroy_markdown_editor(handle : Int) -> Unit {
+pub fn destroy_markdown_editor(handle : Int32) -> Unit {
   ignore(try_destroy_markdown_editor(handle))
 }
 
 ///|
-pub fn markdown_get_text(handle : Int) -> String {
+pub fn markdown_get_text(handle : Int32) -> String raise Failure {
   match markdown_registry.get(handle) {
     Some(h) => h.editor.get_text()
     None => ""
@@ -95,7 +95,7 @@ pub fn markdown_get_text(handle : Int) -> String {
 /// sentinel paragraphs (AST `Paragraph([Text("​")])`), and removes only the
 /// ZWSP character itself — leaving ZWSP inside other content (code blocks,
 /// paragraphs with mixed text) untouched.
-pub fn markdown_export_text(handle : Int) -> String {
+pub fn markdown_export_text(handle : Int32) -> String raise Failure {
   match markdown_registry.get(handle) {
     Some(h) => {
       let _ = match
@@ -121,7 +121,7 @@ pub fn markdown_export_text(handle : Int) -> String {
 }
 
 ///|
-pub fn markdown_set_text(handle : Int, text : String) -> Unit raise {
+pub fn markdown_set_text(handle : Int32, text : String) -> Unit raise {
   match markdown_registry.get(handle) {
     Some(h) => h.editor.set_text(text)
     None => ()
@@ -142,12 +142,12 @@ pub fn markdown_empty_paragraph_sentinel() -> String {
 
 ///|
 pub fn markdown_apply_edit(
-  handle : Int,
+  handle : Int32,
   op_type : String,
-  node_id : Int,
+  node_id : Int32,
   param1 : String,
-  param2 : Int,
-  timestamp_ms : Int,
+  param2 : Int32,
+  timestamp_ms : Int32,
 ) -> String raise {
   match markdown_registry.get(handle) {
     Some(h) => {
@@ -226,7 +226,9 @@ pub fn markdown_apply_edit(
 /// per spec §3.4 / Codex round-2 #3 it backs the parser inputs, is not a
 /// Derived cell, and reading it raw doesn't violate any cell-protection
 /// invariant.
-pub fn markdown_compute_view_patches_json(handle : Int) -> String {
+pub fn markdown_compute_view_patches_json(
+  handle : Int32,
+) -> String raise Failure {
   let h = match markdown_registry.get(handle) {
     Some(v) => v
     None => return "[]"

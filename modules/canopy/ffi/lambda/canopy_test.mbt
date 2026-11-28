@@ -84,7 +84,7 @@ test "Web scenario: error persistence bug" {
   let errors3 = ed3.get_errors()
   println("After typing 'x+ 1':")
   let text = match editor_ref.val {
-    Some(ed) => ed.get_text()
+    Some(ed) => try! ed.get_text()
     None => ""
   }
   println("  Text: " + text)

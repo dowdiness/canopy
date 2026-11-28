@@ -26,7 +26,7 @@ pub extern "js" fn save_data_requested(window : @dom.Window) -> Bool =
 /// Runs `callback` once the page is idle, or after `timeout_ms` at the latest.
 pub extern "js" fn request_idle(
   window : @dom.Window,
-  timeout_ms : Int,
+  timeout_ms : Int32,
   callback : () -> Unit,
 ) -> Unit =
   #| (window, timeout, callback) => {

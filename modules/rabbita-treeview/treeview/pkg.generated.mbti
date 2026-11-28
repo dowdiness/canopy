@@ -22,7 +22,7 @@ pub struct Model {
 }
 pub fn Model::new(id~ : String) -> Self
 pub fn Model::tree_attrs(Self, label~ : String, active_node_key? : String) -> @html.Attrs
-pub fn Model::treeitem_attrs(Self, node_key~ : String, level~ : Int, selected~ : Bool, expansion~ : Expansion) -> @html.Attrs
+pub fn Model::treeitem_attrs(Self, node_key~ : String, level~ : Int32, selected~ : Bool, expansion~ : Expansion) -> @html.Attrs
 
 pub(all) enum TreeCommand {
   NavUp

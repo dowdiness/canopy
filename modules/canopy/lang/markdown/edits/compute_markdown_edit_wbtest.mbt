@@ -85,7 +85,7 @@ fn inspect_edit_error_contains(
     @core.EditError::Invariant(..) as error => error.message()
     _ => "unknown error"
   }
-  inspect(msg.contains(fragment.view()), content="true")
+  inspect(msg.contains(fragment[:]), content="true")
 }
 
 ///|

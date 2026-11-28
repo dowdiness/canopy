@@ -1,7 +1,7 @@
 ///|
 fn str_to_bytes(s : String) -> Bytes {
   let buf = Buffer()
-  buf.write_string_utf16le(s.view())
+  buf.write_string_utf16le(s[:])
   buf.to_bytes()
 }
 
@@ -61,7 +61,13 @@ test "v2 frame is rejected after v3 cutover" {
   let result = decode_message_result(b"\x02\x01\x00")
   guard! result is Err(err)
   match err {
-    UnsupportedVersion(version~) => inspect(version, content="b'\\x02'")
+    UnsupportedVersion(version~) =>
+      inspect(
+        version,
+        content=(
+          #|2
+        ),
+      )
     _ => fail("expected UnsupportedVersion")
   }
   inspect(err.message(), content="unsupported protocol version: 2")
@@ -75,15 +81,33 @@ test "decode_message_result reports unknown message type" {
 }
 
 ///|
+test "decode_message_result preserves missing peer id error" {
+  match decode_message_result(b"\x03\x05\x00\x01") {
+    Err(MissingField(field~)) => inspect(field, content="peer_id")
+    _ => fail("expected MissingField(peer_id)")
+  }
+}
+
+///|
 test "wire format: version byte is 0x03" {
   let encoded = encode_message(CrdtOps(b""))
-  inspect(encoded[0], content="b'\\x03'")
+  inspect(
+    encoded[0],
+    content=(
+      #|3
+    ),
+  )
 }
 
 ///|
 test "wire format: flags byte is 0x00" {
   let encoded = encode_message(CrdtOps(b""))
-  inspect(encoded[2], content="b'\\x00'")
+  inspect(
+    encoded[2],
+    content=(
+      #|0
+    ),
+  )
 }
 
 ///|
@@ -122,7 +146,7 @@ test "v3: encode/decode RelayedCrdtOps roundtrip" {
 
 ///|
 test "v3: RelayedCrdtOps with empty payload" {
-  let encoded = encode_relayed_crdt_ops("bob", Bytes::new(0))
+  let encoded = encode_relayed_crdt_ops("bob", Bytes::make(0, b'\x00'))
   let decoded = decode_message(encoded)
   match decoded {
     Some(RelayedCrdtOps(sender~, payload~)) => {

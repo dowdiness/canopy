@@ -1,6 +1,6 @@
 ///|
 /// Parse a non-negative integer from string. Returns -1 on invalid input.
-fn parse_uint(s : String) -> Int {
+fn parse_uint(s : String) -> Int32 {
   if s.length() == 0 {
     return -1
   }
@@ -18,7 +18,7 @@ fn parse_uint(s : String) -> Int {
 
 ///|
 /// Truncate to single line for display. Replaces newlines with spaces.
-fn truncate(text : String, max_len : Int) -> String {
+fn truncate(text : String, max_len : Int32) -> String {
   let mut clean = text
   if text.contains("\n") || text.contains("\r") {
     let buf = StringBuilder()
@@ -46,7 +46,7 @@ fn build_corpus(posts : Array[StoredPost]) -> @echo.Corpus {
 
 ///|
 fn print_results(
-  results : Array[(Int, Double)],
+  results : Array[(Int32, Double)],
   posts : Array[StoredPost],
 ) -> Unit {
   if results.is_empty() {

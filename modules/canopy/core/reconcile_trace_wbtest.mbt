@@ -297,7 +297,7 @@ test "nested hierarchy produces Matched per child level" {
 
 ///|
 /// Count nodes in a TestExpr tree.
-fn count_test_expr_nodes(expr : TestExpr) -> Int {
+fn count_test_expr_nodes(expr : TestExpr) -> Int32 {
   match expr {
     Leaf(_) => 1
     Branch(_, cs) =>
@@ -307,7 +307,7 @@ fn count_test_expr_nodes(expr : TestExpr) -> Int {
 
 ///|
 /// Count trace events by variant.
-fn count_matched(events : Array[ReconcileTraceEvent]) -> Int {
+fn count_matched(events : Array[ReconcileTraceEvent]) -> Int32 {
   [ for ev in events if ev is Matched(_, _, _, _, _) => 1 ].length()
 }
 

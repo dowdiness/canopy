@@ -20,7 +20,7 @@ priv enum IndexRoute {
 fn index_route(url : @url.Url) -> IndexRoute? {
   let fragment = url.fragment.unwrap_or("")
   let path = if fragment.has_prefix("#") {
-    fragment.view(start_offset=1).to_owned()
+    fragment.exact_view(start=1).to_owned()
   } else {
     fragment
   }
@@ -33,7 +33,7 @@ fn index_route(url : @url.Url) -> IndexRoute? {
   } else if path == "/resume" {
     Some(ResumePage)
   } else if path.has_prefix("/d/") {
-    @documents.Key::parse(path.view(start_offset=3).to_owned()).map(key => {
+    @documents.Key::parse(path.exact_view(start=3).to_owned()).map(key => {
       CardFromIndex(key)
     })
   } else {

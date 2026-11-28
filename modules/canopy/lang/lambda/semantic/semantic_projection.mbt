@@ -5,10 +5,11 @@
 // actions must still lower to text/CRDT edits through the editor layer.
 
 ///|
+#derive(Debug)
 pub struct SemanticProjection {
   annotations : Map[@core.NodeId, Array[@protocol.ViewAnnotation]]
   decorations : Array[@protocol.Decoration]
-} derive(Debug)
+}
 
 ///|
 pub fn SemanticProjection::empty() -> SemanticProjection {
@@ -32,10 +33,11 @@ pub impl ToJson for SemanticProjection with fn to_json(self) {
 
 ///|
 /// Failures at the Lambda-to-neutral diagnostic conversion boundary.
+#derive(Eq, Debug)
 pub(all) suberror SemanticDiagnosticError {
-  InvalidSourceRange(Int, Int, Int)
-  InvalidUtf16Boundary(Int, Int)
-} derive(Eq, Debug)
+  InvalidSourceRange(Int32, Int32, Int32)
+  InvalidUtf16Boundary(Int32, Int32)
+}
 
 ///|
 pub fn build_semantic_projection(
@@ -316,8 +318,8 @@ fn add_node_decoration(
 ///|
 fn add_decoration(
   projection : SemanticProjection,
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
   css_class : String,
   data : String,
 ) -> Unit {

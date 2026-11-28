@@ -1,12 +1,13 @@
 ///| White-box compatibility test for SDEG Phase 0 Markdown edit path.
 
 ///|
+#derive(Eq, Debug)
 struct HeadingEditPathObservation {
   id : @core.NodeId
-  level : Int
+  level : Int32
   text : String
   text_span_text : String?
-} derive(Eq, Debug)
+}
 
 ///|
 fn heading_edit_path_observation(
@@ -35,7 +36,7 @@ fn heading_edit_path_observations(
 ) -> Array[HeadingEditPathObservation] {
   let observations : Array[HeadingEditPathObservation] = []
   let root = (try! editor.get_proj_node()).unwrap()
-  let source = editor.get_text()
+  let source = try! editor.get_text()
   let source_map = try! editor.get_source_map()
   for child in root.children {
     match heading_edit_path_observation(child, source, source_map) {

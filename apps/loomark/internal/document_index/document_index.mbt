@@ -15,15 +15,15 @@ using @rabbita {type Cmd, type Emit}
 
 ///|
 /// The narrowest a card column may be; the grid fits as many as it can.
-const MIN_COLUMN : Int = 250
+const MIN_COLUMN : Int32 = 250
 
 ///|
 /// How long the grid width must hold still before cards are measured again.
-const RESIZE_SETTLE_MS : Int = 150
+const RESIZE_SETTLE_MS : Int32 = 150
 
 ///|
 /// How long a card moved to the front stays highlighted.
-const HIGHLIGHT_MS : Int = 1200
+const HIGHLIGHT_MS : Int32 = 1200
 
 ///|
 /// The element ID of the Search field.
@@ -45,19 +45,21 @@ const GRID_WIDTH_ID : String = "document-index-grid-width"
 ///|
 /// The packed grid on screen: the last layout `packed_now` produced, kept
 /// until the next one, so for a while it may show the cards as they were.
+#derive(Eq)
 priv enum ShownGrid[K] {
   NotMeasured
   Packed(CardLayout[K])
-} derive(Eq)
+}
 
 ///|
 /// Whether the grid width is still changing. Cards are measured only once it
 /// has held still, so a window drag measures them once rather than per frame.
+#derive(Eq)
 priv enum GridResize {
   Steady
   /// Waiting for `ResizeSettled`; each width change restarts the wait.
   Resizing
-} derive(Eq)
+}
 
 ///|
 /// Whether the index is in front. Covered, it stays laid out but draws
@@ -66,12 +68,14 @@ priv enum GridResize {
 /// it drew; so measuring behind the Editor would split what the reader types
 /// into separate Undo steps. Covered, the index only notes the grid width
 /// and loaded faces, and catches up once it is in front again.
+#derive(Eq)
 priv enum Presence {
   InFront
   Covered
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 struct DocumentIndex[K] {
   presence : Presence
   /// Most recently changed first.
@@ -84,12 +88,12 @@ struct DocumentIndex[K] {
   query : String
   /// Width available to the card grid, once the shell has measured it.
   /// Until then nothing is measured or packed.
-  grid_width : Int?
+  grid_width : Int32?
   resize : GridResize
   /// The card just moved to the front, highlighted for `HIGHLIGHT_MS`.
   highlight : K?
   /// Card heights the shell measured at the current column widths.
-  heights : @hashmap.HashMap[CardMeasure, Int]
+  heights : @hashmap.HashMap[CardMeasure, Int32]
   /// The card that last held focus. A cursor built from it falls back to the
   /// first visible card, so this is a preference, not a guarantee.
   focused : K?
@@ -99,7 +103,7 @@ struct DocumentIndex[K] {
   /// drawn only after its measurement, so focus waits for it here.
   focus_pending : K?
   announcement : String
-} derive(Eq)
+}
 
 ///|
 pub extend DocumentIndex with Eq::{equal, not_equal}
@@ -109,7 +113,7 @@ enum Msg[K] {
   GridMeasured(Double)
   /// The grid width has not changed for `RESIZE_SETTLE_MS`.
   ResizeSettled
-  CardsMeasured(Array[(CardMeasure, Int)])
+  CardsMeasured(Array[(CardMeasure, Int32)])
   /// Faces finished loading after startup; measured heights may be stale.
   FontsLoaded
   Searched(String)
@@ -226,7 +230,7 @@ fn[K : Eq] settled(index : DocumentIndex[K]) -> DocumentIndex[K] {
 /// Keep the heights measured at the current column widths, with `measured`.
 fn[K] with_heights(
   index : DocumentIndex[K],
-  measured : Array[(CardMeasure, Int)],
+  measured : Array[(CardMeasure, Int32)],
 ) -> DocumentIndex[K] {
   let columns = columns(index)
   let current = (measure : CardMeasure) => {
@@ -240,7 +244,7 @@ fn[K] with_heights(
   {
     ..index,
     heights: measured.fold(init=kept, (heights, entry) => {
-      heights.add(entry.0, entry.1)
+      heights.insert(entry.0, entry.1)
     }),
   }
 }

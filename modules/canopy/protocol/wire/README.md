@@ -60,8 +60,9 @@ commit**:
    `ephemeral/wire_format_fixture_wbtest.mbt` — with hand-derived literals,
    never by re-running the encoder;
 3. state the compatibility story for in-flight peers (old-version frames are
-   dropped by `decode_message_result`, so a bump is a hard cut for live
-   collaboration sessions);
+   returned as `Err(ProtocolError::UnsupportedVersion(version=2))` from
+   `decode_message_result`, while `decode_message` returns `None`, so a bump
+   is a hard cut for live collaboration sessions);
 4. exercise editor + relay + ephemeral consumers (`moon test` at workspace
    root covers all three) and the collaboration E2E suites.
 

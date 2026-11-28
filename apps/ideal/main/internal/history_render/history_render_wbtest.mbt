@@ -1,13 +1,16 @@
 // Whitebox tests for the causal-graph history view (Phase 1a).
 //
 // Scenarios are constructed by driving real `SyncEditor` instances through
-// scripted ops and reading the resulting `CausalSnapshot`. Tests consume
+// scripted ops and reading the resulting `CausalView`. Tests consume
 // only the public snapshot API — they never reach into egw internals.
 
 ///|
 /// Helper: build a fresh single-editor scenario with `n` sequential
 /// inserts of "a" by `agent`. LVs run 0..<n in append order.
-fn build_linear(agent : String, n : Int) -> @editor.SyncEditor[@ast.Term] raise {
+fn build_linear(
+  agent : String,
+  n : Int32,
+) -> @editor.SyncEditor[@ast.Term] raise {
   let (editor, _) = try! @lambda.new_lambda_editor(agent)
   for i in 0..<n {
     editor.insert_at(i, "a", 0)
@@ -18,7 +21,7 @@ fn build_linear(agent : String, n : Int) -> @editor.SyncEditor[@ast.Term] raise 
 ///|
 test "render_history empty" {
   let (editor, _) = try! @lambda.new_lambda_editor("local")
-  match render_history(editor.causal_snapshot(), "local") {
+  match render_history(editor.causal_view(), "local") {
     Empty => ()
     _ => fail("expected Empty")
   }
@@ -27,7 +30,7 @@ test "render_history empty" {
 ///|
 test "render_history single op" {
   let editor = build_linear("local", 1)
-  let dot = match render_history(editor.causal_snapshot(), "local") {
+  let dot = match render_history(editor.causal_view(), "local") {
     Dot(s) => s
     _ => {
       fail("expected Dot")
@@ -56,7 +59,7 @@ test "render_history single op" {
 ///|
 test "render_history linear 3-op chain not compressed" {
   let editor = build_linear("local", 3)
-  let dot = match render_history(editor.causal_snapshot(), "local") {
+  let dot = match render_history(editor.causal_view(), "local") {
     Dot(s) => s
     _ => {
       fail("expected Dot")
@@ -91,7 +94,7 @@ test "render_history 10-op chain extended by 1 — chain compressed, frontier si
   // 11 ops total: LVs 0..9 form an interior chain (no frontier inside),
   // LV 10 is the sole frontier tip. Chain length 10 ≥ threshold ⇒ compress.
   let editor = build_linear("local", 11)
-  let dot = match render_history(editor.causal_snapshot(), "local") {
+  let dot = match render_history(editor.causal_view(), "local") {
     Dot(s) => s
     _ => {
       fail("expected Dot")
@@ -124,7 +127,7 @@ test "render_history 10-op chain extended by 1 — chain compressed, frontier si
 test "render_history 10-op chain terminating at frontier — 9 compressed + 1 singleton" {
   // 10 ops. LV 9 is the sole frontier; LVs 0..8 are interior (length 9 ≥ 5).
   let editor = build_linear("local", 10)
-  let dot = match render_history(editor.causal_snapshot(), "local") {
+  let dot = match render_history(editor.causal_view(), "local") {
     Dot(s) => s
     _ => {
       fail("expected Dot")
@@ -154,7 +157,7 @@ test "render_history two-agent divergence — 3 nodes, 2 edges, two fills, two f
   bob.insert_at(1, "y", 0) // LV1_bob on top of root
   alice.apply_sync(bob.export_all())
   // alice now has root + alice-tip + bob-tip; both tips on frontier.
-  let dot = match render_history(alice.causal_snapshot(), "alice") {
+  let dot = match render_history(alice.causal_view(), "alice") {
     Dot(s) => s
     _ => {
       fail("expected Dot")
@@ -197,7 +200,7 @@ test "render_history merge — diamond, single frontier" {
   alice.apply_sync(bob.export_all())
   // Alice's frontier is now {alice_tip, bob_tip}; her next insert merges.
   alice.insert_at(0, "M", 0)
-  let dot = match render_history(alice.causal_snapshot(), "alice") {
+  let dot = match render_history(alice.causal_view(), "alice") {
     Dot(s) => s
     _ => {
       fail("expected Dot")
@@ -224,7 +227,7 @@ test "render_history merge — diamond, single frontier" {
 ///|
 test "render_history graph too large refuses to render" {
   let editor = build_linear("local", MAX_OPS + 1)
-  match render_history(editor.causal_snapshot(), "local") {
+  match render_history(editor.causal_view(), "local") {
     TooLarge(n) => inspect(n, content="1001")
     _ => fail("expected TooLarge")
   }
@@ -245,7 +248,7 @@ test "render_history produces parseable DOT for adversarial agent IDs" {
   bob.apply_sync(alice.export_all())
   bob.insert_at(1, "b", 0)
   alice.apply_sync(bob.export_all())
-  let dot = match render_history(alice.causal_snapshot(), me) {
+  let dot = match render_history(alice.causal_view(), me) {
     Dot(s) => s
     _ => {
       fail("expected Dot")
@@ -294,7 +297,7 @@ test "collect_history_data reserves index 0 for local agent past 8 collaborators
     me.apply_sync(peer.export_all())
     pos += 1
   }
-  let data = collect_history_data(me.causal_snapshot(), "me")
+  let data = collect_history_data(me.causal_view(), "me")
   inspect(data.agent_color.get("me").unwrap(), content="0")
   // Every non-local agent maps into 1..7 — never 0.
   for i in 1..<=9 {

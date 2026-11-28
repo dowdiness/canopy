@@ -28,7 +28,7 @@ pub fn[T] BTree::iter(self : BTree[T]) -> Iter[T] {
     None => Iter::empty()
     Some(root) => {
       let mut cursor : Cursor[T]? = Some(descend_leftmost(root, []))
-      Iter::new(fn() {
+      Iter(fn() {
         match cursor {
           None => None
           Some(cur) => {

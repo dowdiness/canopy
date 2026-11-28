@@ -16,7 +16,7 @@ fn replica_key(account : AccountId, document_id : DocumentId) -> String {
 }
 
 ///|
-fn intern_text(texts : Array[String], text : String) -> Int {
+fn intern_text(texts : Array[String], text : String) -> Int32 {
   match texts.exact_view().search_by(existing => existing == text) {
     Some(index) => index
     None => {
@@ -254,10 +254,10 @@ fn encode_replica(replica : DocumentReplica) -> String {
     "generation": replica.generation,
     "state": state,
     "recovery_document_id": match replica.recovery {
-      Some(recovery) => recovery.id().value().to_json()
+      Some(recovery) => Json(recovery.id().value())
       None => Json::null()
     },
-    "text_lengths": Json::array(texts.map(text => text.length().to_json())),
+    "text_lengths": Json::array(texts.map(text => Json(text.length()))),
   }).stringify()
   let output = StringBuilder()
   output
@@ -272,13 +272,13 @@ fn encode_replica(replica : DocumentReplica) -> String {
 }
 
 ///|
-fn decode_header_length(encoded : String) -> (Int, Int)? {
+fn decode_header_length(encoded : String) -> (Int32, Int32)? {
   guard encoded.has_prefix(REPLICA_FRAME_PREFIX) else { return None }
   let mut cursor = REPLICA_FRAME_PREFIX.length()
   let start = cursor
   let mut length = 0
   while cursor < encoded.length() && encoded[cursor] != '\n' {
-    guard encoded[cursor] is ('0'..='9') else { return None }
+    guard encoded[cursor] is ('0'..<='9') else { return None }
     let digit = encoded[cursor].to_int() - '0'.to_int()
     guard length <= (encoded.length() - digit) / 10 else { return None }
     length = length * 10 + digit
@@ -294,7 +294,11 @@ fn decode_header_length(encoded : String) -> (Int, Int)? {
 }
 
 ///|
-fn decode_texts(value : Json?, encoded : String, start : Int) -> Array[String]? {
+fn decode_texts(
+  value : Json?,
+  encoded : String,
+  start : Int32,
+) -> Array[String]? {
   guard value is Some(Json::Array(length_values)) && length_values.length() <= 4 else {
     return None
   }

@@ -95,7 +95,7 @@ test "on_message: empty data is forwarded" {
   connect_ok(room, "bob", send_b)
   msgs_a.clear()
   msgs_b.clear()
-  room.on_message("alice", Bytes::new(0))
+  room.on_message("alice", Bytes::make(0, b'\x00'))
   inspect(msgs_b.length(), content="1")
   inspect(msgs_b[0].length(), content="0")
 }

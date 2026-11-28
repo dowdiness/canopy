@@ -30,8 +30,8 @@ fn[T] SyncEditor::ensure_parser_healthy(
 }
 
 ///|
-/// Whether parser-derived operations are still safe on this editor. Canonical
-/// CRDT text/version/history access remains available after this becomes false.
+/// Whether parser-derived operations are safe on this editor. A parser-only
+/// failure leaves CRDT access available; authority text reads can also fail.
 fn[T] ProjectionState::is_parser_healthy(self : ProjectionState[T]) -> Bool {
   self.parser_failure is None
 }
@@ -131,7 +131,7 @@ fn[T : Eq] SyncEditor::sync_parser_from_supplied_seed(
 fn[T : Eq] SyncEditor::sync_parser_from_coherent_seed(
   self : SyncEditor[T],
 ) -> Unit raise Failure {
-  let seed = self.authority.doc.text()
+  let seed = self.authority.get_text()
   self.sync_parser_from_supplied_seed(seed)
 }
 
@@ -255,11 +255,12 @@ fn resolve_applied_edit(
 }
 
 ///|
+#derive(Eq, Debug)
 priv struct ProjectionReplaySpan {
   edit : @loom_core.Edit
   inserted : String
   source_after : String?
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct PreparedTextAdmission {
@@ -270,8 +271,8 @@ priv struct PreparedTextAdmission {
 ///|
 fn scalar_position_to_utf16_offset(
   source : String,
-  scalar_position : Int,
-) -> Int raise Failure {
+  scalar_position : Int32,
+) -> Int32 raise Failure {
   guard scalar_position >= 0 else {
     fail("negative scalar position in authority text effect")
   }
@@ -360,17 +361,19 @@ fn[T : Eq] SyncEditor::settle_prepared_text_admission(
 }
 
 ///|
+#derive(Eq, Debug)
 priv enum ProjectionReplay {
   Single(@loom_core.Edit)
   Spans(Array[ProjectionReplaySpan])
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 priv enum ProjectionContinuation {
   Replay(ProjectionReplay)
   SourceUnchanged
   NeedsSeed
-} derive(Eq, Debug)
+}
 
 ///|
 fn classify_projection_continuation(
@@ -390,18 +393,20 @@ fn classify_projection_continuation(
 }
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv suberror CommittedTransitionRejection {
   NoCausalAdvance
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 #warnings("-unused_value")
 priv struct CommittedTransition {
   before_version : @text.Version
   after_version : @text.Version
   continuation : ProjectionContinuation
-} derive(Eq, Debug)
+}
 
 ///|
 fn CommittedTransition::CommittedTransition(
@@ -605,7 +610,7 @@ pub fn[T : Eq] SyncEditor::mark_dirty(
 ) -> Unit raise Failure {
   self.projection.ensure_parser_healthy()
   self.projection.set_document_version(self.authority.doc.version())
-  self.projection.set_parser_source(self.authority.doc.text())
+  self.projection.set_parser_source(self.authority.get_text())
   self.projection.mark_projection_dirty()
 }
 
@@ -614,7 +619,7 @@ pub fn[T] SyncEditor::get_errors(
   self : SyncEditor[T],
 ) -> Array[String] raise Failure {
   self.projection.ensure_parser_healthy()
-  if self.authority.doc.text() == "" {
+  if self.authority.get_text() == "" {
     return []
   }
   self.projection.formatted_parser_diagnostics()

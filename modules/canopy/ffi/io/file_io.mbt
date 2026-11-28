@@ -38,7 +38,7 @@ pub fn save_text(content : String, suggested_name : String) -> Unit {
 /// Ask the host to open a file picker for editor `handle`. On success the host
 /// calls the language module's exported `on_file_opened(handle, content, ...)`.
 /// No-op if no host is registered.
-pub fn request_open(handle : Int) -> Unit {
+pub fn request_open(handle : Int32) -> Unit {
   match host.val {
     Some(h) => h.call("open", [@js.any(handle)]) |> ignore
     None => ()

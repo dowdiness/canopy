@@ -3,7 +3,7 @@
 /// MoonBit core has no checked-add API, so this package keeps the range
 /// decision in a small deterministic helper instead of widening then
 /// truncating through `Int64`.
-fn checked_span_add(total : Int, span : Int) -> Int? {
+fn checked_span_add(total : Int32, span : Int32) -> Int32? {
   guard total >= 0 && span >= 0 else { return None }
   guard total <= @int.MAX_VALUE - span else { return None }
   Some(total + span)
@@ -12,7 +12,7 @@ fn checked_span_add(total : Int, span : Int) -> Int? {
 ///|
 /// Convert an internal checked-add decision to the package's established
 /// deterministic abort contract without changing any public error signature.
-fn add_spans_or_abort(total : Int, span : Int) -> Int {
+fn add_spans_or_abort(total : Int32, span : Int32) -> Int32 {
   match checked_span_add(total, span) {
     Some(result) => result
     None => abort("BTree: cumulative span must be in 0..=@int.MAX_VALUE")
@@ -21,7 +21,7 @@ fn add_spans_or_abort(total : Int, span : Int) -> Int {
 
 ///|
 /// Reuse core `ArrayView::fold` to validate and sum cached child spans.
-fn ArrayView::checked_span_sum(self : ArrayView[Int]) -> Int? {
+fn ArrayView::checked_span_sum(self : ArrayView[Int32]) -> Int32? {
   self.fold(init=Some(0), fn(total, span) {
     match total {
       Some(acc) => checked_span_add(acc, span)
@@ -32,7 +32,7 @@ fn ArrayView::checked_span_sum(self : ArrayView[Int]) -> Int? {
 
 ///|
 /// Sum cached child spans or reject an invalid cumulative range.
-fn Array::sum(self : Array[Int]) -> Int {
+fn Array::sum(self : Array[Int32]) -> Int32 {
   match self[:].checked_span_sum() {
     Some(total) => total
     None => abort("BTree: cumulative span must be in 0..=@int.MAX_VALUE")
@@ -43,10 +43,10 @@ fn Array::sum(self : Array[Int]) -> Int {
 /// Compute the prospective tree total for a leaf-parent splice without
 /// mutating either the current tree or its copy-on-write candidate path.
 fn[T] checked_splice_total(
-  tree_total : Int,
-  parent_counts : Array[Int],
+  tree_total : Int32,
+  parent_counts : Array[Int32],
   splice : Splice[T],
-) -> Int? {
+) -> Int32? {
   guard splice.start_idx >= 0 &&
     splice.start_idx <= splice.end_idx &&
     splice.end_idx <= parent_counts.length() else {
@@ -69,17 +69,17 @@ fn[T] checked_splice_total(
 
 ///|
 /// Largest minimum degree whose doubling remains within `Int`.
-const MAX_SAFE_MIN_DEGREE : Int = @int.MAX_VALUE / 2
+const MAX_SAFE_MIN_DEGREE : Int32 = @int.MAX_VALUE / 2
 
 ///|
-fn clamp_min_degree(min_degree : Int) -> Int {
+fn clamp_min_degree(min_degree : Int32) -> Int32 {
   min_degree.clamp(min=2, max=MAX_SAFE_MIN_DEGREE)
 }
 
 ///|
 /// Reject invalid leaf spans before a constructor or splice mutates tree state.
 fn[T] validate_positive_spans(
-  items : Array[(T, Int)],
+  items : Array[(T, Int32)],
   operation : String,
 ) -> Unit {
   guard items.all(pair => pair.1 > 0) else {
@@ -90,13 +90,13 @@ fn[T] validate_positive_spans(
 ///|
 /// Wrap an array of child nodes into an Internal node with computed counts/total.
 fn[T] make_internal(children : Array[BTreeNode[T]]) -> BTreeNode[T] {
-  let counts : Array[Int] = children.map(fn(n) { n.total() })
+  let counts : Array[Int32] = children.map(fn(n) { n.total() })
   Internal(children~, counts~, total=counts.sum())
 }
 
 ///|
 /// Cached span total: O(1) for both Leaf (stored span) and Internal (stored total).
-pub fn[T] BTreeNode::total(self : BTreeNode[T]) -> Int {
+pub fn[T] BTreeNode::total(self : BTreeNode[T]) -> Int32 {
   match self {
     Leaf(span~, ..) => span
     Internal(total~, ..) => total
@@ -104,7 +104,7 @@ pub fn[T] BTreeNode::total(self : BTreeNode[T]) -> Int {
 }
 
 ///|
-fn[T] BTreeNode::is_full(self : BTreeNode[T], min_degree : Int) -> Bool {
+fn[T] BTreeNode::is_full(self : BTreeNode[T], min_degree : Int32) -> Bool {
   match self {
     Leaf(..) => false
     Internal(children~, ..) => children.length() >= 2 * min_degree
@@ -113,8 +113,8 @@ fn[T] BTreeNode::is_full(self : BTreeNode[T], min_degree : Int) -> Bool {
 
 ///|
 /// Slice positions are computed by the library — failure is an invariant violation.
-fn[T : BTreeElem] must_slice(elem : T, start~ : Int, end~ : Int) -> T {
-  @rle.Sliceable::slice(elem, start~, end~).unwrap()
+fn[T : BTreeElem] must_slice(elem : T, start~ : Int32, end~ : Int32) -> T {
+  try! @rle.Sliceable::slice(elem, start~, end~)
 }
 
 ///|
@@ -125,10 +125,10 @@ fn[T : BTreeElem] must_slice(elem : T, start~ : Int, end~ : Int) -> T {
 /// - `fn(remaining, count) { remaining < count }` for reads/deletes (strict)
 /// - `fn(remaining, count) { remaining <= count }` for inserts (inclusive)
 fn[R] ArrayView::find_by_sum(
-  self : ArrayView[Int],
-  pos : Int,
-  in_slot? : (Int, Int) -> Bool = fn(remaining, count) { remaining < count },
-  f : (Int, Int) -> R?,
+  self : ArrayView[Int32],
+  pos : Int32,
+  in_slot~ : (Int32, Int32) -> Bool = fn(remaining, count) { remaining < count },
+  f : (Int32, Int32) -> R?,
 ) -> R? {
   for view = self, remaining = pos, i = 0 {
     match (view, remaining, i) {

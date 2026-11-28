@@ -1,0 +1,13 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/loomark/internal/base_uri"
+
+// Values
+pub fn origin_of_base_uri(String) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

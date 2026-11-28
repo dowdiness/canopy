@@ -66,7 +66,7 @@ pub fn OverlayState::submenu_choices(
 pub fn OverlayState::open_submenu(
   self : OverlayState,
   action : @lambda_edits.Action,
-  item_count : Int,
+  item_count : Int32,
 ) -> OverlayUpdate {
   overlay_update(
     {
@@ -117,7 +117,7 @@ fn OverlayState::dispatch_or_prompt(
 fn OverlayState::execute_submenu_choice(
   self : OverlayState,
   action : @lambda_edits.Action,
-  index : Int,
+  index : Int32,
 ) -> OverlayUpdate? {
   let choices = self.submenu_choices(action)
   if index >= 0 && index < choices.length() {

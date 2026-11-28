@@ -1,11 +1,11 @@
 ///|
 struct Driver {
   session : @sync_session.SyncSession
-  mut phase : Int
-  mut attempt : Int
+  mut phase : Int32
+  mut attempt : Int32
   sent : Array[String]
-  scheduled : Array[(Int, Int)]
-  apply_count : Array[Int]
+  scheduled : Array[(Int32, Int32)]
+  apply_count : Array[Int32]
   mut fail_next_apply : Bool
   status_events : Array[String]
   peer_leaves : Array[String]
@@ -17,9 +17,9 @@ enum ChoreoCommand {
   Init
   OpenPeer(String)
   StartRecovery(String)
-  Respond(String, Int)
-  DeliverResponse(String, Int, Bool)
-  FireWatchdog(Int)
+  Respond(String, Int32)
+  DeliverResponse(String, Int32, Bool)
+  FireWatchdog(Int32)
   SyncApplied
 }
 
@@ -116,13 +116,13 @@ fn Driver::host(self : Driver) -> @sync_session.SyncHost raise {
     export_all=() => msg,
     export_since=_ => msg,
     apply_ephemeral=(_, _) => (),
-    encode_ephemeral=_ => Bytes::new(0),
+    encode_ephemeral=_ => Bytes::make(0, b'\x00'),
     on_peer_leave=peer_id => self.peer_leaves.push(peer_id),
   )
 }
 
 ///|
-fn Driver::watchdog(self : Driver, id : Int) -> Unit {
+fn Driver::watchdog(self : Driver, id : Int32) -> Unit {
   self.session.on_watchdog_fire(
     id,
     @sync_session.SyncIo::SyncIo(send=bytes => self.send(bytes), current_version_json=() => {
@@ -138,7 +138,7 @@ fn Driver::start_recovery(self : Driver, peer : String) -> Unit raise {
   let host = self.host()
   let msg = empty_message()
   let buf = Buffer()
-  buf.write_string_utf16le(msg.to_json_string().view())
+  buf.write_string_utf16le(msg.to_json_string()[:])
   self.session.on_message(
     @wire.encode_relayed_crdt_ops(peer, buf.to_bytes()),
     host,
@@ -149,7 +149,7 @@ fn Driver::start_recovery(self : Driver, peer : String) -> Unit raise {
 fn Driver::receive_response(
   self : Driver,
   sender : String,
-  request_id : Int,
+  request_id : Int32,
   helpful : Bool,
 ) -> Unit raise {
   let sync_json = if helpful { empty_message().to_json_string() } else { "" }
@@ -203,7 +203,7 @@ fn required_string(picks : Json, name : String) -> Result[String, String] {
 }
 
 ///|
-fn required_int(picks : Json, name : String) -> Result[Int, String] {
+fn required_int(picks : Json, name : String) -> Result[Int32, String] {
   match @quint_connect.required_nondet(picks, name) {
     Ok(value) => @quint_connect.decode_itf_int(value)
     Err(reason) => Err(reason)
@@ -276,8 +276,8 @@ fn Driver::apply_choreo_command(
 }
 
 ///|
-fn itf_int(value : Int) -> Json {
-  Json::object({ "#bigint": value.to_string().to_json() })
+fn itf_int(value : Int32) -> Json {
+  Json::object({ "#bigint": Json(value.to_string()) })
 }
 
 ///|
@@ -285,10 +285,10 @@ fn project(driver : Driver) -> Json {
   let status = status_text(driver.session.get_status())
   Json::object({
     "phase": itf_int(driver.phase),
-    "status": status.to_json(),
+    "status": Json(status),
     "attempt": itf_int(driver.attempt),
     "sent": itf_int(driver.sent.length()),
-    "sentKinds": driver.sent.join(",").to_json(),
+    "sentKinds": Json(driver.sent.join(",")),
     "scheduled": itf_int(driver.scheduled.length()),
     "applied": itf_int(driver.apply_count[0]),
     "statusEvents": itf_int(driver.status_events.length()),
@@ -347,7 +347,7 @@ fn expected_choreo(value : Json) -> Result[Json, String] {
   // Target is observable through public Recovering/Error status while active;
   // requestId remains explicit and is compared with the scheduler callback ID.
   normalized.remove("target")
-  normalized["status"] = normalized_status.to_json()
+  normalized["status"] = Json(normalized_status)
   Ok(Json::object(normalized))
 }
 

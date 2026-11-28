@@ -164,26 +164,15 @@ def module-targets [changes: list<any>] {
   | sort
 }
 
+# Build/formatter caches contain generated moon.pkg files, not source packages.
 def packages-in-module [root: string, module: string] {
-  let absolute_root = ($root | path expand)
-  let module_root = if $module == "." {
-    $absolute_root
-  } else {
-    $absolute_root | path join $module
-  }
-  [
-    (glob ($module_root | path join "**/moon.pkg"))
-    (glob ($module_root | path join "**/moon.pkg.json"))
-  ]
-  | flatten
+  git-output ["ls-files" "--cached" "--others" "--exclude-standard" "-z" "--" $module]
+  | split row (char nul)
+  | where {|path|
+      ($path != "") and (is-package-manifest $path) and ($path | path exists)
+    }
   | each {|manifest|
-      let relative = (
-        $manifest
-        | path dirname
-        | path relative-to $absolute_root
-        | into string
-      )
-      let package = if $relative == "" { "." } else { $relative }
+      let package = (parent-directory $manifest)
       if (module-for-package $root $package) == $module { $package } else { null }
     }
   | compact

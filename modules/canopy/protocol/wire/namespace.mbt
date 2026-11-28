@@ -1,10 +1,11 @@
 ///|
+#derive(Debug, Eq, Compare, Hash)
 pub(all) enum EphemeralNamespace {
   Cursor
   EditMode
   Drag
   Presence
-} derive(Debug, Eq, Compare, Hash)
+}
 
 ///|
 pub impl Show for EphemeralNamespace with fn output(self, logger) {

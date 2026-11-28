@@ -1,29 +1,33 @@
 ///|
 /// Identity allocated by one generative-UI lifecycle.
-pub struct GenerativeUiGenerationId(Int) derive(Debug, Eq, Hash, Compare)
+#derive(Debug, Eq, Hash, Compare)
+pub struct GenerativeUiGenerationId(Int32)
 
 ///|
-pub fn GenerativeUiGenerationId::to_int(self : GenerativeUiGenerationId) -> Int {
+pub fn GenerativeUiGenerationId::to_int(
+  self : GenerativeUiGenerationId,
+) -> Int32 {
   let GenerativeUiGenerationId(value) = self
   value
 }
 
 ///|
 /// Input limits are measured in String::length units, not encoded bytes.
-pub const GENERATIVE_UI_MAX_CHUNKS : Int = 256
+pub const GENERATIVE_UI_MAX_CHUNKS : Int32 = 256
 
 ///|
-pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int = 8192
+pub const GENERATIVE_UI_MAX_CHUNK_LENGTH : Int32 = 8192
 
 ///|
-pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int = 1024 * 1024
+pub const GENERATIVE_UI_MAX_SOURCE_LENGTH : Int32 = 1024 * 1024
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiInputLimit {
   ChunkLength
   ChunkCount
   SourceLength
-} derive(Debug, Eq)
+}
 
 ///|
 /// Revision selected by the host as the base for one candidate generation.
@@ -31,19 +35,20 @@ pub(all) enum GenerativeUiInputLimit {
 /// This is intentionally separate from provider revisions and from the JSX
 /// session's implementation details. An adapter may map it to either of
 /// those at a later boundary.
+#derive(Debug, Eq, Hash, Compare)
 pub struct GenerativeUiRevision {
-  priv value : Int
-} derive(Debug, Eq, Hash, Compare)
+  priv value : Int32
+}
 
 ///|
 pub fn GenerativeUiRevision::GenerativeUiRevision(
-  value : Int,
+  value : Int32,
 ) -> GenerativeUiRevision {
   { value, }
 }
 
 ///|
-pub fn GenerativeUiRevision::to_int(self : GenerativeUiRevision) -> Int {
+pub fn GenerativeUiRevision::to_int(self : GenerativeUiRevision) -> Int32 {
   self.value
 }
 
@@ -56,28 +61,30 @@ fn GenerativeUiRevision::next(
 
 ///|
 /// The kind of input carried by a generation envelope.
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiInputKind {
   Chunk
   Final
   Cancel
-} derive(Debug, Eq)
+}
 
 ///|
 /// Provider-independent input envelope. Every event carries the generation
 /// identity, selected base revision, and sequence number, including cancel.
+#derive(Debug, Eq)
 pub struct GenerativeUiInput {
   priv generation_id : GenerativeUiGenerationId
   priv base_revision : GenerativeUiRevision
-  priv sequence : Int
+  priv sequence : Int32
   priv payload : String
   priv kind : GenerativeUiInputKind
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn GenerativeUiInput::chunk(
   generation_id~ : GenerativeUiGenerationId,
   base_revision~ : GenerativeUiRevision,
-  sequence~ : Int,
+  sequence~ : Int32,
   payload~ : String,
 ) -> GenerativeUiInput {
   { generation_id, base_revision, sequence, payload, kind: Chunk, }
@@ -87,7 +94,7 @@ pub fn GenerativeUiInput::chunk(
 pub fn GenerativeUiInput::finalize(
   generation_id~ : GenerativeUiGenerationId,
   base_revision~ : GenerativeUiRevision,
-  sequence~ : Int,
+  sequence~ : Int32,
 ) -> GenerativeUiInput {
   { generation_id, base_revision, sequence, payload: "", kind: Final, }
 }
@@ -96,7 +103,7 @@ pub fn GenerativeUiInput::finalize(
 pub fn GenerativeUiInput::cancel(
   generation_id~ : GenerativeUiGenerationId,
   base_revision~ : GenerativeUiRevision,
-  sequence~ : Int,
+  sequence~ : Int32,
 ) -> GenerativeUiInput {
   { generation_id, base_revision, sequence, payload: "", kind: Cancel, }
 }
@@ -104,6 +111,7 @@ pub fn GenerativeUiInput::cancel(
 ///|
 /// Lifecycle phase. Payload and diagnostics are available through the
 /// lifecycle accessors so the phase itself remains easy to inspect.
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiPhase {
   Idle
   Receiving
@@ -114,44 +122,47 @@ pub(all) enum GenerativeUiPhase {
   Rejected
   Cancelled
   Failed
-} derive(Debug, Eq)
+}
 
 ///|
 /// Structured reasons for a candidate or input being rejected.
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiRejection {
-  InvalidSequence(sequence~ : Int)
-  SequenceGap(expected~ : Int, received~ : Int)
-  ConflictingDuplicate(sequence~ : Int)
+  InvalidSequence(sequence~ : Int32)
+  SequenceGap(expected~ : Int32, received~ : Int32)
+  ConflictingDuplicate(sequence~ : Int32)
   InputLimitExceeded(limit~ : GenerativeUiInputLimit)
   UnexpectedFinalPayload
   BaseRevisionMismatch(
     expected~ : GenerativeUiRevision,
-    received~ : GenerativeUiRevision
+    received~ : GenerativeUiRevision,
   )
   InvalidCandidate(message~ : String)
   DryRunFailed(message~ : String)
   ApplyFailed(message~ : String)
   ApplyRevisionMismatch(
     expected~ : GenerativeUiRevision,
-    received~ : GenerativeUiRevision
+    received~ : GenerativeUiRevision,
   )
-} derive(Debug, Eq)
+}
 
 ///|
 /// Why an event was ignored without changing the current lifecycle.
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiIgnoreReason {
   StaleGeneration
   TerminalState
   EventNotAcceptedInPhase
   CancellationTooLate
-} derive(Debug, Eq)
+}
 
 ///|
 /// Observable result of one pure lifecycle transition.
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiTransition {
   Started(generation_id~ : GenerativeUiGenerationId)
-  ChunkAccepted(sequence~ : Int)
-  DuplicateChunk(sequence~ : Int)
+  ChunkAccepted(sequence~ : Int32)
+  DuplicateChunk(sequence~ : Int32)
   Finalized
   ValidationStarted
   DryRunStarted
@@ -161,18 +172,18 @@ pub(all) enum GenerativeUiTransition {
   Rejected(reason~ : GenerativeUiRejection)
   Failed(reason~ : GenerativeUiRejection)
   Ignored(reason~ : GenerativeUiIgnoreReason)
-} derive(Debug, Eq)
+}
 
 ///|
 /// Pure request/generation lifecycle state. It owns ordering and terminal
 /// semantics, but no transport, parser, renderer, or DOM state.
 pub struct GenerativeUiLifecycle {
   priv mut phase : GenerativeUiPhase
-  priv mut next_generation_id : Int
+  priv mut next_generation_id : Int32
   priv mut generation_id : GenerativeUiGenerationId?
   priv mut base_revision : GenerativeUiRevision?
-  priv mut next_sequence : Int
-  priv mut source_length : Int
+  priv mut next_sequence : Int32
+  priv mut source_length : Int32
   priv chunks : Array[String]
   priv mut rejection : GenerativeUiRejection?
   priv mut committed_revision : GenerativeUiRevision?
@@ -217,7 +228,7 @@ pub fn GenerativeUiLifecycle::base_revision(
 ///|
 pub fn GenerativeUiLifecycle::next_sequence(
   self : GenerativeUiLifecycle,
-) -> Int {
+) -> Int32 {
   self.next_sequence
 }
 
@@ -283,22 +294,23 @@ pub fn GenerativeUiLifecycle::dispatch(
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum GenerativeUiEvent {
   Start(base_revision~ : GenerativeUiRevision)
   Input(GenerativeUiInput)
   CandidateValid(
     generation_id~ : GenerativeUiGenerationId,
-    current_revision~ : GenerativeUiRevision
+    current_revision~ : GenerativeUiRevision,
   )
   CandidateInvalid(generation_id~ : GenerativeUiGenerationId, message~ : String)
   DryRunSucceeded(generation_id~ : GenerativeUiGenerationId)
   DryRunFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
   ApplySucceeded(
     generation_id~ : GenerativeUiGenerationId,
-    revision~ : GenerativeUiRevision
+    revision~ : GenerativeUiRevision,
   )
   ApplyFailed(generation_id~ : GenerativeUiGenerationId, message~ : String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn GenerativeUiLifecycle::start(
@@ -354,7 +366,7 @@ fn GenerativeUiLifecycle::accept_input(
 ///|
 fn GenerativeUiLifecycle::accept_chunk(
   self : GenerativeUiLifecycle,
-  sequence : Int,
+  sequence : Int32,
   payload : String,
 ) -> GenerativeUiTransition {
   if self.phase != Receiving {
@@ -393,7 +405,7 @@ fn GenerativeUiLifecycle::accept_chunk(
 ///|
 fn GenerativeUiLifecycle::accept_final(
   self : GenerativeUiLifecycle,
-  sequence : Int,
+  sequence : Int32,
   payload : String,
 ) -> GenerativeUiTransition {
   if self.phase != Receiving {

@@ -37,7 +37,7 @@ fn incr_legend_html() -> String {
 /// status coloring, so draining bounds `tap.events` growth to one
 /// inter-text-edit gap.
 fn render_incr_graph_html(model : Model) -> String {
-  let snap = model.editor.causal_snapshot()
+  let snap = model.editor.causal_view()
   let key = render_cache_key(model.editor.identity(), snap)
   if cache_hit(incr_graph_cache, key) {
     incr_graph_cache.html

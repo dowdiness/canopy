@@ -6,11 +6,11 @@
 /// Maintains the B-tree invariant: each half has >= min_degree children.
 fn[T] split_internal(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
+  counts : Array[Int32],
 ) -> (BTreeNode[T], BTreeNode[T]) {
   let mid = children.length() / 2
   let left_children : Array[BTreeNode[T]] = Array(capacity=mid)
-  let left_counts : Array[Int] = Array(capacity=mid)
+  let left_counts : Array[Int32] = Array(capacity=mid)
   let mut left_total = 0
   for i in 0..<mid {
     left_children.push(children[i])
@@ -20,7 +20,7 @@ fn[T] split_internal(
   let right_children : Array[BTreeNode[T]] = Array(
     capacity=children.length() - mid,
   )
-  let right_counts : Array[Int] = Array(capacity=children.length() - mid)
+  let right_counts : Array[Int32] = Array(capacity=children.length() - mid)
   let mut right_total = 0
   for i in mid..<children.length() {
     right_children.push(children[i])
@@ -36,9 +36,9 @@ fn[T] split_internal(
 ///|
 fn[T] apply_splice(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
+  counts : Array[Int32],
   splice : Splice[T],
-) -> (Array[BTreeNode[T]], Array[Int]) {
+) -> (Array[BTreeNode[T]], Array[Int32]) {
   let new_children : Array[BTreeNode[T]] = splice.new_leaves.map(pair => {
     Leaf(elem=pair.0, span=pair.1)
   })
@@ -54,13 +54,13 @@ fn[T] apply_splice(
 ///|
 fn[T] apply_node_splice(
   children : Array[BTreeNode[T]],
-  counts : Array[Int],
-  start_idx : Int,
-  end_idx : Int,
+  counts : Array[Int32],
+  start_idx : Int32,
+  end_idx : Int32,
   new_children : Array[BTreeNode[T]],
-) -> (Array[BTreeNode[T]], Array[Int]) {
+) -> (Array[BTreeNode[T]], Array[Int32]) {
   let result : Array[BTreeNode[T]] = []
-  let result_counts : Array[Int] = []
+  let result_counts : Array[Int32] = []
   result.append(children[:start_idx])
   result_counts.append(counts[:start_idx])
   result.append(new_children[:])
@@ -74,12 +74,12 @@ fn[T] apply_node_splice(
 /// Return the existing bottom-up grouping policy as scalar chunk sizes.
 /// For `child_count >= min_degree`, every size is in
 /// `[min_degree, 2 * min_degree]` and the sizes sum to `child_count`.
-fn legal_chunk_sizes(child_count : Int, min_degree : Int) -> Array[Int] {
+fn legal_chunk_sizes(child_count : Int32, min_degree : Int32) -> Array[Int32] {
   guard child_count >= min_degree else {
     abort("legal_chunk_sizes: child count is underfull")
   }
   let max_degree = 2 * min_degree
-  let sizes : Array[Int] = []
+  let sizes : Array[Int32] = []
   let mut remaining = child_count
   while remaining > max_degree {
     let chunk_size = if remaining - max_degree < min_degree {
@@ -99,7 +99,7 @@ fn legal_chunk_sizes(child_count : Int, min_degree : Int) -> Array[Int] {
 /// one underfull node is carried upward until its parent can repair it.
 fn[T] pack_level(
   children : Array[BTreeNode[T]],
-  min_degree : Int,
+  min_degree : Int32,
 ) -> Array[BTreeNode[T]] {
   guard !children.is_empty() else { return [] }
   if children.length() < min_degree {
@@ -122,9 +122,9 @@ fn[T] pack_level(
 /// Walk a complete same-height segment upward through ancestor frames.
 fn[T] walk_up_ancestors(
   path : Array[PathFrame[T]],
-  start_from : Int,
+  start_from : Int32,
   initial_segment : Array[BTreeNode[T]],
-  min_degree : Int,
+  min_degree : Int32,
 ) -> Array[BTreeNode[T]] {
   let mut segment = initial_segment
   for i in start_from>=..0 {
@@ -149,7 +149,7 @@ fn[T] walk_up_ancestors(
 fn[T] propagate(
   path : Array[PathFrame[T]],
   splice : Splice[T],
-  min_degree : Int,
+  min_degree : Int32,
 ) -> PropagateResult[T] {
   guard path.length() > 0 else { abort("propagate: empty path") }
   validate_positive_spans(splice.new_leaves, "BTree splice")
@@ -175,7 +175,7 @@ fn[T] propagate(
 /// Rebuild ancestors after a subtree-level splice (used by range delete).
 fn[T] propagate_node_splice(
   splice : NodeSplice[T],
-  min_degree : Int,
+  min_degree : Int32,
 ) -> PropagateResult[T] {
   let (children, counts) = apply_node_splice(
     splice.children,

@@ -26,25 +26,25 @@ fn free_vars(
   match term {
     @ast.Term::Var(x) =>
       if env.contains(x) {
-        @immut/hashset.new()
+        @immut/hashset.empty()
       } else {
-        @immut/hashset.new().add(x)
+        @immut/hashset.empty().insert(x)
       }
-    @ast.Term::Lam(x, body) => free_vars(body, env.add(x))
+    @ast.Term::Lam(x, body) => free_vars(body, env.insert(x))
     @ast.Term::App(f, a) => free_vars(f, env).union(free_vars(a, env))
     @ast.Term::Bop(_, l, r) => free_vars(l, env).union(free_vars(r, env))
     @ast.Term::If(c, t, e) =>
       free_vars(c, env).union(free_vars(t, env)).union(free_vars(e, env))
     @ast.Term::Module(defs, body) => {
-      let mut result : @immut/hashset.HashSet[String] = @immut/hashset.new()
+      let mut result : @immut/hashset.HashSet[String] = @immut/hashset.empty()
       let mut cur_env = env
       for def in defs {
         result = result.union(free_vars(def.1, cur_env))
-        cur_env = cur_env.add(def.0)
+        cur_env = cur_env.insert(def.0)
       }
       result.union(free_vars(body, cur_env))
     }
-    _ => @immut/hashset.new() // Int, Unit, Error, Unbound
+    _ => @immut/hashset.empty() // Int, Unit, Error, Unbound
   }
 }
 
@@ -166,7 +166,7 @@ fn free_vars_per_var_go(
   match node.kind {
     @ast.Term::Var(x) => result[node.id()] = !env.contains(x)
     @ast.Term::Lam(param, _) => {
-      let inner_env = env.add(param)
+      let inner_env = env.insert(param)
       for child in node.children {
         free_vars_per_var_go(child, inner_env, result)
       }
@@ -178,7 +178,7 @@ fn free_vars_per_var_go(
       for i in 0..<defs.length() {
         // Walk the def's init expression with current env, then add def name to env.
         free_vars_per_var_go(node.children[i].children[0], cur_env, result)
-        cur_env = cur_env.add(defs[i].0)
+        cur_env = cur_env.insert(defs[i].0)
       }
       free_vars_per_var_go(node.children[defs.length()], cur_env, result)
     }
@@ -200,11 +200,11 @@ fn free_vars_per_var_go(
 /// registry is built from the root tree.
 fn free_vars_per_var(
   root : @core.ProjNode[@ast.Term],
-  registry? : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
+  registry~ : Map[@core.NodeId, @core.ProjNode[@ast.Term]]? = None,
 ) -> (Map[@core.NodeId, Bool], @immut/hashset.HashSet[String]) {
   let per_node : Map[@core.NodeId, Bool] = Map([])
-  free_vars_per_var_go(root, @immut/hashset.new(), per_node)
-  let mut free_names : @immut/hashset.HashSet[String] = @immut/hashset.new()
+  free_vars_per_var_go(root, @immut/hashset.empty(), per_node)
+  let mut free_names : @immut/hashset.HashSet[String] = @immut/hashset.empty()
   let reg = match registry {
     Some(r) => r
     None => {
@@ -217,7 +217,7 @@ fn free_vars_per_var(
     guard is_free else { continue }
     guard reg.get(id) is Some(var_node) else { continue }
     if var_node.kind is @ast.Term::Var(name) {
-      free_names = free_names.add(name)
+      free_names = free_names.insert(name)
     }
   }
   (per_node, free_names)
@@ -263,7 +263,7 @@ fn assert_name_set_agrees_with_direct_free_vars(
   label~ : String,
 ) -> Unit raise {
   let (proj, registry, _g) = build_oracle(source)
-  let fv_from_walk = free_vars(proj.kind, @immut/hashset.new())
+  let fv_from_walk = free_vars(proj.kind, @immut/hashset.empty())
   let (_per_node, fv_from_proj) = free_vars_per_var(
     proj,
     registry=Some(registry),
@@ -460,7 +460,7 @@ test "diff: Unbound divergence — scope tracks it, free_vars ignores it" {
   }
 
   // free_vars on raw Term: Unbound ignored, Var x is bound → empty set.
-  let fv = free_vars(root.kind, @immut/hashset.new())
+  let fv = free_vars(root.kind, @immut/hashset.empty())
   inspect(fv.length(), content="0")
 }
 

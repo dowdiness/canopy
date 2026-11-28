@@ -1,10 +1,11 @@
 ///|
 /// A source offset and the viewport height where the pane being read showed
 /// it. Restoring it keeps that paragraph at the same height.
+#derive(Eq)
 pub struct ReadingAnchor {
-  offset : Int
+  offset : Int32
   top : Double
-} derive(Eq)
+}
 
 ///|
 pub extend ReadingAnchor with Eq::{equal, not_equal}
@@ -14,7 +15,7 @@ pub extend ReadingAnchor with Eq::{equal, not_equal}
 /// the readable area.
 fn[G : ReadingGeometry] reading_anchor(
   geometry : G,
-  caret : Int,
+  caret : Int32,
 ) -> ReadingAnchor {
   let at_caret = anchor_at(geometry, caret)
   if is_readable(geometry, at_caret.top) {

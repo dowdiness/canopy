@@ -34,7 +34,7 @@ pub fn compute_json_edit(
 }
 
 ///|
-fn hex_digit(n : Int) -> String {
+fn hex_digit(n : Int32) -> String {
   match n {
     0 => "0"
     1 => "1"
@@ -133,7 +133,7 @@ fn find_parent_member_span(
   proj : ProjNode[@json.JsonValue],
   source_map : SourceMap,
   node_id : NodeId,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   guard find_parent_object(proj, node_id) is Some((parent_id, child_index)) else {
     return None
   }
@@ -153,7 +153,7 @@ fn find_parent_member_span(
 fn find_parent_object(
   root : ProjNode[@json.JsonValue],
   target_id : NodeId,
-) -> (NodeId, Int)? {
+) -> (NodeId, Int32)? {
   if root.kind is @json.Object(_) {
     for i, child in root.children {
       if child.id() == target_id {
@@ -174,12 +174,12 @@ fn find_parent_object(
 /// Expand the delete range to include trailing or leading comma + whitespace.
 fn find_delete_range_with_comma(
   source : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   _proj : ProjNode[@json.JsonValue],
   _source_map : SourceMap,
   _node_id : NodeId,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let len = source.length()
   // Try consuming trailing comma + whitespace
   let mut trail = end
@@ -266,7 +266,7 @@ fn compute_add_member(
 
 ///|
 /// Check if there is any non-whitespace content between two positions.
-fn has_content_between(source : String, start : Int, end : Int) -> Bool {
+fn has_content_between(source : String, start : Int32, end : Int32) -> Bool {
   for i in start..<end {
     if !is_ws_code(source[i]) {
       return true
@@ -440,7 +440,7 @@ fn compute_change_type(
 fn compute_rename_key(
   source_map : SourceMap,
   object_id : NodeId,
-  key_index : Int,
+  key_index : Int32,
   new_key : String,
 ) -> (Array[SpanEdit], FocusHint)? raise @core.EditError {
   let role = @json_proj.key_role(key_index)
