@@ -234,6 +234,9 @@ live pins and working-tree state. Do not copy the inventory into this guide.
   packages, run `git submodule update --init --recursive`.
 - **`git status` from the root only shows pointer changes.** Use
   `cd deps/<name> && git status` to see file-level changes.
+- **Generated formatter manifests.** RC1 writes `moon.pkg` files under ignored
+  `_build/.../format` directories. Hook module discovery uses Git source files,
+  not recursive filesystem globs, so these caches are never validation targets.
 
 ## Debt routing
 
