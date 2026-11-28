@@ -127,16 +127,16 @@ pub extend Key with Show::{output, to_string}
 /// reads that way.
 pub fn Key::parse(text : String) -> Key? {
   if text.has_prefix("source/") {
-    guard length_prefixed(text.view(start_offset=7).to_owned())
+    guard length_prefixed(text.exact_view(start=7).to_owned())
       is Some((document, "")) else {
       return None
     }
     parsed_document_id(document).map(Key::source)
   } else if text.has_prefix("replica/") {
-    guard length_prefixed(text.view(start_offset=8).to_owned())
+    guard length_prefixed(text.exact_view(start=8).to_owned())
       is Some((account, rest)) &&
       rest.has_prefix("/") &&
-      length_prefixed(rest.view(start_offset=1).to_owned())
+      length_prefixed(rest.exact_view(start=1).to_owned())
       is Some((document, "")) else {
       return None
     }
@@ -155,19 +155,19 @@ fn length_prefixed(text : String) -> (String, String)? {
   guard text.find("/") is Some(slash) &&
     slash > 0 &&
     slash <= 9 &&
-    text.view(end_offset=slash).iter().all(c => c is ('0'..='9')) else {
+    text.exact_view(end=slash).iter().all(c => c is ('0'..<='9')) else {
     return None
   }
   let length = text
-    .view(end_offset=slash)
+    .exact_view(end=slash)
     .iter()
     .fold(init=0, (length, c) => length * 10 + (c.to_int() - '0'.to_int()))
   let start = slash + 1
   guard start + length <= text.length() else { return None }
   Some(
     (
-      text.view(start_offset=start, end_offset=start + length).to_owned(),
-      text.view(start_offset=start + length).to_owned(),
+      text.exact_view(start~, end=start + length).to_owned(),
+      text.exact_view(start=start + length).to_owned(),
     ),
   )
 }
@@ -267,7 +267,7 @@ fn begin_save(
       _,
       Writable(Idle | Failed(_) | Saving(_, _), _)
       | WaitingToDelete(_, _, _)
-      | Deleting(_, _)
+      | Deleting(_, _),
     )
     | Replica(_, ReplicaPending, _) => (record, [])
   }
@@ -398,7 +398,7 @@ fn allocate_autosave(documents : Model) -> (Model, AutosaveWindow) {
 }
 
 ///|
-fn allocate_working_copy_version(documents : Model) -> (Model, Int) {
+fn allocate_working_copy_version(documents : Model) -> (Model, Int32) {
   let version = documents.last_working_copy_version + 1
   ({ ..documents, last_working_copy_version: version, }, version)
 }

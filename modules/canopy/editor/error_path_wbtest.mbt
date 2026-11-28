@@ -10,7 +10,7 @@
 ///|
 test "ws_on_message: empty bytes does not panic" {
   let editor = try! @probe.new_test_editor("alice")
-  editor.ws_on_message(Bytes::new(0))
+  editor.ws_on_message(Bytes::make(0, b'\x00'))
   // Editor should be in default state
   inspect(editor.get_text(), content="")
 }
@@ -63,7 +63,7 @@ test "ws_on_message: CrdtOps with empty JSON object does not panic" {
 ///|
 test "ws_on_message: CrdtOps with empty payload does not panic" {
   let editor = try! @probe.new_test_editor("alice")
-  let wire = @wire.encode_message(CrdtOps(Bytes::new(0)))
+  let wire = @wire.encode_message(CrdtOps(Bytes::make(0, b'\x00')))
   editor.ws_on_message(wire)
   inspect(editor.get_text(), content="")
 }

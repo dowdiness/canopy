@@ -2,44 +2,51 @@
 const ARRANGE_GAP : Double = 16.0
 
 ///|
+#derive(Eq)
 priv struct CanvasContextRuntimeTarget {
-  handle : Int
-} derive(Eq)
+  handle : Int32
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasContextSourceTarget {
-  handle : Int
-} derive(Eq)
+  handle : Int32
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasContextRuntimeAdd {
   target : CanvasContextRuntimeTarget
   kind : String
   position : WorldPoint
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasContextRuntimeArrange {
   target : CanvasContextRuntimeTarget
   first : NodeId
   second : NodeId
   rest : Array[NodeId]
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasContextRuntimeDisconnect {
   target : CanvasContextRuntimeTarget
   edge : EdgeId
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasContextSourceAdd {
   target : CanvasContextSourceTarget
   binding_base : String
   constructor_name : String
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasContextSourceDisconnect {
   owner : CanvasContextSourceTarget
   source : NodeId
@@ -47,23 +54,25 @@ priv struct CanvasContextSourceDisconnect {
   target : NodeId
   target_port : String
   edge : EdgeId
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv enum CanvasContextOperation {
   RuntimeAdd(CanvasContextRuntimeAdd)
   RuntimeArrange(CanvasContextRuntimeArrange)
   RuntimeDisconnect(CanvasContextRuntimeDisconnect)
   SourceAdd(CanvasContextSourceAdd)
   SourceDisconnect(CanvasContextSourceDisconnect)
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 priv struct CanvasContextMenuItem {
   operation : CanvasContextOperation
   label : String
   description : String
-} derive(Eq)
+}
 
 ///|
 priv struct CanvasContextPreparedMenu {
@@ -72,10 +81,11 @@ priv struct CanvasContextPreparedMenu {
 }
 
 ///|
+#derive(Eq)
 priv enum CanvasContextProblem {
   TargetExpired
   Rejected(String)
-} derive(Eq)
+}
 
 ///|
 fn CanvasContextProblem::message(self : CanvasContextProblem) -> String {
@@ -109,7 +119,7 @@ fn find_edge_endpoints(
 
 ///|
 fn build_context_menu(
-  canvas_handle : Int,
+  canvas_handle : Int32,
   request : CanvasContextRequest,
 ) -> Result[CanvasContextPreparedMenu, CanvasContextProblem] {
   match request.target {

@@ -1,12 +1,13 @@
 ///|
+#derive(Debug, ToJson, FromJson)
 struct StoredPost {
   text : String
   ts : String
-} derive(Debug, ToJson, FromJson)
+}
 
 ///|
 fn posts_to_json(posts : Array[StoredPost]) -> String {
-  posts.to_json().stringify()
+  Json(posts).stringify()
 }
 
 ///|

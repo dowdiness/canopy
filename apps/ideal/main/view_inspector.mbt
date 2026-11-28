@@ -55,7 +55,7 @@ fn resolve_selected_node(
 
 ///|
 /// Count children of a tree node.
-fn children_count(node : @proj.InteractiveTreeNode[@ast.Term]) -> Int {
+fn children_count(node : @proj.InteractiveTreeNode[@ast.Term]) -> Int32 {
   match node.children {
     @proj.Loaded(children) => children.length()
     @proj.Elided(n) => n
@@ -155,7 +155,7 @@ fn view_actions(dispatch : Emit[Msg], node_id_str : String) -> Html {
 
 ///|
 /// Render the CRDT info section of the inspector.
-fn view_crdt_info(model : Model) -> Html {
+fn view_crdt_info(model : Model) -> Html raise {
   div(class=@ui.inspector_section_class(), [
     span(class=@ui.inspector_label_class(), [text("CRDT")]),
     inspector_row("Agent", "local"),

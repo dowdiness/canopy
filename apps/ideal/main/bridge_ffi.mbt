@@ -9,7 +9,7 @@ extern "js" fn js_get_agent_id() -> String =
 ///|
 /// Current session-relative time in milliseconds for CRDT undo grouping.
 /// Reads sessionStartMs from the host bridge so MoonBit and TypeScript share the same clock.
-extern "js" fn js_now_ms() -> Int =
+extern "js" fn js_now_ms() -> Int32 =
   #| function() {
   #|   var bridge = globalThis.__canopy_bridge;
   #|   var start = bridge?.sessionStartMs;
@@ -123,7 +123,7 @@ extern "js" fn js_after_local_text_edit() -> Unit =
 
 ///|
 /// Broadcast local text-mode cursor/selection state from the binding.
-extern "js" fn js_after_cm_selection_changed(from : Int, to : Int) -> Unit =
+extern "js" fn js_after_cm_selection_changed(from : Int32, to : Int32) -> Unit =
   #| function(from, to) {
   #|   var bridge = globalThis.__canopy_bridge;
   #|   if (!bridge) return;

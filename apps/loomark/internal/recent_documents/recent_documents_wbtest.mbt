@@ -67,12 +67,12 @@ test "typed document ids pass through intents unchanged" {
     can_create=@rabbita.Val::constant(true),
     compact=@rabbita.Val::constant(false),
     delete_target=@rabbita.Val::constant(Some(42)),
-    on_intent=@cmd.Emit((_ : Intent[Int]) => @cmd.none),
+    on_intent=@cmd.Emit((_ : Intent[Int32]) => @cmd.none),
     close_after_action=@cmd.none,
   )
-  let select : Intent[Int] = Intent::Select(42)
-  let request_delete : Intent[Int] = Intent::RequestDelete(42)
-  let confirm_delete : Intent[Int] = Intent::ConfirmDelete(42)
+  let select : Intent[Int32] = Intent::Select(42)
+  let request_delete : Intent[Int32] = Intent::RequestDelete(42)
+  let confirm_delete : Intent[Int32] = Intent::ConfirmDelete(42)
   match select {
     Select(id) => assert_eq(id, 42)
     _ => fail("expected Select")

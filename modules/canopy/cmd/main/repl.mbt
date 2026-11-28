@@ -5,7 +5,7 @@
 ///| Provides interactive commands for editing and testing
 
 ///|
-let next_repl_source_identity : Ref[Int] = { val: 0, }
+let next_repl_source_identity : Ref[Int32] = { val: 0, }
 
 ///|
 /// REPL state holding the editor
@@ -48,7 +48,7 @@ fn print_help() -> Unit {
 
 ///|
 /// Display current editor state
-fn show_state(state : ReplState) -> Unit {
+fn show_state(state : ReplState) -> Unit raise @text.TextError {
   let text = state.editor.get_text()
   let cursor = state.editor.get_cursor()
   println("Text: \"\{text}\"")
@@ -72,7 +72,10 @@ fn show_state(state : ReplState) -> Unit {
 
 ///|
 /// Parse editor text and pass the AST to a callback.
-fn with_parsed_ast(state : ReplState, f : (@parser.Term) -> Unit) -> Unit {
+fn with_parsed_ast(
+  state : ReplState,
+  f : (@parser.Term) -> Unit,
+) -> Unit raise @text.TextError {
   let text = state.editor.get_text()
   if text.length() == 0 {
     println("(empty)")
@@ -88,7 +91,10 @@ fn with_parsed_ast(state : ReplState, f : (@parser.Term) -> Unit) -> Unit {
 
 ///|
 /// Parse and execute a command - returns true to continue, false to quit
-fn execute_command(state : ReplState, line : String) -> Bool {
+fn execute_command(
+  state : ReplState,
+  line : String,
+) -> Bool raise @text.TextError {
   let trimmed = line.trim()
   if trimmed.length() == 0 {
     return true // Continue

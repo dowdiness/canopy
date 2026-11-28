@@ -1,9 +1,10 @@
 ///|
 /// Host-only identity for a diagnostic producer. It is intentionally distinct
 /// from both source and display-channel identity.
+#derive(Eq, Hash, @debug.Debug)
 pub struct DiagnosticProducerId {
   priv value : String
-} derive(Eq, Hash, @debug.Debug)
+}
 
 ///|
 pub fn DiagnosticProducerId::DiagnosticProducerId(
@@ -18,7 +19,8 @@ pub fn DiagnosticProducerId::to_string(self : DiagnosticProducerId) -> String {
 }
 
 ///|
-priv struct DiagnosticSourceId(String) derive(Eq, Hash)
+#derive(Eq, Hash)
+priv struct DiagnosticSourceId(String)
 
 ///|
 #warnings("-unused_value")
@@ -27,9 +29,10 @@ fn DiagnosticSourceId::new(value : String) -> DiagnosticSourceId {
 }
 
 ///|
+#derive(Eq, Hash, @debug.Debug)
 pub struct DiagnosticDependencyId {
   priv value : String
-} derive(Eq, Hash, @debug.Debug)
+}
 
 ///|
 pub fn DiagnosticDependencyId::DiagnosticDependencyId(
@@ -46,9 +49,10 @@ pub fn DiagnosticDependencyId::to_string(
 }
 
 ///|
+#derive(Eq, @debug.Debug)
 pub struct DiagnosticConfigurationId {
   priv value : String
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 pub fn DiagnosticConfigurationId::DiagnosticConfigurationId(
@@ -65,13 +69,14 @@ pub fn DiagnosticConfigurationId::to_string(
 }
 
 ///|
+#derive(Eq, @debug.Debug)
 pub struct DiagnosticProducerGeneration {
-  priv value : Int
-} derive(Eq, @debug.Debug)
+  priv value : Int32
+}
 
 ///|
 pub fn DiagnosticProducerGeneration::DiagnosticProducerGeneration(
-  value : Int,
+  value : Int32,
 ) -> DiagnosticProducerGeneration {
   { value, }
 }
@@ -79,15 +84,16 @@ pub fn DiagnosticProducerGeneration::DiagnosticProducerGeneration(
 ///|
 pub fn DiagnosticProducerGeneration::to_int(
   self : DiagnosticProducerGeneration,
-) -> Int {
+) -> Int32 {
   self.value
 }
 
 ///|
+#derive(Eq, Hash)
 priv struct DiagnosticPublicationChannel {
   producer : DiagnosticProducerId
   name : String
-} derive(Eq, Hash)
+}
 
 ///|
 #warnings("-unused_value")
@@ -102,7 +108,7 @@ fn DiagnosticPublicationChannel::new(
 fn DiagnosticPublicationChannel::compare(
   self : DiagnosticPublicationChannel,
   other : DiagnosticPublicationChannel,
-) -> Int {
+) -> Int32 {
   let producer_order = self.producer
     .to_string()
     .compare(other.producer.to_string())
@@ -116,23 +122,24 @@ fn DiagnosticPublicationChannel::compare(
 ///|
 priv struct DiagnosticSourceRevision {
   source : DiagnosticSourceId
-  revision : Int
+  revision : Int32
 }
 
 ///|
 #warnings("-unused_value")
 fn DiagnosticSourceRevision::new(
   source : DiagnosticSourceId,
-  revision : Int,
+  revision : Int32,
 ) -> DiagnosticSourceRevision {
   { source, revision, }
 }
 
 ///|
+#derive(Eq, @debug.Debug)
 pub struct DiagnosticDependencyRevision {
   priv dependency : DiagnosticDependencyId
   priv identity : String
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 pub fn DiagnosticDependencyRevision::DiagnosticDependencyRevision(
@@ -158,7 +165,8 @@ pub fn DiagnosticDependencyRevision::identity(
 
 ///|
 /// Opaque host-issued capability. Producers only receive and return it.
-priv struct DiagnosticPublicationTicket(Int) derive(Eq, Hash)
+#derive(Eq, Hash)
+priv struct DiagnosticPublicationTicket(Int32)
 
 ///|
 #warnings("-unused_constructor")
@@ -178,7 +186,7 @@ priv enum DiagnosticPublicationCommand {
 ///|
 priv struct DiagnosticPublicationRequest {
   channel : DiagnosticPublicationChannel
-  generation : Int
+  generation : Int32
   sources : Array[DiagnosticSourceRevision]
   dependencies : Array[DiagnosticDependencyRevision]
   configuration : DiagnosticConfigurationId
@@ -187,11 +195,11 @@ priv struct DiagnosticPublicationRequest {
 ///|
 /// Private functional-core state for publication provenance and accepted sets.
 priv struct DiagnosticPublicationState {
-  next_ticket : Int
-  sources : Map[DiagnosticSourceId, Int]
+  next_ticket : Int32
+  sources : Map[DiagnosticSourceId, Int32]
   dependencies : Map[DiagnosticDependencyId, String]
   configuration : DiagnosticConfigurationId
-  generations : Map[DiagnosticProducerId, Int]
+  generations : Map[DiagnosticProducerId, Int32]
   active : Map[DiagnosticPublicationChannel, DiagnosticPublicationTicket]
   requests : Map[DiagnosticPublicationTicket, DiagnosticPublicationRequest]
   consumed : Set[DiagnosticPublicationTicket]
@@ -219,15 +227,15 @@ fn DiagnosticPublicationState::new(
 ///|
 fn DiagnosticPublicationState::replace(
   self : DiagnosticPublicationState,
-  next_ticket? : Int = self.next_ticket,
-  sources? : Map[DiagnosticSourceId, Int] = self.sources,
-  dependencies? : Map[DiagnosticDependencyId, String] = self.dependencies,
-  configuration? : DiagnosticConfigurationId = self.configuration,
-  generations? : Map[DiagnosticProducerId, Int] = self.generations,
-  active? : Map[DiagnosticPublicationChannel, DiagnosticPublicationTicket] = self.active,
-  requests? : Map[DiagnosticPublicationTicket, DiagnosticPublicationRequest] = self.requests,
-  consumed? : Set[DiagnosticPublicationTicket] = self.consumed,
-  publications? : Map[DiagnosticPublicationChannel, @loom_core.DiagnosticSet] = self.publications,
+  next_ticket~ : Int32 = self.next_ticket,
+  sources~ : Map[DiagnosticSourceId, Int32] = self.sources,
+  dependencies~ : Map[DiagnosticDependencyId, String] = self.dependencies,
+  configuration~ : DiagnosticConfigurationId = self.configuration,
+  generations~ : Map[DiagnosticProducerId, Int32] = self.generations,
+  active~ : Map[DiagnosticPublicationChannel, DiagnosticPublicationTicket] = self.active,
+  requests~ : Map[DiagnosticPublicationTicket, DiagnosticPublicationRequest] = self.requests,
+  consumed~ : Set[DiagnosticPublicationTicket] = self.consumed,
+  publications~ : Map[DiagnosticPublicationChannel, @loom_core.DiagnosticSet] = self.publications,
 ) -> DiagnosticPublicationState {
   {
     next_ticket,
@@ -248,7 +256,7 @@ fn DiagnosticPublicationState::replace(
 fn DiagnosticPublicationState::set_source_revision(
   self : DiagnosticPublicationState,
   source : DiagnosticSourceId,
-  revision : Int,
+  revision : Int32,
 ) -> DiagnosticPublicationState {
   let sources = self.sources.copy()
   sources.set(source, revision)
@@ -381,7 +389,7 @@ fn DiagnosticPublicationState::complete(
       let active = self.active.copy()
       active.remove(request.channel)
       let consumed = self.consumed.copy()
-      consumed.add(ticket)
+      consumed.insert(ticket)
       let publications = self.publications.copy()
       publications.set(request.channel, diagnostics.copy())
       (

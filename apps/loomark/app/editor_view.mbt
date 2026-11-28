@@ -1,4 +1,5 @@
 ///|
+#derive(Eq)
 priv struct EditorInput {
   activation : Activation
   show_new_document_hint : Bool
@@ -8,13 +9,13 @@ priv struct EditorInput {
   preview : @editor.EditorState
   /// Declares Japanese content so assistive technology and typography use it.
   japanese : Bool
-} derive(Eq)
+}
 
 ///|
 priv enum EditorUiEvent {
-  InputChanged(Int, @editor.InputEdit)
-  CompositionStarted(Int)
-  CompositionEnded(Int)
+  InputChanged(Int32, @editor.InputEdit)
+  CompositionStarted(Int32)
+  CompositionEnded(Int32)
   PaneEngaged(ScrollPane)
 }
 

@@ -81,7 +81,11 @@ pub fn toolbar_tab_class(active : Bool) -> String {
 
 ///|
 /// Create the headless tabs behavior state.
-pub fn behavior(id~ : String, tab_count~ : Int, selected~ : Int) -> @tabs.Model {
+pub fn behavior(
+  id~ : String,
+  tab_count~ : Int32,
+  selected~ : Int32,
+) -> @tabs.Model {
   @tabs.Model::new(id~, tab_count~, selected~)
 }
 
@@ -102,11 +106,11 @@ pub fn tablist_view(
 /// selection, e.g. `fn(j) { emit(on_select(tabs[j].id)) }`.
 pub fn tab_trigger_view(
   behavior : @tabs.Model,
-  index : Int,
+  index : Int32,
   tab : Tab,
   panel_id~ : String,
   active : Bool,
-  dispatch : (Int) -> @rabbita.Cmd,
+  dispatch : (Int32) -> @rabbita.Cmd,
   tab_class : (Bool) -> String,
 ) -> @html.Html {
   @html.button(
@@ -120,7 +124,7 @@ pub fn tab_trigger_view(
 /// Render a tabpanel container.
 pub fn tab_panel_view(
   behavior : @tabs.Model,
-  index : Int,
+  index : Int32,
   panel_id~ : String,
   class~ : String,
   children : Array[@html.Html],

@@ -7,13 +7,14 @@
 /// Ordering: Unknown < Guessed < RuleBased < Confirmed < Conflict (top).
 /// Conflict carries no payload — it's the unique top element.
 /// Conflict details (what disagreed) are a logging concern, not a lattice concern.
+#derive(Eq, Debug)
 pub(all) enum Confidence[T] {
   Unknown
   Guessed(Float, T)
   RuleBased(T)
   Confirmed(T)
   Conflict
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl[T : Debug] Show for Confidence[T] with fn output(self, logger) {
@@ -21,10 +22,11 @@ pub impl[T : Debug] Show for Confidence[T] with fn output(self, logger) {
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror InvalidConfidence {
   /// Float is NaN, infinite, or outside [0, 1].
   BadConfidence(Float)
-} derive(Debug)
+}
 
 ///|
 pub impl Show for InvalidConfidence with fn output(self, logger) {

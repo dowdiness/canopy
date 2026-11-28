@@ -1,14 +1,14 @@
 ///|
-let docs : Map[Int, BlockDoc] = Default::default()
+let docs : Map[Int32, BlockDoc] = Default::default()
 
 ///|
-let replica_ids : Map[Int, String] = Default::default()
+let replica_ids : Map[Int32, String] = Default::default()
 
 ///|
-let next_handle : Ref[Int] = { val: 1, }
+let next_handle : Ref[Int32] = { val: 1, }
 
 ///|
-pub fn create_editor(replica_id : String) -> Int {
+pub fn create_editor(replica_id : String) -> Int32 {
   let handle = next_handle.val
   next_handle.val = handle + 1
   docs[handle] = BlockDoc::new(replica_id) catch { _ => return -1 }
@@ -17,13 +17,13 @@ pub fn create_editor(replica_id : String) -> Int {
 }
 
 ///|
-pub fn destroy_editor(handle : Int) -> Unit {
+pub fn destroy_editor(handle : Int32) -> Unit {
   docs.remove(handle)
   replica_ids.remove(handle)
 }
 
 ///|
-fn get_replica_id(handle : Int) -> String {
+fn get_replica_id(handle : Int32) -> String {
   replica_ids.get(handle).unwrap_or("unknown")
 }
 
@@ -33,7 +33,7 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
   guard s.split_once(":") is Some((length_view, rest)) else {
     return @container.root_id
   }
-  let agent_length : Int = @string.parse_int(length_view) catch {
+  let agent_length : Int32 = @string.parse_int(length_view) catch {
     _ => return @container.root_id
   }
   guard agent_length > 0 && rest.length() > agent_length else {
@@ -41,7 +41,7 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
   }
   guard rest[agent_length] == ':' else { return @container.root_id }
   let agent = rest[:agent_length].to_owned()
-  let sequence : Int = @string.parse_int(rest[agent_length + 1:]) catch {
+  let sequence : Int32 = @string.parse_int(rest[agent_length + 1:]) catch {
     _ => return @container.root_id
   }
   @container.TreeNodeId::TreeNodeId(agent, sequence) catch {
@@ -50,7 +50,7 @@ fn parse_block_id(s : String) -> @container.TreeNodeId {
 }
 
 ///|
-fn count_blocks(doc : BlockDoc, parent_id : @container.TreeNodeId) -> Int {
+fn count_blocks(doc : BlockDoc, parent_id : @container.TreeNodeId) -> Int32 {
   let children = doc.children(parent_id)
   for child in children; acc = children.length() {
     continue acc + count_blocks(doc, child)
@@ -65,8 +65,8 @@ fn emit_block_json(
   doc : BlockDoc,
   id : @container.TreeNodeId,
   parent_key : String,
-  depth : Int,
-  child_index : Int,
+  depth : Int32,
+  child_index : Int32,
 ) -> Unit {
   let bt = doc.get_type(id)
   buf
@@ -112,7 +112,7 @@ fn emit_blocks(
   buf : StringBuilder,
   doc : BlockDoc,
   parent_id : @container.TreeNodeId,
-  depth : Int,
+  depth : Int32,
   is_first : Ref[Bool],
 ) -> Unit {
   let children = doc.children(parent_id)
@@ -141,7 +141,7 @@ fn emit_blocks(
 
 ///|
 /// Blocks with children appear before their descendants in the array (preorder).
-pub fn get_render_state(handle : Int) -> String {
+pub fn get_render_state(handle : Int32) -> String {
   match docs.get(handle) {
     Some(doc) => {
       let buf = StringBuilder()
@@ -198,7 +198,7 @@ fn StringBuilder::write_json_escaped(self : StringBuilder, s : String) -> Unit {
 
 ///|
 /// Convert a nibble (0–15) to its hex character.
-fn hex_char(n : Int) -> Char {
+fn hex_char(n : Int32) -> Char {
   if n < 10 {
     ('0'.to_int() + n).unsafe_to_char()
   } else {
@@ -208,7 +208,7 @@ fn hex_char(n : Int) -> Char {
 
 ///|
 pub fn editor_insert_block_after(
-  handle : Int,
+  handle : Int32,
   after_id_str : String,
   block_type_str : String,
 ) -> String {
@@ -225,7 +225,7 @@ pub fn editor_insert_block_after(
 
 ///|
 pub fn editor_set_block_text(
-  handle : Int,
+  handle : Int32,
   id_str : String,
   text : String,
 ) -> Unit {
@@ -236,7 +236,7 @@ pub fn editor_set_block_text(
 }
 
 ///|
-pub fn editor_delete_block(handle : Int, id_str : String) -> Unit {
+pub fn editor_delete_block(handle : Int32, id_str : String) -> Unit {
   match docs.get(handle) {
     Some(doc) => doc.delete_block(parse_block_id(id_str)) catch { _ => () }
     None => ()
@@ -245,10 +245,10 @@ pub fn editor_delete_block(handle : Int, id_str : String) -> Unit {
 
 ///|
 pub fn editor_set_block_type(
-  handle : Int,
+  handle : Int32,
   id_str : String,
   type_str : String,
-  level : Int,
+  level : Int32,
   list_style : String,
 ) -> Unit {
   match docs.get(handle) {
@@ -273,7 +273,7 @@ pub fn editor_set_block_type(
 ///
 /// `position_str` is one of "Before", "After", "Inside".
 pub fn editor_move_block(
-  handle : Int,
+  handle : Int32,
   id_str : String,
   ref_id_str : String,
   position_str : String,
@@ -298,7 +298,7 @@ pub fn editor_move_block(
 }
 
 ///|
-pub fn editor_import_markdown(handle : Int, md : String) -> Unit {
+pub fn editor_import_markdown(handle : Int32, md : String) -> Unit {
   match docs.get(handle) {
     Some(_) => {
       let replica_id = get_replica_id(handle)
@@ -312,7 +312,7 @@ pub fn editor_import_markdown(handle : Int, md : String) -> Unit {
 }
 
 ///|
-pub fn editor_export_markdown(handle : Int) -> String {
+pub fn editor_export_markdown(handle : Int32) -> String {
   match docs.get(handle) {
     Some(doc) => block_doc_to_markdown(doc)
     None => ""

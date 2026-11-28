@@ -2,45 +2,51 @@
 // Customized for Loomark parent-input state; distributed under the bundled MIT license.
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SidebarSide {
   SidebarLeft
   SidebarRight
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SidebarVariant {
   SidebarDefault
   SidebarFloating
   SidebarInset
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SidebarCollapsible {
   SidebarOffcanvas
   SidebarIcon
   SidebarFixed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SidebarMenuButtonSize {
   SidebarMenuSm
   SidebarMenuDefault
   SidebarMenuLg
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SidebarMenuButtonVariant {
   SidebarMenuButtonDefault
   SidebarMenuButtonOutline
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Eq)
 #cfg(target="js")
 pub struct SidebarState {
   collapsed : Bool
   mobile_open : Bool
-  desktop_width : Int?
-} derive(Eq)
+  desktop_width : Int32?
+}
 
 ///|
 #cfg(target="js")
@@ -49,7 +55,7 @@ pub enum SidebarMessage {
   SetSidebarCollapsed(Bool)
   ToggleSidebarMobile
   SetSidebarMobile(Bool)
-  CommitSidebarWidth(Int)
+  CommitSidebarWidth(Int32)
 }
 
 ///|
@@ -58,14 +64,14 @@ pub enum SidebarMessage {
 pub struct SidebarScope {
   collapsed : Bool
   mobile_open : Bool
-  desktop_width : Int?
+  desktop_width : Int32?
   toggle_collapsed : @cmd.Cmd
   expand : @cmd.Cmd
   collapse : @cmd.Cmd
   toggle_mobile : @cmd.Cmd
   open_mobile : @cmd.Cmd
   close_mobile : @cmd.Cmd
-  commit_width : @cmd.Emit[Int]
+  commit_width : @cmd.Emit[Int32]
 }
 
 ///|
@@ -200,9 +206,9 @@ priv struct SidebarPointerState {
   root : @dom.Element
   sidebar : @dom.Element
   shell : @dom.Element
-  pointer_id : Int
+  pointer_id : Int32
   right : Bool
-  gutter : Int
+  gutter : Int32
   start_x : Double
   start_width : Double
   min : Double
@@ -407,8 +413,8 @@ fn sidebar_release_pointer_state(
 #cfg(target="js")
 fn sidebar_pointer_start(
   pointer : @dom.PointerEvent,
-  min_width : Int,
-  max_width : Int,
+  min_width : Int32,
+  max_width : Int32,
 ) -> Bool {
   if pointer.get_default_prevented() ||
     !pointer.get_is_primary() ||
@@ -549,7 +555,7 @@ fn sidebar_pointer_move(pointer : @dom.PointerEvent) -> Bool {
 
 ///|
 #cfg(target="js")
-fn sidebar_pointer_end(pointer : @dom.PointerEvent) -> Int {
+fn sidebar_pointer_end(pointer : @dom.PointerEvent) -> Int32 {
   guard pointer.current_target().to_option() is Some(current_target) else {
     return 0
   }
@@ -757,7 +763,7 @@ priv struct SidebarDesktopCollapseFocus {
 #cfg(target="js")
 priv struct SidebarMobileLayerBinding {
   layer : @dom.Element
-  mut close_timer : Int?
+  mut close_timer : Int32?
 }
 
 ///|
@@ -1307,7 +1313,7 @@ fn sidebar_mobile_change_cmd(
 }
 
 ///|
-fn sidebar_provider_width_style(width : Int?) -> String {
+fn sidebar_provider_width_style(width : Int32?) -> String {
   match width {
     Some(width) => "--rui-sidebar-current-width:\{width}px"
     None => ""
@@ -1518,7 +1524,7 @@ pub fn[T : Eq] sidebar_provider_with_state(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : (SidebarScope, T) -> @html.Html,
 ) -> @rabbita.Val[@html.Html] {
   state.state.view2(input, (current, input) => {
@@ -1569,7 +1575,7 @@ pub fn[T : Eq] sidebar_provider_with_state(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : (SidebarScope, T) -> @html.Html,
 ) -> @rabbita.Val[@html.Html] {
   let scope : SidebarScope = {
@@ -1597,15 +1603,15 @@ pub fn[T : Eq] sidebar_provider_with_state(
 #cfg(target="js")
 pub fn[T : Eq] sidebar_provider_with_input(
   input~ : @rabbita.Val[T],
-  default_collapsed? : Bool = false,
-  default_mobile_open? : Bool = false,
+  default_collapsed~ : Bool = false,
+  default_mobile_open~ : Bool = false,
   on_collapsed_change? : @cmd.Emit[Bool],
   on_mobile_open_change? : @cmd.Emit[Bool],
   id? : String,
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : (SidebarScope, T) -> @html.Html,
 ) -> @rabbita.Val[@html.Html] {
   let initial : SidebarState = {
@@ -1707,15 +1713,15 @@ pub fn[T : Eq] sidebar_provider_with_input(
 #cfg(not(target="js"))
 pub fn[T : Eq] sidebar_provider_with_input(
   input~ : @rabbita.Val[T],
-  default_collapsed? : Bool = false,
-  default_mobile_open? : Bool = false,
+  default_collapsed~ : Bool = false,
+  default_mobile_open~ : Bool = false,
   on_collapsed_change? : @cmd.Emit[Bool],
   on_mobile_open_change? : @cmd.Emit[Bool],
   id? : String,
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : (SidebarScope, T) -> @html.Html,
 ) -> @rabbita.Val[@html.Html] {
   ignore((on_collapsed_change, on_mobile_open_change))
@@ -1742,15 +1748,15 @@ pub fn[T : Eq] sidebar_provider_with_input(
 /// Own desktop-collapse and mobile-open state for a complete sidebar tree.
 /// The native fallback renders the requested initial state as a constant value.
 pub fn sidebar_provider(
-  default_collapsed? : Bool = false,
-  default_mobile_open? : Bool = false,
+  default_collapsed~ : Bool = false,
+  default_mobile_open~ : Bool = false,
   on_collapsed_change? : @cmd.Emit[Bool],
   on_mobile_open_change? : @cmd.Emit[Bool],
   id? : String,
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : (SidebarScope) -> @html.Html,
 ) -> @rabbita.Val[@html.Html] {
   sidebar_provider_with_input(
@@ -1832,19 +1838,19 @@ pub fn sidebar_focus(id : String) -> @cmd.Cmd {
 /// breakpoint registration, so applications choose when to switch forms.
 pub fn[C : @html.IsChildren] sidebar(
   scope : SidebarScope,
-  side? : SidebarSide = SidebarLeft,
-  variant? : SidebarVariant = SidebarDefault,
-  collapsible? : SidebarCollapsible = SidebarOffcanvas,
-  mobile? : Bool = false,
-  aria_label? : String = "Sidebar",
+  side~ : SidebarSide = SidebarLeft,
+  variant~ : SidebarVariant = SidebarDefault,
+  collapsible~ : SidebarCollapsible = SidebarOffcanvas,
+  mobile~ : Bool = false,
+  aria_label~ : String = "Sidebar",
   id? : String,
   class? : String,
   title? : String,
-  hidden? : Bool = false,
+  hidden~ : Bool = false,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   overlay_attrs? : @html.Attrs,
-  overlay_style? : Array[String] = [],
+  overlay_style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   let collapsed = if mobile || collapsible == SidebarFixed {
@@ -1996,16 +2002,16 @@ pub fn[C : @html.IsChildren] sidebar(
 ///|
 pub fn[C : @html.IsChildren] sidebar_trigger(
   scope : SidebarScope,
-  mobile? : Bool = false,
+  mobile~ : Bool = false,
   controls? : String,
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   id? : String,
   class? : String,
   title? : String,
-  aria_label? : String = "Toggle sidebar",
+  aria_label~ : String = "Toggle sidebar",
   on_click? : @cmd.Cmd,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   let expanded = if mobile { scope.mobile_open } else { !scope.collapsed }
@@ -2045,8 +2051,8 @@ pub fn[C : @html.IsChildren] sidebar_trigger(
 fn sidebar_bind_resize_attrs(
   attrs : @html.Attrs,
   scope : SidebarScope,
-  min_width : Int,
-  max_width : Int,
+  min_width : Int32,
+  max_width : Int32,
 ) -> Unit {
   ignore(
     attrs
@@ -2081,8 +2087,8 @@ fn sidebar_bind_resize_attrs(
 fn sidebar_bind_resize_attrs(
   attrs : @html.Attrs,
   scope : SidebarScope,
-  min_width : Int,
-  max_width : Int,
+  min_width : Int32,
+  max_width : Int32,
 ) -> Unit {
   ignore((attrs, scope, min_width, max_width))
 }
@@ -2092,15 +2098,15 @@ fn sidebar_bind_resize_attrs(
 /// Placement and resize direction are derived from the nearest sidebar.
 pub fn sidebar_rail(
   scope : SidebarScope,
-  min_width? : Int = 160,
-  max_width? : Int = 512,
+  min_width~ : Int32 = 160,
+  max_width~ : Int32 = 512,
   id? : String,
   class? : String,
-  title? : String = "Toggle sidebar",
-  aria_label? : String = "Toggle sidebar",
+  title~ : String = "Toggle sidebar",
+  aria_label~ : String = "Toggle sidebar",
   on_click? : @cmd.Cmd,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
 ) -> @html.Html {
   let line_edge = "transform:translateX(-50%)"
   let rail_attrs = ui_attrs(attrs)
@@ -2150,7 +2156,7 @@ pub fn[C : @html.IsChildren] sidebar_header(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.div(
@@ -2169,7 +2175,7 @@ pub fn[C : @html.IsChildren] sidebar_footer(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.div(
@@ -2188,7 +2194,7 @@ pub fn[C : @html.IsChildren] sidebar_content(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.div(
@@ -2208,7 +2214,7 @@ pub fn[C : @html.IsChildren] sidebar_group(
   title? : String,
   aria_label? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   let element_attrs = ui_attrs(attrs).data_set("slot", "sidebar-group")
@@ -2228,12 +2234,12 @@ pub fn[C : @html.IsChildren] sidebar_group(
 ///|
 pub fn[C : @html.IsChildren] sidebar_group_label(
   scope? : SidebarScope,
-  hide_when_collapsed? : Bool = true,
+  hide_when_collapsed~ : Bool = true,
   id? : String,
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   // The owning sidebar knows whether its collapse mode actually hides labels.
@@ -2265,14 +2271,14 @@ pub fn[C : @html.IsChildren] sidebar_group_label(
 
 ///|
 pub fn[C : @html.IsChildren] sidebar_group_action(
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   id? : String,
   class? : String,
   title? : String,
   aria_label? : String,
   on_click? : @cmd.Cmd,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   dialog_control_button(
@@ -2305,7 +2311,7 @@ pub fn[C : @html.IsChildren] sidebar_group_content(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.div(
@@ -2324,7 +2330,7 @@ pub fn[C : @html.IsChildren] sidebar_menu(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.ul(
@@ -2343,7 +2349,7 @@ pub fn[C : @html.IsChildren] sidebar_menu_item(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.li(
@@ -2445,12 +2451,12 @@ fn[C : @html.IsChildren] render_sidebar_menu_button(
 /// Render a native button, or a native anchor when `href` is supplied.
 pub fn[C : @html.IsChildren] sidebar_menu_button(
   href? : String,
-  is_active? : Bool = false,
-  variant? : SidebarMenuButtonVariant = SidebarMenuButtonDefault,
-  size? : SidebarMenuButtonSize = SidebarMenuDefault,
-  disabled? : Bool = false,
+  is_active~ : Bool = false,
+  variant~ : SidebarMenuButtonVariant = SidebarMenuButtonDefault,
+  size~ : SidebarMenuButtonSize = SidebarMenuDefault,
+  disabled~ : Bool = false,
   aria_label? : String,
-  target? : @html.Target = Self,
+  target~ : @html.Target = Self,
   rel? : String,
   download? : String,
   on_click? : @cmd.Cmd,
@@ -2458,7 +2464,7 @@ pub fn[C : @html.IsChildren] sidebar_menu_button(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   render_sidebar_menu_button(
@@ -2469,15 +2475,15 @@ pub fn[C : @html.IsChildren] sidebar_menu_button(
 
 ///|
 pub fn[C : @html.IsChildren] sidebar_menu_action(
-  show_on_hover? : Bool = false,
-  disabled? : Bool = false,
+  show_on_hover~ : Bool = false,
+  disabled~ : Bool = false,
   id? : String,
   class? : String,
   title? : String,
   aria_label? : String,
   on_click? : @cmd.Cmd,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   let element_attrs = ui_attrs(attrs)
@@ -2518,7 +2524,7 @@ pub fn[C : @html.IsChildren] sidebar_menu_badge(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.span(
@@ -2537,7 +2543,7 @@ pub fn[C : @html.IsChildren] sidebar_menu_sub(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.ul(
@@ -2556,7 +2562,7 @@ pub fn[C : @html.IsChildren] sidebar_menu_sub_item(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.li(
@@ -2572,10 +2578,10 @@ pub fn[C : @html.IsChildren] sidebar_menu_sub_item(
 ///|
 pub fn[C : @html.IsChildren] sidebar_menu_sub_button(
   href? : String,
-  is_active? : Bool = false,
-  disabled? : Bool = false,
+  is_active~ : Bool = false,
+  disabled~ : Bool = false,
   aria_label? : String,
-  target? : @html.Target = Self,
+  target~ : @html.Target = Self,
   rel? : String,
   download? : String,
   on_click? : @cmd.Cmd,
@@ -2583,7 +2589,7 @@ pub fn[C : @html.IsChildren] sidebar_menu_sub_button(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   let element_attrs = ui_attrs(attrs)
@@ -2653,7 +2659,7 @@ pub fn sidebar_separator(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
 ) -> @html.Html {
   @html.div(
     style=ui_styles(
@@ -2679,16 +2685,16 @@ pub fn sidebar_input(
   name? : String,
   value? : String,
   placeholder? : String,
-  auto_complete? : @html.AutoComplete,
+  auto_complete? : String,
   id? : String,
   class? : String,
   title? : String,
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   aria_label? : String,
   on_change? : @cmd.Emit[String],
   on_input? : @cmd.Emit[String],
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
 ) -> @html.Html {
   let element_attrs = ui_attrs(attrs).data_set("slot", "sidebar-input")
   if aria_label is Some(label) {
@@ -2731,7 +2737,7 @@ pub fn[C : @html.IsChildren] sidebar_inset(
   class? : String,
   title? : String,
   attrs? : @html.Attrs,
-  style? : Array[String] = [],
+  style~ : Array[String] = [],
   children : C,
 ) -> @html.Html {
   @html.div(

@@ -14,19 +14,21 @@ pub fn[Id : Eq + Hash + Show] build(input~ : @rabbita.Val[@vector.Vector[Seed[Id
 // Errors
 
 // Types and methods
+#derive(Eq)
 pub(all) enum DeletionAvailability {
   Available(DeletionScope)
   Blocked
   Pending
   Failed(DeletionScope)
-} derive(Eq)
+}
 pub fn DeletionAvailability::equal(Self, Self) -> Bool
 pub fn DeletionAvailability::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum DeletionScope {
   ThisBrowser
   AllDevices
-} derive(Eq)
+}
 pub fn DeletionScope::equal(Self, Self) -> Bool
 pub fn DeletionScope::not_equal(Self, Self) -> Bool
 
@@ -44,14 +46,16 @@ pub struct RecentDocumentsFeature {
 pub fn RecentDocumentsFeature::dialog(Self) -> @rabbita.Val[@html.Html]
 pub fn RecentDocumentsFeature::navigation(Self) -> @rabbita.Val[@html.Html]
 
+#derive(Eq)
 pub(all) enum RowStatus {
   Saved
   Unsaved
-} derive(Eq)
+}
 pub fn RowStatus::equal(Self, Self) -> Bool
 pub fn RowStatus::not_equal(Self, Self) -> Bool
 
-type Seed[Id] derive(Eq)
+#derive(Eq)
+type Seed[Id]
 pub fn[Id] Seed::Seed(docid~ : Id, source~ : String, selection~ : Selection, deletion~ : DeletionAvailability, status~ : RowStatus) -> Self[Id]
 pub fn[Id] Seed::deletion(Self[Id]) -> DeletionAvailability
 pub fn[Id] Seed::docid(Self[Id]) -> Id
@@ -61,11 +65,12 @@ pub fn[Id] Seed::selection(Self[Id]) -> Selection
 pub fn[Id] Seed::source(Self[Id]) -> String
 pub fn[Id] Seed::status(Self[Id]) -> RowStatus
 
+#derive(Eq)
 pub(all) enum Selection {
   Editing
   Selectable
   Blocked
-} derive(Eq)
+}
 pub fn Selection::equal(Self, Self) -> Bool
 pub fn Selection::not_equal(Self, Self) -> Bool
 

@@ -49,7 +49,7 @@ pub suberror JsError {
 #external
 pub type Any
 pub fn[T] Any::as_promise(Self) -> @js_async.Promise[T]
-pub fn Any::at(Self, Int) -> Self
+pub fn Any::at(Self, Int32) -> Self
 pub async fn[T] Any::await_(Self) -> T
 pub fn Any::call(Self, String, Array[Self]) -> Self
 pub fn[T] Any::cast(Self) -> T

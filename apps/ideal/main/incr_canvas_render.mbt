@@ -6,7 +6,7 @@ fn incr_canvas_edge_endpoint_key(
 }
 
 ///|
-fn incr_canvas_edge_key(endpoint : String, ordinal : Int) -> String {
+fn incr_canvas_edge_key(endpoint : String, ordinal : Int32) -> String {
   if ordinal == 0 {
     endpoint
   } else {
@@ -113,7 +113,7 @@ fn incr_canvas_svg_view(
   snapshot : @visualizer.RecomputeSnapshot,
 ) -> Html {
   let children : Map[String, @svg.Svg] = Map([])
-  let edge_ordinals : Map[String, Int] = Map([])
+  let edge_ordinals : Map[String, Int32] = Map([])
   for edge in snapshot.edges {
     match incr_canvas_edge_view(state, edge) {
       Some(line) => {

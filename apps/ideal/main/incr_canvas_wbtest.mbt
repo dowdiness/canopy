@@ -1,5 +1,5 @@
 ///|
-fn test_cell(runtime_id : Int, id : Int) -> @incr.CellId {
+fn test_cell(runtime_id : Int32, id : Int32) -> @incr.CellId {
   @incr.CellId::{ runtime_id: @incr.RuntimeId(runtime_id), id, }
 }
 

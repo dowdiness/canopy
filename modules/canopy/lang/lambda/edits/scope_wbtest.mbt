@@ -15,7 +15,7 @@ fn scope_test_registry(
 ///|
 fn module_def_references_for_test(
   g : @scope.ScopeGraph,
-  def_index : Int,
+  def_index : Int32,
 ) -> Result[Array[NodeId], String] {
   for decl in g.decls {
     match decl.kind {
@@ -32,7 +32,7 @@ fn def_cutoff_at_node_for_test(
   definition_index : @lambda_proj.DefinitionIndex,
   source_map : SourceMap,
   node_id : NodeId,
-) -> Int {
+) -> Int32 {
   definition_index.cutoff_at_node(source_map, node_id)
 }
 

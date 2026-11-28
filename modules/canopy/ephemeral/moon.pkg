@@ -11,7 +11,6 @@ import {
 warnings = "-7-29"
 
 options(
-  is_main: false,
   "native-stub": [ "native_stub.c" ],
   targets: {
     "ephemeral_time_js.mbt": [ "js" ],

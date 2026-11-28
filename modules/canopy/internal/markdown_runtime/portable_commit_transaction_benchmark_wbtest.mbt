@@ -1,7 +1,7 @@
 ///|
 /// Match the existing browser-sized Markdown workload while measuring the
 /// authoritative apply + refresh + canonical-to-portable transaction.
-fn portable_commit_benchmark_source(block_count : Int) -> String {
+fn portable_commit_benchmark_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     let number = index.to_string()
     "## Heading " +
@@ -15,7 +15,7 @@ fn portable_commit_benchmark_source(block_count : Int) -> String {
 }
 
 ///|
-fn portable_commit_sentinel_dense_source(block_count : Int) -> String {
+fn portable_commit_sentinel_dense_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     if index % 2 == 0 {
       "\u{200B}\n"

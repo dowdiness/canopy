@@ -30,14 +30,15 @@ impl @quickcheck.Arbitrary for Confidence[Role] with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for Confidence[Role]
+impl @shrink.Shrink for Confidence[Role]
 
 ///|
 /// Wrapper for pair-wise properties (quick_check_fn takes single-arg).
+#derive(Debug)
 struct Pair {
   a : Confidence[Role]
   b : Confidence[Role]
-} derive(Debug)
+}
 
 ///|
 impl @quickcheck.Arbitrary for Pair with fn arbitrary(size, rs) {
@@ -48,15 +49,16 @@ impl @quickcheck.Arbitrary for Pair with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for Pair
+impl @shrink.Shrink for Pair
 
 ///|
 /// Wrapper for triple-wise properties.
+#derive(Debug)
 struct Triple {
   a : Confidence[Role]
   b : Confidence[Role]
   c : Confidence[Role]
-} derive(Debug)
+}
 
 ///|
 impl @quickcheck.Arbitrary for Triple with fn arbitrary(size, rs) {
@@ -68,7 +70,7 @@ impl @quickcheck.Arbitrary for Triple with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for Triple
+impl @shrink.Shrink for Triple
 
 ///|
 fn prop_join_commutative(p : Pair) -> Bool {

@@ -7,32 +7,34 @@
 /// `start` and `end` are UTF-16 code-unit source offsets, interpreted as a
 /// half-open range `[start, end)`. They are not eg-walker item-space positions
 /// and not ProseMirror tree positions.
+#derive(Debug, Eq)
 pub struct ProjNode[T] {
-  node_id : Int
+  node_id : Int32
   kind : T
   children : Array[ProjNode[T]]
-  start : Int
-  end : Int
-} derive(Debug, Eq)
+  start : Int32
+  end : Int32
+}
 
 ///|
 /// Non-recursive carrier for the `fold` algebra: the scalar fields of a
 /// ProjNode without the `children` array. By passing this instead of
 /// `ProjNode[T]`, the algebra cannot bypass the fold by accessing the
 /// original recursive structure.
+#derive(Debug, Eq)
 pub struct FoldNode[T] {
   kind : T
-  node_id : Int
-  start : Int
-  end : Int
-} derive(Debug, Eq)
+  node_id : Int32
+  start : Int32
+  end : Int32
+}
 
 ///|
 fn[T] FoldNode::FoldNode(
   kind : T,
-  node_id : Int,
-  start : Int,
-  end : Int,
+  node_id : Int32,
+  start : Int32,
+  end : Int32,
 ) -> FoldNode[T] {
   { kind, node_id, start, end, }
 }
@@ -61,9 +63,9 @@ pub impl[T : @loomcore.Renderable] Show for ProjNode[T] with fn output(
 ///|
 pub fn[T] ProjNode::ProjNode(
   kind : T,
-  start : Int,
-  end : Int,
-  node_id : Int,
+  start : Int32,
+  end : Int32,
+  node_id : Int32,
   children : Array[ProjNode[T]],
 ) -> ProjNode[T] {
   { node_id, kind, children, start, end, }
@@ -90,7 +92,7 @@ pub fn[T, U] ProjNode::map(
 pub fn[T] ProjNode::leaf(
   kind : T,
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[T] {
   ProjNode(kind, node.start(), node.end(), next_proj_node_id(counter), [])
 }
@@ -102,10 +104,10 @@ pub fn[T] ProjNode::leaf(
 /// reusing a known node id.
 pub fn[T] ProjNode::branch(
   kind : T,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   children : Array[ProjNode[T]],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[T] {
   ProjNode(kind, start, end, next_proj_node_id(counter), children)
 }
@@ -118,7 +120,7 @@ pub fn[T] ProjNode::id(self : ProjNode[T]) -> NodeId {
 ///|
 /// Allocate a fresh projection node ID from a shared counter.
 /// Public for cross-package use by language-specific projection builders.
-pub fn next_proj_node_id(counter : Ref[Int]) -> Int {
+pub fn next_proj_node_id(counter : Ref[Int32]) -> Int32 {
   let id = counter.val
   counter.val = counter.val + 1
   id
@@ -147,7 +149,7 @@ pub fn[T, U] ProjNode::fold(
   f : (FoldNode[T], Array[U]) -> U,
 ) -> U {
   // Post-order iterative fold. Each frame tracks (node, children_processed_count).
-  let stack : Array[(ProjNode[T], Int)] = [(self, 0)]
+  let stack : Array[(ProjNode[T], Int32)] = [(self, 0)]
   let results : Array[U] = []
 
   while stack.length() > 0 {
@@ -253,7 +255,7 @@ pub fn[T] get_node_in_tree(
 /// Public for cross-package use by reconciliation.
 pub fn[T] assign_fresh_ids(
   node : ProjNode[T],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[T] {
   node.fold((n, children) => {
     ProjNode::branch(n.kind, n.start, n.end, children, counter)

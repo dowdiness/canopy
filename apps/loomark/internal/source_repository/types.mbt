@@ -1,6 +1,7 @@
 ///|
 /// The authoritative persisted document: identity plus exact text.
-pub struct DocumentId(String) derive(Eq, Hash, Debug)
+#derive(Eq, Hash, Debug)
+pub struct DocumentId(String)
 
 ///|
 fn valid_uuid(value : String) -> Bool {
@@ -9,12 +10,12 @@ fn valid_uuid(value : String) -> Bool {
     if i == 8 || i == 13 || i == 18 || i == 23 {
       guard value[i] == '-' else { return false }
     } else {
-      guard value[i] is ('0'..='9' | 'a'..='f' | 'A'..='F') else {
+      guard value[i] is ('0'..<='9' | 'a'..<='f' | 'A'..<='F') else {
         return false
       }
     }
   }
-  value[14] is ('1'..='8') && value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B')
+  value[14] is ('1'..<='8') && value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B')
 }
 
 ///|
@@ -32,7 +33,8 @@ pub fn DocumentId::value(self : Self) -> String {
 /// When a document's text last changed, in whole milliseconds since the epoch
 /// by the clock of the device where it changed. It travels with the text, so
 /// every device orders documents the same way.
-pub struct ChangeTime(Double) derive(Eq, Compare, Debug)
+#derive(Eq, Compare, Debug)
+pub struct ChangeTime(Double)
 
 ///|
 /// The device clock, read by the shell at the moment text changes.
@@ -41,7 +43,8 @@ pub fn ChangeTime::now() -> ChangeTime {
 }
 
 ///|
-pub(all) suberror InvalidChangeTime derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) suberror InvalidChangeTime
 
 ///|
 /// The rule every boundary shares: whole milliseconds from the epoch up to
@@ -63,12 +66,13 @@ pub fn ChangeTime::value(self : Self) -> Double {
 ///|
 /// A document's position in the Document index: its Change time, then its
 /// Document ID for documents changed at the same time.
-pub(all) struct IndexKey(ChangeTime, DocumentId) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) struct IndexKey(ChangeTime, DocumentId)
 
 ///|
 /// Document index order: the most recently changed document first, and
 /// Document ID order among documents changed at the same time.
-pub fn index_order(left : IndexKey, right : IndexKey) -> Int {
+pub fn index_order(left : IndexKey, right : IndexKey) -> Int32 {
   match right.0.compare(left.0) {
     0 => left.1.value().lexical_compare(right.1.value())
     order => order
@@ -93,7 +97,8 @@ pub fn[T] first_in_index(
 ///|
 /// One version of a document's content: its text and the Change time of that
 /// text. Saved documents, remote revisions, and pending saves each hold one.
-pub(all) struct Content(String, ChangeTime) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub(all) struct Content(String, ChangeTime)
 
 ///|
 pub fn Content::text(self : Self) -> String {
@@ -106,16 +111,19 @@ pub fn Content::changed_at(self : Self) -> ChangeTime {
 }
 
 ///|
-pub struct Document(DocumentId, Content) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct Document(DocumentId, Content)
 
 ///|
 /// An advisory startup-selection hint parsed from accepted SavedDocuments.
-pub struct EditingDocumentHint(DocumentId) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct EditingDocumentHint(DocumentId)
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror DocumentError {
   InvalidIdentity
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Document::create(
@@ -183,10 +191,11 @@ pub fn Document::index_key(self : Self) -> IndexKey {
 }
 
 ///|
+#derive(Eq, Debug)
 struct CatalogEntry {
   document_id : DocumentId
   derived_name : @document_lead.DerivedName
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn CatalogEntry::document_id(self : Self) -> DocumentId {
@@ -199,7 +208,8 @@ pub fn CatalogEntry::name(self : Self) -> String {
 }
 
 ///|
-pub struct Catalog(Array[CatalogEntry]) derive(Eq, Debug)
+#derive(Eq, Debug)
+pub struct Catalog(Array[CatalogEntry])
 
 ///|
 pub fn Catalog::entries(self : Self) -> ArrayView[CatalogEntry] {
@@ -217,29 +227,33 @@ fn catalog_for(documents : Array[Document]) -> Catalog {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RepositoryIssue {
   InvalidSource(String)
   UnsupportedSourceSchema(String)
   InvalidDocumentReplica(String)
   UnknownRecord(String)
   UnsupportedRecord(String)
-  UnsupportedKey(Int)
-} derive(Eq, Debug)
+  UnsupportedKey(Int32)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ReplicaApplyError {
   StaleReplica
   StorageKeyConflict
   InvalidReplicaWrite
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum RepositoryChange {
   Stored(Document)
   Deleted(DocumentId)
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub struct SavedDocuments {
   documents : Array[Document]
   // Catalog entries share the documents' lexical identity order.
@@ -248,7 +262,7 @@ pub struct SavedDocuments {
   observed_source_keys : Array[String]
   replicas : Array[DocumentReplica]
   observed_replica_keys : Array[String]
-} derive(Eq, Debug)
+}
 
 ///|
 fn sort_documents(documents : Array[Document]) -> Array[Document] {
@@ -267,7 +281,7 @@ fn sort_keys(keys : Array[String]) -> Array[String] {
 }
 
 ///|
-fn compare_replicas(left : DocumentReplica, right : DocumentReplica) -> Int {
+fn compare_replicas(left : DocumentReplica, right : DocumentReplica) -> Int32 {
   let account_order = left
     .account()
     .value()
@@ -367,7 +381,7 @@ fn SavedDocuments::find_replica_index(
   self : Self,
   account : AccountId,
   document_id : DocumentId,
-) -> Int? {
+) -> Int32? {
   self.replicas
   .exact_view()
   .search_by(replica => {

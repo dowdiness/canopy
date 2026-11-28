@@ -4,7 +4,7 @@
 pub fn activate(
   area : @text_area.TextArea,
   engine : @preview.PreviewEngine,
-  generation : Int,
+  generation : Int32,
   text : String,
   preview_visible : Bool,
   emit : @rabbita.Emit[@preview.Event],
@@ -26,7 +26,7 @@ pub fn accepted(
   area : @text_area.TextArea,
   engine : @preview.PreviewEngine,
   preview : @preview.State,
-  generation : Int,
+  generation : Int32,
   text : String,
   change : @text_change.TextChange,
   emit : @rabbita.Emit[@preview.Event],
@@ -46,7 +46,7 @@ pub fn accepted(
 pub fn visibility_changed(
   engine : @preview.PreviewEngine,
   preview : @preview.State,
-  generation : Int,
+  generation : Int32,
   text : String,
   was_visible : Bool,
   is_visible : Bool,

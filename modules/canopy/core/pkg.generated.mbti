@@ -5,15 +5,16 @@ import {
   "dowdiness/incr/cells",
   "dowdiness/seam",
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
   "moonbitlang/core/ref",
 }
 
 // Values
-pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int]) -> ProjNode[T]
+pub fn[T] assign_fresh_ids(ProjNode[T], @ref.Ref[Int32]) -> ProjNode[T]
 
-pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable + Eq] build_projection_memos(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, reconcile_node? : (ProjNode[T], ProjNode[T], @ref.Ref[Int], @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?, label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable + Eq] build_projection_memos(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int32]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, reconcile_node? : (ProjNode[T], ProjNode[T], @ref.Ref[Int32], @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?, label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
 
-pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable + Eq] build_projection_memos_with_identity_hints(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, (ProjNode[T], ProjNode[T], @ref.Ref[Int], Array[IdentityTransform], @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T], identity_hints? : IdentityHintConsumer, trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?, label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable + Eq] build_projection_memos_with_identity_hints(@cells.Runtime, @cells.Derived[@seam.SyntaxNode], (@seam.SyntaxNode, @ref.Ref[Int32]) -> ProjNode[T], (SourceMap, @seam.SyntaxNode, ProjNode[T]) -> Unit, (ProjNode[T], ProjNode[T], @ref.Ref[Int32], Array[IdentityTransform], @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T], identity_hints? : IdentityHintConsumer, trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?, label? : String) -> (@cells.Derived[ProjNode[T]?], @cells.Derived[Map[NodeId, ProjNode[T]]], @cells.Derived[SourceMap])
 
 pub fn[T] collect_registry(ProjNode[T], Map[NodeId, ProjNode[T]]) -> Unit
 
@@ -23,15 +24,15 @@ pub fn[T] get_node_in_tree(ProjNode[T], NodeId) -> ProjNode[T]?
 
 pub fn[T] navigate_proj(NodeId, Direction, ProjNode[T]) -> NodeId?
 
-pub fn[T] navigate_proj_cached(NodeId, Direction, ProjNode[T], Array[Int]?) -> (Array[Int]?, NodeId?)
+pub fn[T] navigate_proj_cached(NodeId, Direction, ProjNode[T], Array[Int32]?) -> (Array[Int32]?, NodeId?)
 
-pub fn next_proj_node_id(@ref.Ref[Int]) -> Int
+pub fn next_proj_node_id(@ref.Ref[Int32]) -> Int32
 
-pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile(ProjNode[T], ProjNode[T], @ref.Ref[Int32], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
 
-pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile_hinted(ProjNode[T], ProjNode[T], @ref.Ref[Int], Map[NodeId, IdentityTransform], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile_hinted(ProjNode[T], ProjNode[T], @ref.Ref[Int32], Map[NodeId, IdentityTransform], trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
 
-pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile_with_exact_key(ProjNode[T], ProjNode[T], @ref.Ref[Int], (T) -> String, trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
+pub fn[T : @dowdiness/loom/core.TreeNode + @dowdiness/loom/core.Renderable] reconcile_with_exact_key(ProjNode[T], ProjNode[T], @ref.Ref[Int32], (T) -> String, trace_ref? : @ref.Ref[Array[ReconcileTraceEvent]]?) -> ProjNode[T]
 
 pub fn to_structured_changes(Array[ReconcileTraceEvent]) -> Array[StructuredChange]
 
@@ -53,27 +54,30 @@ pub(all) suberror EditError {
 pub fn EditError::message(Self) -> String
 
 // Types and methods
+#derive(@debug.Debug)
 pub(all) enum Direction {
   Up
   Down
   Left
   Right
-} derive(@debug.Debug)
+}
 pub fn Direction::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum DropPosition {
   Before
   After
   Inside
-} derive(Eq, @debug.Debug)
+}
 pub fn DropPosition::equal(Self, Self) -> Bool
 pub fn DropPosition::not_equal(Self, Self) -> Bool
 pub fn DropPosition::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) enum FocusHint {
   RestoreCursor
-  MoveCursor(position~ : Int)
-} derive(Eq, @debug.Debug)
+  MoveCursor(position~ : Int32)
+}
 pub fn FocusHint::equal(Self, Self) -> Bool
 pub fn FocusHint::not_equal(Self, Self) -> Bool
 pub fn FocusHint::output(Self, &Logger) -> Unit
@@ -81,17 +85,19 @@ pub fn FocusHint::to_repr(Self) -> @debug.Repr
 pub fn FocusHint::to_string(Self) -> String
 pub impl Show for FocusHint
 
+#derive(Eq, @debug.Debug)
 pub struct FoldNode[T] {
   kind : T
-  node_id : Int
-  start : Int
-  end : Int
-} derive(Eq, @debug.Debug)
+  node_id : Int32
+  start : Int32
+  end : Int32
+}
 pub fn[T : Eq] FoldNode::equal(Self[T], Self[T]) -> Bool
 pub fn[T] FoldNode::id(Self[T]) -> NodeId
 pub fn[T : Eq] FoldNode::not_equal(Self[T], Self[T]) -> Bool
 pub fn[T : @debug.Debug] FoldNode::to_repr(Self[T]) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub(all) enum GenericTreeOp {
   Select(node_id~ : NodeId)
   SelectRange(start~ : NodeId, end~ : NodeId)
@@ -101,13 +107,13 @@ pub(all) enum GenericTreeOp {
   Delete(node_id~ : NodeId)
   StructuralEdit(node_id~ : NodeId)
   StructuralEditKeepSelected(node_id~ : NodeId)
-  InsertChild(parent~ : NodeId, index~ : Int)
+  InsertChild(parent~ : NodeId, index~ : Int32)
   StartDrag(node_id~ : NodeId)
   DragOver(target~ : NodeId, position~ : DropPosition)
   Drop(source~ : NodeId, target~ : NodeId, position~ : DropPosition)
   Collapse(node_id~ : NodeId)
   Expand(node_id~ : NodeId)
-} derive(@debug.Debug)
+}
 pub fn GenericTreeOp::output(Self, &Logger) -> Unit
 pub fn GenericTreeOp::to_repr(Self) -> @debug.Repr
 pub fn GenericTreeOp::to_string(Self) -> String
@@ -118,25 +124,27 @@ pub struct IdentityHintConsumer {
 }
 pub fn IdentityHintConsumer::IdentityHintConsumer(() -> Array[IdentityTransform]) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum IdentityTransform {
   Wrap(inner~ : NodeId)
   Unwrap(wrapper~ : NodeId, keep~ : NodeId)
   Move(subtree~ : NodeId)
   Replace(old~ : NodeId)
   RenameLeaf(node~ : NodeId)
-  InsertSubtree(parent~ : NodeId, index~ : Int)
+  InsertSubtree(parent~ : NodeId, index~ : Int32)
   DeleteSubtree(node~ : NodeId)
   Opaque
-} derive(Eq, @debug.Debug)
+}
 pub fn IdentityTransform::equal(Self, Self) -> Bool
 pub fn IdentityTransform::not_equal(Self, Self) -> Bool
 pub fn IdentityTransform::to_repr(Self) -> @debug.Repr
 
-pub struct NodeId(Int) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn NodeId::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub struct NodeId(Int32)
+pub fn NodeId::compare(Self, Self) -> Int32
 pub fn NodeId::equal(Self, Self) -> Bool
-pub fn NodeId::from_int(Int) -> Self
-pub fn NodeId::hash(Self) -> Int
+pub fn NodeId::from_int(Int32) -> Self
+pub fn NodeId::hash(Self) -> Int32
 pub fn NodeId::hash_combine(Self, Hasher) -> Unit
 pub fn NodeId::not_equal(Self, Self) -> Bool
 pub fn NodeId::op_ge(Self, Self) -> Bool
@@ -144,62 +152,65 @@ pub fn NodeId::op_gt(Self, Self) -> Bool
 pub fn NodeId::op_le(Self, Self) -> Bool
 pub fn NodeId::op_lt(Self, Self) -> Bool
 pub fn NodeId::output(Self, &Logger) -> Unit
-pub fn NodeId::to_json(Self) -> Json
+pub fn NodeId::to_json(Self) -> @json.Json
 pub fn NodeId::to_repr(Self) -> @debug.Repr
 pub fn NodeId::to_string(Self) -> String
 pub impl Show for NodeId
-pub impl ToJson for NodeId
+pub impl @json.ToJson for NodeId
 
+#derive(Eq, @debug.Debug)
 pub struct ProjNode[T] {
-  node_id : Int
+  node_id : Int32
   kind : T
   children : Array[ProjNode[T]]
-  start : Int
-  end : Int
-} derive(Eq, @debug.Debug)
-pub fn[T] ProjNode::ProjNode(T, Int, Int, Int, Array[Self[T]]) -> Self[T]
-pub fn[T] ProjNode::branch(T, Int, Int, Array[Self[T]], @ref.Ref[Int]) -> Self[T]
+  start : Int32
+  end : Int32
+}
+pub fn[T] ProjNode::ProjNode(T, Int32, Int32, Int32, Array[Self[T]]) -> Self[T]
+pub fn[T] ProjNode::branch(T, Int32, Int32, Array[Self[T]], @ref.Ref[Int32]) -> Self[T]
 pub fn[T : Eq] ProjNode::equal(Self[T], Self[T]) -> Bool
 pub fn[T, U] ProjNode::fold(Self[T], (FoldNode[T], Array[U]) -> U) -> U
 pub fn[T] ProjNode::id(Self[T]) -> NodeId
-pub fn[T] ProjNode::leaf(T, @seam.SyntaxNode, @ref.Ref[Int]) -> Self[T]
+pub fn[T] ProjNode::leaf(T, @seam.SyntaxNode, @ref.Ref[Int32]) -> Self[T]
 pub fn[T, U] ProjNode::map(Self[T], (T) -> U raise?) -> Self[U] raise?
 pub fn[T : Eq] ProjNode::not_equal(Self[T], Self[T]) -> Bool
 pub fn[T : @dowdiness/loom/core.Renderable] ProjNode::output(Self[T], &Logger) -> Unit
-pub fn[T : ToJson] ProjNode::to_json(Self[T]) -> Json
+pub fn[T : @json.ToJson] ProjNode::to_json(Self[T]) -> @json.Json
 pub fn[T : @debug.Debug] ProjNode::to_repr(Self[T]) -> @debug.Repr
 pub fn[T : @dowdiness/loom/core.Renderable] ProjNode::to_string(Self[T]) -> String
 pub fn[T] ProjNode::walk_preorder(Self[T], (FoldNode[T]) -> Unit raise?) -> Unit raise?
 pub impl[T : @dowdiness/loom/core.Renderable] Show for ProjNode[T]
-pub impl[T : ToJson] ToJson for ProjNode[T]
+pub impl[T : @json.ToJson] @json.ToJson for ProjNode[T]
 
+#derive(Eq)
 pub(all) enum ReconcileTraceEvent {
-  Matched(NodeId, Int, Int, NodeId, String)
-  Inserted(NodeId, Int, NodeId, String)
-  Deleted(NodeId, Int, NodeId, String)
+  Matched(NodeId, Int32, Int32, NodeId, String)
+  Inserted(NodeId, Int32, NodeId, String)
+  Deleted(NodeId, Int32, NodeId, String)
   Wrapped(NodeId, NodeId, String)
   Unwrapped(NodeId, NodeId, String)
   Renamed(NodeId, String)
-  Freshened(NodeId, Int, NodeId, String)
-} derive(Eq)
+  Freshened(NodeId, Int32, NodeId, String)
+}
 pub fn ReconcileTraceEvent::equal(Self, Self) -> Bool
 pub fn ReconcileTraceEvent::not_equal(Self, Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub struct SourceMap {
   node_to_range : Map[NodeId, @dowdiness/loom/core.Range]
   ranges : Array[(@dowdiness/loom/core.Range, NodeId)]
   token_spans : Map[NodeId, Map[String, @dowdiness/loom/core.Range]]
-} derive(Eq, @debug.Debug)
-pub fn SourceMap::apply_edit(Self, Int, @dowdiness/loom/core.Range) -> Unit
+}
+pub fn SourceMap::apply_edit(Self, Int32, @dowdiness/loom/core.Range) -> Unit
 pub fn SourceMap::equal(Self, Self) -> Bool
 pub fn[T] SourceMap::from_ast(ProjNode[T]) -> Self
 pub fn SourceMap::get_all_token_spans(Self, NodeId) -> Array[(String, @dowdiness/loom/core.Range)]
 pub fn SourceMap::get_range(Self, NodeId) -> @dowdiness/loom/core.Range?
 pub fn SourceMap::get_token_span(Self, NodeId, String) -> @dowdiness/loom/core.Range?
-pub fn SourceMap::innermost_node_at(Self, Int) -> NodeId?
+pub fn SourceMap::innermost_node_at(Self, Int32) -> NodeId?
 pub fn SourceMap::new() -> Self
-pub fn SourceMap::node_count(Self) -> Int
-pub fn SourceMap::nodes_at_position(Self, Int) -> Array[NodeId]
+pub fn SourceMap::node_count(Self) -> Int32
+pub fn SourceMap::nodes_at_position(Self, Int32) -> Array[NodeId]
 pub fn SourceMap::nodes_in_range(Self, @dowdiness/loom/core.Range) -> Array[NodeId]
 pub fn SourceMap::not_equal(Self, Self) -> Bool
 pub fn[T] SourceMap::patch_subtree(Self, ProjNode[T]) -> Unit
@@ -208,15 +219,16 @@ pub fn SourceMap::rebuild_ranges(Self) -> Unit
 pub fn[T] SourceMap::remove_subtree(Self, ProjNode[T]) -> Unit
 pub fn SourceMap::set_span_from_token(Self, NodeId, String, @seam.SyntaxNode, @seam.RawKind) -> Unit
 pub fn SourceMap::set_token_span(Self, NodeId, String, @dowdiness/loom/core.Range) -> Unit
-pub fn SourceMap::to_json(Self) -> Json
+pub fn SourceMap::to_json(Self) -> @json.Json
 pub fn SourceMap::to_repr(Self) -> @debug.Repr
-pub impl ToJson for SourceMap
+pub impl @json.ToJson for SourceMap
 
+#derive(Eq, @debug.Debug)
 pub(all) struct SpanEdit {
-  start : Int
-  delete_len : Int
+  start : Int32
+  delete_len : Int32
   inserted : String
-} derive(Eq, @debug.Debug)
+}
 pub fn SpanEdit::equal(Self, Self) -> Bool
 pub fn SpanEdit::not_equal(Self, Self) -> Bool
 pub fn SpanEdit::output(Self, &Logger) -> Unit
@@ -224,14 +236,15 @@ pub fn SpanEdit::to_repr(Self) -> @debug.Repr
 pub fn SpanEdit::to_string(Self) -> String
 pub impl Show for SpanEdit
 
+#derive(Eq)
 pub(all) enum StructuredChange {
-  Inserted(NodeId, Int, NodeId, String)
-  Deleted(NodeId, Int, NodeId, String)
+  Inserted(NodeId, Int32, NodeId, String)
+  Deleted(NodeId, Int32, NodeId, String)
   Wrapped(NodeId, NodeId, String)
   Unwrapped(NodeId, NodeId, String)
   Renamed(NodeId, String)
-  Freshened(NodeId, Int, NodeId, String)
-} derive(Eq)
+  Freshened(NodeId, Int32, NodeId, String)
+}
 pub fn StructuredChange::equal(Self, Self) -> Bool
 pub fn StructuredChange::not_equal(Self, Self) -> Bool
 

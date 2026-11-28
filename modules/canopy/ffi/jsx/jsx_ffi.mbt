@@ -183,11 +183,11 @@ fn render_proj(
   proj : @canopy_core.ProjNode[@jsx_ast.JsxNode],
   existing_json : String,
 ) -> String {
-  let existing : Array[Int] = []
+  let existing : Array[Int32] = []
   let parsed : @js.Any = @js.parse(existing_json)
-  let len : Int = parsed.get("length").cast()
+  let len : Int32 = parsed.get("length").cast()
   for i in 0..<len {
-    let val : Int = parsed.at(i).cast()
+    let val : Int32 = parsed.at(i).cast()
     existing.push(val)
   }
   let (patches, _) = @jsx_proj.reconcile(proj, existing)

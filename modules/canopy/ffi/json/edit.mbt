@@ -4,9 +4,9 @@
 /// Apply a structural JSON edit from a JSON-encoded JsonEditOp.
 /// Returns "ok" on success, or "error: <message>" on failure.
 pub fn json_apply_edit(
-  handle : Int,
+  handle : Int32,
   op_json : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> String raise {
   match json_registry.get(handle) {
     Some(h) => {
@@ -90,7 +90,7 @@ pub fn parse_json_edit_op(
       _ => Err("missing or invalid '" + key + "' field")
     }
   }
-  let int_result : (String) -> Result[Int, String] = fn(key) {
+  let int_result : (String) -> Result[Int32, String] = fn(key) {
     match obj.get(key) {
       Some(Number(n, ..)) => Ok(n.to_int())
       _ => Err("missing or invalid '" + key + "' field")

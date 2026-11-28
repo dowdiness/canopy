@@ -26,15 +26,17 @@ pub using @core {type DropPosition, type FocusHint}
 
 ///|
 /// Classification of actions for grouping in the UI.
+#derive(Debug, Eq)
 pub(all) enum ActionGroup {
   Core
   Wrap
   Binding
   Module
-} derive(Debug, Eq)
+}
 
 ///|
 /// A structural editing action available on a node.
+#derive(Debug, Eq)
 pub(all) struct Action {
   /// Unique identifier for the action (e.g. "wrap_lambda", "delete")
   id : String
@@ -46,20 +48,21 @@ pub(all) struct Action {
   group : ActionGroup
   /// Whether the action requires user text input (e.g. a variable name)
   needs_input : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 /// Context about a node's position in the tree, used to filter actions.
+#derive(Debug, Eq)
 pub(all) struct NodeContext {
   /// Whether this node is the RHS of a let-binding in a Module
   is_let_binding : Bool
   /// The NodeId of the binding node (if is_let_binding)
   binding_node_id : NodeId?
   /// The def index in the Module's defs array (if is_let_binding)
-  binding_def_index : Int?
+  binding_def_index : Int32?
   /// The NodeId of the enclosing Module (if is_let_binding)
   module_node_id : NodeId?
-} derive(Debug, Eq)
+}
 
 ///|
 /// Create a default NodeContext (not a binding).
@@ -76,7 +79,7 @@ pub fn NodeContext::new() -> NodeContext {
 /// Create a NodeContext for a let-binding RHS.
 pub fn NodeContext::new_binding(
   binding_node_id~ : NodeId,
-  binding_def_index~ : Int,
+  binding_def_index~ : Int32,
   module_node_id~ : NodeId,
 ) -> NodeContext {
   {

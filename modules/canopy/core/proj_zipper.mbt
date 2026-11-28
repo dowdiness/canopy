@@ -2,18 +2,19 @@
 // O(n) DFS to find path, O(depth) to compute neighbor — no tree copy.
 
 ///|
+#derive(Debug)
 pub(all) enum Direction {
   Up
   Down
   Left
   Right
-} derive(Debug)
+}
 
 ///|
 /// DFS walk — find the sequence of child indices from root to target NodeId.
 /// Returns None when the target is not in the tree.
-fn[T] find_path_to(root : ProjNode[T], target : NodeId) -> Array[Int]? {
-  let acc : Array[Int] = []
+fn[T] find_path_to(root : ProjNode[T], target : NodeId) -> Array[Int32]? {
+  let acc : Array[Int32] = []
   if find_path_to_inner(root, target, acc) {
     Some(acc)
   } else {
@@ -25,7 +26,7 @@ fn[T] find_path_to(root : ProjNode[T], target : NodeId) -> Array[Int]? {
 fn[T] find_path_to_inner(
   node : ProjNode[T],
   target : NodeId,
-  acc : Array[Int],
+  acc : Array[Int32],
 ) -> Bool {
   if node.id() == target {
     return true
@@ -44,8 +45,8 @@ fn[T] find_path_to_inner(
 /// Walk proj_root following path[0..limit), returning the node at that depth.
 fn[T] walk_path(
   root : ProjNode[T],
-  path : Array[Int],
-  limit : Int,
+  path : Array[Int32],
+  limit : Int32,
 ) -> ProjNode[T]? {
   let mut node = root
   for i in 0..<limit {
@@ -131,8 +132,8 @@ pub fn[T] navigate_proj_cached(
   cursor : NodeId,
   direction : Direction,
   proj_root : ProjNode[T],
-  cached_path : Array[Int]?,
-) -> (Array[Int]?, NodeId?) {
+  cached_path : Array[Int32]?,
+) -> (Array[Int32]?, NodeId?) {
   let path = match cached_path {
     Some(p) =>
       match walk_path(proj_root, p, p.length()) {
@@ -202,11 +203,11 @@ pub fn[T] navigate_proj_cached(
 
 ///|
 /// Pop last element — returns new owned array.
-fn path_pop(path : Array[Int]) -> Array[Int]? {
+fn path_pop(path : Array[Int32]) -> Array[Int32]? {
   if path.is_empty() {
     return None
   }
-  let a : Array[Int] = []
+  let a : Array[Int32] = []
   let n = path.length()
   a.reserve_capacity(n - 1)
   for i in 0..<(n - 1) {
@@ -217,8 +218,8 @@ fn path_pop(path : Array[Int]) -> Array[Int]? {
 
 ///|
 /// Append an element — returns new owned array.
-fn path_push(path : Array[Int], new_idx : Int) -> Array[Int] {
-  let a : Array[Int] = []
+fn path_push(path : Array[Int32], new_idx : Int32) -> Array[Int32] {
+  let a : Array[Int32] = []
   let n = path.length()
   a.reserve_capacity(n + 1)
   for i in 0..<n {
@@ -230,11 +231,11 @@ fn path_push(path : Array[Int], new_idx : Int) -> Array[Int] {
 
 ///|
 /// Copy `path` but replace the last element with `new_last`.
-fn path_replace_last(path : Array[Int], new_last : Int) -> Array[Int]? {
+fn path_replace_last(path : Array[Int32], new_last : Int32) -> Array[Int32]? {
   if path.is_empty() {
     return None
   }
-  let a : Array[Int] = []
+  let a : Array[Int32] = []
   let n = path.length()
   a.reserve_capacity(n)
   for i in 0..<(n - 1) {

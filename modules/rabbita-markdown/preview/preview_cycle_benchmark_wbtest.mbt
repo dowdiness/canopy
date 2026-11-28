@@ -1,10 +1,10 @@
 ///|
 fn preview_cycle_fixture(
-  block_count : Int,
+  block_count : Int32,
   interior~ : Bool,
 ) -> (String, Array[(@text_change.TextChange, String)]) {
   let source = StringBuilder::StringBuilder()
-  let positions : Array[Int] = []
+  let positions : Array[Int32] = []
   let mut source_offset = 0
   for index = 0; index < block_count / 2; index = index + 1 {
     let unit = "## Heading \{index}\n\nParagraph \{index} with **bold**, [link](https://example.com/\{index}), and 日本語 😀.\n\n"
@@ -18,7 +18,7 @@ fn preview_cycle_fixture(
   }
   let initial = source.to_string()
   let operations : Array[(@text_change.TextChange, String)] = []
-  let selected : Array[Int] = Array::makei(16, index => {
+  let selected : Array[Int32] = Array::makei(16, index => {
     positions[index * positions.length() / 16]
   })
   let mut current = initial
@@ -55,7 +55,7 @@ fn preview_cycle_fixture(
 ///|
 fn benchmark_preview_cycle(
   b : @bench.T,
-  block_count : Int,
+  block_count : Int32,
   interior~ : Bool,
 ) -> Unit {
   let (initial, operations) = preview_cycle_fixture(block_count, interior~)

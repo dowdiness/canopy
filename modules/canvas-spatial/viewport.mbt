@@ -1,9 +1,10 @@
 ///|
 /// A viewport maps world coordinates into canvas-local screen coordinates.
+#derive(Eq, Debug)
 pub struct Viewport {
   priv origin : ScreenPoint
   priv scale : Scale
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct a viewport from already-validated geometry.

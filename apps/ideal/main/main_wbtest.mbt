@@ -690,15 +690,16 @@ test "Structure selection ignores inactive and invalid node reports" {
 }
 
 ///|
+#derive(Eq, Debug)
 struct StructureCommitEvidence {
   text : String
-  timestamp : Int
-  intent_count : Int
-  patch_count : Int
-} derive(Eq, Debug)
+  timestamp : Int32
+  intent_count : Int32
+  patch_count : Int32
+}
 
 ///|
-fn structure_commit_evidence(model : Model) -> StructureCommitEvidence {
+fn structure_commit_evidence(model : Model) -> StructureCommitEvidence raise {
   {
     text: model.editor.get_text(),
     timestamp: model.next_timestamp,
@@ -710,7 +711,7 @@ fn structure_commit_evidence(model : Model) -> StructureCommitEvidence {
 ///|
 fn apply_structure_edit_for_test(
   model : Model,
-  generation : Int,
+  generation : Int32,
   op : @lambda_edits.TreeEditOp,
 ) -> Model raise {
   match
@@ -750,7 +751,7 @@ test "Structure activation generation advances only on entry" {
 ///|
 fn apply_structure_history_for_test(
   model : Model,
-  generation : Int,
+  generation : Int32,
   direction : HistoryDirection,
 ) -> Model raise {
   match
@@ -767,7 +768,7 @@ fn apply_structure_history_for_test(
 ///|
 fn history_test_model(
   mode : EditorMode,
-  generation : Int,
+  generation : Int32,
 ) -> (Model, String, String) raise {
   let base = init_model()
   let original = base.editor.get_text()
@@ -888,7 +889,7 @@ test "history SVG escapes adversarial agent labels" {
   bob.apply_sync(alice.export_all())
   bob.insert_at(1, "b", 0)
   alice.apply_sync(bob.export_all())
-  let dot = match @history_render.render_history(alice.causal_snapshot(), me) {
+  let dot = match @history_render.render_history(alice.causal_view(), me) {
     @history_render.Dot(value) => value
     _ => {
       fail("expected history DOT")

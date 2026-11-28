@@ -21,7 +21,7 @@ test "incr runtime snapshot characterizes dependency endpoint uniqueness" {
   for edge in snapshot.edges {
     let key = incr_canvas_edge_endpoint_key(edge)
     assert_false(seen.contains(key))
-    seen.add(key)
+    seen.insert(key)
   }
   match incr_canvas_status(snapshot, derived.id()) {
     @visualizer.VisualNodeStatus::Changed => ()

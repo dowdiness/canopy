@@ -6,13 +6,13 @@ import {
 }
 
 // Values
-pub const MAX_OPS : Int = 1000
+pub const MAX_OPS : Int32 = 1000
 
 pub fn escape_html_string(String) -> String
 
-pub fn legend_html(@history.CausalSnapshot, String) -> String
+pub fn legend_html(@history.CausalView, String) -> String
 
-pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
+pub fn render_history(@history.CausalView, String) -> HistoryRender
 
 // Errors
 
@@ -20,7 +20,7 @@ pub fn render_history(@history.CausalSnapshot, String) -> HistoryRender
 pub enum HistoryRender {
   Empty
   Dot(String)
-  TooLarge(Int)
+  TooLarge(Int32)
 }
 
 // Type aliases

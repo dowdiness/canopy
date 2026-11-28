@@ -3,12 +3,12 @@ name = "dowdiness/canopy"
 version = "0.1.0"
 
 import {
-  "moonbitlang/quickcheck@0.14.0",
-  "moonbitlang/x@0.4.38",
+  "moonbitlang/quickcheck@0.15.1",
+  "moonbitlang/x@0.5.7",
   "moonbitlang/async@0.20.1",
-  "dowdiness/incr@0.15.1",
+  "dowdiness/incr@0.16.0",
   "dowdiness/diagnostic@0.1.0",
-  "dowdiness/event-graph-walker@0.8.0",
+  "dowdiness/event-graph-walker@0.11.0",
   "dowdiness/byte_codec@0.1.0",
   "dowdiness/text_change@0.1.0",
   "dowdiness/moji@0.1.0",
@@ -16,7 +16,7 @@ import {
   "dowdiness/loom@0.1.0",
   "dowdiness/seam@0.1.0",
   "dowdiness/json@0.1.0",
-  "dowdiness/order-tree@0.1.0",
+  "dowdiness/order-tree@0.3.0",
   "dowdiness/pretty@0.1.0",
   "dowdiness/markdown@0.1.0",
   "dowdiness/jsx@0.1.0",

@@ -5,7 +5,7 @@ fn test_background_target() -> CanvasContextTarget {
 
 ///|
 fn test_context_prepare(
-  handle : Int,
+  handle : Int32,
   target : CanvasContextTarget,
 ) -> CanvasContextPreparedMenu raise {
   match
@@ -19,7 +19,7 @@ fn test_context_prepare(
 }
 
 ///|
-fn test_context_runtime(handle : Int) -> CanvasRuntime raise {
+fn test_context_runtime(handle : Int32) -> CanvasRuntime raise {
   match canvas_backing(handle) {
     Some(Runtime(runtime)) => runtime
     _ => fail("expected a runtime canvas")
@@ -41,9 +41,9 @@ fn test_context_open(
 
 ///|
 fn test_context_binding(
-  handle : Int,
-  on_change? : () -> Unit = () => (),
-  on_source_result? : (SourceGraphOperationResultJson) -> Unit = _ => (),
+  handle : Int32,
+  on_change~ : () -> Unit = () => (),
+  on_source_result~ : (SourceGraphOperationResultJson) -> Unit = _ => (),
 ) -> CanvasContextMenuBinding {
   { handle, on_change, on_source_result, can_mutate: () => true, }
 }
@@ -52,7 +52,7 @@ fn test_context_binding(
 fn test_select_node(
   runtime : CanvasRuntime,
   id : NodeId,
-  additive? : Bool = false,
+  additive~ : Bool = false,
 ) -> Unit {
   let node = contract_state_node(runtime.state_peek(), id)
   let (x, y) = contract_screen_point(

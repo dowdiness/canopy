@@ -113,7 +113,9 @@ fn metadata_candidate() -> @cognition.GenerativeUiCandidate {
 }
 
 ///|
-fn projection_ids(node : @canopy_core.ProjNode[@jsx_ast.JsxNode]) -> Array[Int] {
+fn projection_ids(
+  node : @canopy_core.ProjNode[@jsx_ast.JsxNode],
+) -> Array[Int32] {
   [node.node_id, ..node.children.map(projection_ids).flatten()]
 }
 
@@ -179,9 +181,10 @@ fn node_children_texts(
 }
 
 ///|
+#derive(Debug)
 struct ProjectionCandidateCase {
   raw : @cognition.GenerativeUiRawNode
-} derive(Debug)
+}
 
 ///|
 impl @quickcheck.Arbitrary for ProjectionCandidateCase with fn arbitrary(
@@ -193,12 +196,12 @@ impl @quickcheck.Arbitrary for ProjectionCandidateCase with fn arbitrary(
 }
 
 ///|
-impl @qc.Shrink for ProjectionCandidateCase
+impl @shrink.Shrink for ProjectionCandidateCase
 
 ///|
 fn generate_projection_raw_node(
   rs : @splitmix.RandomState,
-  depth : Int,
+  depth : Int32,
 ) -> @cognition.GenerativeUiRawNode {
   let token = rs.split().next_positive_int() % special_texts().length()
   let text = special_texts()[token]

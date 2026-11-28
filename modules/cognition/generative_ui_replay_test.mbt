@@ -2,7 +2,7 @@
 fn replay_chunk(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
   payload : String,
 ) -> @cognition.GenerativeUiInput {
   @cognition.GenerativeUiInput::chunk(
@@ -17,7 +17,7 @@ fn replay_chunk(
 fn replay_final(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
 ) -> @cognition.GenerativeUiInput {
   @cognition.GenerativeUiInput::finalize(
     generation_id~,
@@ -30,7 +30,7 @@ fn replay_final(
 fn replay_cancel(
   generation_id : @cognition.GenerativeUiGenerationId,
   base_revision : @cognition.GenerativeUiRevision,
-  sequence : Int,
+  sequence : Int32,
 ) -> @cognition.GenerativeUiInput {
   @cognition.GenerativeUiInput::cancel(
     generation_id~,
@@ -40,13 +40,14 @@ fn replay_cancel(
 }
 
 ///|
+#derive(Debug, Eq)
 enum ReplayFixture {
   Complete
   Incomplete
   Duplicated
   OutOfOrder
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
 fn replay_fixture_source(

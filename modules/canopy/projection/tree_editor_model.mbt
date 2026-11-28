@@ -2,13 +2,15 @@
 
 ///|
 /// Rendered children for an interactive node.
+#derive(Debug)
 pub enum InteractiveChildren[T] {
   Loaded(Array[InteractiveTreeNode[T]])
-  Elided(Int)
-} derive(Debug)
+  Elided(Int32)
+}
 
 ///|
 /// Interactive tree node with editing state
+#derive(Debug)
 pub struct InteractiveTreeNode[T] {
   id : NodeId
   kind : T
@@ -24,7 +26,7 @@ pub struct InteractiveTreeNode[T] {
   drop_target : Bool
   /// Corresponding text range
   text_range : Range
-} derive(Debug)
+}
 
 ///|
 /// Short structural label for inspector + debug traces. Format matches
@@ -53,7 +55,7 @@ pub fn[T : Renderable] InteractiveTreeNode::from_term_node(
   InteractiveTreeNode::from_term_node_with_state(
     node,
     source_map,
-    @immut/hashset.new(),
+    @immut/hashset.empty(),
   )
 }
 
@@ -70,18 +72,19 @@ priv struct TreeUIState {
 /// Shallow stamp for deciding whether a previously loaded subtree can be reused.
 /// Shallow stamp — uses kind_tag + label instead of full T equality
 /// to keep stamp comparison O(1) rather than O(subtree).
+#derive(Eq)
 priv struct InteractiveNodeStamp {
   id : NodeId
   kind_tag : String
   label : String
   child_ids : Array[NodeId]
-  elided_descendant_count : Int?
+  elided_descendant_count : Int32?
   selected : Bool
   editing : Bool
   collapsed : Bool
   drop_target : Bool
   text_range : Range
-} derive(Eq)
+}
 
 ///|
 /// Result of a refresh build, including whether the previous node was reused.
@@ -94,7 +97,7 @@ priv struct RefreshedInteractiveNode[T] {
 /// Lazy preorder index, built on demand.
 priv struct LazyPreorder {
   ids : Array[NodeId]
-  range_by_root : Map[NodeId, (Int, Int)]
+  range_by_root : Map[NodeId, (Int32, Int32)]
 }
 
 ///|
@@ -137,7 +140,7 @@ fn[T : Renderable] InteractiveTreeNode::from_term_node_with_state(
 ) -> InteractiveTreeNode[T] {
   let ui_state : TreeUIState = {
     collapsed_nodes,
-    selection: @immut/hashset.new(),
+    selection: @immut/hashset.empty(),
     editing_node: None,
     drop_target: None,
   }
@@ -194,7 +197,7 @@ fn[T : Renderable] from_term_node_impl(
 
 ///|
 /// Count projection descendants using fold.
-fn[T] count_projection_descendants(node : ProjNode[T]) -> Int {
+fn[T] count_projection_descendants(node : ProjNode[T]) -> Int32 {
   node.fold((_, child_counts) => {
     1 + child_counts.fold(init=0, (acc, c) => acc + c)
   })
@@ -264,7 +267,7 @@ pub fn[T] TreeEditorState::new() -> TreeEditorState[T] {
     dragging: None,
     drop_target: None,
     drop_position: None,
-    collapsed_nodes: @immut/hashset.new(),
+    collapsed_nodes: @immut/hashset.empty(),
     loaded_nodes: Map([]),
   }
 }
@@ -275,10 +278,10 @@ pub fn[T : TreeNode + Renderable] TreeEditorState::from_projection(
   proj : ProjNode[T]?,
   source_map : SourceMap,
 ) -> TreeEditorState[T] {
-  let collapsed_nodes : @immut/hashset.HashSet[NodeId] = @immut/hashset.new()
+  let collapsed_nodes : @immut/hashset.HashSet[NodeId] = @immut/hashset.empty()
   let ui_state : TreeUIState = {
     collapsed_nodes,
-    selection: @immut/hashset.new(),
+    selection: @immut/hashset.empty(),
     editing_node: None,
     drop_target: None,
   }

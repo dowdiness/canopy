@@ -14,8 +14,8 @@
 /// gateway and exist for whitebox-test drains after a direct coordinator
 /// destroy.
 pub struct HostRegistry[H] {
-  priv handles : Map[Int, H]
-  priv view_states : Map[Int, @editor.ViewUpdateState]
+  priv handles : Map[Int32, H]
+  priv view_states : Map[Int32, @editor.ViewUpdateState]
 }
 
 ///|
@@ -27,25 +27,25 @@ pub fn[H] HostRegistry::HostRegistry() -> HostRegistry[H] {
 /// Register a handle under its exported integer id.
 pub fn[H] HostRegistry::insert(
   self : HostRegistry[H],
-  id : Int,
+  id : Int32,
   handle : H,
 ) -> Unit {
   self.handles[id] = handle
 }
 
 ///|
-pub fn[H] HostRegistry::get(self : HostRegistry[H], id : Int) -> H? {
+pub fn[H] HostRegistry::get(self : HostRegistry[H], id : Int32) -> H? {
   self.handles.get(id)
 }
 
 ///|
-pub fn[H] HostRegistry::contains(self : HostRegistry[H], id : Int) -> Bool {
+pub fn[H] HostRegistry::contains(self : HostRegistry[H], id : Int32) -> Bool {
   self.handles.contains(id)
 }
 
 ///|
 /// Number of registered handles.
-pub fn[H] HostRegistry::size(self : HostRegistry[H]) -> Int {
+pub fn[H] HostRegistry::size(self : HostRegistry[H]) -> Int32 {
   self.handles.length()
 }
 
@@ -54,7 +54,7 @@ pub fn[H] HostRegistry::size(self : HostRegistry[H]) -> Int {
 /// view-update state). Does NOT consult the coordinator — use `destroy`
 /// for the gated teardown path. Exists for whitebox test drains that
 /// destroy through the coordinator directly.
-pub fn[H] HostRegistry::remove(self : HostRegistry[H], id : Int) -> Unit {
+pub fn[H] HostRegistry::remove(self : HostRegistry[H], id : Int32) -> Unit {
   self.handles.remove(id)
   self.view_states.remove(id)
 }
@@ -73,7 +73,7 @@ pub fn[H] HostRegistry::clear(self : HostRegistry[H]) -> Unit {
 /// a state for an unregistered id would leak until `clear`.
 pub fn[H] HostRegistry::view_state(
   self : HostRegistry[H],
-  id : Int,
+  id : Int32,
 ) -> @editor.ViewUpdateState {
   self.view_states.get_or_init(id, () => {
     @editor.ViewUpdateState::ViewUpdateState()

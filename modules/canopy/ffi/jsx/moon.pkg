@@ -16,6 +16,7 @@ import {
 
 import {
   "moonbitlang/async",
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/quickcheck" @qc,

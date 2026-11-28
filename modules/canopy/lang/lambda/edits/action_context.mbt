@@ -7,7 +7,7 @@ pub(all) struct ActionContext {
   kind : @ast.Term
   is_let_binding : Bool
   binding_node_id : @core.NodeId?
-  binding_def_index : Int?
+  binding_def_index : Int32?
   module_node_id : @core.NodeId?
 }
 

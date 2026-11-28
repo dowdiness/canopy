@@ -7,9 +7,9 @@ using @core {type ProjNode, type NodeId}
 ///|
 fn error_node_with_span(
   message : String,
-  start : Int,
-  end : Int,
-  counter : Ref[Int],
+  start : Int32,
+  end : Int32,
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   ProjNode(Error(message), start, end, @core.next_proj_node_id(counter), [])
 }
@@ -29,7 +29,7 @@ fn is_wrapper_kind(node : @seam.SyntaxNode) -> Bool {
 fn error_node_for_syntax(
   message : String,
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   ProjNode::leaf(Error(message), node, counter)
 }
@@ -47,7 +47,7 @@ fn cstfold_left_spine_step(
   shape : @ast.Term,
   left : ProjNode[@ast.Term],
   right : ProjNode[@ast.Term],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   ProjNode::branch(
     rebuild_kind(shape, [left, right]),
@@ -109,11 +109,11 @@ fn cstfold_bop_spine_shapes(shape : @ast.Term) -> Array[@ast.Term] {
 priv struct ProjectedLetDef {
   name : @ast.VarName
   node : ProjNode[@ast.Term]
-  start : Int
+  start : Int32
 }
 
 ///|
-fn unit_node_at(pos : Int, counter : Ref[Int]) -> ProjNode[@ast.Term] {
+fn unit_node_at(pos : Int32, counter : Ref[Int32]) -> ProjNode[@ast.Term] {
   ProjNode(Unit, pos, pos, @core.next_proj_node_id(counter), [])
 }
 
@@ -128,7 +128,7 @@ fn unit_node_at(pos : Int, counter : Ref[Int]) -> ProjNode[@ast.Term] {
 /// leaf metadata and identity handling to `ProjNode::leaf`.
 fn cstfold_leaf_node(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   ProjNode::leaf(cstfold_projection_compatible_kind(node), node, counter)
 }
@@ -148,7 +148,7 @@ fn cstfold_leaf_node(
 fn cstfold_branch_node(
   node : @seam.SyntaxNode,
   children : Array[ProjNode[@ast.Term]],
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   let shape = cstfold_projection_compatible_shallow_kind(node)
   let kind = rebuild_kind(shape, children)
@@ -156,7 +156,7 @@ fn cstfold_branch_node(
 }
 
 ///|
-fn block_inner_bounds(node : @seam.SyntaxNode) -> (Int, Int) {
+fn block_inner_bounds(node : @seam.SyntaxNode) -> (Int32, Int32) {
   let start = match node.find_token(@syntax.LBraceToken.to_raw()) {
     Some(tok) => tok.end()
     None => node.start()
@@ -180,7 +180,7 @@ fn with_tight_syntax_range(
 ///|
 fn project_function_body(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   match @parser.BlockExprView::cast(node) {
     Some(v) => {
@@ -208,11 +208,11 @@ fn project_function_body(
 ///|
 fn wrap_params_as_lams(
   params : Array[String],
-  param_starts : Array[Int],
+  param_starts : Array[Int32],
   body : ProjNode[@ast.Term],
-  start : Int,
-  end : Int,
-  counter : Ref[Int],
+  start : Int32,
+  end : Int32,
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   let mut result = body
   for i = params.length() - 1; i >= 0; i = i - 1 {
@@ -235,7 +235,7 @@ fn wrap_params_as_lams(
 ///|
 fn project_let_def(
   def : @parser.LetDefView,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjectedLetDef {
   let def_node = def.syntax_node()
   let param_tokens = param_ident_tokens(def_node)
@@ -272,9 +272,9 @@ fn project_let_def(
 fn module_node_from_defs(
   defs : Array[ProjectedLetDef],
   body : ProjNode[@ast.Term],
-  start : Int,
-  end : Int,
-  counter : Ref[Int],
+  start : Int32,
+  end : Int32,
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   let children : Array[ProjNode[@ast.Term]] = defs.map(fn(d) { d.node })
   children.push(body)
@@ -290,7 +290,7 @@ fn module_node_from_defs(
 ///|
 pub fn syntax_to_proj_node(
   node : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   if @parser.IntLiteralView::cast(node) is Some(_) {
     cstfold_leaf_node(node, counter)
@@ -439,7 +439,7 @@ pub fn syntax_to_proj_node(
 /// `syntax_node_to_term` while preserving spans and IDs.
 pub fn to_proj_node(
   root : @seam.SyntaxNode,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> ProjNode[@ast.Term] {
   let defs : Array[ProjectedLetDef] = []
   let mut final_proj : ProjNode[@ast.Term]? = None

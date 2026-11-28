@@ -8,21 +8,26 @@
 /// and the editor responds with patches. The JSON encoding is consumed by
 /// `adapters/editor` on the TypeScript side; new variants must be
 /// added in both places.
+#derive(Debug, Eq)
 pub(all) enum UserIntent {
-  TextEdit(from~ : Int, to~ : Int, insert~ : String)
+  TextEdit(from~ : Int32, to~ : Int32, insert~ : String)
   StructuralEdit(
     node_id~ : @core.NodeId,
     op~ : String,
-    params~ : Map[String, String]
+    params~ : Map[String, String],
   )
   SelectNode(node_id~ : @core.NodeId)
-  SetPmCursor(pm_tree_position~ : Int)
-  SetDocCursor(doc_code_unit_offset~ : Int)
+  SetPmCursor(pm_tree_position~ : Int32)
+  SetDocCursor(doc_code_unit_offset~ : Int32)
   Undo
   Redo
   CommitEdit(node_id~ : @core.NodeId, value~ : String)
-  ApplyDiagnosticFix(snapshot_id~ : Int, diagnostic_id~ : Int, fix_id~ : Int)
-} derive(Debug, Eq)
+  ApplyDiagnosticFix(
+    snapshot_id~ : Int32,
+    diagnostic_id~ : Int32,
+    fix_id~ : Int32,
+  )
+}
 
 ///|
 pub impl Show for UserIntent with fn output(self, logger) {
@@ -35,7 +40,7 @@ fn user_intent_number_field(
   path : @json.JsonPath,
   key : String,
   owner : String,
-) -> Int raise @json.JsonDecodeError {
+) -> Int32 raise @json.JsonDecodeError {
   match fields.get(key) {
     Some(Json::Number(n, ..)) => n.to_int()
     _ =>
@@ -67,11 +72,11 @@ fn user_intent_nonnegative_id_field(
   path : @json.JsonPath,
   key : String,
   owner : String,
-) -> Int raise @json.JsonDecodeError {
+) -> Int32 raise @json.JsonDecodeError {
   match fields.get(key) {
     Some(Json::Number(number, ..)) => {
       let value = number.to_int()
-      if value >= 0 && number == Double::from_int(value) {
+      if value >= 0 && number == value.to_double() {
         value
       } else {
         raise @json.JsonDecodeError(
@@ -94,45 +99,45 @@ pub impl ToJson for UserIntent with fn to_json(self) {
   let m : Map[String, Json] = Map([])
   match self {
     TextEdit(from~, to~, insert~) => {
-      m["type"] = "TextEdit".to_json()
-      m["from"] = from.to_json()
-      m["to"] = to.to_json()
-      m["insert"] = insert.to_json()
+      m["type"] = Json("TextEdit")
+      m["from"] = Json(from)
+      m["to"] = Json(to)
+      m["insert"] = Json(insert)
     }
     StructuralEdit(node_id~, op~, params~) => {
-      m["type"] = "StructuralEdit".to_json()
+      m["type"] = Json("StructuralEdit")
       m["node_id"] = node_id.to_json()
-      m["op"] = op.to_json()
+      m["op"] = Json(op)
       let pm : Map[String, Json] = Map([])
       for k, v in params {
-        pm[k] = v.to_json()
+        pm[k] = Json(v)
       }
       m["params"] = Json::object(pm)
     }
     SelectNode(node_id~) => {
-      m["type"] = "SelectNode".to_json()
+      m["type"] = Json("SelectNode")
       m["node_id"] = node_id.to_json()
     }
     SetPmCursor(pm_tree_position~) => {
-      m["type"] = "SetPmCursor".to_json()
-      m["pm_tree_position"] = pm_tree_position.to_json()
+      m["type"] = Json("SetPmCursor")
+      m["pm_tree_position"] = Json(pm_tree_position)
     }
     SetDocCursor(doc_code_unit_offset~) => {
-      m["type"] = "SetDocCursor".to_json()
-      m["doc_code_unit_offset"] = doc_code_unit_offset.to_json()
+      m["type"] = Json("SetDocCursor")
+      m["doc_code_unit_offset"] = Json(doc_code_unit_offset)
     }
-    Undo => m["type"] = "Undo".to_json()
-    Redo => m["type"] = "Redo".to_json()
+    Undo => m["type"] = Json("Undo")
+    Redo => m["type"] = Json("Redo")
     CommitEdit(node_id~, value~) => {
-      m["type"] = "CommitEdit".to_json()
+      m["type"] = Json("CommitEdit")
       m["node_id"] = node_id.to_json()
-      m["value"] = value.to_json()
+      m["value"] = Json(value)
     }
     ApplyDiagnosticFix(snapshot_id~, diagnostic_id~, fix_id~) => {
-      m["type"] = "ApplyDiagnosticFix".to_json()
-      m["snapshot_id"] = snapshot_id.to_json()
-      m["diagnostic_id"] = diagnostic_id.to_json()
-      m["fix_id"] = fix_id.to_json()
+      m["type"] = Json("ApplyDiagnosticFix")
+      m["snapshot_id"] = Json(snapshot_id)
+      m["diagnostic_id"] = Json(diagnostic_id)
+      m["fix_id"] = Json(fix_id)
     }
   }
   Json::object(m)

@@ -74,7 +74,10 @@ fn documents_test_document(
 }
 
 ///|
-fn pending_revision(documents : @documents.Model, key : @documents.Key) -> Int {
+fn pending_revision(
+  documents : @documents.Model,
+  key : @documents.Key,
+) -> Int32 {
   documents
   .pending_edits()
   .search_by(item => item.0 == key)
@@ -1042,8 +1045,8 @@ test "revision conflict waits for recovery identity before atomic persistence" {
         Sync(
           RecoveryCreated(
             attempt,
-            @source_repository.CreateResult::Created(recovery_id, _)
-          )
+            @source_repository.CreateResult::Created(recovery_id, _),
+          ),
         ) if attempt == recovery => created = Some(recovery_id)
         _ => ()
       }
@@ -2499,8 +2502,8 @@ test "failed active deletion remains visible and retryable" {
     editing.documents.delete_status(key)
     is Some(
       @documents.DeleteStatus::DeletePersistenceFailed(
-        @source_repository.ReplicaFailure::StorageUnavailable
-      )
+        @source_repository.ReplicaFailure::StorageUnavailable,
+      ),
     ),
   )
   let account = attempt.write().replica().account()

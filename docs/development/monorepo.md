@@ -82,6 +82,31 @@ If the clone already exists without submodules:
 git submodule update --init --recursive
 ```
 
+### Compiler and core upgrades
+
+The compatibility pair in [`.moonbit-toolchain`](../../.moonbit-toolchain) is
+authoritative. Update dependencies, source, generated `.mbti` interfaces, and
+JavaScript callers together with that pin; changing only the pin is not a
+completed migration. A version containing `-rc` is a release candidate, not a
+stable release.
+
+The primary module and Canvas prefer JavaScript. Do not use `--target all` as
+a workspace gate: browser-only dependencies do not support Wasm GC. Check
+other supported targets from the affected library roots, separately from
+the browser workspace.
+
+Functions that intentionally return `Result` as data retain that contract.
+Their function-scoped `result_error_return` exemptions do not suppress other
+diagnostics. Legacy `link.js.exports` declarations remain supported but emit
+a planner deprecation notice; the FFI export-manifest contract still checks
+those declarations.
+
+The standalone `deps/rabbita/doc` module is excluded from the RC1 migration:
+its `ShellWen/sw_router@0.2.0` dependency has an incompatible registry manifest.
+The exception and migration evidence are tracked in
+[issue #1486](https://github.com/dowdiness/canopy/issues/1486).
+
+
 ## Daily workflow
 
 ### Working on the primary module

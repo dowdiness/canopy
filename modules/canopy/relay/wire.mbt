@@ -39,7 +39,7 @@ fn encode_peer_control(sub_type : Byte, peer_id : String) -> Bytes {
 /// boundary: the byte stream is sliced from `offset` so the cursor starts at
 /// the length prefix, and any `CodecError` (EOF, oversized length) maps to a
 /// dropped frame.
-fn read_relay_string(data : Bytes, offset : Int) -> (String, Int)? {
+fn read_relay_string(data : Bytes, offset : Int32) -> (String, Int32)? {
   let reader = Reader::new(
     data.exact_view(start=offset, end=data.length()).to_owned(),
   )
@@ -54,7 +54,7 @@ fn wrap_with_sender(
   sender : String,
   new_type : Byte,
   data : Bytes,
-  payload_offset : Int,
+  payload_offset : Int32,
 ) -> Bytes {
   let buf = Buffer()
   buf.write_byte(protocol_version)
@@ -62,8 +62,8 @@ fn wrap_with_sender(
   buf.write_byte(flags_none)
   write_string(buf, sender)
   if payload_offset < data.length() {
-    buf.write_bytes(
-      data.exact_view(start=payload_offset, end=data.length()).to_owned(),
+    buf.write_bytesview(
+      data.exact_view(start=payload_offset, end=data.length()),
     )
   }
   buf.to_bytes()

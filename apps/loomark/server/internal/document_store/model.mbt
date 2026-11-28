@@ -1,8 +1,9 @@
 ///|
+#derive(Debug, Eq)
 pub(all) suberror StoreError {
   InvalidMutation
   InvalidStoredData
-} derive(Debug, Eq)
+}
 
 ///|
 /// A present document's text with the client's Change time for it, in
@@ -85,12 +86,12 @@ pub fn valid_identity(value : String) -> Bool {
     if i == 8 || i == 13 || i == 18 || i == 23 {
       guard value[i] == '-' else { return false }
     } else {
-      guard value[i] is ('0'..='9' | 'a'..='f' | 'A'..='F') else {
+      guard value[i] is ('0'..<='9' | 'a'..<='f' | 'A'..<='F') else {
         return false
       }
     }
   }
-  value[14] is ('1'..='8') && value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B')
+  value[14] is ('1'..<='8') && value[19] is ('8' | '9' | 'a' | 'b' | 'A' | 'B')
 }
 
 ///|

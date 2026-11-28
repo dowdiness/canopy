@@ -6,10 +6,11 @@ priv enum ScenarioCheckpoint {
 }
 
 ///|
+#derive(Eq)
 priv enum ScenarioNodeRef {
   Existing(String)
   New(String)
-} derive(Eq)
+}
 
 ///|
 fn ScenarioNodeRef::label(self : ScenarioNodeRef) -> String {
@@ -19,9 +20,10 @@ fn ScenarioNodeRef::label(self : ScenarioNodeRef) -> String {
 }
 
 ///|
+#derive(Eq)
 priv enum ScenarioPlacement {
   AtEnd
-} derive(Eq)
+}
 
 ///|
 fn ScenarioPlacement::label(self : ScenarioPlacement) -> String {
@@ -30,9 +32,10 @@ fn ScenarioPlacement::label(self : ScenarioPlacement) -> String {
 }
 
 ///|
+#derive(Eq)
 priv enum ScenarioValue {
   Null
-} derive(Eq)
+}
 
 ///|
 fn ScenarioValue::label(self : ScenarioValue) -> String {
@@ -41,23 +44,24 @@ fn ScenarioValue::label(self : ScenarioValue) -> String {
 }
 
 ///|
+#derive(Eq)
 priv enum ScenarioOperation {
   InsertNode(
     handle~ : String,
     component~ : String,
     properties~ : Array[(String, ScenarioValue)],
     parent~ : ScenarioNodeRef,
-    placement~ : ScenarioPlacement
+    placement~ : ScenarioPlacement,
   )
   MoveNode(
     node~ : ScenarioNodeRef,
     parent~ : ScenarioNodeRef,
-    placement~ : ScenarioPlacement
+    placement~ : ScenarioPlacement,
   )
   SetProperty(node~ : ScenarioNodeRef, key~ : String, value~ : ScenarioValue)
   RemoveProperty(node~ : ScenarioNodeRef, key~ : String)
   RemoveNode(ScenarioNodeRef)
-} derive(Eq)
+}
 
 ///|
 fn ScenarioOperation::label(self : ScenarioOperation) -> String {
@@ -74,10 +78,11 @@ fn ScenarioOperation::label(self : ScenarioOperation) -> String {
 }
 
 ///|
+#derive(Eq)
 priv enum FakeShellEvent {
   OpenDocument
-  EditDraft(bytes~ : Bytes, revision~ : Int, valid~ : Bool)
-  SubmitAgentRequest(request_id~ : String, base_revision~ : Int)
+  EditDraft(bytes~ : Bytes, revision~ : Int32, valid~ : Bool)
+  SubmitAgentRequest(request_id~ : String, base_revision~ : Int32)
   StoreCommit(request_id~ : String)
   LoseResponse(request_id~ : String)
   RetryRequest(request_id~ : String)
@@ -96,7 +101,7 @@ priv enum FakeShellEvent {
   StoreRebuiltRendererOutcome(effect_id~ : String)
   DeliverDuplicateRendererEffect(effect_id~ : String)
   StoreDuplicateRendererOutcome(effect_id~ : String)
-} derive(Eq)
+}
 
 ///|
 fn FakeShellEvent::label(self : FakeShellEvent) -> String {
@@ -129,81 +134,83 @@ fn FakeShellEvent::label(self : FakeShellEvent) -> String {
 }
 
 ///|
+#derive(Eq)
 priv enum ScenarioObservation {
   DocumentOpened(
-    draft_revision~ : Int,
+    draft_revision~ : Int32,
     draft_bytes~ : Bytes,
     graph_digest~ : String,
-    graph_revision~ : Int,
+    graph_revision~ : Int32,
     schema_identity~ : String,
     schema_digest~ : String,
-    renderer_baseline~ : Int,
-    acknowledged_effect~ : String
+    renderer_baseline~ : Int32,
+    acknowledged_effect~ : String,
   )
   DraftChanged(
-    draft_revision~ : Int,
+    draft_revision~ : Int32,
     draft_bytes~ : Bytes,
     valid~ : Bool,
-    retained_graph_digest~ : String
+    retained_graph_digest~ : String,
   )
   CommitPlanned(
     request_id~ : String,
     graph_digest~ : String,
     inserted_node_ids~ : Array[String],
     source_effect_id~ : String,
-    renderer_effect_id~ : String
+    renderer_effect_id~ : String,
   )
   CommitPersisted(
     request_id~ : String,
-    graph_revision~ : Int,
-    history_length~ : Int,
-    outbox_length~ : Int
+    graph_revision~ : Int32,
+    history_length~ : Int32,
+    outbox_length~ : Int32,
   )
   ResponseSuppressed(request_id~ : String)
   RecordedOutcomeReturned(
     request_id~ : String,
-    graph_revision~ : Int,
-    history_length~ : Int
+    graph_revision~ : Int32,
+    history_length~ : Int32,
   )
   PersistSourceBlocked(
     effect_id~ : String,
     reason~ : String,
-    preserved_bytes~ : Bytes
+    preserved_bytes~ : Bytes,
   )
   CrashObserved(effect_id~ : String)
   Recovered(
-    graph_revision~ : Int,
+    graph_revision~ : Int32,
     pending_effects~ : Array[String],
-    renderer_baseline~ : Int,
-    renderer_dirty~ : Bool
+    renderer_baseline~ : Int32,
+    renderer_dirty~ : Bool,
   )
   SourceBlockedPersisted(effect_id~ : String, preserved_bytes~ : Bytes)
-  RendererApplyRequested(effect_id~ : String, graph_revision~ : Int)
+  RendererApplyRequested(effect_id~ : String, graph_revision~ : Int32)
   PersistRendererDirty(
     effect_id~ : String,
-    renderer_baseline~ : Int,
-    graph_revision~ : Int
+    renderer_baseline~ : Int32,
+    graph_revision~ : Int32,
   )
-  RendererDirtyPersisted(renderer_baseline~ : Int, graph_revision~ : Int)
+  RendererDirtyPersisted(renderer_baseline~ : Int32, graph_revision~ : Int32)
   RebuildLatestRequested(
     delivered_effect_id~ : String,
     graph_digest~ : String,
-    graph_revision~ : Int
+    graph_revision~ : Int32,
   )
   PersistRendererRebuilt(
     delivered_effect_id~ : String,
-    renderer_baseline~ : Int
+    renderer_baseline~ : Int32,
   )
-  RendererRebuiltPersisted(renderer_baseline~ : Int, renderer_dirty~ : Bool)
-  PersistDuplicateRenderer(effect_id~ : String, renderer_baseline~ : Int)
-  DuplicateRendererPersisted(renderer_baseline~ : Int, renderer_dirty~ : Bool)
-} derive(Eq)
+  RendererRebuiltPersisted(renderer_baseline~ : Int32, renderer_dirty~ : Bool)
+  PersistDuplicateRenderer(effect_id~ : String, renderer_baseline~ : Int32)
+  DuplicateRendererPersisted(renderer_baseline~ : Int32, renderer_dirty~ : Bool)
+}
 
 ///|
+#derive(Eq)
 priv struct ScenarioStep {
   event : FakeShellEvent
   expectations : Array[ScenarioObservation]
-} derive(Eq)
+}
 
 ///|
 fn ScenarioStep::ScenarioStep(
@@ -226,30 +233,31 @@ fn ScenarioStep::expectations(
 }
 
 ///|
+#derive(Eq)
 priv struct ScenarioFinalExpectation {
   graph_digest : String
-  graph_revision : Int
+  graph_revision : Int32
   schema_identity : String
   schema_digest : String
-  applied_history_length : Int
-  terminal_request_count : Int
+  applied_history_length : Int32
+  terminal_request_count : Int32
   inserted_node_ids : Array[String]
   draft_bytes : Bytes
-  renderer_baseline : Int
+  renderer_baseline : Int32
   renderer_dirty : Bool
-} derive(Eq)
+}
 
 ///|
 fn ScenarioFinalExpectation::ScenarioFinalExpectation(
   graph_digest~ : String,
-  graph_revision~ : Int,
+  graph_revision~ : Int32,
   schema_identity~ : String,
   schema_digest~ : String,
-  applied_history_length~ : Int,
-  terminal_request_count~ : Int,
+  applied_history_length~ : Int32,
+  terminal_request_count~ : Int32,
   inserted_node_ids~ : Array[String],
   draft_bytes~ : Bytes,
-  renderer_baseline~ : Int,
+  renderer_baseline~ : Int32,
   renderer_dirty~ : Bool,
 ) -> ScenarioFinalExpectation {
   {

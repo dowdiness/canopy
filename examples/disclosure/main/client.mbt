@@ -26,7 +26,7 @@ struct DisclosureModel {
 /// Create disclosure state for a panel whose `content_id` is unique on the page.
 fn DisclosureModel::new(
   content_id~ : String,
-  open? : Bool = false,
+  open~ : Bool = false,
 ) -> DisclosureModel {
   { open, content_id, }
 }
@@ -69,7 +69,7 @@ fn Section::new(
   title~ : String,
   body~ : String,
   content_id~ : String,
-  open? : Bool = false,
+  open~ : Bool = false,
 ) -> Section {
   { title, body, disclosure: DisclosureModel::new(content_id~, open~), }
 }
@@ -93,7 +93,7 @@ impl Eq for Model with fn equal(_, _) {
 
 ///|
 enum Msg {
-  Toggle(Int)
+  Toggle(Int32)
 }
 
 ///|
@@ -148,7 +148,7 @@ test "toggle updates selected section only" {
 }
 
 ///|
-fn section_view(emit : Emit[Msg], index : Int, section : Section) -> Html {
+fn section_view(emit : Emit[Msg], index : Int32, section : Section) -> Html {
   let disclosure = section.disclosure
   div(class="disclosure", [
     button(

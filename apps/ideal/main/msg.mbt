@@ -7,12 +7,12 @@ enum OverlayEvent {
 
 ///|
 enum IncrCanvasMsg {
-  PointerDown(Double, Double, Int?)
-  PointerMove(Double, Double, Int?)
-  PointerUp(Int?)
-  PointerCancel(Int?)
-  CaptureLost(Int?)
-  Wheel(Double, Int, Bool, Double, Double)
+  PointerDown(Double, Double, Int32?)
+  PointerMove(Double, Double, Int32?)
+  PointerUp(Int32?)
+  PointerCancel(Int32?)
+  CaptureLost(Int32?)
+  Wheel(Double, Int32, Bool, Double, Double)
 }
 
 ///|
@@ -58,10 +58,10 @@ enum Msg {
   // Action overlay
   OpenActionOverlayForNode(String)
   ActionOverlay(OverlayEvent)
-  ActionOverlayMsg(token~ : Int, OverlayMsg)
+  ActionOverlayMsg(token~ : Int32, OverlayMsg)
   // Parent-stamped bridge for delayed overlay effects. The token is assigned
   // from the active host at scheduling time and rejects stale commands.
-  ActionOverlayEffect(token~ : Int, OverlayOutput)
+  ActionOverlayEffect(token~ : Int32, OverlayOutput)
   LongPressTriggeredForNode(String)
   // Outline drag-and-drop
   OutlineDragStart(@canopy_core.NodeId)
@@ -71,8 +71,8 @@ enum Msg {
   OutlineDragEnd
   // Structure-mode Web Component communication.
   StructureNodeSelected(String)
-  StructureTreeEdit(generation~ : Int, @lambda_edits.TreeEditOp)
-  StructureHistory(generation~ : Int, HistoryDirection)
+  StructureTreeEdit(generation~ : Int32, @lambda_edits.TreeEditOp)
+  StructureHistory(generation~ : Int32, HistoryDirection)
   ExternalCrdtChanged
   CmMounted
   CmChanges(@cm.ChangeEvent)

@@ -1,10 +1,11 @@
 ///|
+#derive(Eq)
 struct Model {
   text : String
   mode : @editor.Mode
   editor : @editor.EditorState
   composing : Bool
-} derive(Eq)
+}
 
 ///|
 enum Msg {

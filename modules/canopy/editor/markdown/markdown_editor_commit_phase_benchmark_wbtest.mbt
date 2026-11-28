@@ -4,7 +4,7 @@
 /// The text-change benchmark isolates the diff helper. The following three
 /// benchmarks are cumulative: their differences estimate apply, refresh, and
 /// snapshot costs before the public commit comparisons.
-fn commit_phase_source(block_count : Int) -> String {
+fn commit_phase_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     let number = index.to_string()
     "## Heading " +
@@ -18,7 +18,7 @@ fn commit_phase_source(block_count : Int) -> String {
 }
 
 ///|
-fn commit_phase_sentinel_dense_source(block_count : Int) -> String {
+fn commit_phase_sentinel_dense_source(block_count : Int32) -> String {
   Array::makei(block_count, index => {
     if index % 2 == 0 {
       "\u{200B}\n"
@@ -29,7 +29,7 @@ fn commit_phase_sentinel_dense_source(block_count : Int) -> String {
 }
 
 ///|
-fn commit_phase_variant(source : String, tick : Int) -> String {
+fn commit_phase_variant(source : String, tick : Int32) -> String {
   let suffix = if tick % 2 == 0 { "x" } else { "" }
   source + suffix
 }
@@ -93,7 +93,7 @@ test "perf: MarkdownEditor apply precomputed change (250 blocks)" (b : @bench.T)
       @text_change.TextChange::ReplaceAll(_) =>
         abort("compute_text_change unexpectedly returned ReplaceAll")
     }
-    b.keep(editor.editor.get_text())
+    b.keep(try! editor.editor.get_text())
   })
 }
 

@@ -66,7 +66,7 @@ fn escalate_suppressed(
   // This duplicates Tier 1 work for the prefix but is necessary to get raw Values.
   let def_states = build_def_states(defs, body, tier1_results)
   // Collect candidates: indices of Suppressed results
-  let candidates : Array[Int] = []
+  let candidates : Array[Int32] = []
   for i, state in def_states {
     if state.result == Suppressed {
       candidates.push(i)
@@ -146,11 +146,11 @@ fn build_def_states(
 /// no new resolutions occur or all candidates are resolved.
 fn run_batch_egglog(
   def_states : Array[DefState],
-  candidates : Array[Int],
+  candidates : Array[Int32],
 ) -> Array[EvalResult] {
   let results : Array[EvalResult] = def_states.map(fn(s) { s.result })
   let rules = @egglog_eval.eval_rules()
-  let recovered_values : Map[Int, @lambda_eval.Value] = Map([])
+  let recovered_values : Map[Int32, @lambda_eval.Value] = Map([])
   for i, state in def_states {
     match state.raw_value {
       Some(v) => recovered_values[i] = v
@@ -167,7 +167,7 @@ fn run_batch_egglog(
       break
     }
     let mut progress = false
-    let next_unresolved : Array[Int] = []
+    let next_unresolved : Array[Int32] = []
     for candidate_idx in unresolved {
       let state = def_states[candidate_idx]
       let db = @egglog_eval.lambda_eval_db()
@@ -241,8 +241,8 @@ fn find_any_eval_error(db : @egglog.Database) -> String? {
 /// shadow their name — the name is simply absent from the result.
 fn build_candidate_bindings(
   def_states : Array[DefState],
-  recovered_values : Map[Int, @lambda_eval.Value],
-  candidate_idx : Int,
+  recovered_values : Map[Int32, @lambda_eval.Value],
+  candidate_idx : Int32,
 ) -> Array[(String, @lambda_eval.Value)] {
   let bindings : Array[(String, @lambda_eval.Value)] = []
   let seen_names : Map[String, Bool] = Map([])
@@ -266,8 +266,8 @@ fn build_candidate_bindings(
 /// and defs without values remove the name (correct shadowing).
 fn build_tier1_env(
   def_states : Array[DefState],
-  recovered_values : Map[Int, @lambda_eval.Value],
-  up_to_index : Int,
+  recovered_values : Map[Int32, @lambda_eval.Value],
+  up_to_index : Int32,
 ) -> @lambda_eval.Env {
   let bindings : Map[String, @lambda_eval.Value] = Map([])
   for j = 0; j < up_to_index; j = j + 1 {

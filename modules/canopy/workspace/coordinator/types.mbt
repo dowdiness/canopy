@@ -2,7 +2,8 @@
 // See docs/superpowers/specs/2026-05-24-p0b-phase1-skeleton-design.md §6.
 
 ///|
-pub(all) struct EditorId(Int) derive(Eq, Hash, @debug.Debug)
+#derive(Eq, Hash, @debug.Debug)
+pub(all) struct EditorId(Int32)
 
 ///|
 pub impl Show for EditorId with fn output(self, logger) {
@@ -10,13 +11,14 @@ pub impl Show for EditorId with fn output(self, logger) {
 }
 
 ///|
+#derive(Eq, @debug.Debug)
 pub(all) enum AbortKind {
   EditorDestroyed
   DestroyWhileDependedUpon
   CellNotInProtectedSurface
   CycleDetected
   ProtectedCellDisposed
-} derive(Eq, @debug.Debug)
+}
 
 ///|
 pub impl Show for AbortKind with fn output(self, logger) {
@@ -24,6 +26,7 @@ pub impl Show for AbortKind with fn output(self, logger) {
 }
 
 ///|
+#derive(@debug.Debug)
 pub(all) struct AbortReport {
   kind : AbortKind
   editor_id : EditorId
@@ -31,7 +34,7 @@ pub(all) struct AbortReport {
   cell_id : @incr.CellId?
   cell_label : String?
   domain_tag : String?
-} derive(@debug.Debug)
+}
 
 ///|
 pub impl Show for AbortReport with fn output(self, logger) {
@@ -139,9 +142,9 @@ priv struct EditorRegistration {
 ///|
 pub struct Coordinator {
   priv runtime : @incr.Runtime
-  priv editors : @hashmap.HashMap[Int, EditorRegistration]
+  priv editors : @hashmap.HashMap[Int32, EditorRegistration]
   priv deps : @hashmap.HashMap[@incr.CellId, Array[(EditorId, @incr.CellId)]]
-  priv next_id : Ref[Int]
+  priv next_id : Ref[Int32]
 }
 
 ///|

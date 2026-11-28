@@ -37,10 +37,12 @@ pub fn[T] SyncEditor::refresh(self : SyncEditor[T]) -> Unit raise Failure {
 /// Uses T::placeholder(node.kind) so deletion leaves a parseable hole.
 ///
 /// Example: deleting `(f x)` in lambda → leaves `?`
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn[T : Eq + @loom_core.Renderable] SyncEditor::delete_node(
   self : SyncEditor[T],
   node_id : @core.NodeId,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
@@ -77,11 +79,13 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::delete_node(
 /// providing syntactically valid replacement text.
 ///
 /// Example: committing an inline rename edit.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn[T : Eq] SyncEditor::commit_edit(
   self : SyncEditor[T],
   node_id : @core.NodeId,
   new_text : String,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
@@ -113,11 +117,13 @@ pub fn[T : Eq] SyncEditor::commit_edit(
 ///   editor.apply_text_transform(node_id, fn(src, s, e) {
 ///     Ok("((x) => " + src[s:e].to_string() + ")")
 ///   }, timestamp)
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn[T : Eq] SyncEditor::apply_text_transform(
   self : SyncEditor[T],
   node_id : @core.NodeId,
-  compute_replacement : (String, Int, Int) -> Result[String, String],
-  timestamp_ms : Int,
+  compute_replacement : (String, Int32, Int32) -> Result[String, String],
+  timestamp_ms : Int32,
 ) -> Result[Unit, TreeEditError] raise {
   let range = match self.get_node_range(node_id) {
     None =>
@@ -162,12 +168,14 @@ pub fn[T : Eq] SyncEditor::apply_text_transform(
 ///
 /// The shell taints pending transforms only after resolution succeeds;
 /// unknown-id failures leave pending hints untouched.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
   self : SyncEditor[T],
   source_id : @core.NodeId,
   target_id : @core.NodeId,
   position : @core.DropPosition,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Array[@core.SpanEdit], TreeEditError] raise {
   // Resolve source
   let src_range = match self.get_node_range(source_id) {
@@ -201,12 +209,13 @@ pub fn[T : Eq + @loom_core.Renderable] SyncEditor::move_node(
       )
     Some(r) => r
   }
+  let source = self.get_text()
   // A drag-drop restructures the tree non-locally. Invalidate any pending
   // structural hints so reconcile degrades to LCS for this reparse.
   // (Move identity preservation deferred to Slice 5+ match_entities.)
   self.taint_pending_transforms()
   let (edits, focus_hint) = @core.compute_move(
-    self.get_text(),
+    source,
     source_id,
     src_range,
     target_id,

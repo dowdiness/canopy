@@ -3,39 +3,39 @@
 /// Markdown façade. Sequence is a monotonic observation ordinal; browser wall
 /// time belongs to the application-level A–F trace.
 priv struct MarkdownAuthorityTraceBuffer {
-  sequence : FixedArray[Int]
-  phase : FixedArray[Int]
-  outcome : FixedArray[Int]
-  event_id : FixedArray[Int]
-  mut count : Int
-  mut next_sequence : Int
-  mut next_event_id : Int
-  mut dropped_count : Int
+  sequence : FixedArray[Int32]
+  phase : FixedArray[Int32]
+  outcome : FixedArray[Int32]
+  event_id : FixedArray[Int32]
+  mut count : Int32
+  mut next_sequence : Int32
+  mut next_event_id : Int32
+  mut dropped_count : Int32
   mut overflowed : Bool
   mut id_exhausted : Bool
 }
 
 ///|
-const MARKDOWN_AUTHORITY_PHASE_A0 : Int = 1
+const MARKDOWN_AUTHORITY_PHASE_A0 : Int32 = 1
 
 ///|
-const MARKDOWN_AUTHORITY_PHASE_A1 : Int = 2
+const MARKDOWN_AUTHORITY_PHASE_A1 : Int32 = 2
 
 ///|
-const MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION : Int = 1
+const MARKDOWN_AUTHORITY_OUTCOME_ACCEPTED_TRANSITION : Int32 = 1
 
 ///|
-const MARKDOWN_AUTHORITY_OUTCOME_NO_ADVANCE : Int = 2
+const MARKDOWN_AUTHORITY_OUTCOME_NO_ADVANCE : Int32 = 2
 
 ///|
-const MARKDOWN_AUTHORITY_OUTCOME_REJECTED : Int = 3
+const MARKDOWN_AUTHORITY_OUTCOME_REJECTED : Int32 = 3
 
 ///|
 let markdown_authority_trace : Ref[MarkdownAuthorityTraceBuffer?] = Ref(None)
 
 ///|
 /// Opt-in full-document export detector used only by characterization tests.
-let markdown_full_export_count : Ref[Int?] = Ref(None)
+let markdown_full_export_count : Ref[Int32?] = Ref(None)
 
 ///|
 fn markdown_full_export_observed() -> Unit {
@@ -59,13 +59,13 @@ fn markdown_full_export_detector_disable() -> Unit {
 
 ///|
 #warnings("-unused_value")
-fn markdown_full_export_detector_count() -> Int {
+fn markdown_full_export_detector_count() -> Int32 {
   markdown_full_export_count.val.unwrap_or(0)
 }
 
 ///|
 #warnings("-unused_value")
-fn markdown_authority_trace_enable(capacity~ : Int) -> Unit {
+fn markdown_authority_trace_enable(capacity~ : Int32) -> Unit {
   let capacity = capacity.clamp(min=0, max=65536)
   markdown_authority_trace.val = Some({
     sequence: FixedArray::make(capacity, 0),
@@ -88,7 +88,7 @@ fn markdown_authority_trace_disable() -> Unit {
 }
 
 ///|
-fn markdown_authority_trace_begin() -> Int {
+fn markdown_authority_trace_begin() -> Int32 {
   match markdown_authority_trace.val {
     None => 0
     Some(trace) =>
@@ -105,9 +105,9 @@ fn markdown_authority_trace_begin() -> Int {
 
 ///|
 fn markdown_authority_trace_record(
-  event_id : Int,
-  phase : Int,
-  outcome : Int,
+  event_id : Int32,
+  phase : Int32,
+  outcome : Int32,
 ) -> Unit {
   match markdown_authority_trace.val {
     None => ()
@@ -129,7 +129,7 @@ fn markdown_authority_trace_record(
 }
 
 ///|
-fn markdown_authority_trace_a0(event_id : Int, outcome : Int) -> Unit {
+fn markdown_authority_trace_a0(event_id : Int32, outcome : Int32) -> Unit {
   markdown_authority_trace_record(
     event_id,
     MARKDOWN_AUTHORITY_PHASE_A0,
@@ -138,13 +138,13 @@ fn markdown_authority_trace_a0(event_id : Int, outcome : Int) -> Unit {
 }
 
 ///|
-fn markdown_authority_trace_a1(event_id : Int) -> Unit {
+fn markdown_authority_trace_a1(event_id : Int32) -> Unit {
   markdown_authority_trace_record(event_id, MARKDOWN_AUTHORITY_PHASE_A1, 0)
 }
 
 ///|
 #warnings("-unused_value")
-fn markdown_authority_trace_count() -> Int {
+fn markdown_authority_trace_count() -> Int32 {
   match markdown_authority_trace.val {
     None => 0
     Some(trace) => trace.count
@@ -153,7 +153,7 @@ fn markdown_authority_trace_count() -> Int {
 
 ///|
 #warnings("-unused_value")
-fn markdown_authority_trace_phase(index : Int) -> Int? {
+fn markdown_authority_trace_phase(index : Int32) -> Int32? {
   match markdown_authority_trace.val {
     None => None
     Some(trace) =>
@@ -167,7 +167,7 @@ fn markdown_authority_trace_phase(index : Int) -> Int? {
 
 ///|
 #warnings("-unused_value")
-fn markdown_authority_trace_event_id(index : Int) -> Int? {
+fn markdown_authority_trace_event_id(index : Int32) -> Int32? {
   match markdown_authority_trace.val {
     None => None
     Some(trace) =>
@@ -181,7 +181,7 @@ fn markdown_authority_trace_event_id(index : Int) -> Int? {
 
 ///|
 #warnings("-unused_value")
-fn markdown_authority_trace_outcome(index : Int) -> Int? {
+fn markdown_authority_trace_outcome(index : Int32) -> Int32? {
   match markdown_authority_trace.val {
     None => None
     Some(trace) =>
@@ -204,7 +204,7 @@ fn markdown_authority_trace_overflowed() -> Bool {
 
 ///|
 #warnings("-unused_value")
-fn markdown_authority_trace_dropped_count() -> Int {
+fn markdown_authority_trace_dropped_count() -> Int32 {
   match markdown_authority_trace.val {
     None => 0
     Some(trace) => trace.dropped_count

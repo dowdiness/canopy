@@ -38,7 +38,7 @@ pub fn VisualNode::VisualNode(
   id : String,
   label? : String,
   detail? : String,
-  status? : VisualNodeStatus = Neutral,
+  status~ : VisualNodeStatus = Neutral,
 ) -> VisualNode {
   { id, label, detail, status, }
 }

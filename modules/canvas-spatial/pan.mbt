@@ -1,9 +1,10 @@
 ///|
 /// A pan gesture snapshot.
+#derive(Eq, Debug)
 pub struct Pan {
   priv initial_viewport : Viewport
   priv initial_pointer : ScreenPoint
-} derive(Eq, Debug)
+}
 
 ///|
 /// Capture the viewport and pointer at the beginning of a pan gesture.

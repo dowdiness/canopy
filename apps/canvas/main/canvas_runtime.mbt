@@ -1,28 +1,32 @@
 ///|
 /// Coarse durable validation stage. It owns the document snapshot plus the
 /// validation messages derived from durable nodes/edges only.
+#derive(Eq)
 struct ValidatedCanvas {
   document : CanvasDocument
   validation : Array[ValidationJson]
-} derive(Eq)
+}
 
 ///|
 /// Coarse normalized graph stage. Kept explicit so the canvas runtime mirrors
 /// the graph-editor recompute bench shape: document -> validation ->
 /// normalization -> lowering -> render.
+#derive(Eq)
 struct NormalizedCanvas {
   document : CanvasDocument
   validation : Array[ValidationJson]
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 struct LoweredCanvas {
   nodes : Array[NodeJson]
   edges : Array[Edge]
   validation : Array[ValidationJson]
-} derive(Eq)
+}
 
 ///|
+#derive(Eq)
 struct CanvasFullRenderJson {
   viewport : Viewport
   nodes : Array[NodeJson]
@@ -33,8 +37,8 @@ struct CanvasFullRenderJson {
   connecting : ConnectingJson?
   input_compatibility : Array[PortCompatibilityJson]
   validation : Array[ValidationJson]
-  action_count : Int
-} derive(Eq)
+  action_count : Int32
+}
 
 ///|
 fn normalize_canvas(validated : ValidatedCanvas) -> NormalizedCanvas {
@@ -597,7 +601,7 @@ fn CanvasRuntime::pointer_interrupt(self : CanvasRuntime) -> Unit {
 fn CanvasRuntime::zoom(
   self : CanvasRuntime,
   delta_y : Double,
-  delta_mode : Int,
+  delta_mode : Int32,
   ctrl_key : Bool,
   cx : Double,
   cy : Double,
@@ -752,5 +756,5 @@ fn CanvasRuntime::render_state(self : CanvasRuntime) -> RenderStateJson {
 
 ///|
 fn CanvasRuntime::action_log_json(self : CanvasRuntime) -> String {
-  self.action_log_snapshot().to_json().stringify()
+  Json(self.action_log_snapshot()).stringify()
 }

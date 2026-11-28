@@ -7,11 +7,12 @@ pub type Request
 pub type Response
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror BodyError {
   TooLarge
   InvalidBody
   InvalidLimit
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Request::verb(self : Request) -> String {
@@ -39,7 +40,7 @@ pub fn Request::query(self : Request, name : String) -> String? {
 }
 
 ///|
-pub fn Response::json(body : Json, status? : Int = 200) -> Response raise {
+pub fn Response::json(body : Json, status~ : Int32 = 200) -> Response raise {
   @js.try_sync(() => {
     let options = @js.object()
     options.set("status", @js.any(status))
@@ -54,7 +55,7 @@ pub fn Response::json(body : Json, status? : Int = 200) -> Response raise {
 /// Consumes a body once, with strict UTF-8 decoding and a byte limit checked
 /// before accumulation. Oversize input cancels the reader; every path releases
 /// its lock. This does not interpret JSON, content type or application policy.
-pub async fn Request::read_text(self : Request, max_bytes~ : Int) -> String {
+pub async fn Request::read_text(self : Request, max_bytes~ : Int32) -> String {
   if max_bytes < 0 {
     raise InvalidLimit
   }
@@ -86,7 +87,7 @@ pub async fn Request::read_text(self : Request, max_bytes~ : Int) -> String {
         break
       }
       let bytes = chunk.get("value")
-      let count : Int = bytes.get("byteLength").cast()
+      let count : Int32 = bytes.get("byteLength").cast()
       if count > max_bytes - size {
         let _ : @js.Any = @js.try_sync(() => reader.call("cancel", [])).await_()
         raise TooLarge

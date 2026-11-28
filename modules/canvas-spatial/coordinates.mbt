@@ -5,10 +5,11 @@ fn finite_coordinate(value : Double) -> Bool {
 
 ///|
 /// A point in canvas-local screen coordinates.
+#derive(Eq, Debug)
 pub struct ScreenPoint {
   priv x : Double
   priv y : Double
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct a finite screen-space point.
@@ -36,10 +37,11 @@ pub fn ScreenPoint::y(self : ScreenPoint) -> Double {
 
 ///|
 /// A point in canvas world coordinates.
+#derive(Eq, Debug)
 pub struct WorldPoint {
   priv x : Double
   priv y : Double
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct a finite world-space point.
@@ -67,9 +69,10 @@ pub fn WorldPoint::y(self : WorldPoint) -> Double {
 
 ///|
 /// A finite, strictly positive viewport scale.
+#derive(Eq, Debug)
 pub struct Scale {
   priv value : Double
-} derive(Eq, Debug)
+}
 
 ///|
 /// Construct a finite positive scale from an untrusted number.

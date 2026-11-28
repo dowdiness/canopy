@@ -30,12 +30,13 @@ pub impl SyncTransport for InMemoryTransport
 
 type RecoveryContext
 
+#derive(Eq, @debug.Debug)
 pub enum SyncErrorReason {
   Exhausted(peer_id~ : String)
   TargetLeft(peer_id~ : String)
-  LocalVersionLimitExceeded(kind~ : @sync.LimitKind, limit~ : Int, actual~ : Int)
+  LocalVersionLimitExceeded(kind~ : @sync.LimitKind, limit~ : Int32, actual~ : Int32)
   LocalVersionEncodingFailed
-} derive(Eq, @debug.Debug)
+}
 pub fn SyncErrorReason::equal(Self, Self) -> Bool
 pub fn SyncErrorReason::not_equal(Self, Self) -> Bool
 pub fn SyncErrorReason::output(Self, &Logger) -> Unit
@@ -69,17 +70,18 @@ pub fn SyncSession::note_sync_applied(Self) -> Unit
 pub fn SyncSession::on_close(Self) -> Unit
 pub fn SyncSession::on_message(Self, Bytes, SyncHost) -> Unit
 pub fn SyncSession::on_open(Self) -> Unit
-pub fn SyncSession::on_watchdog_fire(Self, Int, SyncIo) -> Unit
+pub fn SyncSession::on_watchdog_fire(Self, Int32, SyncIo) -> Unit
 pub fn SyncSession::set_on_status_change(Self, ((SyncStatus) -> Unit)?) -> Unit
-pub fn SyncSession::set_watchdog_scheduler(Self, ((Int, Int) -> Unit)?) -> Unit
-pub fn SyncSession::set_watchdog_timeout(Self, Int) -> Unit
+pub fn SyncSession::set_watchdog_scheduler(Self, ((Int32, Int32) -> Unit)?) -> Unit
+pub fn SyncSession::set_watchdog_timeout(Self, Int32) -> Unit
 
+#derive(Eq, @debug.Debug)
 pub enum SyncStatus {
   Disconnected
   Idle
-  Recovering(peer_id~ : String, attempt~ : Int)
+  Recovering(peer_id~ : String, attempt~ : Int32)
   Error(reason~ : SyncErrorReason)
-} derive(Eq, @debug.Debug)
+}
 pub fn SyncStatus::equal(Self, Self) -> Bool
 pub fn SyncStatus::not_equal(Self, Self) -> Bool
 pub fn SyncStatus::output(Self, &Logger) -> Unit

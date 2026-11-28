@@ -16,10 +16,10 @@ pub struct Model {
   // private fields
 }
 pub fn Model::focus_cmd(Self) -> @cmd.Cmd
-pub fn Model::nav_target(Self, String) -> Int?
-pub fn Model::new(id~ : String, tab_count~ : Int, selected~ : Int) -> Self
-pub fn Model::panel_attrs(Self, Int, panel_id~ : String) -> @html.Attrs
-pub fn Model::tab_attrs(Self, Int, panel_id~ : String, dispatch~ : (Int) -> @cmd.Cmd) -> @html.Attrs
+pub fn Model::nav_target(Self, String) -> Int32?
+pub fn Model::new(id~ : String, tab_count~ : Int32, selected~ : Int32) -> Self
+pub fn Model::panel_attrs(Self, Int32, panel_id~ : String) -> @html.Attrs
+pub fn Model::tab_attrs(Self, Int32, panel_id~ : String, dispatch~ : (Int32) -> @cmd.Cmd) -> @html.Attrs
 
 // Type aliases
 

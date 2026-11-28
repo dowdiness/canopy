@@ -3,12 +3,12 @@
 pub struct TextLines {
   priv text : String
   priv lines : ArrayView[String]
-  priv starts : ArrayView[Int]
+  priv starts : ArrayView[Int32]
 }
 
 ///|
 fn index_lines(text : String, lines : ArrayView[String]) -> TextLines {
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   lines.fold(init=0, (offset, line) => {
     starts.push(offset)
     offset + line.length() + 1
@@ -34,7 +34,7 @@ pub fn TextLines::lines(self : TextLines) -> ArrayView[String] {
 }
 
 ///|
-fn TextLines::line_at(self : TextLines, offset : Int) -> Int {
+fn TextLines::line_at(self : TextLines, offset : Int32) -> Int32 {
   match self.starts.binary_search(offset) {
     Ok(index) => index
     Err(index) => index - 1
@@ -43,14 +43,14 @@ fn TextLines::line_at(self : TextLines, offset : Int) -> Int {
 
 ///|
 pub struct TextPosition {
-  line : Int
-  column : Int
+  line : Int32
+  column : Int32
 }
 
 ///|
 /// Offsets must belong to this text, including its end. An invalid offset is
 /// a caller error, not a request for the closest line.
-pub fn TextLines::position(self : TextLines, offset : Int) -> TextPosition {
+pub fn TextLines::position(self : TextLines, offset : Int32) -> TextPosition {
   guard 0 <= offset && offset <= self.text.length() else {
     abort("offset outside source text")
   }
@@ -62,21 +62,21 @@ pub fn TextLines::position(self : TextLines, offset : Int) -> TextPosition {
 /// The lines touched by a selection in this immutable source. A range's end
 /// is exclusive; a caret on a line break belongs to the preceding line.
 pub enum SelectedLines {
-  Caret(Int)
-  Span(first~ : Int, last~ : Int)
+  Caret(Int32)
+  Span(first~ : Int32, last~ : Int32)
 }
 
 ///|
 pub suberror InvalidSelection {
-  OutsideText(start~ : Int, end~ : Int, length~ : Int)
+  OutsideText(start~ : Int32, end~ : Int32, length~ : Int32)
 }
 
 ///|
 /// Parse both endpoints together. Resolved lines never repeat offset checks.
 pub fn TextLines::selected_lines(
   self : TextLines,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> SelectedLines raise InvalidSelection {
   guard 0 <= start && start <= end && end <= self.text.length() else {
     raise OutsideText(start~, end~, length=self.text.length())

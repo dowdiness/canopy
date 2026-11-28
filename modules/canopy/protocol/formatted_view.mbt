@@ -25,13 +25,13 @@ fn category_to_role(cat : @pretty.SyntaxCategory) -> String {
 /// Annotations that span line breaks are split into per-line TokenSpans.
 pub fn layout_to_view_tree(
   layout : @pretty.Layout[@pretty.SyntaxCategory],
-  width? : Int = 80,
+  width~ : Int32 = 80,
 ) -> ViewNode {
   let cmds = @pretty.resolve(width, layout)
   let children : Array[ViewNode] = []
   let line_buf = StringBuilder()
   let line_spans : Array[TokenSpan] = []
-  let ann_stack : Array[(@pretty.SyntaxCategory, Int)] = []
+  let ann_stack : Array[(@pretty.SyntaxCategory, Int32)] = []
   let mut offset = 0
   let mut line_id = 1
   // flush_line: emit current line as a ViewNode child, handle cross-line spans

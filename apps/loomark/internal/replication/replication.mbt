@@ -1,13 +1,15 @@
 ///|
 /// Work whose state has already been recorded by Replication.
+#derive(Eq, Debug)
 pub(all) enum Effect {
   Persist(@replica_persistence.Attempt)
   Network(@sync.Action)
-} derive(Eq, Debug)
+}
 
 ///|
 /// A classified delivery response; transport decoding is owned by the HTTP
 /// adapter, while the transition and causal ordering belong here.
+#derive(Eq, Debug)
 pub(all) enum DeliveryResult {
   Acknowledged(@source_repository.SavedRevision)
   RevisionConflict
@@ -15,18 +17,20 @@ pub(all) enum DeliveryResult {
   DocumentTooLarge
   OperationRejected
   Unavailable
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror ExpiredRetry {
   ExpiredRetry
-} derive(Eq, Debug)
+}
 
 ///|
 /// The canonical durable Replica produced by one consumed selection.
+#derive(Eq, Debug)
 pub struct SelectedReplica {
   priv replica : @source_repository.DocumentReplica
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn SelectedReplica::replica(
@@ -37,15 +41,16 @@ pub fn SelectedReplica::replica(
 
 ///|
 /// Owns the ordering between durable Replica writes and remote work.
+#derive(Eq, Debug)
 pub struct State {
   priv protocol : @sync.State
   priv persistence : @replica_persistence.State
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn State::State(
-  protocol? : @sync.State = @sync.State(),
-  persistence? : @replica_persistence.State = @replica_persistence.State(),
+  protocol~ : @sync.State = @sync.State(),
+  persistence~ : @replica_persistence.State = @replica_persistence.State(),
 ) -> State {
   { protocol, persistence, }
 }

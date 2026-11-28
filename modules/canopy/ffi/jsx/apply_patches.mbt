@@ -65,7 +65,7 @@ fn apply_patches_with_registry(
   patches_json : String,
   root_id : String,
   registry : @js.Any,
-) -> Result[Array[Int], String] {
+) -> Result[Array[Int32], String] {
   let outcome = catch_js(
     @js.fn0(fn() {
       @js.any(apply_patches_unchecked(patches_json, root_id, registry))
@@ -83,7 +83,7 @@ fn apply_patches_unchecked(
   patches_json : String,
   root_id : String,
   registry : @js.Any,
-) -> Result[Array[Int], String] {
+) -> Result[Array[Int32], String] {
   let document = @js.global().get("document")
   if document.is_nullish() {
     return Err("document is unavailable")
@@ -93,14 +93,14 @@ fn apply_patches_unchecked(
     return Err("root container is unavailable: " + root_id)
   }
   let patches_arr : @js.Any = @js.parse(patches_json)
-  let len : Int = patches_arr.get("length").cast()
-  let ids : Array[Int] = []
+  let len : Int32 = patches_arr.get("length").cast()
+  let ids : Array[Int32] = []
   // Release first so projected insertion indexes are evaluated against the
   // post-removal sibling list.
   for i in 0..<len {
     let patch = patches_arr.at(i)
     if patch.get("$tag").to_str() == "Release" {
-      let node_id : Int = patch.get("_0").at(0).cast()
+      let node_id : Int32 = patch.get("_0").at(0).cast()
       release_element(registry, node_id)
     }
   }
@@ -110,11 +110,11 @@ fn apply_patches_unchecked(
     let args = patch.get("_0")
     match tag {
       "MakeElement" => {
-        let parent_id : Int = args.at(0).cast()
-        let node_id : Int = args.at(1).cast()
+        let parent_id : Int32 = args.at(0).cast()
+        let node_id : Int32 = args.at(1).cast()
         let tag_name : String = args.at(2).cast()
         let attrs : @js.Any = args.at(3)
-        let index : Int = args.at(4).cast()
+        let index : Int32 = args.at(4).cast()
         let el = create_element(tag_name)
         // Stash before the first potentially-throwing DOM call. This makes a
         // partial application cleanable by the session's disposal path.
@@ -138,10 +138,10 @@ fn apply_patches_unchecked(
         ids.push(node_id)
       }
       "MakeText" => {
-        let parent_id : Int = args.at(0).cast()
-        let node_id : Int = args.at(1).cast()
+        let parent_id : Int32 = args.at(0).cast()
+        let node_id : Int32 = args.at(1).cast()
         let text : String = args.at(2).cast()
-        let index : Int = args.at(3).cast()
+        let index : Int32 = args.at(3).cast()
         let el = document.call("createTextNode", [@js.any(text)])
         stash_element(registry, node_id, el)
         let parent = if parent_id == -1 {
@@ -156,10 +156,10 @@ fn apply_patches_unchecked(
         ids.push(node_id)
       }
       "MakeExprSpan" => {
-        let parent_id : Int = args.at(0).cast()
-        let node_id : Int = args.at(1).cast()
+        let parent_id : Int32 = args.at(0).cast()
+        let node_id : Int32 = args.at(1).cast()
         let raw : String = args.at(2).cast()
-        let index : Int = args.at(3).cast()
+        let index : Int32 = args.at(3).cast()
         let el = create_element("span")
         stash_element(registry, node_id, el)
         el.set("textContent", @js.any("{" + raw + "}"))
@@ -175,7 +175,7 @@ fn apply_patches_unchecked(
         ids.push(node_id)
       }
       "SetText" => {
-        let node_id : Int = args.at(0).cast()
+        let node_id : Int32 = args.at(0).cast()
         let text : String = args.at(1).cast()
         let el = retrieve_element(registry, node_id)
         if el.is_nullish() {
@@ -185,7 +185,7 @@ fn apply_patches_unchecked(
         ids.push(node_id)
       }
       "SetExpr" => {
-        let node_id : Int = args.at(0).cast()
+        let node_id : Int32 = args.at(0).cast()
         let raw : String = args.at(1).cast()
         let el = retrieve_element(registry, node_id)
         if el.is_nullish() {
@@ -195,7 +195,7 @@ fn apply_patches_unchecked(
         ids.push(node_id)
       }
       "SetAttrs" => {
-        let node_id : Int = args.at(0).cast()
+        let node_id : Int32 = args.at(0).cast()
         let attrs : @js.Any = args.at(1)
         let el = retrieve_element(registry, node_id)
         if el.is_nullish() {
@@ -228,27 +228,27 @@ pub fn apply_patches(patches_json : String) -> String {
 // ── Element registry helpers ────────────────────────────────────────────
 
 ///|
-fn array_ids_to_json(ids : Array[Int]) -> String {
+fn array_ids_to_json(ids : Array[Int32]) -> String {
   Json::array(ids.map(id => Json::number(id.to_double()))).stringify()
 }
 
 ///|
-fn stash_element(registry : @js.Any, node_id : Int, el : @js.Any) -> Unit {
+fn stash_element(registry : @js.Any, node_id : Int32, el : @js.Any) -> Unit {
   let _ = registry.call("set", [@js.any(node_id), el])
 }
 
 ///|
-fn retrieve_element(registry : @js.Any, node_id : Int) -> @js.Any {
+fn retrieve_element(registry : @js.Any, node_id : Int32) -> @js.Any {
   registry.call("get", [@js.any(node_id)])
 }
 
 ///|
-fn forget_element(registry : @js.Any, node_id : Int) -> Unit {
+fn forget_element(registry : @js.Any, node_id : Int32) -> Unit {
   let _ = registry.call("delete", [@js.any(node_id)])
 }
 
 ///|
-fn release_element(registry : @js.Any, node_id : Int) -> Unit {
+fn release_element(registry : @js.Any, node_id : Int32) -> Unit {
   let el = retrieve_element(registry, node_id)
   if !el.is_nullish() {
     ignore(el.call("remove", []))
@@ -259,9 +259,9 @@ fn release_element(registry : @js.Any, node_id : Int) -> Unit {
 ///|
 /// Respect the projected sibling index. `childNodes` is used instead of
 /// `children` because text nodes and expression spans are mounted too.
-fn insert_child(parent : @js.Any, child : @js.Any, index : Int) -> Unit {
+fn insert_child(parent : @js.Any, child : @js.Any, index : Int32) -> Unit {
   let child_nodes = parent.get("childNodes")
-  let len : Int = child_nodes.get("length").cast()
+  let len : Int32 = child_nodes.get("length").cast()
   if index < len {
     ignore(parent.call("insertBefore", [child, child_nodes.at(index)]))
   } else {
@@ -278,7 +278,7 @@ fn create_element(tag : String) -> @js.Any {
 
 ///|
 fn apply_attrs(el : @js.Any, attrs : @js.Any) -> Unit {
-  let len : Int = attrs.get("length").cast()
+  let len : Int32 = attrs.get("length").cast()
   let names : Array[String] = []
   for i in 0..<len {
     let attr = attrs.at(i)
@@ -289,7 +289,7 @@ fn apply_attrs(el : @js.Any, attrs : @js.Any) -> Unit {
     }
   }
   let existing_names = el.call("getAttributeNames", [])
-  let existing_len : Int = existing_names.get("length").cast()
+  let existing_len : Int32 = existing_names.get("length").cast()
   for i in 0..<existing_len {
     let name : String = existing_names.at(i).cast()
     if name != "data-node-id" && !names.contains(name) {

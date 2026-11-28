@@ -10,9 +10,9 @@ import {
 }
 
 import {
+  "moonbitlang/core/quickcheck/shrink",
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/core/set",
   "moonbitlang/quickcheck" @qc,
-  "moonbitlang/core/debug",
 } for "wbtest"

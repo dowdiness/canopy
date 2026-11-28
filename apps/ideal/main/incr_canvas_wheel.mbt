@@ -18,7 +18,9 @@ const INCR_CANVAS_WHEEL_PAGE_UNIT_FACTOR : Double = 1.0
 const INCR_CANVAS_WHEEL_PINCH_FACTOR : Double = 10.0
 
 ///|
-fn incr_canvas_wheel_delta_unit(delta_mode : Int) -> IncrCanvasWheelDeltaUnit? {
+fn incr_canvas_wheel_delta_unit(
+  delta_mode : Int32,
+) -> IncrCanvasWheelDeltaUnit? {
   match delta_mode {
     0 => Some(Pixel)
     1 => Some(Line)
@@ -40,7 +42,7 @@ fn incr_canvas_wheel_unit_factor(unit : IncrCanvasWheelDeltaUnit) -> Double {
 fn incr_canvas_wheel_target_scale(
   current_scale : @spatial.Scale,
   delta_y : Double,
-  delta_mode : Int,
+  delta_mode : Int32,
   ctrl_key : Bool,
   mac_like : Bool,
 ) -> @spatial.Scale? {
@@ -110,7 +112,7 @@ fn incr_canvas_update_viewport_scale_around(
 fn incr_canvas_wheel(
   state : IncrCanvasState,
   delta_y : Double,
-  delta_mode : Int,
+  delta_mode : Int32,
   ctrl_key : Bool,
   x : Double,
   y : Double,

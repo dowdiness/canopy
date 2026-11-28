@@ -1,5 +1,5 @@
 ///|
-fn render_graphviz_parse_error(position : Int, message : String) -> String {
+fn render_graphviz_parse_error(position : Int32, message : String) -> String {
   "<span class=\"problem-text\">Parse error at \{position}: \{@history_render.escape_html_string(message)}</span>"
 }
 
@@ -30,7 +30,7 @@ fn render_dot_to_svg(dot : String) -> String {
 /// else), removes the old subtree wholesale, and rebuilds — so stale
 /// SVG can't leak past the diff and block sibling click handlers.
 fn render_graphviz_html(model : Model) -> String raise {
-  let snap = model.editor.causal_snapshot()
+  let snap = model.editor.causal_view()
   let key = render_cache_key(model.editor.identity(), snap)
   if cache_hit(graphviz_cache, key) {
     graphviz_cache.html

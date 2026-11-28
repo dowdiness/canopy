@@ -185,11 +185,12 @@ test "render baseline: final permitted success reaches cap then rejects" {
 }
 
 ///|
+#derive(Debug)
 struct BaselineEvent {
   kind : RenderKind
   structural_transition : Bool
   outcome : RenderOutcome
-} derive(Debug)
+}
 
 ///|
 fn generate_baseline_event(rs : @splitmix.RandomState) -> BaselineEvent {
@@ -206,9 +207,10 @@ fn generate_baseline_event(rs : @splitmix.RandomState) -> BaselineEvent {
 }
 
 ///|
+#derive(Debug)
 struct BaselineScenario {
   events : Array[BaselineEvent]
-} derive(Debug)
+}
 
 ///|
 impl @quickcheck.Arbitrary for BaselineScenario with fn arbitrary(size, rs) {
@@ -217,7 +219,7 @@ impl @quickcheck.Arbitrary for BaselineScenario with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for BaselineScenario
+impl @shrink.Shrink for BaselineScenario
 
 ///|
 fn prop_baseline_preserves_reachable_lifecycle_invariants(

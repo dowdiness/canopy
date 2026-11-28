@@ -4,10 +4,11 @@
 // adjacent items with the same id, and slicing adjusts span.
 
 ///|
+#derive(Debug, Eq)
 struct TItem {
-  id : Int
-  span : Int
-} derive(Debug, Eq)
+  id : Int32
+  span : Int32
+}
 
 ///|
 impl Show for TItem with fn output(self, logger) {
@@ -15,12 +16,12 @@ impl Show for TItem with fn output(self, logger) {
 }
 
 ///|
-impl @rle.HasLength for TItem with fn length(self) -> Int {
+impl @rle.HasLength for TItem with fn length(self) -> Int32 {
   self.span
 }
 
 ///|
-impl @rle.Spanning for TItem with fn span(self) -> Int {
+impl @rle.Spanning for TItem with fn span(self) -> Int32 {
   self.span
 }
 
@@ -37,13 +38,13 @@ impl @rle.Mergeable for TItem with fn merge(a : TItem, b : TItem) -> TItem {
 ///|
 impl @rle.Sliceable for TItem with fn slice(
   self : TItem,
-  start~ : Int,
-  end~ : Int,
-) -> Result[TItem, @rle.RleError] {
+  start~ : Int32,
+  end~ : Int32,
+) -> TItem raise @rle.RleError {
   if start < 0 || end > self.span || start >= end {
-    Err(@rle.RleError::InvalidSlice(reason=@rle.SliceError::InvalidIndex))
+    raise @rle.RleError::InvalidSlice(reason=@rle.SliceError::InvalidIndex)
   } else {
-    Ok({ id: self.id, span: end - start, })
+    { id: self.id, span: end - start, }
   }
 }
 
@@ -51,18 +52,19 @@ impl @rle.Sliceable for TItem with fn slice(
 impl BTreeElem for TItem
 
 ///|
+#derive(Debug, Eq)
 struct MergeOnlyItem {
-  id : Int
-  span : Int
-} derive(Debug, Eq)
+  id : Int32
+  span : Int32
+}
 
 ///|
-impl @rle.HasLength for MergeOnlyItem with fn length(self) -> Int {
+impl @rle.HasLength for MergeOnlyItem with fn length(self) -> Int32 {
   self.span
 }
 
 ///|
-impl @rle.Spanning for MergeOnlyItem with fn span(self) -> Int {
+impl @rle.Spanning for MergeOnlyItem with fn span(self) -> Int32 {
   self.span
 }
 
@@ -77,12 +79,12 @@ impl @rle.Mergeable for MergeOnlyItem with fn merge(self, other) -> MergeOnlyIte
 }
 
 ///|
-fn make_item(id : Int, span : Int) -> TItem {
+fn make_item(id : Int32, span : Int32) -> TItem {
   { id, span, }
 }
 
 ///|
-fn build_tree(items : Array[(Int, Int)]) -> BTree[TItem] {
+fn build_tree(items : Array[(Int32, Int32)]) -> BTree[TItem] {
   let t : BTree[TItem] = BTree::new(min_degree=2)
   if items.is_empty() {
     return t
@@ -298,7 +300,7 @@ test "panic from_sorted rejects negative non-positive span" {
 
 ///|
 test "panic from_sorted rejects cumulative span overflow" {
-  let _ : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE), (2, 1)])
+  let _ : BTree[Int32] = BTree::from_sorted([(1, @int.MAX_VALUE), (2, 1)])
 }
 
 ///|
@@ -306,12 +308,12 @@ test "panic from_sorted rejects multi-level cumulative span overflow" {
   let items = Array::makei(8, fn(i) {
     (i, if i == 0 { @int.MAX_VALUE - 3 } else { 1 })
   })
-  let _ : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let _ : BTree[Int32] = BTree::from_sorted(items, min_degree=2)
 }
 
 ///|
 test "from_sorted accepts cumulative span at Int max" {
-  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 1), (2, 1)])
+  let t : BTree[Int32] = BTree::from_sorted([(1, @int.MAX_VALUE - 1), (2, 1)])
   inspect(t.span(), content="2147483647")
   @debug.debug_inspect(
     t.get_at(@int.MAX_VALUE - 1),
@@ -326,7 +328,7 @@ test "overflow preflight keeps split candidate isolated from original tree" {
   let items = Array::makei(8, fn(i) {
     (i, if i == 0 { @int.MAX_VALUE - 7 } else { 1 })
   })
-  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let t : BTree[Int32] = BTree::from_sorted(items, min_degree=2)
   let before_items = t.to_array()
   let before_debug = @debug.to_string(t)
   let before_span = t.span()
@@ -341,7 +343,7 @@ test "overflow preflight keeps split candidate isolated from original tree" {
     true,
     copy_on_write=true,
   ).unwrap()
-  let splice : Splice[Int] = {
+  let splice : Splice[Int32] = {
     start_idx: cursor.child_idx,
     end_idx: cursor.child_idx,
     new_leaves: [(8, 1)],
@@ -363,7 +365,7 @@ test "overflow preflight keeps borrow candidate isolated from original tree" {
   let items = Array::makei(5, fn(i) {
     (i, if i == 0 { @int.MAX_VALUE - 4 } else { 1 })
   })
-  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let t : BTree[Int32] = BTree::from_sorted(items, min_degree=2)
   let before_debug = @debug.to_string(t)
   let root = t.root.unwrap()
   let cursor = descend(
@@ -375,7 +377,7 @@ test "overflow preflight keeps borrow candidate isolated from original tree" {
     false,
     copy_on_write=true,
   ).unwrap()
-  let splice : Splice[Int] = {
+  let splice : Splice[Int32] = {
     start_idx: cursor.child_idx,
     end_idx: cursor.child_idx + 1,
     new_leaves: [(cursor.leaf_elem, cursor.leaf_span + 1)],
@@ -391,22 +393,22 @@ test "overflow preflight keeps borrow candidate isolated from original tree" {
 
 ///|
 test "reactive merge candidate stays isolated until publish" {
-  let left : BTreeNode[Int] = Internal(
+  let left : BTreeNode[Int32] = Internal(
     children=[Leaf(elem=0, span=@int.MAX_VALUE - 3), Leaf(elem=1, span=1)],
     counts=[@int.MAX_VALUE - 3, 1],
     total=@int.MAX_VALUE - 2,
   )
-  let right : BTreeNode[Int] = Internal(
+  let right : BTreeNode[Int32] = Internal(
     children=[Leaf(elem=2, span=1), Leaf(elem=3, span=1)],
     counts=[1, 1],
     total=2,
   )
-  let root : BTreeNode[Int] = Internal(
+  let root : BTreeNode[Int32] = Internal(
     children=[left, right],
     counts=[@int.MAX_VALUE - 2, 2],
     total=@int.MAX_VALUE,
   )
-  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4, }
+  let t : BTree[Int32] = { root: Some(root), min_degree: 2, size: 4, }
   let before_debug = @debug.to_string(t)
   let cursor = descend(
     root,
@@ -417,7 +419,7 @@ test "reactive merge candidate stays isolated until publish" {
     false,
     copy_on_write=true,
   ).unwrap()
-  let splice : Splice[Int] = {
+  let splice : Splice[Int32] = {
     start_idx: cursor.child_idx,
     end_idx: cursor.child_idx + 1,
     new_leaves: [],
@@ -440,7 +442,7 @@ test "range delete candidate stays isolated until publish" {
 
 ///|
 test "panic insert rejects cumulative span overflow" {
-  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE)])
+  let t : BTree[Int32] = BTree::from_sorted([(1, @int.MAX_VALUE)])
   t.mutate_for_insert(@int.MAX_VALUE, fn(ctx) {
     {
       start_idx: ctx.child_idx + 1,
@@ -452,7 +454,7 @@ test "panic insert rejects cumulative span overflow" {
 
 ///|
 test "insert accepts cumulative span at Int max" {
-  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 1)])
+  let t : BTree[Int32] = BTree::from_sorted([(1, @int.MAX_VALUE - 1)])
   t.mutate_for_insert(@int.MAX_VALUE - 1, fn(ctx) {
     {
       start_idx: ctx.child_idx + 1,
@@ -470,7 +472,7 @@ test "insert split and root growth accept cumulative span at Int max" {
   let items = Array::makei(16, fn(i) {
     (i, if i == 0 { @int.MAX_VALUE - 16 } else { 1 })
   })
-  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let t : BTree[Int32] = BTree::from_sorted(items, min_degree=2)
   t.mutate_for_insert(0, fn(ctx) {
     { start_idx: ctx.child_idx, end_idx: ctx.child_idx, new_leaves: [(16, 1)], }
   })
@@ -483,7 +485,7 @@ test "insert split and root growth accept cumulative span at Int max" {
 ///|
 test "boundary sweep successful mutations never expose negative span" {
   for reserve in 1..<33 {
-    let t : BTree[Int] = BTree::from_sorted(
+    let t : BTree[Int32] = BTree::from_sorted(
       [(0, @int.MAX_VALUE - reserve)],
       min_degree=2,
     )
@@ -585,7 +587,7 @@ test "panic init_root rejects negative non-positive span" {
 
 ///|
 test "init_root accepts span at Int max" {
-  let t : BTree[Int] = BTree::new()
+  let t : BTree[Int32] = BTree::new()
   t.init_root(1, @int.MAX_VALUE)
   inspect(t.span(), content="2147483647")
   inspect(t.size(), content="1")
@@ -630,7 +632,7 @@ test "panic delete splice rejects non-positive span" {
 
 ///|
 test "panic delete splice rejects cumulative span overflow" {
-  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 1), (2, 1)])
+  let t : BTree[Int32] = BTree::from_sorted([(1, @int.MAX_VALUE - 1), (2, 1)])
   let _ = t.mutate_for_delete(@int.MAX_VALUE - 1, fn(ctx) {
     (
       {
@@ -645,7 +647,7 @@ test "panic delete splice rejects cumulative span overflow" {
 
 ///|
 test "delete splice update accepts cumulative span at Int max" {
-  let t : BTree[Int] = BTree::from_sorted([(1, @int.MAX_VALUE - 2), (2, 1)])
+  let t : BTree[Int32] = BTree::from_sorted([(1, @int.MAX_VALUE - 2), (2, 1)])
   let updated = t.mutate_for_delete(@int.MAX_VALUE - 2, fn(ctx) {
     (
       {
@@ -666,7 +668,7 @@ test "delete preparation borrow accepts cumulative span at Int max" {
   let items = Array::makei(5, fn(i) {
     (i, if i == 0 { @int.MAX_VALUE - 4 } else { 1 })
   })
-  let t : BTree[Int] = BTree::from_sorted(items, min_degree=2)
+  let t : BTree[Int32] = BTree::from_sorted(items, min_degree=2)
   let before_items = t.to_array()
   let updated = t.mutate_for_delete(0, fn(ctx) {
     (
@@ -686,22 +688,22 @@ test "delete preparation borrow accepts cumulative span at Int max" {
 
 ///|
 test "delete preparation merge accepts cumulative span at Int max" {
-  let left : BTreeNode[Int] = Internal(
+  let left : BTreeNode[Int32] = Internal(
     children=[Leaf(elem=0, span=@int.MAX_VALUE - 3), Leaf(elem=1, span=1)],
     counts=[@int.MAX_VALUE - 3, 1],
     total=@int.MAX_VALUE - 2,
   )
-  let right : BTreeNode[Int] = Internal(
+  let right : BTreeNode[Int32] = Internal(
     children=[Leaf(elem=2, span=1), Leaf(elem=3, span=1)],
     counts=[1, 1],
     total=2,
   )
-  let root : BTreeNode[Int] = Internal(
+  let root : BTreeNode[Int32] = Internal(
     children=[left, right],
     counts=[@int.MAX_VALUE - 2, 2],
     total=@int.MAX_VALUE,
   )
-  let t : BTree[Int] = { root: Some(root), min_degree: 2, size: 4, }
+  let t : BTree[Int32] = { root: Some(root), min_degree: 2, size: 4, }
   let before_items = t.to_array()
   let updated = t.mutate_for_delete(0, fn(ctx) {
     (
@@ -725,7 +727,7 @@ test "delete preparation merge accepts cumulative span at Int max" {
 ///|
 test "each visits all elements in order" {
   let t = build_tree([(1, 2), (2, 3), (3, 1)])
-  let ids : Array[Int] = []
+  let ids : Array[Int32] = []
   t.each(fn(item) { ids.push(item.id) })
   @debug.debug_inspect(
     ids,
@@ -1447,7 +1449,7 @@ test "ensure_min_children borrows from right sibling" {
     total=3,
   )
   let children : Array[BTreeNode[TItem]] = [underfull, donor]
-  let counts : Array[Int] = [1, 3]
+  let counts : Array[Int32] = [1, 3]
   ensure_min_children(children, counts, 0, 2)
   // After borrow: underfull gets 2 children, donor keeps 2
   match children[0] {
@@ -1933,7 +1935,7 @@ test "BTree::delete_range clamps end to span" {
 ///|
 test "BTree::delete_range handles underfull propagation" {
   // Build a tree deep enough that range delete causes underfull at LCA
-  let items : Array[(Int, Int)] = Array::makei(20, fn(i) { (i + 1, 1) })
+  let items : Array[(Int32, Int32)] = Array::makei(20, fn(i) { (i + 1, 1) })
   let t = build_tree(items)
   // Delete a large middle range
   t.delete_range(5, 15)
@@ -2101,10 +2103,10 @@ test "BTree::iter supports early termination" {
 ///|
 fn[T] check_node_invariants(
   node : BTreeNode[T],
-  min_degree : Int,
+  min_degree : Int32,
   is_root : Bool,
-  depth : Int,
-) -> (Bool, Int, Int) {
+  depth : Int32,
+) -> (Bool, Int32, Int32) {
   match node {
     Leaf(span~, ..) => (span > 0, depth, 1)
     Internal(children~, counts~, total~) => {
@@ -2180,8 +2182,8 @@ fn[T] btree_invariants_hold(t : BTree[T]) -> Bool {
 /// and merging the boundary pair.
 fn expected_after_delete(
   t : BTree[TItem],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> Array[TItem] {
   let total = t.span()
   if start < 0 || start >= end_ || start >= total {
@@ -2214,20 +2216,24 @@ fn expected_after_delete(
 }
 
 ///|
+#derive(Debug)
 struct DeleteRangeCase {
-  items : Array[(Int, Int)]
-  start : Int
-  end_ : Int
-} derive(Debug)
+  items : Array[(Int32, Int32)]
+  start : Int32
+  end_ : Int32
+}
 
 ///|
-fn signed_bounded(rs : @splitmix.RandomState, bound : Int) -> Int {
+fn signed_bounded(rs : @splitmix.RandomState, bound : Int32) -> Int32 {
   guard bound > 0 else { return 0 }
   rs.next_positive_int() % (2 * bound + 1) - bound
 }
 
 ///|
-fn generated_delete_item_count(capped : Int, rs : @splitmix.RandomState) -> Int {
+fn generated_delete_item_count(
+  capped : Int32,
+  rs : @splitmix.RandomState,
+) -> Int32 {
   let random_count = rs.split().next_positive_int() % (capped + 1)
   match rs.split().next_positive_int() % 7 {
     0 => 0
@@ -2241,9 +2247,9 @@ fn generated_delete_item_count(capped : Int, rs : @splitmix.RandomState) -> Int 
 
 ///|
 fn generated_delete_range(
-  total_span : Int,
+  total_span : Int32,
   rs : @splitmix.RandomState,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let bound = total_span + 3
   match rs.split().next_positive_int() % 8 {
     0 => (0, 0)
@@ -2257,12 +2263,12 @@ fn generated_delete_range(
 }
 
 ///|
-fn generated_items_span(items : Array[(Int, Int)]) -> Int {
+fn generated_items_span(items : Array[(Int32, Int32)]) -> Int32 {
   items.fold(init=0, fn(acc, item) { acc + item.1 })
 }
 
 ///|
-fn[T] array_without_at(items : Array[T], index : Int) -> Array[T] {
+fn[T] array_without_at(items : Array[T], index : Int32) -> Array[T] {
   Array::makei(items.length() - 1, fn(i) {
     if i < index {
       items[i]
@@ -2273,7 +2279,7 @@ fn[T] array_without_at(items : Array[T], index : Int) -> Array[T] {
 }
 
 ///|
-fn[T] array_replaced_at(items : Array[T], index : Int, item : T) -> Array[T] {
+fn[T] array_replaced_at(items : Array[T], index : Int32, item : T) -> Array[T] {
   Array::makei(items.length(), fn(i) {
     if i == index {
       item
@@ -2285,9 +2291,9 @@ fn[T] array_replaced_at(items : Array[T], index : Int, item : T) -> Array[T] {
 
 ///|
 fn push_generated_items_prefix(
-  results : Array[Array[(Int, Int)]],
-  items : Array[(Int, Int)],
-  target_len : Int,
+  results : Array[Array[(Int32, Int32)]],
+  items : Array[(Int32, Int32)],
+  target_len : Int32,
 ) -> Unit {
   if target_len > 0 && target_len < items.length() {
     results.push(items[:target_len].to_owned())
@@ -2295,8 +2301,10 @@ fn push_generated_items_prefix(
 }
 
 ///|
-fn shrink_generated_items(items : Array[(Int, Int)]) -> Iter[Array[(Int, Int)]] {
-  let results : Array[Array[(Int, Int)]] = []
+fn shrink_generated_items(
+  items : Array[(Int32, Int32)],
+) -> Iter[Array[(Int32, Int32)]] {
+  let results : Array[Array[(Int32, Int32)]] = []
   let len = items.length()
   guard len > 0 else { return results.iter() }
   results.push(items[:0].to_owned())
@@ -2336,7 +2344,7 @@ fn shrink_generated_items(items : Array[(Int, Int)]) -> Iter[Array[(Int, Int)]] 
 impl @quickcheck.Arbitrary for DeleteRangeCase with fn arbitrary(size, rs) {
   let capped = if size < 0 { 0 } else if size > 32 { 32 } else { size }
   let item_count = generated_delete_item_count(capped, rs.split())
-  let items : Array[(Int, Int)] = []
+  let items : Array[(Int32, Int32)] = []
   let mut total_span = 0
   for _ in 0..<item_count {
     let id = 1 + rs.split().next_positive_int() % 5
@@ -2351,9 +2359,9 @@ impl @quickcheck.Arbitrary for DeleteRangeCase with fn arbitrary(size, rs) {
 ///|
 fn push_delete_range_shrinks(
   results : Array[DeleteRangeCase],
-  items : Array[(Int, Int)],
-  start : Int,
-  end_ : Int,
+  items : Array[(Int32, Int32)],
+  start : Int32,
+  end_ : Int32,
 ) -> Unit {
   let total = generated_items_span(items)
   if start != 0 || end_ != 0 {
@@ -2392,16 +2400,16 @@ fn push_delete_range_shrinks(
   if start > end_ {
     results.push({ items, start: end_, end_: start, })
   }
-  for next_start in @qc.Shrink::shrink(start) {
+  for next_start in @shrink.Shrink::shrink(start) {
     results.push({ items, start: next_start, end_, })
   }
-  for next_end in @qc.Shrink::shrink(end_) {
+  for next_end in @shrink.Shrink::shrink(end_) {
     results.push({ items, start, end_: next_end, })
   }
 }
 
 ///|
-impl @qc.Shrink for DeleteRangeCase with fn shrink(case_) {
+impl @shrink.Shrink for DeleteRangeCase with fn shrink(case_) {
   let results : Array[DeleteRangeCase] = []
   push_delete_range_shrinks(results, case_.items, case_.start, case_.end_)
   for items in shrink_generated_items(case_.items) {
@@ -2462,8 +2470,8 @@ fn prop_delete_range_iter_matches_view(case_ : DeleteRangeCase) -> Bool {
 
 ///|
 fn build_tree_with_degree(
-  items : Array[(Int, Int)],
-  min_degree : Int,
+  items : Array[(Int32, Int32)],
+  min_degree : Int32,
 ) -> BTree[TItem] {
   let t : BTree[TItem] = BTree::new(min_degree~)
   if items.is_empty() {
@@ -2490,7 +2498,7 @@ fn build_tree_with_degree(
 ///|
 fn prop_delete_range_with_degree(
   case_ : DeleteRangeCase,
-  min_degree : Int,
+  min_degree : Int32,
 ) -> Bool {
   let t = build_tree_with_degree(case_.items, min_degree)
   if !btree_invariants_hold(t) {
@@ -2569,7 +2577,7 @@ test "delete_range with underfull boundary chain repair" {
 }
 
 ///|
-fn[T] debug_tree(node : BTreeNode[T], depth : Int) -> String {
+fn[T] debug_tree(node : BTreeNode[T], depth : Int32) -> String {
   let indent = "  ".repeat(depth)
   match node {
     Leaf(span~, ..) => "\{indent}Leaf(\{span})\n"
@@ -2705,7 +2713,6 @@ test "regression: delete_range repairs suffix-spanning underfull chain" {
     (1, 2),
     (1, 3),
   ])
-  inspect(btree_invariants_hold(t), content="true")
   t.delete_range(26, 66)
   inspect(
     btree_invariants_hold(t),
@@ -2713,6 +2720,79 @@ test "regression: delete_range repairs suffix-spanning underfull chain" {
       #|true
     ),
   )
+  inspect(
+    debug_tree(t.root.unwrap(), 0),
+    content=(
+      #|Internal(n=3, t=26)
+      #|  Internal(n=2, t=8)
+      #|    Internal(n=2, t=3)
+      #|      Leaf(1)
+      #|      Leaf(2)
+      #|    Internal(n=2, t=5)
+      #|      Leaf(2)
+      #|      Leaf(3)
+      #|  Internal(n=2, t=6)
+      #|    Internal(n=2, t=3)
+      #|      Leaf(1)
+      #|      Leaf(2)
+      #|    Internal(n=2, t=3)
+      #|      Leaf(2)
+      #|      Leaf(1)
+      #|  Internal(n=3, t=12)
+      #|    Internal(n=2, t=3)
+      #|      Leaf(1)
+      #|      Leaf(2)
+      #|    Internal(n=2, t=5)
+      #|      Leaf(3)
+      #|      Leaf(2)
+      #|    Internal(n=3, t=4)
+      #|      Leaf(1)
+      #|      Leaf(2)
+      #|      Leaf(1)
+      #|
+    ),
+  )
+}
+
+///|
+test "regression: delete_range preserves exact counterexample shape" {
+  let items : Array[(Int32, Int32)] = [
+    (2, 1),
+    (4, 2),
+    (2, 2),
+    (5, 3),
+    (3, 1),
+    (5, 2),
+    (4, 2),
+    (2, 1),
+    (4, 1),
+    (3, 2),
+    (5, 3),
+    (1, 2),
+    (2, 1),
+    (4, 2),
+    (1, 2),
+    (3, 3),
+    (4, 1),
+    (5, 2),
+    (5, 2),
+    (1, 2),
+    (1, 2),
+    (3, 2),
+    (3, 3),
+    (5, 3),
+    (2, 2),
+    (3, 1),
+    (1, 2),
+    (3, 3),
+    (2, 1),
+    (3, 3),
+    (1, 2),
+    (1, 3),
+  ]
+  let t = build_tree(items)
+  inspect(btree_invariants_hold(t), content="true")
+  t.delete_range(26, 66)
   inspect(
     debug_tree(t.root.unwrap(), 0),
     content=(
@@ -2785,7 +2865,7 @@ test "from_sorted single element" {
 ///|
 test "from_sorted min_degree elements" {
   // min_degree=2 → exactly 2 leaves, one Internal root
-  let items : Array[(TItem, Int)] = []
+  let items : Array[(TItem, Int32)] = []
   for i in 0..<2 {
     items.push((make_item(i, 3), 3))
   }
@@ -2798,7 +2878,7 @@ test "from_sorted min_degree elements" {
 ///|
 test "from_sorted max_degree elements" {
   // min_degree=2, max_degree=4 → exactly 4 leaves, one Internal root
-  let items : Array[(TItem, Int)] = []
+  let items : Array[(TItem, Int32)] = []
   for i in 0..<4 {
     items.push((make_item(i, 2), 2))
   }
@@ -2811,7 +2891,7 @@ test "from_sorted max_degree elements" {
 ///|
 test "from_sorted triggers multi-level" {
   // min_degree=2, max_degree=4 → 5 leaves requires 2 levels
-  let items : Array[(TItem, Int)] = []
+  let items : Array[(TItem, Int32)] = []
   for i in 0..<5 {
     items.push((make_item(i, 1), 1))
   }
@@ -2825,7 +2905,7 @@ test "from_sorted triggers multi-level" {
 test "from_sorted redistribution of last chunk" {
   // min_degree=3, max_degree=6 → 7 leaves: first chunk of 6, last chunk of 1
   // 1 < min_degree=3, so redistribute: 4+3 or 3+4
-  let items : Array[(TItem, Int)] = []
+  let items : Array[(TItem, Int32)] = []
   for i in 0..<7 {
     items.push((make_item(i, 2), 2))
   }
@@ -2838,7 +2918,7 @@ test "from_sorted redistribution of last chunk" {
 ///|
 test "from_sorted content matches build_tree" {
   // Both should produce the same leaf content and ordering
-  let input : Array[(Int, Int)] = [
+  let input : Array[(Int32, Int32)] = [
     (1, 3),
     (2, 1),
     (3, 2),
@@ -2850,7 +2930,7 @@ test "from_sorted content matches build_tree" {
     (1, 1),
   ]
   let ref_tree = build_tree(input)
-  let items : Array[(TItem, Int)] = input.map(fn(pair) {
+  let items : Array[(TItem, Int32)] = input.map(fn(pair) {
     (make_item(pair.0, pair.1), pair.1)
   })
   let t : BTree[TItem] = BTree::from_sorted(items, min_degree=2)
@@ -2869,7 +2949,7 @@ test "from_sorted content matches build_tree" {
 ///|
 test "from_sorted large tree" {
   // 100 elements with default min_degree=10 → multi-level tree
-  let items : Array[(TItem, Int)] = []
+  let items : Array[(TItem, Int32)] = []
   for i in 0..<100 {
     items.push((make_item(i % 10, i % 5 + 1), i % 5 + 1))
   }
@@ -2885,7 +2965,7 @@ test "from_sorted redistribution at default degree boundaries" {
   // min_degree=10, max_degree=20
   // n=21: two chunks (11+10 or 10+11), both valid
   for n in [21, 39, 41] {
-    let items : Array[(TItem, Int)] = []
+    let items : Array[(TItem, Int32)] = []
     for i in 0..<n {
       items.push((make_item(i, 1), 1))
     }
@@ -2899,7 +2979,10 @@ test "from_sorted redistribution at default degree boundaries" {
 ///|
 test "from_sorted clamps invalid min_degree" {
   // min_degree=0, 1, negative should all clamp to 2
-  let items : Array[(TItem, Int)] = [(make_item(1, 1), 1), (make_item(2, 1), 1)]
+  let items : Array[(TItem, Int32)] = [
+    (make_item(1, 1), 1),
+    (make_item(2, 1), 1),
+  ]
   for d in [-1, 0, 1] {
     let t : BTree[TItem] = BTree::from_sorted(items, min_degree=d)
     inspect(t.size(), content="2")
@@ -2909,7 +2992,10 @@ test "from_sorted clamps invalid min_degree" {
 
 ///|
 test "from_sorted clamps oversized min_degree" {
-  let items : Array[(TItem, Int)] = [(make_item(1, 1), 1), (make_item(2, 1), 1)]
+  let items : Array[(TItem, Int32)] = [
+    (make_item(1, 1), 1),
+    (make_item(2, 1), 1),
+  ]
   let oversized_min_degree = MAX_SAFE_MIN_DEGREE + 1
   let t : BTree[TItem] = BTree::from_sorted(
     items,
@@ -2924,17 +3010,18 @@ test "from_sorted clamps oversized min_degree" {
 }
 
 ///|
+#derive(Debug)
 struct FromSortedCase {
-  items : Array[(Int, Int)]
-  min_degree : Int
-} derive(Debug)
+  items : Array[(Int32, Int32)]
+  min_degree : Int32
+}
 
 ///|
 impl @quickcheck.Arbitrary for FromSortedCase with fn arbitrary(size, rs) {
   let capped = if size < 0 { 0 } else if size > 50 { 50 } else { size }
   let item_count = rs.split().next_positive_int() % (capped + 1)
   let min_degree = 2 + rs.split().next_positive_int() % 4
-  let items : Array[(Int, Int)] = []
+  let items : Array[(Int32, Int32)] = []
   for _ in 0..<item_count {
     let id = 1 + rs.split().next_positive_int() % 10
     let span = 1 + rs.split().next_positive_int() % 5
@@ -2946,8 +3033,8 @@ impl @quickcheck.Arbitrary for FromSortedCase with fn arbitrary(size, rs) {
 ///|
 fn push_from_sorted_case_shrinks(
   results : Array[FromSortedCase],
-  items : Array[(Int, Int)],
-  min_degree : Int,
+  items : Array[(Int32, Int32)],
+  min_degree : Int32,
 ) -> Unit {
   if min_degree != 2 {
     results.push({ items, min_degree: 2, })
@@ -2961,7 +3048,7 @@ fn push_from_sorted_case_shrinks(
   if min_degree != 5 {
     results.push({ items, min_degree: 5, })
   }
-  for next_min_degree in @qc.Shrink::shrink(min_degree) {
+  for next_min_degree in @shrink.Shrink::shrink(min_degree) {
     if next_min_degree < 2 || next_min_degree > 5 {
       results.push({ items, min_degree: next_min_degree, })
     }
@@ -2969,7 +3056,7 @@ fn push_from_sorted_case_shrinks(
 }
 
 ///|
-impl @qc.Shrink for FromSortedCase with fn shrink(case_) {
+impl @shrink.Shrink for FromSortedCase with fn shrink(case_) {
   let results : Array[FromSortedCase] = []
   push_from_sorted_case_shrinks(results, case_.items, case_.min_degree)
   for items in shrink_generated_items(case_.items) {
@@ -2981,7 +3068,7 @@ impl @qc.Shrink for FromSortedCase with fn shrink(case_) {
 
 ///|
 fn prop_from_sorted_invariants(case_ : FromSortedCase) -> Bool {
-  let items : Array[(TItem, Int)] = case_.items.map(fn(pair) {
+  let items : Array[(TItem, Int32)] = case_.items.map(fn(pair) {
     (make_item(pair.0, pair.1), pair.1)
   })
   let t : BTree[TItem] = BTree::from_sorted(items, min_degree=case_.min_degree)
@@ -2999,21 +3086,3 @@ fn prop_from_sorted_invariants(case_ : FromSortedCase) -> Bool {
 test "property: from_sorted produces valid btree" {
   @qc.quick_check_fn(prop_from_sorted_invariants)
 }
-
-///|
-pub extend DeleteRangeCase with @moonbitlang/core/debug.Debug::{to_repr}
-
-///|
-pub extend FromSortedCase with @moonbitlang/core/debug.Debug::{to_repr}
-
-///|
-pub extend MergeOnlyItem with @moonbitlang/core/debug.Debug::{to_repr}
-
-///|
-pub extend MergeOnlyItem with Eq::{equal, not_equal}
-
-///|
-pub extend TItem with @moonbitlang/core/debug.Debug::{to_repr}
-
-///|
-pub extend TItem with Eq::{equal, not_equal}

@@ -7,7 +7,7 @@ async test "SHA256 uses standard UTF8 and lowercase hexadecimal" {
 }
 
 ///|
-extern "js" fn from_units(units : FixedArray[Int]) -> String =
+extern "js" fn from_units(units : FixedArray[Int32]) -> String =
   #|(units) => String.fromCharCode(...units)
 
 ///|

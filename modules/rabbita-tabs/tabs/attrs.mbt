@@ -20,7 +20,7 @@ pub fn tablist_attrs(label~ : String) -> @html.Attrs {
 /// panel's `aria-labelledby` still ties it back to its tab button.
 fn Model::base_tab_attrs(
   self : Model,
-  index : Int,
+  index : Int32,
   panel_id : String,
 ) -> @html.Attrs {
   let selected = self.is_selected(index)
@@ -40,9 +40,9 @@ fn Model::base_tab_attrs(
 #cfg(target="js")
 pub fn Model::tab_attrs(
   self : Model,
-  index : Int,
+  index : Int32,
   panel_id~ : String,
-  dispatch~ : (Int) -> @rabbita.Cmd,
+  dispatch~ : (Int32) -> @rabbita.Cmd,
 ) -> @html.Attrs {
   self
   .base_tab_attrs(index, panel_id)
@@ -62,9 +62,9 @@ pub fn Model::tab_attrs(
 #cfg(not(target="js"))
 pub fn Model::tab_attrs(
   self : Model,
-  index : Int,
+  index : Int32,
   panel_id~ : String,
-  dispatch~ : (Int) -> @rabbita.Cmd,
+  dispatch~ : (Int32) -> @rabbita.Cmd,
 ) -> @html.Attrs {
   ignore(dispatch)
   self.base_tab_attrs(index, panel_id)
@@ -76,7 +76,7 @@ pub fn Model::tab_attrs(
 /// back at the behavior-owned tab button id.
 pub fn Model::panel_attrs(
   self : Model,
-  index : Int,
+  index : Int32,
   panel_id~ : String,
 ) -> @html.Attrs {
   @html.Attrs::build()

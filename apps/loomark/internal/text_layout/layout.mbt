@@ -26,7 +26,7 @@ priv struct TextMirror {
   retired_lines : Array[TextLineElement]
   mut signature : Array[String]
   mut metrics : TextMetrics?
-  mut reflow_revision : Int
+  mut reflow_revision : Int32
 }
 
 ///|
@@ -94,7 +94,7 @@ fn TextMirror::measure(
   lang : String,
 ) -> MeasuredText {
   self.sync_text(text_area.get_value())
-  let area = text_area.as_element()
+  let area = @dom.IsElement::as_element(text_area)
   let overflow = match style.get_property_value("overflow-y") {
     "scroll" => "scroll"
     "auto" if area.get_scroll_height() > area.get_client_height() => "scroll"
@@ -224,8 +224,8 @@ fn TextMirror::release_retired_lines(self : TextMirror) -> Unit {
 ///|
 fn TextMirror::line_bounds(
   self : TextMirror,
-  first : Int,
-  last : Int,
+  first : Int32,
+  last : Int32,
 ) -> (Double, Double) {
   let origin = self.element.get_bounding_client_rect().get_top()
   (
@@ -237,9 +237,9 @@ fn TextMirror::line_bounds(
 ///|
 fn TextMirror::glyph_rects(
   self : TextMirror,
-  line : Int,
-  start : Int,
-  end : Int,
+  line : Int32,
+  start : Int32,
+  end : Int32,
 ) -> Array[@dom.DOMRect] {
   @browser.text_range_rects(self.lines[line].text_node, start, end)
   .iter()
@@ -247,7 +247,7 @@ fn TextMirror::glyph_rects(
 }
 
 ///|
-fn TextMirror::line_rect(self : TextMirror, line : Int) -> @dom.DOMRect {
+fn TextMirror::line_rect(self : TextMirror, line : Int32) -> @dom.DOMRect {
   self.lines[line].element.get_bounding_client_rect()
 }
 
@@ -261,7 +261,7 @@ fn TextMirror::top(self : TextMirror) -> Double {
 /// border edge. Empty logical lines have their own line box, including at EOF.
 fn TextMirror::line_top(
   self : TextMirror,
-  offset : Int,
+  offset : Int32,
   line_height : Double,
 ) -> Double {
   let position = self.source.position(offset)

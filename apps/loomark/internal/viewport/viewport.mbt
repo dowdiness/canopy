@@ -4,14 +4,17 @@
 pub fn expose_scroll_top_to_styles(
   area : @dom.HTMLTextAreaElement,
 ) -> () -> Unit {
-  let style = area.get_style()
+  let style = @dom.IsHtmlElement::get_style(area)
   fn expose() {
-    style.set_property("--loomark-scroll-top", "\{area.get_scroll_top()}px")
+    style.set_property(
+      "--loomark-scroll-top",
+      "\{@dom.IsElement::get_scroll_top(area)}px",
+    )
   }
   let listener : @dom.Listener = _ => expose()
-  area.add_event_listener("scroll", listener)
+  @dom.IsEventTarget::add_event_listener(area, "scroll", listener)
   expose()
-  () => area.remove_event_listener("scroll", listener)
+  () => @dom.IsEventTarget::remove_event_listener(area, "scroll", listener)
 }
 
 ///|

@@ -29,7 +29,7 @@ fn is_identifier_code(code : UInt16) -> Bool {
 }
 
 ///|
-fn name_matches_at(source : String, pos : Int, name : String) -> Bool {
+fn name_matches_at(source : String, pos : Int32, name : String) -> Bool {
   if pos < 0 || pos + name.length() > source.length() {
     false
   } else {
@@ -47,7 +47,11 @@ fn name_matches_at(source : String, pos : Int, name : String) -> Bool {
 }
 
 ///|
-fn has_identifier_boundaries(source : String, start : Int, end : Int) -> Bool {
+fn has_identifier_boundaries(
+  source : String,
+  start : Int32,
+  end : Int32,
+) -> Bool {
   let left_ok = start == 0 || !is_identifier_code(source[start - 1])
   let right_ok = end >= source.length() || !is_identifier_code(source[end])
   left_ok && right_ok
@@ -58,7 +62,7 @@ fn tight_name_range(
   source : String,
   range : @loomcore.Range,
   name : String,
-) -> (Int, Int) raise EditError {
+) -> (Int32, Int32) raise EditError {
   guard !(name.length() == 0 || range.end - range.start < name.length()) else {
     raise SourceSpanMissing(
       detail="Cannot rename: identifier range does not contain name",
@@ -83,7 +87,7 @@ fn ref_edit_range(
   ctx : EditContext[@ast.Term],
   node_id : NodeId,
   old_name : String,
-) -> (Int, Int) raise EditError {
+) -> (Int32, Int32) raise EditError {
   guard ctx.source_map.get_range(node_id) is Some(r) else {
     raise NodeNotInSourceMap(action="Rename reference", node_id~)
   }
@@ -229,7 +233,7 @@ fn rename_lam_param(
   }
   // Add edits for each identity-resolved reference, collecting tight name
   // ranges first so parser trivia around the VarRef is preserved.
-  let var_ranges : Array[(Int, Int)] = []
+  let var_ranges : Array[(Int32, Int32)] = []
   // Push loop lets us abort on the first invalid range before emitting edits.
   for vid in ref_ids {
     var_ranges.push(ref_edit_range(ctx, vid, old_name))
@@ -363,7 +367,7 @@ fn rename_module_binding(
     delete_len: range.end - range.start,
     inserted: new_name,
   })
-  let ref_ranges : Array[(Int, Int)] = []
+  let ref_ranges : Array[(Int32, Int32)] = []
   // Push loop lets us abort on the first invalid range before emitting edits.
   for rid in ref_ids {
     ref_ranges.push(ref_edit_range(ctx, rid, old_name))

@@ -3,16 +3,17 @@
 
 ///|
 /// Space between cards, in both axes.
-const GAP : Int = 14
+const GAP : Int32 = 14
 
 ///|
 /// Empty column height a wide card may leave beneath it before it is placed
 /// at one column instead.
-const FALLBACK_GAP : Int = 60
+const FALLBACK_GAP : Int32 = 60
 
 ///|
 /// A document as the index lists it, resolved by the host with the same
 /// states its Recent documents entry shows.
+#derive(Eq)
 pub(all) struct Seed[K] {
   /// The host's own key for the document, handed back by `on_delete` and
   /// unique among the listed documents. Its text names the card's elements,
@@ -28,7 +29,7 @@ pub(all) struct Seed[K] {
   deletion : @recent_documents.DeletionAvailability
   /// The document was chosen and is still loading.
   loading : Bool
-} derive(Eq)
+}
 
 ///|
 pub extend Seed with Eq::{equal, not_equal}
@@ -36,22 +37,24 @@ pub extend Seed with Eq::{equal, not_equal}
 ///|
 /// What a card says about its document besides its text. Every notice is
 /// drawn over the card, so a card measures the same whatever it says.
+#derive(Eq, Hash)
 priv enum Notice {
   Quiet
   NotSaved
   Progress(String)
   Problem(String)
-} derive(Eq, Hash)
+}
 
 ///|
 /// What a card lets its reader do.
+#derive(Eq, Hash)
 priv enum Actions {
   ChooseOrDelete
   /// Deleting is not available now, as in Recent documents.
   ChooseOnly
   /// The document is being deleted; it stays in place until it is gone.
   Neither
-} derive(Eq, Hash)
+}
 
 ///|
 fn[K] notice_of(seed : Seed[K]) -> Notice {
@@ -75,6 +78,7 @@ fn actions_of(deletion : @recent_documents.DeletionAvailability) -> Actions {
 
 ///|
 /// A listed document with its Document lead, parsed once when its text is set.
+#derive(Eq, Hash)
 priv struct Card[K] {
   key : K
   href : String
@@ -85,7 +89,7 @@ priv struct Card[K] {
   search_text : @text_search.Searchable
   notice : Notice
   actions : Actions
-} derive(Eq, Hash)
+}
 
 ///|
 /// Make a card for `seed`, reusing the lead and search text of `previous`
@@ -153,28 +157,29 @@ fn is_wide(lead : @document_lead.DocumentLead) -> Bool {
 /// The column grid that fits `grid_width` with columns at least `min_column`
 /// wide.
 priv struct Columns {
-  count : Int
-  width : Int
+  count : Int32
+  width : Int32
 }
 
 ///|
-fn columns_for(grid_width~ : Int, min_column~ : Int) -> Columns {
+fn columns_for(grid_width~ : Int32, min_column~ : Int32) -> Columns {
   let count = ((grid_width + GAP) / (min_column + GAP)).max(1)
   { count, width: (grid_width - GAP * (count - 1)) / count, }
 }
 
 ///|
 /// The width of a card spanning `span` columns.
-fn Columns::span_width(self : Columns, span : Int) -> Int {
+fn Columns::span_width(self : Columns, span : Int32) -> Int32 {
   span * self.width + (span - 1) * GAP
 }
 
 ///|
 /// A card's height depends only on the text it shows and its width.
+#derive(Eq, Hash)
 priv struct CardMeasure {
-  width : Int
+  width : Int32
   text : String
-} derive(Eq, Hash)
+}
 
 ///|
 /// Whether `card` may take two columns in `columns`.
@@ -184,10 +189,11 @@ fn[K] may_be_wide(card : Card[K], columns : Columns) -> Bool {
 
 ///|
 /// A card to draw off screen so the shell can measure it.
+#derive(Eq)
 priv struct MeasureRequest[K] {
   measure : CardMeasure
   card : Card[K]
-} derive(Eq)
+}
 
 ///|
 /// Every width each card's card may be drawn at.
@@ -198,7 +204,7 @@ fn[K] measures_for(
   cards
   .iter()
   .flat_map(card => {
-    let at = (span : Int) => {
+    let at = (span : Int32) => {
       measure: { width: columns.span_width(span), text: card.text, },
       card,
     }
@@ -214,13 +220,14 @@ fn[K] measures_for(
 ///|
 /// The requests among `wanted` whose measures `heights` lacks, each once.
 fn[K] unmeasured_among(
-  heights : @hashmap.HashMap[CardMeasure, Int],
+  heights : @hashmap.HashMap[CardMeasure, Int32],
   wanted : Array[MeasureRequest[K]],
 ) -> Array[MeasureRequest[K]] {
   let seen : Set[CardMeasure] = Set([])
   let missing = []
   for request in wanted {
-    if !heights.contains(request.measure) && seen.add_and_check(request.measure) {
+    if !heights.contains(request.measure) &&
+      seen.insert_and_check(request.measure) {
       missing.push(request)
     }
   }
@@ -231,21 +238,21 @@ fn[K] unmeasured_among(
 /// A card with its measured heights.
 priv struct MeasuredCard[K] {
   card : Card[K]
-  narrow : Int
+  narrow : Int32
   /// The height at two columns, for a card that may take them.
-  wide : Int?
+  wide : Int32?
 }
 
 ///|
 /// Parse the cards into measured ones, or `None` while any card that may be
 /// drawn is not measured yet.
 fn[K] measured_cards(
-  heights : @hashmap.HashMap[CardMeasure, Int],
+  heights : @hashmap.HashMap[CardMeasure, Int32],
   cards : Cursor[Card[K]],
   columns : Columns,
 ) -> Cursor[MeasuredCard[K]]? {
   cards.map_all(card => {
-    let height = (span : Int) => {
+    let height = (span : Int32) => {
       heights.get({ width: columns.span_width(span), text: card.text, })
     }
     match (height(1), may_be_wide(card, columns)) {
@@ -258,20 +265,22 @@ fn[K] measured_cards(
 }
 
 ///|
+#derive(Eq)
 priv struct Placed[K] {
   card : Card[K]
-  x : Int
-  y : Int
-  width : Int
-  height : Int
-} derive(Eq)
+  x : Int32
+  y : Int32
+  width : Int32
+  height : Int32
+}
 
 ///|
+#derive(Eq)
 priv struct CardLayout[K] {
   cards : Cursor[Placed[K]]
-  width : Int
-  height : Int
-} derive(Eq)
+  width : Int32
+  height : Int32
+}
 
 ///|
 /// Pack measured cards into the column grid with skyline Bottom-Left

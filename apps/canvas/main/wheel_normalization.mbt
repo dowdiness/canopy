@@ -25,7 +25,7 @@ const CANVAS_MIN_SCALE : Double = 0.1
 const CANVAS_MAX_SCALE : Double = 8.0
 
 ///|
-fn canvas_wheel_delta_unit(delta_mode : Int) -> CanvasWheelDeltaUnit? {
+fn canvas_wheel_delta_unit(delta_mode : Int32) -> CanvasWheelDeltaUnit? {
   match delta_mode {
     0 => Some(Pixel)
     1 => Some(Line)
@@ -50,7 +50,7 @@ fn canvas_wheel_unit_factor(unit : CanvasWheelDeltaUnit) -> Double {
 fn canvas_wheel_target_scale(
   current_scale : @spatial.Scale,
   delta_y : Double,
-  delta_mode : Int,
+  delta_mode : Int32,
   ctrl_key : Bool,
   mac_like : Bool,
   min_scale~ : Double,

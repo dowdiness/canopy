@@ -1,10 +1,22 @@
 # btree
 
+[![CI](https://github.com/dowdiness/btree/actions/workflows/ci.yml/badge.svg)](https://github.com/dowdiness/btree/actions/workflows/ci.yml)
+
 Counted B+ tree for [MoonBit](https://www.moonbitlang.com/) with O(log n) position-indexed access, insert, delete, and range operations.
 
 All data lives in leaf nodes. Internal nodes store only child pointers and span counts for positional navigation — a B+ tree indexed by cumulative span rather than keys.
 
+> Provenance: extracted with history from `dowdiness/canopy/lib/btree`. The published Mooncakes `0.2.0` remains immutable and was released from the Canopy tag `btree-v0.2.0`.
+
 ## Install
+
+This checkout uses the MoonBit compiler/core version recorded in the
+[repository toolchain pin](../../.moonbit-toolchain). The published package
+also depends on `dowdiness/rle@0.4.0` and
+`moonbitlang/quickcheck@0.15.1`.
+Custom `BTreeElem` types must implement
+`Sliceable::slice(...) -> Self raise @rle.RleError`, not return a `Result`.
+See [CHANGELOG.md](CHANGELOG.md) for migration details.
 
 ```bash
 moon add dowdiness/btree
@@ -29,19 +41,26 @@ Elements implement `BTreeElem` (requires `Spanning` + `Mergeable` + `Sliceable` 
 // Define your element type
 struct TextRun {
   text : String
-  len : Int
+  len : Int32
 }
 
 // Implement BTreeElem traits (HasLength, Spanning, Mergeable, Sliceable)
-impl @rle.HasLength for TextRun with fn length(self) -> Int { self.len }
-impl @rle.Spanning for TextRun with fn span(self) -> Int { self.len }
+impl @rle.HasLength for TextRun with fn length(self) -> Int32 { self.len }
+impl @rle.Spanning for TextRun with fn span(self) -> Int32 { self.len }
 impl @rle.Mergeable for TextRun with fn can_merge(a : TextRun, b : TextRun) -> Bool {
   true
 }
 impl @rle.Mergeable for TextRun with fn merge(a : TextRun, b : TextRun) -> TextRun {
   { text: a.text + b.text, len: a.len + b.len }
 }
-// ... plus Sliceable
+impl @rle.Sliceable for TextRun with fn slice(
+  self, start~ : Int32, end~ : Int32,
+) -> TextRun raise @rle.RleError {
+  let text = @rle.slice_string_view(self.text, start~, end~) catch {
+    reason => raise @rle.RleError::InvalidSlice(reason~)
+  }
+  { text, len: end - start }
+}
 impl @btree.BTreeElem for TextRun
 
 // Use the tree
@@ -213,3 +232,31 @@ The tree maintains these structural invariants:
 - `counts[i] == children[i].total()` and `total == sum(counts)`
 
 Canonical no-adjacent-mergeable-leaf policy is enforced by higher-level callers (for example `order-tree`), by calling `normalize_boundary_at` at affected boundaries, or by insertion/bulk-build callbacks that choose to pre-merge input.
+
+## Verification
+
+The current compiler/core pin is recorded in the
+[repository toolchain file](../../.moonbit-toolchain).
+[Canopy's CI workflow](../../.github/workflows/ci.yml) defines workspace
+validation. Use the package-specific commands and
+[scalar proof checks](proof/README.md) below when validating BTree independently.
+
+Additional local validation covers more targets and build modes than CI:
+
+```bash
+./scripts/moon-update.sh
+moon fmt --check
+moon check --target all --deny-warn
+moon info
+moon build --target all --release
+moon test --target all
+moon test --target all --release
+moon bench --target all --release --build-only
+moon bench --release
+moon -C proof info
+git diff --exit-code -- pkg.generated.mbti proof/pkg.generated.mbti
+```
+
+The independent `proof/` module also runs formatting, warning-denied checks,
+release tests, interface generation, and `moon prove` with Why3 1.7.2 and
+Z3 4.13.4. See [proof/README.md](proof/README.md) for the guarantee boundary.

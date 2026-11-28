@@ -1,19 +1,20 @@
 ///|
+#derive(Eq)
 struct Model {
   text : String
-  generation : Int
+  generation : Int32
   mode : @editor.Mode
   editor : @editor.EditorState
   mounted : Bool
   replacement : Bool
   reject_next : Bool
   rejected : Bool
-} derive(Eq)
+}
 
 ///|
 enum Msg {
-  Edit(Int, @text_change.TextChange)
-  NativeEdit(Int, @editor.InputEdit)
+  Edit(Int32, @text_change.TextChange)
+  NativeEdit(Int32, @editor.InputEdit)
   BeginRejection
   Race
   Reject

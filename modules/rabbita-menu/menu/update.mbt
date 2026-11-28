@@ -1,5 +1,5 @@
 ///|
-fn Model::with_focus(self : Model, focused : Int?) -> Model {
+fn Model::with_focus(self : Model, focused : Int32?) -> Model {
   { ..self, focused, }
 }
 
@@ -44,7 +44,7 @@ fn Model::focus_last(self : Model) -> Model {
 }
 
 ///|
-fn Model::focus_item(self : Model, index : Int) -> Model {
+fn Model::focus_item(self : Model, index : Int32) -> Model {
   if self.valid_index(index) {
     self.with_focus(Some(index))
   } else {
@@ -54,14 +54,14 @@ fn Model::focus_item(self : Model, index : Int) -> Model {
 
 ///|
 /// Create menu behavior state for a stable menu id and item count.
-pub fn Model::new(id~ : String, item_count~ : Int) -> Model {
+pub fn Model::new(id~ : String, item_count~ : Int32) -> Model {
   let item_count = normalized_count(item_count)
   { id, item_count, focused: first_focus(item_count), }
 }
 
 ///|
 /// Reset the item count and move focus back to the first item when present.
-pub fn Model::reset(self : Model, item_count~ : Int) -> Model {
+pub fn Model::reset(self : Model, item_count~ : Int32) -> Model {
   Model::new(id=self.id, item_count~)
 }
 

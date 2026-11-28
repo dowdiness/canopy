@@ -109,7 +109,7 @@ pub fn[T, Op, E] Language::Language(
 pub fn[T, Op, E] Language::build(
   self : Language[T, Op, E],
   agent_id : String,
-  capture_timeout_ms? : Int = 500,
+  capture_timeout_ms~ : Int32 = 500,
   parent_runtime? : @incr.Runtime,
 ) -> (@editor.SyncEditor[T], E) raise {
   @editor.SyncEditor::new_with_builder(
@@ -143,22 +143,25 @@ pub fn[T, Op, E] Language::build(
 /// queued identity hint before the error escapes; node-resolution failures do
 /// not. Errors stay structured (`core.EditError`); mapping to the user-facing
 /// `TreeEditError` happens at the editor/FFI boundary, not here.
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 pub fn[T : Eq, Op, E] Language::apply_edit(
   self : Language[T, Op, E],
   editor : @editor.SyncEditor[T],
   op : Op,
-  timestamp_ms : Int,
+  timestamp_ms : Int32,
 ) -> Result[Array[@core.SpanEdit], @core.EditError] raise Failure {
   let projection = editor.get_proj_node()
   let source_map = editor.get_source_map()
   let registry = editor.get_registry()
+  guard projection is Some(proj) else {
+    return Err(@core.EditError::ProjectionUnavailable)
+  }
+  let source_text = editor.get_text()
   let computed : Result[EditResult, @core.EditError] = Ok(
     {
-      guard projection is Some(proj) else {
-        raise @core.EditError::ProjectionUnavailable
-      }
       let ctx : EditContext[T] = {
-        source_text: editor.get_text(),
+        source_text,
         source_map,
         registry,
         proj_node: proj,

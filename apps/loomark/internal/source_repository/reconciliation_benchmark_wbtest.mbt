@@ -1,5 +1,5 @@
 ///|
-fn bench_document(index : Int, large : Bool) -> Document {
+fn bench_document(index : Int32, large : Bool) -> Document {
   let text = if large {
     "# Document \{index}\n" + String::make(4096, 'x')
   } else {

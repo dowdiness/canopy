@@ -10,10 +10,11 @@
 ///|
 
 ///|
+#derive(Debug, Eq)
 priv enum TestExpr {
   Leaf(String)
   Branch(String, Array[TestExpr])
-} derive(Debug, Eq)
+}
 
 ///|
 impl Show for TestExpr with fn output(self, logger) {
@@ -305,7 +306,7 @@ test "ProjNode::walk_preorder visits all nodes" {
   let a = ProjNode(Leaf("a"), 0, 1, 1, [])
   let b = ProjNode(Leaf("b"), 1, 2, 2, [])
   let root = ProjNode(Branch("r", [Leaf("a"), Leaf("b")]), 0, 3, 0, [a, b])
-  let visited : Array[Int] = []
+  let visited : Array[Int32] = []
   root.walk_preorder(n => visited.push(n.node_id))
   // Pre-order: parent (0), then left child (1), then right child (2)
   @debug.assert_eq(visited, [0, 1, 2])
@@ -314,7 +315,7 @@ test "ProjNode::walk_preorder visits all nodes" {
 ///|
 test "ProjNode::walk_preorder visits single leaf" {
   let leaf = ProjNode(Leaf("x"), 0, 1, 7, [])
-  let visited : Array[Int] = []
+  let visited : Array[Int32] = []
   leaf.walk_preorder(n => visited.push(n.node_id))
   @debug.assert_eq(visited, [7])
 }

@@ -12,12 +12,14 @@ pub fn[T : @dowdiness/loom/core.TreeNode] is_leaf_node(T) -> Bool
 // Errors
 
 // Types and methods
+#derive(@debug.Debug)
 pub enum InteractiveChildren[T] {
   Loaded(Array[InteractiveTreeNode[T]])
-  Elided(Int)
-} derive(@debug.Debug)
+  Elided(Int32)
+}
 pub fn[T : @debug.Debug] InteractiveChildren::to_repr(Self[T]) -> @debug.Repr
 
+#derive(@debug.Debug)
 pub struct InteractiveTreeNode[T] {
   id : @dowdiness/canopy/core.NodeId
   kind : T
@@ -28,7 +30,7 @@ pub struct InteractiveTreeNode[T] {
   collapsed : Bool
   drop_target : Bool
   text_range : @dowdiness/loom/core.Range
-} derive(@debug.Debug)
+}
 pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::from_term_node(@dowdiness/canopy/core.ProjNode[T], @dowdiness/canopy/core.SourceMap) -> Self[T]
 pub fn[T : @dowdiness/loom/core.Renderable] InteractiveTreeNode::output(Self[T], &Logger) -> Unit
 pub fn[T : @debug.Debug] InteractiveTreeNode::to_repr(Self[T]) -> @debug.Repr

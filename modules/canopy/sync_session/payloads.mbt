@@ -5,6 +5,8 @@
 using @byte_codec {type Reader}
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn parse_sync_message_json(
   payload : Bytes,
 ) -> Result[@text.SyncMessage, @wire.ProtocolError] {
@@ -15,6 +17,8 @@ fn parse_sync_message_json(
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn parse_sync_request_payload(
   payload : Bytes,
 ) -> Result[(String, String, String), @wire.ProtocolError] {
@@ -35,6 +39,8 @@ fn parse_sync_request_payload(
 }
 
 ///|
+// Result is ordinary data here; preserve the existing caller contract.
+#warnings("-result_error_return")
 fn parse_sync_response_payload(
   payload : Bytes,
 ) -> Result[(String, String, String), @wire.ProtocolError] {

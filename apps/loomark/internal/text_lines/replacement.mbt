@@ -3,14 +3,18 @@
 /// `inserted`.
 pub struct LineEdit {
   source : TextLines
-  first : Int
-  removed : Int
+  first : Int32
+  removed : Int32
   inserted : ArrayView[String]
 }
 
 ///|
 // Native string equality compares chunks without a JS loop over each UTF-16 unit.
-fn common_prefix_length(before : String, after : String, limit : Int) -> Int {
+fn common_prefix_length(
+  before : String,
+  after : String,
+  limit : Int32,
+) -> Int32 {
   for matched = 0, upper_bound = limit; matched < upper_bound; {
     let candidate = matched + (upper_bound - matched + 1) / 2
     if before.unsafe_substring(start=matched, end=candidate) ==
@@ -24,7 +28,11 @@ fn common_prefix_length(before : String, after : String, limit : Int) -> Int {
 }
 
 ///|
-fn common_suffix_length(before : String, after : String, limit : Int) -> Int {
+fn common_suffix_length(
+  before : String,
+  after : String,
+  limit : Int32,
+) -> Int32 {
   for matched = 0, upper_bound = limit; matched < upper_bound; {
     let candidate = matched + (upper_bound - matched + 1) / 2
     if before.unsafe_substring(
@@ -47,9 +55,9 @@ fn common_suffix_length(before : String, after : String, limit : Int) -> Int {
 /// The single UTF-16 span that differs: `before[start:old_end]` became
 /// `after[start:new_end]`.
 pub struct TextChange {
-  start : Int
-  old_end : Int
-  new_end : Int
+  start : Int32
+  old_end : Int32
+  new_end : Int32
 }
 
 ///|

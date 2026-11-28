@@ -53,17 +53,17 @@ pub fn caret_move(
 pub enum SelectionEnd {
   /// A collapsed selection in a focused, editable text area; the drawn caret
   /// stands in for the native one here.
-  Collapsed(Int)
+  Collapsed(Int32)
   /// Any other selection end, which keeps the native rendering.
-  Endpoint(Int)
+  Endpoint(Int32)
 }
 
 ///|
 /// During IME composition the browser reports the composition caret as a
 /// collapsed selection, and a converted clause as a range.
 pub fn selection_end(
-  selection_start : Int,
-  selection_end : Int,
+  selection_start : Int32,
+  selection_end : Int32,
   backward~ : Bool,
   editable_focus~ : Bool,
 ) -> SelectionEnd {
@@ -79,7 +79,7 @@ pub fn selection_end(
 ///|
 /// A caret position measured in the mirror, in content coordinates.
 pub(all) struct MeasuredCaret {
-  offset : Int
+  offset : Int32
   x : Double
   y : Double
 }
@@ -102,7 +102,7 @@ pub enum CaretMeasure {
 ///|
 /// Decides whether a caret at `offset` needs a layout read and what moved it
 /// since the previous measurement.
-pub fn caret_measure(history : CaretHistory, offset : Int) -> CaretMeasure {
+pub fn caret_measure(history : CaretHistory, offset : Int32) -> CaretMeasure {
   match history {
     SameText(measured) if measured.offset == offset => Cached(measured)
     Unmeasured => Measure(Reflow)

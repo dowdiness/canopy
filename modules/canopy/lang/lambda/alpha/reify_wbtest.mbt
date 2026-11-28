@@ -33,7 +33,7 @@ test "reify: nested binders avoid capturing outer references" {
   guard reify(term, Source)
     is @ast.Term::Lam(
       outer_name,
-      @ast.Term::Lam(inner_name, @ast.Term::Var(body_name))
+      @ast.Term::Lam(inner_name, @ast.Term::Var(body_name)),
     ) else {
     fail("expected nested lambdas")
   }
@@ -53,7 +53,7 @@ test "reify: module binders avoid suffix free names" {
   guard reify(term, Source)
     is @ast.Term::Module(
       [(first_name, @ast.Term::Unit), (second_name, @ast.Term::Var(later_free))],
-      @ast.Term::Var(body_name)
+      @ast.Term::Var(body_name),
     ) else {
     fail("expected reified module")
   }
@@ -72,7 +72,7 @@ test "reify: invalid binder hints fall back to lexable names" {
   guard reify(term, Source)
     is @ast.Term::Lam(
       invalid_name,
-      @ast.Term::Lam(keyword_name, @ast.Term::Lam(digit_name, @ast.Term::Unit))
+      @ast.Term::Lam(keyword_name, @ast.Term::Lam(digit_name, @ast.Term::Unit)),
     ) else {
     fail("expected nested lambdas")
   }

@@ -2,11 +2,12 @@
 // Moved from editor/eval_memo.mbt to separate language code from framework.
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum EvalResult {
   Value(String)
   Stuck(String)
   Suppressed
-} derive(Debug, Eq)
+}
 
 ///|
 pub impl Show for EvalResult with fn output(self, logger) {
@@ -178,7 +179,7 @@ fn fill_suppressed(
   cache : Array[CachedDef],
   defs : Array[(@ast.VarName, @ast.Term)],
   body : @ast.Term,
-  from_index : Int,
+  from_index : Int32,
 ) -> Unit {
   for i = from_index; i < defs.length(); i = i + 1 {
     results.push(Suppressed)

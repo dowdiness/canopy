@@ -88,9 +88,9 @@ fn assert_projection_matches_compatible_fold(source : String) -> Unit raise {
 fn assert_projection_metadata(
   context : String,
   proj : ProjNode[@ast.Term],
-  expected_start : Int,
-  expected_end : Int,
-  expected_node_id : Int,
+  expected_start : Int32,
+  expected_end : Int32,
+  expected_node_id : Int32,
 ) -> Unit raise {
   if proj.start != expected_start ||
     proj.end != expected_end ||
@@ -117,8 +117,8 @@ fn assert_projection_metadata(
 fn assert_leaf_projection_metadata(
   source : String,
   expected_kind : @ast.Term,
-  expected_start : Int,
-  expected_end : Int,
+  expected_start : Int32,
+  expected_end : Int32,
 ) -> Unit raise {
   let (proj, errors) = parse_to_proj_node(lambda_cstfold_test_source, source)
   if !errors.is_empty() {

@@ -1,16 +1,18 @@
 ///|
 /// Test-only generated trees for DOM patch application properties.
+#derive(Debug, Eq)
 enum PatchTree {
   Element(tag~ : String, children~ : Array[PatchTree])
   Text(value~ : String)
   ExprSpan(raw~ : String)
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug)
 struct PatchTreePair {
   old : PatchTree
   new : PatchTree
-} derive(Debug)
+}
 
 ///|
 fn PatchTreePair::PatchTreePair(
@@ -30,36 +32,38 @@ impl @quickcheck.Arbitrary for PatchTreePair with fn arbitrary(size, rs) {
 }
 
 ///|
-impl @qc.Shrink for PatchTree with fn shrink(tree) {
+impl @shrink.Shrink for PatchTree with fn shrink(tree) {
   match tree {
     PatchTree::Element(tag~, children~) =>
       if children.is_empty() {
         Iter::empty()
       } else {
         Iter::singleton(PatchTree::Element(tag~, children=[])).concat(
-          @qc.Shrink::shrink(children).map(children1 => {
+          @shrink.Shrink::shrink(children).map(children1 => {
             PatchTree::Element(tag~, children=children1)
           }),
         )
       }
     PatchTree::Text(value~) =>
-      @qc.Shrink::shrink(value).map(value1 => PatchTree::Text(value=value1))
+      @shrink.Shrink::shrink(value).map(value1 => PatchTree::Text(value=value1))
     PatchTree::ExprSpan(raw~) =>
-      @qc.Shrink::shrink(raw).map(raw1 => PatchTree::ExprSpan(raw=raw1))
+      @shrink.Shrink::shrink(raw).map(raw1 => PatchTree::ExprSpan(raw=raw1))
   }
 }
 
 ///|
-impl @qc.Shrink for PatchTreePair with fn shrink(pair) {
+impl @shrink.Shrink for PatchTreePair with fn shrink(pair) {
   let old = pair.old
   let new = pair.new
-  @qc.Shrink::shrink(old)
+  @shrink.Shrink::shrink(old)
   .map(old1 => PatchTreePair(old=old1, new~))
-  .concat(@qc.Shrink::shrink(new).map(new1 => PatchTreePair(old~, new=new1)))
+  .concat(
+    @shrink.Shrink::shrink(new).map(new1 => PatchTreePair(old~, new=new1)),
+  )
 }
 
 ///|
-fn gen_patch_tree(rs : @splitmix.RandomState, depth : Int) -> PatchTree {
+fn gen_patch_tree(rs : @splitmix.RandomState, depth : Int32) -> PatchTree {
   if depth <= 0 {
     gen_patch_leaf(rs)
   } else {
@@ -92,7 +96,7 @@ fn gen_patch_leaf(rs : @splitmix.RandomState) -> PatchTree {
 ///|
 fn lower_patch_tree(
   tree : PatchTree,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> (@jsx.JsxNode, @core.ProjNode[@jsx.JsxNode]) {
   match tree {
     PatchTree::Element(tag~, children~) => {
@@ -137,7 +141,7 @@ fn lower_patch_tree(
 ///|
 fn lower_patch_root(
   tree : PatchTree,
-  counter : Ref[Int],
+  counter : Ref[Int32],
 ) -> @core.ProjNode[@jsx.JsxNode] {
   let (kind, node) = lower_patch_tree(tree, counter)
   let root_kind = @jsx.JsxNode::Root(children=[kind])
@@ -145,8 +149,8 @@ fn lower_patch_root(
 }
 
 ///|
-fn patch_tree_ids(root : @core.ProjNode[@jsx.JsxNode]) -> Array[Int] {
-  let ids : Array[Int] = []
+fn patch_tree_ids(root : @core.ProjNode[@jsx.JsxNode]) -> Array[Int32] {
+  let ids : Array[Int32] = []
   for child in root.children {
     collect_patch_tree_ids(child, ids)
   }
@@ -156,7 +160,7 @@ fn patch_tree_ids(root : @core.ProjNode[@jsx.JsxNode]) -> Array[Int] {
 ///|
 fn collect_patch_tree_ids(
   node : @core.ProjNode[@jsx.JsxNode],
-  ids : Array[Int],
+  ids : Array[Int32],
 ) -> Unit {
   ids.push(node.node_id)
   for child in node.children {
@@ -165,15 +169,15 @@ fn collect_patch_tree_ids(
 }
 
 ///|
-fn patch_ids_unique_and_mounted(ids : Array[Int]) -> Bool {
+fn patch_ids_unique_and_mounted(ids : Array[Int32]) -> Bool {
   !ids.contains(0) && all_unique_patch_ids(ids)
 }
 
 ///|
-fn all_unique_patch_ids(ids : Array[Int]) -> Bool {
+fn all_unique_patch_ids(ids : Array[Int32]) -> Bool {
   let seen = @set.Set::Set([])
   for id in ids {
-    if !seen.add_and_check(id) {
+    if !seen.insert_and_check(id) {
       return false
     }
   }

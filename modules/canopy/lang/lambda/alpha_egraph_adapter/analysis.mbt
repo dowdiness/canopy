@@ -1,9 +1,10 @@
 ///|
+#derive(Eq)
 priv enum ConstValue {
   Unknown
-  Known(Int)
+  Known(Int32)
   Conflict
-} derive(Eq)
+}
 
 ///|
 priv struct EvalState {
@@ -12,7 +13,7 @@ priv struct EvalState {
 }
 
 ///|
-fn known_bop_value(op : @ast.Bop, left : Int, right : Int) -> Int {
+fn known_bop_value(op : @ast.Bop, left : Int32, right : Int32) -> Int32 {
   match op {
     Plus => left + right
     Minus => left - right

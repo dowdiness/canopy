@@ -22,10 +22,13 @@ pub fn follow_text_in_preview(
   area : @dom.HTMLTextAreaElement,
   preview : @dom.Element,
 ) -> SplitFollowing {
-  connect_split(area, preview, reading=area.as_element(), following=preview, (
-    text,
-    rendered,
-  ) => follow(text, rendered))
+  connect_split(
+    area,
+    preview,
+    reading=@dom.IsElement::as_element(area),
+    following=preview,
+    (text, rendered) => follow(text, rendered),
+  )
 }
 
 ///|
@@ -33,10 +36,13 @@ pub fn follow_preview_in_text(
   preview : @dom.Element,
   area : @dom.HTMLTextAreaElement,
 ) -> SplitFollowing {
-  connect_split(area, preview, reading=preview, following=area.as_element(), (
-    text,
-    rendered,
-  ) => follow(rendered, text))
+  connect_split(
+    area,
+    preview,
+    reading=preview,
+    following=@dom.IsElement::as_element(area),
+    (text, rendered) => follow(rendered, text),
+  )
 }
 
 ///|
@@ -77,7 +83,7 @@ fn connect_split(
 
   let listener : @dom.Listener = _ => resync()
   reading.add_event_listener_with_options("scroll", listener, passive=true)
-  let stop_text_resize = on_resize(area.as_element(), resync)
+  let stop_text_resize = on_resize(@dom.IsElement::as_element(area), resync)
   let stop_preview_layout = @preview.observe_preview_layout(preview, resync)
   let stop_fonts = on_fonts_loaded(@browser.element_document(preview), resync)
   resync()

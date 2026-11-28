@@ -1,7 +1,7 @@
 // Shared measurement helper for the browser-only phase probe.
 
 ///|
-let editor_perf_profile_depth : Ref[Int] = Ref(0)
+let editor_perf_profile_depth : Ref[Int32] = Ref(0)
 
 ///|
 fn editor_perf_begin(name : String) -> Unit {

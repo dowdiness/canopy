@@ -158,7 +158,7 @@ fn split_lines(s : String) -> Array[String] {
 ///|
 /// Count leading '#' characters. Returns the heading level if followed by a space,
 /// otherwise 0.
-fn count_heading_hashes(line : String) -> Int {
+fn count_heading_hashes(line : String) -> Int32 {
   let mut count = 0
   while count < line.length() && line[count] == '#' {
     count = count + 1
@@ -201,7 +201,7 @@ fn is_divider(line : String) -> Bool {
 ///|
 /// If line matches `N. text`, return the offset past "N. " (the length of the prefix).
 /// Returns 0 if not a numbered list item.
-fn count_numbered_prefix(line : String) -> Int {
+fn count_numbered_prefix(line : String) -> Int32 {
   let mut i = 0
   while i < line.length() && line[i] >= '0' && line[i] <= '9' {
     i = i + 1

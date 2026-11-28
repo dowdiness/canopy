@@ -13,22 +13,24 @@ pub fn arrange_with_skyline(ArrayView[@graph_model.CanvasNode], region_width~ : 
 pub fn compact_region_width(ArrayView[@graph_model.CanvasNode], gap~ : Double) -> Double raise LayoutError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror LayoutError {
   InvalidRegionWidth(Double)
   InvalidGap(Double)
   NonFiniteGeometry
-  ItemTooWide(item_width~ : Int, bin_width~ : Int)
-  NoPlacement(width~ : Int, height~ : Int)
+  ItemTooWide(item_width~ : Int32, bin_width~ : Int32)
+  NoPlacement(width~ : Int32, height~ : Int32)
   CoordinateOverflow
-} derive(Eq, @debug.Debug)
+}
 pub fn LayoutError::equal(Self, Self) -> Bool
 pub fn LayoutError::not_equal(Self, Self) -> Bool
 pub fn LayoutError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub struct LayoutPlan {
   positions : Array[@canvas-spatial.ItemPosition[@graph_model.NodeId]]
-} derive(Eq, @debug.Debug)
+}
 pub fn LayoutPlan::equal(Self, Self) -> Bool
 pub fn LayoutPlan::not_equal(Self, Self) -> Bool
 pub fn LayoutPlan::to_move_nodes(Self) -> @graph_model.WorkflowAction

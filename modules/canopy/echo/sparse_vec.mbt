@@ -1,12 +1,12 @@
 ///|
 priv struct TermFreq {
-  counts : Map[String, Int]
-  total : Int
+  counts : Map[String, Int32]
+  total : Int32
 }
 
 ///|
 fn term_freq(tokens : Array[String]) -> TermFreq {
-  let counts : Map[String, Int] = Default::default()
+  let counts : Map[String, Int32] = Default::default()
   for token in tokens {
     counts[token] = counts.get(token).unwrap_or(0) + 1
   }
@@ -31,8 +31,8 @@ fn SparseVec::zero() -> SparseVec {
 /// to maintain sparsity — they carry no discriminative signal.
 fn to_sparse_vec(
   tf : TermFreq,
-  doc_count : Int,
-  doc_freq : Map[String, Int],
+  doc_count : Int32,
+  doc_freq : Map[String, Int32],
 ) -> SparseVec {
   if tf.total == 0 {
     return SparseVec::zero()
@@ -72,9 +72,9 @@ fn cosine_similarity(a : SparseVec, b : SparseVec) -> Double {
 ///|
 /// Sort by score descending, break ties by ascending post ID for determinism.
 fn top_n_by_score(
-  scores : Array[(Int, Double)],
-  top_n : Int,
-) -> Array[(Int, Double)] {
+  scores : Array[(Int32, Double)],
+  top_n : Int32,
+) -> Array[(Int32, Double)] {
   scores.sort_by(fn(a, b) {
     let cmp = b.1.compare(a.1)
     if cmp != 0 {

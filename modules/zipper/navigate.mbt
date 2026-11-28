@@ -12,7 +12,7 @@
 ///|
 pub fn[T] RoseZipper::go_down(
   self : RoseZipper[T],
-  index? : Int = 0,
+  index~ : Int32 = 0,
 ) -> RoseZipper[T]? {
   if index < 0 || index >= self.focus.children.length() {
     return None
@@ -131,12 +131,12 @@ pub fn[T] RoseZipper::modify(
 }
 
 ///|
-pub fn[T] RoseZipper::depth(self : RoseZipper[T]) -> Int {
+pub fn[T] RoseZipper::depth(self : RoseZipper[T]) -> Int32 {
   self.depth
 }
 
 ///|
-pub fn[T] RoseZipper::child_index(self : RoseZipper[T]) -> Int? {
+pub fn[T] RoseZipper::child_index(self : RoseZipper[T]) -> Int32? {
   match self.path {
     More(ctx, ..) => Some(ctx.index)
     Empty => None
@@ -154,13 +154,13 @@ pub fn[T] RoseZipper::is_leaf(self : RoseZipper[T]) -> Bool {
 }
 
 ///|
-pub fn[T] RoseZipper::num_children(self : RoseZipper[T]) -> Int {
+pub fn[T] RoseZipper::num_children(self : RoseZipper[T]) -> Int32 {
   self.focus.children.length()
 }
 
 ///|
-pub fn[T] RoseZipper::to_path(self : RoseZipper[T]) -> Array[Int] {
-  let indices : Array[Int] = []
+pub fn[T] RoseZipper::to_path(self : RoseZipper[T]) -> Array[Int32] {
+  let indices : Array[Int32] = []
   let mut p = self.path
   while true {
     match p {
@@ -178,7 +178,7 @@ pub fn[T] RoseZipper::to_path(self : RoseZipper[T]) -> Array[Int] {
 ///|
 pub fn[T] RoseZipper::focus_at(
   tree : RoseNode[T],
-  path : Array[Int],
+  path : Array[Int32],
 ) -> RoseZipper[T]? {
   let mut z = RoseZipper::from_root(tree)
   for idx in path {

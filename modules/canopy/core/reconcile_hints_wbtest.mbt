@@ -10,7 +10,7 @@
 ///|
 /// Build a hint map from (NodeId, IdentityTransform) pairs.
 fn mk_hints(
-  pairs : Array[(Int, IdentityTransform)],
+  pairs : Array[(Int32, IdentityTransform)],
 ) -> Map[NodeId, IdentityTransform] {
   let m : Map[NodeId, IdentityTransform] = Map([])
   for pair in pairs {
@@ -362,7 +362,7 @@ fn hinted_result_is_inert(
   old : ProjNode[TestExpr],
   new_ : ProjNode[TestExpr],
   hints : Map[NodeId, IdentityTransform],
-  base? : Map[NodeId, IdentityTransform] = Map([]),
+  base~ : Map[NodeId, IdentityTransform] = Map([]),
 ) -> Bool {
   let without = collect_ids(reconcile_hinted(old, new_, Ref(1000), base))
   let with_ = collect_ids(reconcile_hinted(old, new_, Ref(1000), hints))

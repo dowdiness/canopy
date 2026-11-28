@@ -7,7 +7,7 @@ import {
 }
 
 // Values
-pub fn after(String, Int, @cmd.Cmd) -> @sub.Sub
+pub fn after(String, Int32, @cmd.Cmd) -> @sub.Sub
 
 // Errors
 

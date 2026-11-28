@@ -8,16 +8,16 @@
 
 ///|
 /// Returns the cluster id (0-5) for a given post id.
-fn cluster_of(post_id : Int) -> Int {
+fn cluster_of(post_id : Int32) -> Int32 {
   post_id / 5
 }
 
 ///|
 /// Precision@K: fraction of top-K results that are relevant (same cluster as query).
 fn precision_at_k(
-  results : Array[(Int, Double)],
-  query_id : Int,
-  k : Int,
+  results : Array[(Int32, Double)],
+  query_id : Int32,
+  k : Int32,
 ) -> Double {
   if k <= 0 || results.is_empty() {
     return 0.0
@@ -38,7 +38,10 @@ fn precision_at_k(
 ///|
 /// Reciprocal Rank: 1/rank of the first relevant result (same cluster).
 ///  Returns 0.0 if no relevant result found.
-fn reciprocal_rank(results : Array[(Int, Double)], query_id : Int) -> Double {
+fn reciprocal_rank(
+  results : Array[(Int32, Double)],
+  query_id : Int32,
+) -> Double {
   let query_cluster = cluster_of(query_id)
   for i = 0; i < results.length(); i = i + 1 {
     if cluster_of(results[i].0) == query_cluster {

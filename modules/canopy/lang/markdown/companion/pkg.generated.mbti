@@ -9,13 +9,13 @@ import {
 }
 
 // Values
-pub fn apply_markdown_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int) -> Result[Unit, String] raise
+pub fn apply_markdown_edit(@editor.SyncEditor[@markdown.Block], @edits.MarkdownEditOp, Int32) -> Result[Unit, String] raise
 
-pub fn export_markdown_text(@editor.SyncEditor[@markdown.Block]) -> String
+pub fn export_markdown_text(@editor.SyncEditor[@markdown.Block]) -> String raise Failure
 
-pub fn new_markdown_editor(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@markdown.Block] raise
+pub fn new_markdown_editor(String, capture_timeout_ms? : Int32, parent_runtime? : @cells.Runtime) -> @editor.SyncEditor[@markdown.Block] raise
 
-pub fn new_markdown_editor_with_semantic_attachment(String, capture_timeout_ms? : Int, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise
+pub fn new_markdown_editor_with_semantic_attachment(String, capture_timeout_ms? : Int32, parent_runtime? : @cells.Runtime) -> (@editor.SyncEditor[@markdown.Block], @markdown.MarkdownSemanticAttachment) raise
 
 // Errors
 

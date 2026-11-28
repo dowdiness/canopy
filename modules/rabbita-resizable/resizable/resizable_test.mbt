@@ -42,12 +42,12 @@ fn assert_same_public_state(
 }
 
 ///|
-fn sample_coord(seed : Int) -> Double {
+fn sample_coord(seed : Int32) -> Double {
   (seed % 701 - 350).to_double()
 }
 
 ///|
-fn non_negative(seed : Int) -> Int {
+fn non_negative(seed : Int32) -> Int32 {
   if seed < 0 {
     -(seed + 1)
   } else {
@@ -56,7 +56,7 @@ fn non_negative(seed : Int) -> Int {
 }
 
 ///|
-fn sample_msg(seed : Int) -> @resizable.Msg {
+fn sample_msg(seed : Int32) -> @resizable.Msg {
   let value = non_negative(seed)
   let x = sample_coord(value)
   let y = sample_coord(value / 701)
@@ -84,7 +84,7 @@ test "Model::new clamps initial size" {
 ///|
 test "quickcheck sample sequences preserve clamp invariant" {
   let constraints = test_constraints()
-  let samples : Array[Array[Int]] = @quickcheck.samples(32)
+  let samples : Array[Array[Int32]] = @quickcheck.samples(32)
   for sample in samples {
     let model = apply_messages(
       @resizable.Model::new(w=120, h=90, constraints~),

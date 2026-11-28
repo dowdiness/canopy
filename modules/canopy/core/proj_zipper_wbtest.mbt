@@ -4,7 +4,7 @@
 // The Int payload is the same as the node_id for simplicity.
 
 ///|
-fn make_node(id : Int, children : Array[ProjNode[Int]]) -> ProjNode[Int] {
+fn make_node(id : Int32, children : Array[ProjNode[Int32]]) -> ProjNode[Int32] {
   ProjNode(id, 0, 0, id, children)
 }
 
@@ -16,7 +16,7 @@ fn make_node(id : Int, children : Array[ProjNode[Int]]) -> ProjNode[Int] {
 //   3 4   5
 
 ///|
-fn test_tree() -> ProjNode[Int] {
+fn test_tree() -> ProjNode[Int32] {
   make_node(0, [
     make_node(1, [make_node(3, []), make_node(4, [])]),
     make_node(2, [make_node(5, [])]),

@@ -425,7 +425,7 @@ fn compute_inline_all_usages(
   // Build replacement edits for all references (reverse document order)
   let edits : Array[SpanEdit] = []
   // Collect reference ranges, sorted by position (descending)
-  let ref_ranges : Array[(Int, Int)] = []
+  let ref_ranges : Array[(Int32, Int32)] = []
   for rid in ref_ids {
     if ctx.source_map.get_range(rid) is Some(r) {
       ref_ranges.push((r.start, r.end))

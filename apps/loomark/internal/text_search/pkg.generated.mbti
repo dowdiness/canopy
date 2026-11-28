@@ -14,14 +14,15 @@ pub struct Query {
   // private fields
 }
 pub fn Query::found_in(Self, Searchable) -> Bool
-pub fn Query::occurrences(Self, String) -> Array[(Int, Int)]
+pub fn Query::occurrences(Self, String) -> Array[(Int32, Int32)]
 pub fn Query::parse(String) -> Self?
 
+#derive(Eq, Hash, @debug.Debug)
 pub struct Searchable {
   // private fields
-} derive(Eq, Hash, @debug.Debug)
+}
 pub fn Searchable::equal(Self, Self) -> Bool
-pub fn Searchable::hash(Self) -> Int
+pub fn Searchable::hash(Self) -> Int32
 pub fn Searchable::hash_combine(Self, Hasher) -> Unit
 pub fn Searchable::not_equal(Self, Self) -> Bool
 pub fn Searchable::of(String) -> Self

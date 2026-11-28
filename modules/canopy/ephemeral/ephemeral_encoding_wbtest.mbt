@@ -62,8 +62,18 @@ test "ephemeral value roundtrip: all variants" {
   match bytes_val {
     EphemeralValue::Bytes(b) => {
       inspect(b.length(), content="2")
-      inspect(b[0], content="b'\\x01'")
-      inspect(b[1], content="b'\\x02'")
+      inspect(
+        b[0],
+        content=(
+          #|1
+        ),
+      )
+      inspect(
+        b[1],
+        content=(
+          #|2
+        ),
+      )
     }
     _ => fail("expected Bytes variant")
   }
