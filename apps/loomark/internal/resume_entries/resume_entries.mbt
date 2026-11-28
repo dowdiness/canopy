@@ -7,12 +7,13 @@ let resume_source_id : @loom.SourceId = @loom.SourceId("loomark-resume-entries")
 pub(all) enum EntryKind {
   Observation
   Decision
+  OpenQuestion
   NextStep
 }
 
 ///|
 /// A top-level list item under a kind heading: a half-open UTF-16 range in
-/// its document's source, and the enclosing `##` heading text, if any.
+/// its document's source, and the enclosing project heading text, if any.
 #derive(Eq, Debug)
 pub struct ResumeEntry {
   kind : EntryKind
@@ -65,6 +66,7 @@ fn kind_of(title : String?) -> EntryKind? {
   match title {
     Some("試したこと" | "Observations") => Some(Observation)
     Some("判断" | "Decisions") => Some(Decision)
+    Some("未解決事項" | "Open questions") => Some(OpenQuestion)
     Some("次にやること" | "Next steps") => Some(NextStep)
     _ => None
   }
@@ -90,9 +92,15 @@ fn extract_entries(source : String) -> Array[ResumeEntry]? {
         project = None
         kind = None
       }
+      // A kind title at `##` is a kind without a project, as in a daily note.
       Heading(depth=2) => {
-        project = heading_text(node, source).filter(text => !text.is_empty())
-        kind = None
+        let title = heading_text(node, source)
+        kind = kind_of(title)
+        project = if kind is None {
+          title.filter(text => !text.is_empty())
+        } else {
+          None
+        }
       }
       Heading(depth=3) => kind = kind_of(heading_text(node, source))
       Heading(..) => kind = None

@@ -1,5 +1,6 @@
 @import "tailwindcss" source(none);
 @import "../internal/document_index/document_index.css";
+@import "../internal/resume_view/resume_view.css";
 @plugin "@tailwindcss/typography";
 @plugin "@egoist/tailwindcss-icons";
 @source "../app";

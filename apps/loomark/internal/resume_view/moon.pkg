@@ -1,0 +1,7 @@
+import {
+  "dowdiness/loomark/internal/resume_entries",
+  "moonbit-community/rabbita",
+  "moonbit-community/rabbita/html",
+}
+
+supported_targets = "js"

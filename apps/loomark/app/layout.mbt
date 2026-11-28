@@ -24,6 +24,8 @@ priv struct LayoutInput {
   /// The Document index, shown over the Editor while `browsing`.
   index : @rabbita.Html
   browsing : Bool
+  /// Resume, shown over the index while it is in front.
+  resume_panel : @rabbita.Html?
 }
 
 ///|
@@ -107,10 +109,22 @@ fn screen_layout(
                     "loomark-index-layer covered absolute inset-0 z-40 overflow-y-auto bg-lm-foundation"
                   },
                   attrs=@html.Attrs::build().inert(
-                    editor_inert || !input.browsing,
+                    editor_inert ||
+                    !input.browsing ||
+                    input.resume_panel is Some(_),
                   ),
                   input.index,
                 ),
+                match input.resume_panel {
+                  Some(panel) =>
+                    @html.div(
+                      id="loomark-resume",
+                      class="absolute inset-0 z-50 overflow-y-auto bg-lm-foundation",
+                      attrs=@html.Attrs::build().inert(editor_inert),
+                      panel,
+                    )
+                  None => @html.nothing
+                },
               ]),
             ],
           )

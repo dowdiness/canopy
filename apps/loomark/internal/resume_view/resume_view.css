@@ -1,0 +1,39 @@
+/* The Resume view's own styles, scoped to `.loomark-resume`, using the
+   host's Loomark tokens as the Document index does. */
+.loomark-resume { font: 14px/1.5 var(--ui); color: var(--lm-ink); }
+.loomark-resume :focus-visible { outline: 2px solid var(--lm-accent); outline-offset: 2px; }
+.loomark-resume .resume { max-width: 720px; margin: 0 auto; padding: 0 24px 96px; }
+.loomark-resume .bar {
+  position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px;
+  padding: 12px 0; background: var(--lm-foundation);
+}
+.loomark-resume h1 { margin: 0; font-size: 15px; font-weight: 500; }
+.loomark-resume .link {
+  padding: 6px 8px; margin-left: -8px; border-radius: 8px;
+  color: var(--lm-muted); font-size: 13px; text-decoration: none;
+}
+.loomark-resume .note { margin: 4px 0 16px; color: var(--lm-muted); font-size: 13px; }
+.loomark-resume .project { margin-top: 28px; }
+.loomark-resume h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.loomark-resume h3 {
+  margin: 16px 0 4px; color: var(--lm-muted);
+  font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.loomark-resume ul { margin: 0; padding: 0; list-style: none; }
+.loomark-resume .entry {
+  display: flex; gap: 16px; align-items: baseline; width: 100%;
+  padding: 8px 10px; margin: 0 -10px; border: 0; border-radius: 8px;
+  background: transparent; color: inherit; text-align: left; cursor: pointer;
+  font: inherit;
+}
+.loomark-resume .entry-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--writing); }
+.loomark-resume .entry-source { flex: none; color: var(--lm-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (hover: hover) and (pointer: fine) {
+  .loomark-resume .entry:hover, .loomark-resume .link:hover {
+    background: color-mix(in oklab, var(--lm-ink) 6%, transparent); color: var(--lm-ink);
+  }
+}
+@media (max-width: 520px) {
+  .loomark-resume .resume { padding: 0 16px 96px; }
+  .loomark-resume .entry { flex-direction: column; gap: 2px; min-height: 44px; }
+}

@@ -82,6 +82,9 @@ struct DocumentIndex[K] {
   cards : Vector[Card[K]]
   /// Where New leads.
   new_href : String
+  /// Where Today and Resume lead.
+  today_href : String
+  resume_href : String
   query : String
   /// Width available to the card grid, once the shell has measured it.
   /// Until then nothing is measured or packed.
@@ -129,11 +132,15 @@ enum Msg[K] {
 pub fn[K : Eq + Hash] DocumentIndex::DocumentIndex(
   seeds : ArrayView[Seed[K]],
   new_href~ : String,
+  today_href~ : String,
+  resume_href~ : String,
 ) -> DocumentIndex[K] {
   {
     presence: InFront,
     cards: cards_of(seeds, Vector([])),
     new_href,
+    today_href,
+    resume_href,
     query: "",
     grid_width: None,
     resize: Steady,

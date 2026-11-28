@@ -277,7 +277,24 @@ fn view(
     },
     by=has_index => if has_index { "index" } else { "none" },
   )
-  let front = index.map2(browsing, (index, browsing) => (index, browsing))
+  let resume_sources = model.map(resume_sources)
+  let resume_panel = resume_sources.view(sources => {
+    match sources {
+      Some(sources) =>
+        @resume_view.view(
+          sources,
+          notes_href="#/",
+          emit.map(choice => EntryChosen(choice)),
+        )
+      None => @html.nothing
+    }
+  })
+  let front = index.map4(browsing, resume_sources, resume_panel, (
+    index,
+    browsing,
+    sources,
+    panel,
+  ) => (index, browsing, if sources is Some(_) { Some(panel) } else { None }))
   let controls = toolbar.map4(footer, focus_controls, front, (
     toolbar,
     footer,
@@ -294,10 +311,11 @@ fn view(
     (phase, compact, navigation, tools, controls, editor, dialog) => {
       let (toolbar, footer, focus_controls, front) = controls
       let (focus_mode, focus_toggle) = focus_controls
-      let (index, browsing) = front
+      let (index, browsing, resume_panel) = front
       LayoutInput::{
         index,
         browsing,
+        resume_panel,
         phase,
         focus_mode,
         focus_toggle,
@@ -320,6 +338,25 @@ fn view(
     input=layout_input,
     class="loomark-viewport [--rui-sidebar-width:clamp(11rem,24vw,17rem)] [--rui-sidebar-width-icon:2.75rem] max-[720px]:[--rui-sidebar-width:100vw]",
     screen_layout,
+  )
+}
+
+///|
+/// The documents Resume reads while it is in front.
+fn resume_sources(model : Model) -> Array[@resume_view.Source[@documents.Key]]? {
+  guard model.screen is Browsing({ resuming: true, .. }) &&
+    model.page is Editing(editing) else {
+    return None
+  }
+  Some(
+    local_documents(model, editing).map(document => {
+      let (key, text) = document
+      let name = match @document_lead.derive_name(text).text() {
+        "" => "Unnamed document"
+        name => name
+      }
+      { key, name, text, }
+    }),
   )
 }
 

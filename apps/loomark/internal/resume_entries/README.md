@@ -4,7 +4,8 @@ A Loomark-local experiment
 ([#1484](https://github.com/dowdiness/canopy/issues/1484)): extract explicitly
 recorded observations, decisions, and next steps from selected Markdown
 documents, each with its exact source range. It does not change the Canopy
-product direction and is not yet used by `app`, `documents`, or Preview.
+product direction. `resume_view` shows its result; `documents` and Preview do
+not use it.
 
 `extract` takes `(key, text)` pairs in selection order. A key that appears more
 than once is used at its first occurrence. Each result keeps the key, the exact
@@ -15,10 +16,12 @@ Parsing uses the same `parse_cst` → Markdown IR path as `document_lead`. Only
 top-level blocks are read, so block quotes and code blocks are never entered:
 
 - `#` clears the project and kind;
-- `##` sets the project to its heading text and clears the kind;
-- `###` `試したこと` or `Observations`, `判断` or `Decisions`, and `次にやること`
-  or `Next steps` set the kind; another `###` title or a deeper heading
-  clears it;
+- `##` sets the project to its heading text and clears the kind, unless its
+  title is a kind title: then it sets the kind and clears the project, as in
+  a daily note;
+- `###` `試したこと` or `Observations`, `判断` or `Decisions`, `未解決事項` or
+  `Open questions`, and `次にやること` or `Next steps` set the kind; another
+  `###` title or a deeper heading clears it;
 - each top-level item of a list under a kind becomes one entry. Nested content
   stays inside its item. A kind without a project yields entries whose
   `project` is `None` (unclassified).

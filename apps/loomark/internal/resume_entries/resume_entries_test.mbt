@@ -204,3 +204,23 @@ test "R06: a document is current only for the same key and exact text" {
   assert_false(document.is_current("resume-a", edited))
   assert_false(document.is_current("resume-b", resume_a))
 }
+
+///|
+/// A daily note writes kinds at `##` without a project; `未解決事項` is a kind.
+test "daily notes: kinds at ## and open questions" {
+  let source =
+    #|# 2026-11-27
+    #|## Loomark
+    #|### 未解決事項
+    #|- range
+    #|## 試したこと
+    #|- template
+    #|## メモ
+    #|- free
+    #|
+  let entries = all_entries(@resume_entries.extract([("daily", source)]))
+  assert_eq(entries.map(entry => (entry.kind, entry.project)), [
+    (OpenQuestion, Some("Loomark")),
+    (Observation, None),
+  ])
+}

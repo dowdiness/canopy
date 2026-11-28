@@ -358,6 +358,8 @@ priv struct Header {
   count : String?
   query : String
   new_href : String
+  today_href : String
+  resume_href : String
 }
 
 ///|
@@ -385,7 +387,8 @@ fn[K : Eq] header_and_documents(
     0 => NoDocuments
     _ => Listed(query=index.query, matched=cursor is Some(_))
   }
-  ({ count, query: index.query, new_href: index.new_href, }, documents)
+  let { new_href, today_href, resume_href, .. } = index
+  ({ count, query: index.query, new_href, today_href, resume_href, }, documents)
 }
 
 ///|
@@ -422,6 +425,8 @@ fn[K] header_view(header : Header, emit : Emit[Msg[K]]) -> Html {
           }),
       ),
     ]),
+    @html.a(href=header.today_href, class="link", "Today"),
+    @html.a(href=header.resume_href, class="link", "Resume"),
     // The same quiet control as New document in the Editor and the sidebar.
     @html.a(
       href=header.new_href,

@@ -8,6 +8,10 @@ priv enum IndexRoute {
   /// The Document index itself: no fragment, or `#/`.
   IndexPage
   NewFromIndex
+  /// Today's daily note, found or created when followed.
+  TodayFromIndex
+  /// Resume in front of the cards.
+  ResumePage
   /// The document whose key the fragment holds.
   CardFromIndex(@documents.Key)
 }
@@ -24,6 +28,10 @@ fn index_route(url : @url.Url) -> IndexRoute? {
     Some(IndexPage)
   } else if path == "/new" {
     Some(NewFromIndex)
+  } else if path == "/today" {
+    Some(TodayFromIndex)
+  } else if path == "/resume" {
+    Some(ResumePage)
   } else if path.has_prefix("/d/") {
     @documents.Key::parse(path.exact_view(start=3).to_owned()).map(key => {
       CardFromIndex(key)
@@ -44,14 +52,24 @@ fn document_href(key : @documents.Key) -> String {
 fn startup_screen(url : @url.Url?) -> Screen {
   match url.bind(index_route) {
     Some(CardFromIndex(key)) => Requested(key)
-    _ => Browsing({ opening: None, card_deletion: None, })
+    route =>
+      Browsing({
+        opening: None,
+        card_deletion: None,
+        resuming: route is Some(ResumePage),
+      })
   }
 }
 
 ///|
 /// An index with nothing listed yet.
 fn empty_index() -> @document_index.DocumentIndex[@documents.Key] {
-  @document_index.DocumentIndex([][:], new_href="#/new")
+  @document_index.DocumentIndex(
+    [][:],
+    new_href="#/new",
+    today_href="#/today",
+    resume_href="#/resume",
+  )
 }
 
 ///|
@@ -127,6 +145,7 @@ fn enter_editor(
   model : Model,
   editing : EditingDocument,
   entry : Entry,
+  choice : @resume_view.Choice[@documents.Key]?,
 ) -> (Model, @rabbita.Cmd) {
   let named = editing.activation.key
   let href = document_href(named)
@@ -135,13 +154,20 @@ fn enter_editor(
     ToPush => (HistoryBack, @nav.push_url(href))
     Startup => (IndexEntry, @cmd.none)
   }
+  // A range is selected only in the exact text it was taken from.
+  let reveal = match choice {
+    Some(choice) if choice.key == named &&
+      editing.documents.text(named) == Some(choice.source) =>
+      select_after_render(choice.start, choice.end)
+    _ => @cmd.none
+  }
   (
     {
       ..model,
       index: model.index.covered(),
-      screen: Writing({ notes, named, }),
+      screen: Writing({ notes, named, chosen: choice.map(choice => choice.id), }),
     },
-    @cmd.batch([history, focus_editor_after_render(editing.mode)]),
+    @cmd.batch([history, focus_editor_after_render(editing.mode), reveal]),
   )
 }
 
@@ -154,43 +180,79 @@ fn open_while_browsing(
   msg : Msg,
   card : @documents.Key?,
   entry : Entry,
+  choice : @resume_view.Choice[@documents.Key]?,
 ) -> Browse {
-  let opening = { generation: editing.activation.generation, card, entry, }
+  let opening = {
+    generation: editing.activation.generation,
+    card,
+    entry,
+    choice,
+  }
   Forward(with_browsing(model, { ..browsing, opening: Some(opening), }), msg)
 }
 
 ///|
-/// The index in front again after the Editor held `editing`'s document.
-fn return_to_index(model : Model, editing : EditingDocument) -> Model {
-  let model = with_browsing(model, { opening: None, card_deletion: None, })
+/// The index in front again after the Editor held `editing`'s document;
+/// with `resuming`, Resume in front of it, focusing the `chosen` entry.
+fn return_to_index(
+  model : Model,
+  editing : EditingDocument,
+  resuming : Bool,
+  chosen : String?,
+) -> (Model, @rabbita.Cmd) {
+  let model = with_browsing(model, {
+    opening: None,
+    card_deletion: None,
+    resuming,
+  })
   let seeds = index_seeds(model, editing, None)
-  {
-    ..model,
-    index: model.index.returned_from(seeds[:], key=editing.activation.key),
+  if resuming {
+    let focus = match chosen {
+      Some(id) => @browser.focus_after_render(id)
+      None => @cmd.none
+    }
+    ({ ..model, index: model.index.listing(seeds[:]), }, focus)
+  } else {
+    (
+      {
+        ..model,
+        index: model.index.returned_from(seeds[:], key=editing.activation.key),
+      },
+      @cmd.none,
+    )
   }
 }
 
 ///|
-fn browse(model : Model, msg : Msg) -> Browse {
+fn browse(model : Model, msg : Msg, emit : @rabbita.Emit[Msg]) -> Browse {
   if msg is IndexMsg(event) {
     let (index, command) = model.index.update(event)
     return Handled({ ..model, index, }, command)
   }
   guard model.page is Editing(editing) else { return Forward(model, msg) }
   match (model.screen, msg) {
-    (Browsing(browsing), msg) => browse_index(model, browsing, editing, msg)
-    (Writing(_), UrlChanged(url)) =>
+    (Browsing(browsing), msg) =>
+      browse_index(model, browsing, editing, msg, emit)
+    (Writing(writing), UrlChanged(url)) =>
       match index_route(url) {
-        Some(IndexPage) =>
+        Some(IndexPage | ResumePage as route) => {
+          let resuming = route is ResumePage
           if editing.documents.is_composing(editing.activation.key) {
-            Handled({ ..model, screen: Leaving, }, @cmd.none)
+            Handled({ ..model, screen: Leaving(resuming~), }, @cmd.none)
           } else {
-            Handled(return_to_index(model, editing), @cmd.none)
+            let (model, command) = return_to_index(
+              model,
+              editing,
+              resuming,
+              writing.chosen,
+            )
+            Handled(model, command)
           }
+        }
         Some(CardFromIndex(key)) if key != editing.activation.key &&
           is_listed(model, editing, key) =>
           Forward(model, DocumentSelected(key))
-        Some(CardFromIndex(_) | NewFromIndex) | None =>
+        Some(CardFromIndex(_) | NewFromIndex | TodayFromIndex) | None =>
           Handled(model, @cmd.none)
       }
     (Writing({ notes: HistoryBack, .. }), NotesRequested) =>
@@ -198,12 +260,17 @@ fn browse(model : Model, msg : Msg) -> Browse {
     (Writing({ notes: IndexEntry, .. }), NotesRequested) =>
       Handled(model, @nav.push_url("#/"))
     // Forward again before composition ended keeps the Editor in front.
-    (Leaving, UrlChanged(url)) if index_route(url) is Some(CardFromIndex(key)) &&
+    (Leaving(_), UrlChanged(url)) if index_route(url)
+      is Some(CardFromIndex(key)) &&
       key == editing.activation.key =>
       Handled(
         {
           ..model,
-          screen: Writing({ notes: HistoryBack, named: editing.activation.key, }),
+          screen: Writing({
+            notes: HistoryBack,
+            named: editing.activation.key,
+            chosen: None,
+          }),
         },
         @cmd.none,
       )
@@ -212,7 +279,9 @@ fn browse(model : Model, msg : Msg) -> Browse {
       UrlRequested(_)
       | UrlChanged(_)
       | IndexDeleteRequested(_)
-      | NotesRequested,
+      | NotesRequested
+      | TodayDated(_)
+      | EntryChosen(_),
     ) => Handled(model, @cmd.none)
     _ => Forward(model, msg)
   }
@@ -224,6 +293,7 @@ fn browse_index(
   browsing : Browsing,
   editing : EditingDocument,
   msg : Msg,
+  emit : @rabbita.Emit[Msg],
 ) -> Browse {
   match msg {
     UrlRequested(Internal(url)) =>
@@ -239,15 +309,58 @@ fn browse_index(
             CreateRequested,
             None,
             Pushed,
+            None,
           )
         Some(CardFromIndex(key)) if is_listed(model, editing, key) =>
-          select_while_browsing(model, browsing, editing, key, Pushed)
-        Some(CardFromIndex(_) | IndexPage) | None => Handled(model, @cmd.none)
+          select_while_browsing(model, browsing, editing, key, Pushed, None)
+        // The date is read when Today is followed, on the device clock.
+        Some(TodayFromIndex) =>
+          Handled(
+            model,
+            @cmd.custom_cmd(scheduler => {
+              scheduler.add(emit(TodayDated(@browser.local_date())))
+            }),
+          )
+        Some(ResumePage) =>
+          Handled(
+            with_browsing(model, { ..browsing, resuming: true, }),
+            @cmd.none,
+          )
+        Some(IndexPage) =>
+          Handled(
+            with_browsing(model, { ..browsing, resuming: false, }),
+            @cmd.none,
+          )
+        Some(CardFromIndex(_)) | None => Handled(model, @cmd.none)
       }
+    TodayDated(date) =>
+      match @daily_note.today(local_documents(model, editing)[:], date) {
+        Existing(key) =>
+          select_while_browsing(model, browsing, editing, key, Pushed, None)
+        New(text) =>
+          open_while_browsing(
+            model,
+            browsing,
+            editing,
+            ExampleSelected(editing.activation, text),
+            None,
+            Pushed,
+            None,
+          )
+      }
+    EntryChosen(choice) =>
+      select_while_browsing(
+        model,
+        browsing,
+        editing,
+        choice.key,
+        ToPush,
+        Some(choice),
+      )
     DocumentSelected(key) =>
-      select_while_browsing(model, browsing, editing, key, ToPush)
+      select_while_browsing(model, browsing, editing, key, ToPush, None)
     CreateRequested | ExampleSelected(_, _) | ImportFilesSelected(_) =>
-      open_while_browsing(model, browsing, editing, msg, None, ToPush)
+      open_while_browsing(model, browsing, editing, msg, None, ToPush, None)
     IndexDeleteRequested(key) =>
       Forward(
         with_browsing(model, { ..browsing, card_deletion: Some(key), }),
@@ -277,9 +390,10 @@ fn select_while_browsing(
   editing : EditingDocument,
   key : @documents.Key,
   entry : Entry,
+  choice : @resume_view.Choice[@documents.Key]?,
 ) -> Browse {
   if key == editing.activation.key {
-    let (model, command) = enter_editor(model, editing, entry)
+    let (model, command) = enter_editor(model, editing, entry, choice)
     Handled(model, command)
   } else {
     open_while_browsing(
@@ -289,8 +403,22 @@ fn select_while_browsing(
       DocumentSelected(key),
       Some(key),
       entry,
+      choice,
     )
   }
+}
+
+///|
+/// Documents whose text is held on this device, most recently changed
+/// first, as `(key, text)`.
+fn local_documents(
+  model : Model,
+  editing : EditingDocument,
+) -> Array[(@documents.Key, String)] {
+  listed_documents(model, editing).filter_map(row => {
+    let key = row.1.docid()
+    editing.documents.text(key).map(text => (key, text))
+  })
 }
 
 ///|
@@ -310,7 +438,7 @@ fn settle_screen(model : Model) -> Browse {
         ..model,
         index: model.index.listing(index_seeds(model, editing, None)[:]),
       }
-      let browsing = { opening: None, card_deletion: None, }
+      let browsing = { opening: None, card_deletion: None, resuming: false, }
       if is_listed(model, editing, key) {
         select_while_browsing(
           with_browsing(model, browsing),
@@ -318,6 +446,7 @@ fn settle_screen(model : Model) -> Browse {
           editing,
           key,
           Startup,
+          None,
         )
       } else {
         // A document that no longer exists opens the index, without a notice.
@@ -326,7 +455,12 @@ fn settle_screen(model : Model) -> Browse {
     }
     (Browsing({ opening: Some(opening), .. }), Editing(editing)) if editing.activation.generation >
       opening.generation => {
-      let (model, command) = enter_editor(model, editing, opening.entry)
+      let (model, command) = enter_editor(
+        model,
+        editing,
+        opening.entry,
+        opening.choice,
+      )
       Handled(model, command)
     }
     (Browsing(browsing), Editing(editing)) => {
@@ -351,9 +485,12 @@ fn settle_screen(model : Model) -> Browse {
           Handled({ ..model, index: model.index.listing(seeds[:]), }, @cmd.none)
       }
     }
-    (Leaving, Editing(editing)) if !editing.documents.is_composing(
+    (Leaving(resuming~), Editing(editing)) if !editing.documents.is_composing(
         editing.activation.key,
-      ) => Handled(return_to_index(model, editing), @cmd.none)
+      ) => {
+      let (model, command) = return_to_index(model, editing, resuming, None)
+      Handled(model, command)
+    }
     (Writing(writing), Editing(editing)) if writing.named !=
       editing.activation.key => {
       let named = editing.activation.key

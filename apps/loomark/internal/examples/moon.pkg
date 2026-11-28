@@ -23,5 +23,10 @@ options(
       "output": "example_journal.g.mbt",
       "command": ":embed --text -i $input -o $output --name embedded_journal_source",
     },
+    {
+      "input": "documents/daily-template.md",
+      "output": "example_daily_template.g.mbt",
+      "command": ":embed --text -i $input -o $output --name embedded_daily_template_source",
+    },
   ],
 )

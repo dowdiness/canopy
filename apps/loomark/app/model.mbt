@@ -31,8 +31,9 @@ priv enum Screen {
   Browsing(Browsing)
   /// The Editor is in front.
   Writing(Writing)
-  /// Back was asked during IME composition; the index returns once it ends.
-  Leaving
+  /// Back was asked during IME composition; the index returns once it ends,
+  /// with Resume in front when `resuming`.
+  Leaving(resuming~ : Bool)
   /// The startup URL named this document; it opens once the repository has
   /// loaded, or the index shows when it does not exist.
   Requested(@documents.Key)
@@ -48,6 +49,8 @@ priv struct Writing {
   /// The document the URL names. Whenever the Editor holds another one, as
   /// after a Document switch, the URL is replaced to name it.
   named : @documents.Key
+  /// The Resume entry this was opened from, focused again on return.
+  chosen : String?
 }
 
 ///|
@@ -67,6 +70,8 @@ priv struct Browsing {
   /// The document whose deletion was asked for from its card, so focus
   /// returns to the card rather than to Recent documents.
   card_deletion : @documents.Key?
+  /// Resume is in front of the cards.
+  resuming : Bool
 }
 
 ///|
@@ -80,6 +85,8 @@ priv struct Opening {
   card : @documents.Key?
   /// How the opened document's history entry comes to exist.
   entry : Entry
+  /// The Resume entry to select once its document opens.
+  choice : @resume_view.Choice[@documents.Key]?
 }
 
 ///|
@@ -282,6 +289,10 @@ priv enum Msg {
   NotesRequested
   /// Delete document was chosen on this document's card.
   IndexDeleteRequested(@documents.Key)
+  /// Today was followed in the Document index on this local date.
+  TodayDated(String)
+  /// A Resume entry was chosen.
+  EntryChosen(@resume_view.Choice[@documents.Key])
 }
 
 ///|
